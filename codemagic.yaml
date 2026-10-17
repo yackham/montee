@@ -13,11 +13,14 @@ workflows:
       - name: Dézipper le projet
         script: |
           echo "Fichiers du dépôt :"; ls -la
-          Z=$(ls -1 *.zip 2>/dev/null | head -1)
+          # S'il y a plusieurs zips, on prend le dernier envoyé sur GitHub
+          Z=""; BEST=0
+          for f in *.zip; do [ -f "$f" ] || continue; T=$(git log -1 --format=%ct -- "$f" 2>/dev/null || echo 0); [ -z "$T" ] && T=0; echo "  $f (envoyé le $(date -r ${T:-0} 2>/dev/null))"; if [ "$T" -ge "$BEST" ]; then BEST=$T; Z="$f"; fi; done
           if [ -n "$Z" ]; then echo "Archive trouvée : $Z"; rm -rf montee && unzip -q -o "$Z"; fi
           if [ ! -d montee/web ] && [ -d web ] && [ -f package.json ]; then mkdir -p montee && cp -R android ios web scripts package.json package-lock.json capacitor.config.json montee/ 2>/dev/null; fi
           if [ ! -d montee/web ]; then echo "PROJET INTROUVABLE : envoie montee-app.zip à la racine du dépôt GitHub."; exit 1; fi
           ls montee
+          echo "Version construite :"; grep -m1 versionName montee/android/app/build.gradle
       - name: Installer les dépendances
         script: cd montee && npm ci
       - name: Embarquer l'app web
@@ -54,11 +57,14 @@ workflows:
       - name: Dézipper le projet
         script: |
           echo "Fichiers du dépôt :"; ls -la
-          Z=$(ls -1 *.zip 2>/dev/null | head -1)
+          # S'il y a plusieurs zips, on prend le dernier envoyé sur GitHub
+          Z=""; BEST=0
+          for f in *.zip; do [ -f "$f" ] || continue; T=$(git log -1 --format=%ct -- "$f" 2>/dev/null || echo 0); [ -z "$T" ] && T=0; echo "  $f (envoyé le $(date -r ${T:-0} 2>/dev/null))"; if [ "$T" -ge "$BEST" ]; then BEST=$T; Z="$f"; fi; done
           if [ -n "$Z" ]; then echo "Archive trouvée : $Z"; rm -rf montee && unzip -q -o "$Z"; fi
           if [ ! -d montee/web ] && [ -d web ] && [ -f package.json ]; then mkdir -p montee && cp -R android ios web scripts package.json package-lock.json capacitor.config.json montee/ 2>/dev/null; fi
           if [ ! -d montee/web ]; then echo "PROJET INTROUVABLE : envoie montee-app.zip à la racine du dépôt GitHub."; exit 1; fi
           ls montee
+          echo "Version construite :"; grep -m1 versionName montee/android/app/build.gradle
       - name: Installer les dépendances
         script: cd montee && npm ci
       - name: Embarquer l'app web
