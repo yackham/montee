@@ -11,7 +11,13 @@ workflows:
       java: 21
     scripts:
       - name: Dézipper le projet
-        script: rm -rf montee && unzip -q -o montee-app.zip && ls montee
+        script: |
+          echo "Fichiers du dépôt :"; ls -la
+          Z=$(ls -1 *.zip 2>/dev/null | head -1)
+          if [ -n "$Z" ]; then echo "Archive trouvée : $Z"; rm -rf montee && unzip -q -o "$Z"; fi
+          if [ ! -d montee/web ] && [ -d web ] && [ -f package.json ]; then mkdir -p montee && cp -R android ios web scripts package.json package-lock.json capacitor.config.json montee/ 2>/dev/null; fi
+          if [ ! -d montee/web ]; then echo "PROJET INTROUVABLE : envoie montee-app.zip à la racine du dépôt GitHub."; exit 1; fi
+          ls montee
       - name: Installer les dépendances
         script: cd montee && npm ci
       - name: Embarquer l'app web
@@ -46,7 +52,13 @@ workflows:
       xcode: latest
     scripts:
       - name: Dézipper le projet
-        script: rm -rf montee && unzip -q -o montee-app.zip && ls montee
+        script: |
+          echo "Fichiers du dépôt :"; ls -la
+          Z=$(ls -1 *.zip 2>/dev/null | head -1)
+          if [ -n "$Z" ]; then echo "Archive trouvée : $Z"; rm -rf montee && unzip -q -o "$Z"; fi
+          if [ ! -d montee/web ] && [ -d web ] && [ -f package.json ]; then mkdir -p montee && cp -R android ios web scripts package.json package-lock.json capacitor.config.json montee/ 2>/dev/null; fi
+          if [ ! -d montee/web ]; then echo "PROJET INTROUVABLE : envoie montee-app.zip à la racine du dépôt GitHub."; exit 1; fi
+          ls montee
       - name: Installer les dépendances
         script: cd montee && npm ci
       - name: Embarquer l'app web
