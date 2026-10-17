@@ -1,0 +1,19 @@
+{
+  "appId": "fr.montennis.app",
+  "appName": "Montée",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#F6F2EC"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#1F5C3F",
+      "smallIcon": "ic_stat_montee"
+    }
+  },
+  "android": {
+    "backgroundColor": "#F6F2EC",
+    "adjustMarginsForEdgeToEdge": "auto"
+  }
+}

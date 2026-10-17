@@ -1,0 +1,66 @@
+# Montée — construction de l'app iPhone dans le cloud (Codemagic), sans Mac.
+# Chaque lancement : construit l'app, la signe et l'envoie sur TestFlight.
+workflows:
+  ios-testflight:
+    name: Montée iPhone → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      # Nom de la clé API App Store Connect ajoutée dans Codemagic (Team settings › Integrations)
+      app_store_connect: Montee API
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: fr.montennis.app
+      vars:
+        # À remplacer : App Store Connect › ton app › Informations sur l'app › Identifiant Apple
+        APP_STORE_APPLE_ID: 0000000000
+        XCODE_PROJECT: ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+      node: 20
+      xcode: latest
+    scripts:
+      - name: Installer les dépendances
+        script: npm ci
+      - name: Embarquer l'app web
+        script: npm run sync
+      - name: Préparer la signature
+        script: xcode-project use-profiles
+      - name: Construire l'app
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          BUILD=$((LATEST + 1))
+          echo "Build n°$BUILD"
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --archive-xcargs "CURRENT_PROJECT_VERSION=$BUILD"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+
+  android-apk:
+    name: Montée Android → APK de test
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      node: 20
+      java: 21
+    scripts:
+      - name: Installer les dépendances
+        script: npm ci
+      - name: Embarquer l'app web
+        script: npm run sync:android
+      - name: Construire l'APK
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+          mkdir -p ../dist
+          cp app/build/outputs/apk/release/app-release.apk ../dist/Montee.apk
+    artifacts:
+      - dist/Montee.apk
