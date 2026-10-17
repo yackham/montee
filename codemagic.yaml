@@ -1,6 +1,31 @@
-# Montée — construction de l'app iPhone dans le cloud (Codemagic), sans Mac.
-# Chaque lancement : construit l'app, la signe et l'envoie sur TestFlight.
+# Montée — construction de l'app dans le cloud (Codemagic), sans Mac.
+# Le dépôt GitHub contient seulement ce fichier et montee-app.zip :
+# chaque build commence par dézipper le projet, puis travaille dans le dossier montee/.
 workflows:
+  android-apk:
+    name: Montée Android → APK de test
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      node: 20
+      java: 21
+    scripts:
+      - name: Dézipper le projet
+        script: rm -rf montee && unzip -q -o montee-app.zip && ls montee
+      - name: Installer les dépendances
+        script: cd montee && npm ci
+      - name: Embarquer l'app web
+        script: cd montee && npm run sync:android
+      - name: Construire l'APK
+        script: |
+          cd montee/android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+          mkdir -p ../../dist
+          cp app/build/outputs/apk/release/app-release.apk ../../dist/Montee.apk
+    artifacts:
+      - dist/Montee.apk
+
   ios-testflight:
     name: Montée iPhone → TestFlight
     max_build_duration: 60
@@ -15,17 +40,19 @@ workflows:
       vars:
         # À remplacer : App Store Connect › ton app › Informations sur l'app › Identifiant Apple
         APP_STORE_APPLE_ID: 0000000000
-        XCODE_PROJECT: ios/App/App.xcodeproj
+        XCODE_PROJECT: montee/ios/App/App.xcodeproj
         XCODE_SCHEME: App
       node: 20
       xcode: latest
     scripts:
+      - name: Dézipper le projet
+        script: rm -rf montee && unzip -q -o montee-app.zip && ls montee
       - name: Installer les dépendances
-        script: npm ci
+        script: cd montee && npm ci
       - name: Embarquer l'app web
-        script: npm run sync
+        script: cd montee && npm run sync
       - name: Préparer la signature
-        script: xcode-project use-profiles
+        script: xcode-project use-profiles --project "$XCODE_PROJECT"
       - name: Construire l'app
         script: |
           LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
@@ -42,25 +69,3 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-
-  android-apk:
-    name: Montée Android → APK de test
-    max_build_duration: 30
-    instance_type: mac_mini_m2
-    environment:
-      node: 20
-      java: 21
-    scripts:
-      - name: Installer les dépendances
-        script: npm ci
-      - name: Embarquer l'app web
-        script: npm run sync:android
-      - name: Construire l'APK
-        script: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleRelease
-          mkdir -p ../dist
-          cp app/build/outputs/apk/release/app-release.apk ../dist/Montee.apk
-    artifacts:
-      - dist/Montee.apk
