@@ -4562,6 +4562,89 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .emp-c b { font-size: 18px; }
 .emp-c p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.45; }
 .emp-c .btn { align-self: stretch; margin-top: 6px; }
+/* 3.55 (Yann, maquette D) : une seule carte « À faire » ; les cartes d'origine deviennent des lignes */
+.td3 { gap: 0; }
+.td3-h { display: flex; align-items: baseline; gap: 8px; padding-bottom: 4px; }
+.td3-h .eyebrow { flex: 1; }
+.td3-i { border-top: 1px solid var(--line); }
+.td3-h + .td3-i { border-top: 0; }
+.td3-i > .card, .td3-i > a.row, .td3-i > button.card { background: transparent !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; padding: 12px 0 !important; margin: 0 !important; width: 100%; }
+.td3-i > .card .eyebrow { font-size: 11.5px; }
+.td3 .qa1-r b { white-space: normal; overflow: visible; text-overflow: clip; }
+/* 3.55 (Yann, maquettes B et C) : fiche victoire / défaite */
+.off-card.hx { overflow: hidden; }
+.hx-ill { margin: -16px -18px 2px; height: 110px; overflow: hidden; }
+.hx-ill svg { width: 100%; height: 110px; display: block; }
+.off-card.hx.d .hx-ill { filter: grayscale(.55) brightness(.92); }
+.off-card.hx .off-top { justify-content: flex-start; gap: 8px; }
+.hx-badge { font-size: 12px; font-weight: 800; letter-spacing: .02em; border-radius: 99px; padding: 4px 10px; background: var(--chip); color: var(--sub); }
+.off-card.hx.v .hx-badge { color: var(--balle); }
+.hx-meta { margin-top: -4px; }
+.hx-ok { color: var(--gazon); white-space: nowrap; } .hx-ok svg { width: 12px; height: 12px; vertical-align: -1px; }
+.hx-imp { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.hx-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.hx-row .small { text-align: right; } .hx-row .small b { color: var(--ink); }
+.hx-big { font-size: 30px; letter-spacing: -.02em; color: var(--sub); line-height: 1.1; } .hx-big.pos { color: var(--gazon); }
+.hx-bar { position: relative; height: 8px; border-radius: 4px; background: var(--chip); overflow: hidden; }
+.hx-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--gazon); opacity: .45; } .hx-bar i.a { opacity: 1; }
+.off-card.hx.d .hx-bar i { background: var(--muted); }
+.hx-say { font-size: 15px; font-weight: 700; line-height: 1.35; }
+.hx-next { flex-direction: row; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+.hx-next .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; } .hx-next b { font-size: 16px; }
+.hx-next .go-pill { margin-left: auto; flex: none; }
+.hx-tr { display: flex; align-items: center; gap: 12px; padding: 11px 0; border: 0; border-top: 1px solid var(--line); background: none; color: inherit; text-align: left; width: 100%; font: inherit; cursor: pointer; }
+.td3-h + .hx-tr { border-top: 0; }
+.hx-tr .grow { flex: 1; display: flex; flex-direction: column; gap: 2px; } .hx-tr b { font-size: 15.5px; }
+.hx-tr svg { flex: none; margin-left: auto; width: 18px; height: 18px; color: var(--muted); }
+
+/* 3.55 · Montée+ verrouillé : la valeur d'abord (maquette E) */
+.pw-h1 { line-height: 1.12; }
+.pw-tip { gap: 6px; }
+.pw-tip .eyebrow, .pw-ey { color: var(--acc-ink, var(--ink)); }
+.pw-tip b { font-size: 19px; line-height: 1.25; letter-spacing: -.01em; }
+.pw-lock { position: relative; overflow: hidden; }
+.pw-blur { filter: blur(5px); opacity: .6; display: flex; flex-direction: column; gap: 4px; user-select: none; pointer-events: none; }
+.pw-blur .eyebrow:not(:first-child) { margin-top: 8px; }
+.pw-pill { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; background: var(--chip, #eee); border-radius: 99px; padding: 9px 14px; font-weight: 700; font-size: 14px; }
+.pw-pill svg { width: 15px; height: 15px; }
+.pw-price { text-align: center; margin-top: -4px; }
+.pw-all { align-self: center; }
+.df-min { padding-top: 14px; padding-bottom: 14px; }
+.df-ml { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.df-ml b { font-size: 15px; font-weight: 600; }
+.chips.rk-near { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.rk-near .chip { padding: 0 4px; }
+.rk-other { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.rk-other label { font-size: 14px; color: var(--sub); }
+.cond-ed { color: var(--hl, var(--acc-ink)); font-weight: 600; font-size: 15px; flex: none; }
+.cond-min { flex-direction: row; align-items: center; gap: 12px; text-align: left; cursor: pointer; border: none; width: 100%; font: inherit; color: inherit; }
+.cond-min .grow { display: flex; flex-direction: column; gap: 3px; }
+.cond-min small { color: var(--sub); font-size: 13px; }
+.rk-other select { width: auto; max-width: 55%; flex: none; }
+
+/* 3.55 · Face-à-face, Plan de jeu (maquette A) */
+.ff-oh { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ff-jj { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 99px; padding: 7px 13px; background: var(--balle); color: var(--on-balle); font: inherit; font-weight: 700; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+.ff-stake .prog { height: 14px; }
+.ff-stake .pl .g { color: var(--gazon); font-weight: 800; }
+.ff-beat .tug-v { font-size: 15px; }
+.cp2-how { display: block; margin-top: 6px; font-size: 14.5px; line-height: 1.4; }
+.cp2-how b { color: var(--hl, var(--acc-ink)); }
+.cp2-av { display: flex; gap: 8px; align-items: baseline; border-top: 1px solid var(--line); padding-top: 10px; font-size: 14px; }
+.cp2-av b { color: var(--terre); white-space: nowrap; }
+.ff-rps summary { font-weight: 700; }
+.ff-rps .rp { margin-top: 10px; }
+.lu-card { gap: 10px; }
+.lu-f { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lu-cs { display: flex; gap: 8px; flex-wrap: wrap; }
+.lu-c { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 99px; background: var(--chip); font-weight: 700; font-size: 14px; }
+.lu-c.w svg { color: var(--terre); } .lu-c.g svg { color: var(--gazon); }
+.ff-never { display: flex; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 10px; font-size: 14px; color: var(--sub); }
+.ff-never b { color: var(--ink); }
+.ff-fm { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }
+.ff-fm .lab2 { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--sub); }
+.ff-fm .vd { width: 20px; height: 20px; font-size: 10px; }
+.lu-c small { font-weight: 600; font-size: 12px; color: var(--sub); }
 
 /* 3.55 · Feuille « d'où vient ce chiffre » + cap du coach + « À surveiller » */
 .num-l { appearance: none; background: none; border: 0; padding: 0; font: inherit; font-weight: 800; color: inherit; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; text-decoration-color: var(--muted); cursor: pointer; }
