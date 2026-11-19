@@ -4688,3 +4688,44 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { text-decoration: none; color: var(--ink); }
 .sheet .num-c b { font-size: inherit; letter-spacing: 0; }
 .sheet .num-big { font-size: 26px; } .sheet .num-hd .r b { font-size: 17px; } .sheet .num-r b { font-size: 15px; }
+/* 3.55 : défis de saison (Courbes) */
+.df-card { display: flex; flex-direction: column; gap: 8px; }
+.df-list { display: flex; flex-direction: column; }
+.df-r { display: flex; align-items: center; gap: 12px; padding: 10px 0; border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; width: 100%; cursor: pointer; }
+.df-r:first-child { border-top: 0; }
+.df-r .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.df-r .grow b { font-size: 14.5px; font-weight: 700; }
+.df-r em { font-style: normal; font-weight: 800; font-size: 13px; white-space: nowrap; color: var(--muted); }
+.df-r em.pos { color: var(--acc-ink); }
+.df-b { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 2px var(--line); color: var(--muted); }
+.df-b.ok { box-shadow: inset 0 0 0 2px var(--hl); color: var(--acc-ink); }
+.df-b svg { width: 20px; height: 20px; }
+.df-bar { display: block; position: relative; height: 5px; border-radius: 3px; background: var(--chip); margin-top: 6px; overflow: hidden; }
+.df-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--hl); }
+.df-ill { display: grid; place-items: center; padding: 4px 0 8px; }
+.df-how { background: var(--chip); border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.df-how b { color: var(--ink); font-weight: 700; font-size: inherit; }
+.df-foot { margin-top: 12px; }
+.df-foot .btn { flex: none; width: auto; }
+/* 3.55 : pourquoi tu joues (accueil, Réglages) */
+.wy-card { display: flex; flex-direction: column; gap: 8px; }
+.wy-chs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.wy-ch { border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 16px; padding: 12px; box-shadow: inset 0 0 0 1.5px var(--line); display: flex; flex-direction: column; gap: 3px; }
+.wy-ch b { font-size: 14.5px; font-weight: 700; }
+.wy-ch span { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.wy-ch svg { width: 22px; height: 22px; color: var(--acc-ink); margin-bottom: 2px; }
+.wy-ch.on { box-shadow: inset 0 0 0 2px var(--hl); }
+/* 3.55 : check-in d'avant-match (accueil) */
+.ci-card { display: flex; flex-direction: column; gap: 6px; }
+.ci-r { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid var(--line); }
+.ci-h { display: flex; align-items: center; gap: 8px; }
+.ci-h b { font-size: 14.5px; font-weight: 700; }
+.ci-h em { margin-left: auto; font-style: normal; font-weight: 800; font-size: 13px; }
+.ci-src { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--gazon); box-shadow: inset 0 0 0 1.5px currentColor; border-radius: 99px; padding: 1px 6px; }
+.ci-sl { width: 100%; margin: 8px 0 2px; accent-color: var(--hl); }
+.ci-l { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.ci-dots { display: flex; gap: 6px; margin-top: 4px; }
+.ci-dots i { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line); display: block; position: relative; }
+.ci-dots i.on { box-shadow: inset 0 0 0 2px var(--gazon); }
+.ci-dots i.on:after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--gazon); }
+.df-r em.neg { color: var(--terre); }

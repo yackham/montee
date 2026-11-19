@@ -529,6 +529,7 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setBars", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "haptic", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "healthSleep", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthRequest", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthRead", returnType: CAPPluginReturnPromise),
@@ -850,6 +851,12 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         ])
     }
 
+    /// 3.55 : check-in d'avant-match : la nuit dernière (heures de sommeil), si Santé l'autorise
+    @objc func healthSleep(_ call: CAPPluginCall) {
+        guard MonteeHealth.available else { call.resolve([:]); return }
+        MonteeHealth.lastNight { h in if let h = h { call.resolve(["h": h]) } else { call.resolve() } }
+    }
+
     @objc func healthProfile(_ call: CAPPluginCall) {
         MonteeHealth.profile { r in call.resolve(r) }
     }
@@ -1053,6 +1060,28 @@ enum MonteeHealth {
                 if ok { MonteeHealth.asked = true; MonteeHealth.hrAsked = true }
                 completion(ok)
             }
+        }
+    }
+
+    /// 3.55 : heures de sommeil de la nuit dernière (hier 18 h → maintenant). Une seule source comptée
+    /// (celle qui en a le plus : montre ou iPhone) pour ne pas additionner deux fois la même nuit. nil si rien ou refusé.
+    static func lastNight(completion: @escaping (Double?) -> Void) {
+        guard let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { completion(nil); return }
+        store.requestAuthorization(toShare: nil, read: [sleepType]) { _, _ in
+            let cal = Calendar.current
+            let start = cal.date(byAdding: .hour, value: -6, to: cal.startOfDay(for: Date())) ?? Date().addingTimeInterval(-86400)
+            let pred = HKQuery.predicateForSamples(withStart: start, end: Date(), options: [])
+            let q = HKSampleQuery(sampleType: sleepType, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, res, _ in
+                var bySource: [String: Double] = [:]
+                let inBed = HKCategoryValueSleepAnalysis.inBed.rawValue
+                let awake = HKCategoryValueSleepAnalysis.awake.rawValue
+                for case let x as HKCategorySample in res ?? [] where x.value != inBed && x.value != awake {
+                    bySource[x.sourceRevision.source.bundleIdentifier, default: 0] += x.endDate.timeIntervalSince(x.startDate)
+                }
+                let secs = bySource.values.max() ?? 0
+                DispatchQueue.main.async { completion(secs >= 1800 ? (secs / 3600 * 10).rounded() / 10 : nil) }
+            }
+            store.execute(q)
         }
     }
 
