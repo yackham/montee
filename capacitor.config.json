@@ -4,7 +4,10 @@
   "webDir": "www",
   "ios": {
     "contentInset": "never",
-    "backgroundColor": "#F6F2EC"
+    "backgroundColor": "#F6F2EC",
+    "allowsLinkPreview": false,
+    "scrollEnabled": true,
+    "preferredContentMode": "mobile"
   },
   "plugins": {
     "LocalNotifications": {
@@ -14,6 +17,8 @@
   },
   "android": {
     "backgroundColor": "#F6F2EC",
-    "adjustMarginsForEdgeToEdge": "auto"
-  }
+    "adjustMarginsForEdgeToEdge": "auto",
+    "webContentsDebuggingEnabled": true
+  },
+  "loggingBehavior": "production"
 }

@@ -1,0 +1,48 @@
+# Autre option que Codemagic : GitHub construit l'APK à chaque modification (onglet Actions).
+# Sans clé de signature dans les secrets GitHub, il construit une version « debug » :
+# ça vérifie que l'app compile, sans rien casser. Pour un APK signé comme celui de Codemagic,
+# ajoute les secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS
+# et ANDROID_KEY_PASSWORD (Settings › Secrets and variables › Actions).
+name: Montée Android (APK de test)
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+        with:
+          # Le paquet « tools » n'existe plus chez Google : on ne demande que platform-tools
+          packages: platform-tools
+      - run: npm ci
+      - run: npm run sync:android
+      - name: Clé de signature (si elle est dans les secrets GitHub)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then echo "Pas de clé dans les secrets : version debug."; exit 0; fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/montee.keystore"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$RUNNER_TEMP/montee.keystore" "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/keystore.properties
+      - name: Construire l'APK
+        run: |
+          cd android && chmod +x gradlew
+          if [ -f keystore.properties ]; then ./gradlew assembleRelease; else ./gradlew assembleDebug; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Montee-apk
+          path: android/app/build/outputs/apk/*/*.apk

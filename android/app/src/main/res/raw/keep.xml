@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ressources utilisées par leur nom (notifications, widgets) : à ne pas retirer au compactage -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_montee,@drawable/w_*,@drawable/widget_preview_*,@layout/widget_*,@xml/widget_info_*,@mipmap/*" />
