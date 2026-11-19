@@ -12,4 +12,4 @@ Netlify : dossier publié `web` (déjà réglé dans `netlify.toml`). Le glisser
 
 - Le projet Android est dans `android/` (même app, même connexion Ten'Up et même synchro).
 - `npm run sync:android` copie l'app web dans le projet Android.
-- APK de test : workflow Codemagic **Montée Android → APK de test** (voir `GUIDE-ANDROID.md`). Il est signé avec la clé de test, toujours la même pour que les mises à jour s'installent par-dessus. Cette clé n'est pas dans le dépôt : elle est rangée dans Codemagic (Code signing identities › Android keystores, nom `montee-test.keystore`).
+- APK de test : workflow Codemagic **Montée Android → APK de test** (voir `GUIDE-ANDROID.md`). Il est signé avec la clé de test, toujours la même pour que les mises à jour s'installent par-dessus. Cette clé n'est pas dans le dépôt : elle est rangée dans Codemagic, groupe de variables `montee_android` (CM_KEYSTORE en base64, CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS, CM_KEY_PASSWORD).

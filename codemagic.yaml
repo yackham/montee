@@ -9,9 +9,9 @@ workflows:
     environment:
       node: 20
       java: 21
-      # Clé de signature Android, rangée dans Codemagic (plus dans le dépôt)
-      android_signing:
-        - montee-test.keystore
+      # Clé de signature Android : groupe de variables « montee_android » (Codemagic › app › Environment variables)
+      groups:
+        - montee_android
     scripts:
       - name: Dézipper le projet
         script: |
@@ -30,8 +30,10 @@ workflows:
         script: cd montee && npm run sync:android
       - name: Clé de signature Android (fournie par Codemagic)
         script: |
-          # Codemagic › Team settings › Code signing identities › Android keystores, nom « montee-test.keystore »
-          if [ -z "$CM_KEYSTORE_PATH" ]; then echo "CLÉ ANDROID MANQUANTE : ajoute le keystore dans Codemagic sous le nom montee-test.keystore."; exit 1; fi
+          # Variables du groupe « montee_android » : CM_KEYSTORE (fichier en base64), CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS, CM_KEY_PASSWORD
+          if [ -z "$CM_KEYSTORE" ]; then echo "CLÉ ANDROID MANQUANTE : crée le groupe de variables montee_android dans Codemagic (voir README)."; exit 1; fi
+          CM_KEYSTORE_PATH="$CM_BUILD_DIR/montee.keystore"
+          echo "$CM_KEYSTORE" | base64 --decode > "$CM_KEYSTORE_PATH"
           cat > montee/android/keystore.properties <<EOF
           storeFile=$CM_KEYSTORE_PATH
           storePassword=$CM_KEYSTORE_PASSWORD
@@ -55,9 +57,9 @@ workflows:
     environment:
       node: 20
       java: 21
-      # Clé de signature Android, rangée dans Codemagic (plus dans le dépôt)
-      android_signing:
-        - montee-test.keystore
+      # Clé de signature Android : groupe de variables « montee_android » (Codemagic › app › Environment variables)
+      groups:
+        - montee_android
     scripts:
       - name: Dézipper le projet
         script: |
@@ -76,8 +78,10 @@ workflows:
         script: cd montee && npm run sync:android
       - name: Clé de signature Android (fournie par Codemagic)
         script: |
-          # Codemagic › Team settings › Code signing identities › Android keystores, nom « montee-test.keystore »
-          if [ -z "$CM_KEYSTORE_PATH" ]; then echo "CLÉ ANDROID MANQUANTE : ajoute le keystore dans Codemagic sous le nom montee-test.keystore."; exit 1; fi
+          # Variables du groupe « montee_android » : CM_KEYSTORE (fichier en base64), CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS, CM_KEY_PASSWORD
+          if [ -z "$CM_KEYSTORE" ]; then echo "CLÉ ANDROID MANQUANTE : crée le groupe de variables montee_android dans Codemagic (voir README)."; exit 1; fi
+          CM_KEYSTORE_PATH="$CM_BUILD_DIR/montee.keystore"
+          echo "$CM_KEYSTORE" | base64 --decode > "$CM_KEYSTORE_PATH"
           cat > montee/android/keystore.properties <<EOF
           storeFile=$CM_KEYSTORE_PATH
           storePassword=$CM_KEYSTORE_PASSWORD
