@@ -4856,3 +4856,5 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .pf-bub h4 { margin: 10px 0 2px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .pf-bub p { margin: 0; }
 .pf-ed { text-align: right; margin-top: 6px; }
+/* 3.55.2 · le bilan du coach ne se décale plus de côté, même si un élément dépasse */
+.co-scr { overflow-x: clip; } .co-scr .card { min-width: 0; max-width: 100%; }
