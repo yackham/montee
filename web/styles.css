@@ -4915,3 +4915,4 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .an-li.on { color: var(--gazon); } .an-li svg { width: 16px; height: 16px; }
 .an-li small { font-weight: 500; font-size: 12.5px; color: var(--muted); } .an-li small.an-bk { color: var(--terre); }
 .an-row:has(.an-list) .an-k { align-self: start; padding-top: 12px; }
+.an-sp,.an-li svg.an-sp,.an-rkb svg.an-sp{width:22px;height:14px;flex:none;vertical-align:-2px;margin-right:9px;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.08)}

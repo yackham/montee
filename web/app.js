@@ -6746,6 +6746,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function qaList() { return S.matches.filter(qaPending).sort(function (a, b) { return a.date < b.date ? 1 : -1; }); }
   // Surfaces proposées d'emblée : les tiennes d'abord, puis les plus courantes ; le reste derrière « Autre… »
+  function surfPic(x) { var c = SURF_COL[x] || SURF_COL.Autre; return '<svg class="an-sp" viewBox="0 0 22 14" aria-hidden="true"><rect x=".5" y=".5" width="21" height="13" rx="2.5" fill="' + c + '"/><path d="M3 3h16v8H3zM11 3v8M3 7h16" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1"/></svg>'; }
   function qaSurfaces(cur) {
     var n = {};
     S.matches.forEach(function (m) { if (m.surface) n[m.surface] = (n[m.surface] || 0) + 1; });
@@ -6799,8 +6800,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     else rkRow = '<button class="an-rkb" data-a="qaRkOpen"' + (B.length > 1 ? "" : " disabled") + '><span><b>' + esc(rk.name) + "</b>" + (rk.string || rk.tension ? " <small>· " + esc([rk.string, rk.tension ? rk.tension + " kg" : ""].filter(Boolean).join(" · ")) + "</small>" : "") + "</span>" + (B.length > 1 ? '<span class="an-go">Changer ' + I.next + "</span>" : "") + "</button>";
     // 3.55.3 (Yann) : 8 surfaces possibles : la surface retenue sur une ligne, la liste complète s'ouvre au toucher (les plus jouées d'abord)
     var SH = { "Autre": "Autre (gymnase, parquet…)" }, order = qaSurfaces("").concat(SURFACES).filter(function (x, i, a) { return a.indexOf(x) === i; });
-    var surfRow = q.more ? '<div class="an-list" role="listbox">' + order.map(function (x) { var on = q.surface === x; return '<button class="an-li' + (on ? " on" : "") + '" role="option" aria-selected="' + on + '" data-a="qaSurface" data-v="' + esc(x) + '"><span>' + esc(SH[x] || x) + "</span>" + (on ? I.check : "") + "</button>"; }).join("") + "</div>"
-      : '<button class="an-rkb" data-a="qaMore"><span>' + (q.surface ? "<b>" + esc(SH[q.surface] || q.surface) + "</b>" : '<span class="an-ph">Choisir</span>') + '</span><span class="an-go">' + (q.surface ? "Changer " : "") + I.next + "</span></button>";
+    var surfRow = q.more ? '<div class="an-list" role="listbox">' + order.map(function (x) { var on = q.surface === x; return '<button class="an-li' + (on ? " on" : "") + '" role="option" aria-selected="' + on + '" data-a="qaSurface" data-v="' + esc(x) + '"><span>' + surfPic(x) + esc(SH[x] || x) + "</span>" + (on ? I.check : "") + "</button>"; }).join("") + "</div>"
+      : '<button class="an-rkb" data-a="qaMore"><span>' + (q.surface ? surfPic(q.surface) + "<b>" + esc(SH[q.surface] || q.surface) + "</b>" : '<span class="an-ph">Choisir</span>') + '</span><span class="an-go">' + (q.surface ? "Changer " : "") + I.next + "</span></button>";
     s += '<div class="an-c"><div class="an-row"><span class="an-k">Raquette</span>' + rkRow + '</div><div class="an-row"><span class="an-k">Surface</span>' + surfRow + '</div><div class="an-row"><span class="an-k">Lieu</span>' + seg("qaIndoor", [{ v: "1", l: "Intérieur", on: q.indoor === true }, { v: "0", l: "Extérieur", on: q.indoor === false }]) + "</div></div>";
     if (q.pre && (q.surface === q.pre.surface || q.indoor === q.pre.indoor)) s += '<span class="an-pre">Surface et lieu repris de ton dernier match annoté : change-les si besoin.</span>';
     var qf = q.felt || [];
