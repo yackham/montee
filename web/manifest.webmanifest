@@ -1,0 +1,32 @@
+{
+  "name": "Montée — Classement tennis",
+  "short_name": "Montée",
+  "description": "Ton bilan FFT recalculé avant la sortie, ce qui te manque pour monter, et avec quoi tu gagnes.",
+  "lang": "fr",
+  "start_url": "./#/",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F6F2EC",
+  "theme_color": "#F6F2EC",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "id": "./"
+}

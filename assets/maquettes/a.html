@@ -1,0 +1,16 @@
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="w.css"></head><body><div class="board" id="b" style="flex-wrap:wrap;width:max-content"></div>
+<script src="illus.js"></script><script src="w.js"></script><script>
+var q=new URLSearchParams(location.search).get('b'),b=document.getElementById('b');
+function phone(cls,inner){return '<div class="phone '+(cls||'')+'"><div class="status"><span>10:42</span><span>5G · 82%</span></div>'+inner+'</div>';}
+function cell(w,span,h,label){return '<div class="'+span+'">'+W[w]()+'<div class="lab">'+label+'</div></div>';}
+if(q==='1'){
+ b.innerHTML='<div class="col">'+phone('','<div class="grid">'+cell('tableau','c4','h3','Montée · Tableau de bord')+cell('m_one','c2','h2','Montée')+cell('m_up','c2','h2','Montée · le jour où tu montes')+cell('rk_ok','c2','h2','Raquette')+cell('forme','c2','h1','Forme')+cell('sortie1','c1','h1','Sortie')+'<div class="c1" style="display:none"><div class="ic"><i class="mt">'+'<svg width="30" height="30" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14.5" fill="#D4E64A"/><path d="M9.5 19.5 16 13l6.5 6.5" stroke="#121212" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></i>Montée</div></div>'+cell('semaine','c4','h2','Ta semaine')+'</div>')+'</div>'+
+ '<div class="col">'+phone('alt','<div class="grid">'+cell('m_large','c4','h2','Montée · Large')+cell('rk_change','c2','h2','Raquette')+cell('defend','c2','h2','Points à défendre (nouveau)')+cell('truc','c4','h1','Le truc à savoir (nouveau)')+cell('sac','c4','h1','Ton sac (nouveau)')+'</div>')+'</div>';
+}
+if(q==='2'){
+ var st=function(t,w){return '<div class="state"><div class="t">'+t+'</div><div style="width:182px">'+W[w]().replace('h2"','h2" style="height:182px"')+'</div></div>';};
+ b.innerHTML='<div class="col" style="width:auto"><div class="title">Widget « Montée » : un visuel par situation</div><div class="note">Même taille (2 × 2). Le fond change avec la situation : jaune balle quand ça monte, blanc quand c\'est jouable, lin quand il manque des points, terre quand le maintien est menacé.</div><div style="display:grid;grid-template-columns:repeat(3,212px);gap:14px">'+
+ st('Montée acquise','m_up')+st('Une victoire peut suffire','m_one')+st('Il manque des points','m_pts')+st('Points OK, victoire au palier manquante','m_palier')+st('Maintien menacé','m_danger')+st('Pas encore synchronisé','m_empty')+'</div></div>'+
+ '<div class="col" style="width:auto"><div class="title">Widget « Raquette » : 5 états</div><div class="note">L\'anneau compte les heures sur le cordage (20 h pour un monofilament, ta moyenne de casse sinon). La raquette est dessinée avec ses couleurs.</div><div style="display:grid;grid-template-columns:repeat(2,212px);gap:14px">'+st('Cordage en forme','rk_ok')+st('Bientôt à recorder','rk_soon')+st('À recorder','rk_change')+st('Cordage cassé','rk_broken')+st('Date de cordage inconnue','rk_unknown')+'<div class="state"><div class="t">Sortie (1 × 1) · normal / montée</div><div style="display:flex;gap:12px"><div style="width:84px">'+W.sortie1()+'</div><div style="width:84px">'+W.sortie1up()+'</div></div></div></div></div>';
+}
+</script></body></html>

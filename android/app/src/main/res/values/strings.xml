@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Montée</string>
+    <string name="title_activity_main">Montée</string>
+    <string name="package_name">fr.montennis.app</string>
+    <string name="custom_url_scheme">fr.montennis.app</string>
+
+    <string name="w_classement">Montée</string>
+    <string name="w_classement_desc">Ce qu\'il te manque pour monter, ou ta montée acquise</string>
+    <string name="w_sortie">Montée large</string>
+    <string name="w_sortie_desc">Ta jauge de points avant la prochaine sortie</string>
+    <string name="w_cordage">Raquette</string>
+    <string name="w_cordage_desc">Heures de jeu sur ton cordage, et quand recorder</string>
+    <string name="w_forme">Forme</string>
+    <string name="w_forme_desc">Tes 5 derniers matchs et ta série en cours</string>
+    <string name="w_mini">Sortie</string>
+    <string name="w_mini_desc">Date de la prochaine sortie, ou ton nouveau classement</string>
+    <string name="w_semaine">Ta semaine</string>
+    <string name="w_semaine_desc">Ton temps de jeu de la semaine, avec « T\'as joué ? »</string>
+    <string name="w_tableau">Tableau de bord</string>
+    <string name="w_tableau_desc">Objectif, palmarès et le truc à savoir</string>
+    <string name="w_truc">Le truc à savoir</string>
+    <string name="w_truc_desc">Ce que tes matchs disent de ton jeu</string>
+    <string name="w_defend">Points à défendre</string>
+    <string name="w_defend_desc">Ton bilan aux prochaines sorties si tu ne rejoues pas</string>
+    <string name="w_sac">Ton sac</string>
+    <string name="w_sac_desc">L\'usure du cordage de chaque raquette</string>
+    <string name="w_joueurs">Chercher un joueur</string>
+    <string name="w_joueurs_desc">Lance la recherche d\'un adversaire en un tap</string>
+    <string name="w_faf">Tes face-à-face</string>
+    <string name="w_faf_desc">Ta bête noire, ton client et tes rivaux : votre bilan match par match</string>
+    <string name="w_adversaire">Prochain adversaire</string>
+    <string name="w_adversaire_desc">Tes chances et la clé du match contre le dernier joueur consulté</string>
+    <string name="w_objectif">Objectif</string>
+    <string name="w_objectif_desc">Ton objectif de saison : où tu en es, ce qu\'il reste</string>
+</resources>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Montée — ton classement tennis, avant la sortie</title>
+<meta name="description" content="Montée recalcule ton bilan FFT chaque jour : est-ce que tu montes à la prochaine sortie, ce qu'il te manque, et avec quel matériel tu gagnes.">
+<meta name="theme-color" content="#121212">
+<script>/* 3.47.5 : thème posé avant l'affichage (Nuit par défaut), pas de flash clair au lancement */try{var mt=(JSON.parse(localStorage.getItem("montee.v1")||"{}").prefs||{}).theme||"nuit";if(mt==="indoor"||mt==="nocturne")mt="nuit";if(mt==="auto")mt=matchMedia("(prefers-color-scheme: dark)").matches?"nuit":"lin";if(mt!=="lin"&&/^(nuit|terre|dur|gazon)$/.test(mt))document.documentElement.setAttribute("data-theme",mt);}catch(e){}</script>
+<meta name="color-scheme" content="light dark">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Montée">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta property="og:title" content="Montée — Tu montes ce mois-ci ?">
+<meta property="og:description" content="Ton bilan FFT recalculé, ce qui te manque pour l'échelon suivant, et avec quoi tu gagnes.">
+<meta property="og:image" content="icons/icon-512.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main id="app" aria-live="polite"></main>
+<noscript><p style="padding:24px">Montée a besoin de JavaScript pour fonctionner.</p></noscript>
+<script>
+  // Diagnostic : si Montée ne démarre pas, l'erreur s'affiche à l'écran au lieu d'une page vide.
+  window.__monteeErrors = [];
+  window.addEventListener("error", function (e) { window.__monteeErrors.push((e.message || "erreur") + (e.filename ? " (" + e.filename.split("/").pop() + ":" + e.lineno + ")" : "")); });
+  window.addEventListener("unhandledrejection", function (e) { window.__monteeErrors.push("promesse : " + (e.reason && (e.reason.message || e.reason))); });
+  setTimeout(function () {
+    var app = document.getElementById("app");
+    if (app && !app.innerHTML.trim()) {
+      app.innerHTML = '<div style="padding:24px;font:15px/1.5 system-ui;color:#121212"><b>Montée n\'a pas démarré.</b><br>Envoie une capture de cet écran à Yann.<pre style="white-space:pre-wrap;font-size:12px;color:#B04A22">' +
+        (window.__monteeErrors.join("\n") || "aucune erreur JavaScript") + "\n" + navigator.userAgent + "\nCapacitor : " + (window.Capacitor ? (window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : "?") + (window.Capacitor.registerPlugin ? " +core" : " -core") : "absent") + "</pre></div>";
+    }
+  }, 4000);
+</script>
+<script src="vendor/capacitor.js"></script>
+<script src="illus.js"></script>
+<script src="widgets.js"></script>
+<script src="engine.js"></script>
+<script src="parser.js"></script>
+<script src="tenup.js"></script>
+<script src="pdfimport.js"></script>
+<script src="summary.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

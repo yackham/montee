@@ -1,0 +1,73 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace "fr.montennis.app"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "fr.montennis.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // Codemagic fournit un numéro de build qui augmente à chaque fois (obligatoire pour le Play Store)
+        versionCode System.getenv("PROJECT_BUILD_NUMBER") ? (System.getenv("PROJECT_BUILD_NUMBER").toInteger() + 100) : 6
+        versionName "3.54.3"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // Clé de signature de la version de test (voir keystore.properties).
+    // Toujours la même clé : les mises à jour s'installent par-dessus sans perdre les données.
+    signingConfigs {
+        montee {
+            def props = new Properties()
+            def f = rootProject.file('keystore.properties')
+            if (f.exists()) { f.withInputStream { props.load(it) } }
+            storeFile file(props.getProperty('storeFile', 'montee-test.keystore'))
+            storePassword props.getProperty('storePassword', '')
+            keyAlias props.getProperty('keyAlias', 'montee')
+            keyPassword props.getProperty('keyPassword', '')
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.montee
+            // R8 : appli plus légère + fichier mapping.txt pour des rapports de plantage lisibles sur la Play Console
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    implementation "androidx.work:work-runtime:2.9.1"
+    implementation "com.android.billingclient:billing:8.0.0" // 3.45 : Montée+ sur Android
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

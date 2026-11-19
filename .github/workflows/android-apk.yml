@@ -1,0 +1,26 @@
+# Autre option que Codemagic : GitHub construit l'APK à chaque modification (onglet Actions).
+name: Montée Android (APK de test)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm ci
+      - run: npm run sync:android
+      - run: cd android && chmod +x gradlew && ./gradlew assembleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Montee-apk
+          path: android/app/build/outputs/apk/release/app-release.apk

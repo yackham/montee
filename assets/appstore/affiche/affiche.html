@@ -1,0 +1,56 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@font-face{font-family:F;font-weight:400;src:url(figtree-latin-400-normal.woff2)}
+@font-face{font-family:F;font-weight:600;src:url(figtree-latin-600-normal.woff2)}
+@font-face{font-family:F;font-weight:700;src:url(figtree-latin-700-normal.woff2)}
+@font-face{font-family:F;font-weight:800;src:url(figtree-latin-800-normal.woff2)}
+@page{size:A4;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:210mm;height:297mm}
+body{font-family:F,sans-serif;color:#F2F3F5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.p{position:relative;width:210mm;height:297mm;overflow:hidden;
+ background:radial-gradient(120% 70% at 85% 8%,#3a4a1f 0%,rgba(58,74,31,0) 55%),radial-gradient(90% 60% at 0% 100%,#1d3a2b 0%,rgba(29,58,43,0) 60%),#15171C}
+.court{position:absolute;inset:0;opacity:.07}
+.top{position:absolute;left:16mm;top:15mm;display:flex;align-items:center;gap:4mm}
+.top img{width:13mm;height:13mm;border-radius:3.2mm}
+.top b{font-size:9mm;font-weight:800;letter-spacing:-.02em}
+.free{position:absolute;right:16mm;top:17.5mm;font-size:3.6mm;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#15171C;background:#D4E64A;padding:2mm 4mm;border-radius:10mm}
+h1{position:absolute;left:16mm;right:16mm;top:36mm;font-size:16mm;line-height:.98;font-weight:800;letter-spacing:-.035em}
+h1 em{font-style:normal;color:#D4E64A}
+.sub{position:absolute;left:16mm;right:24mm;top:88mm;font-size:5mm;line-height:1.35;color:#B9BDC6;font-weight:500}
+.sub b{color:#fff;font-weight:700}
+.arc{position:absolute;left:0;top:100mm;width:210mm;height:30mm}
+.ph{position:absolute;width:62mm;border-radius:9mm;padding:1.6mm;background:#2b2e36;box-shadow:0 6mm 14mm rgba(0,0,0,.55),inset 0 0 0 .4mm rgba(255,255,255,.12)}
+.ph img{display:block;width:100%;border-radius:7.6mm}
+.ph1{left:12mm;top:118mm;width:54mm;transform:rotate(-7deg)}
+.ph2{left:75mm;top:107mm;z-index:2;width:60mm}
+.ph3{left:144mm;top:118mm;width:54mm;transform:rotate(7deg)}
+.feat{position:absolute;left:16mm;right:16mm;top:200mm;display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
+.f{display:flex;flex-direction:column;gap:1.4mm}
+.f i{width:9mm;height:9mm;border-radius:5mm;background:rgba(212,230,74,.14);display:flex;align-items:center;justify-content:center}
+.f i svg{width:5mm;height:5mm}
+.f b{font-size:4.6mm;font-weight:800;line-height:1.15;margin-top:1mm}
+.f span{font-size:3.5mm;line-height:1.3;color:#A9AEB8}
+.qr{position:absolute;z-index:3;left:12mm;right:12mm;bottom:12mm;height:56mm;background:#fff;border-radius:7mm;color:#15171C;display:grid;grid-template-columns:1fr 40mm 40mm;gap:7mm;align-items:center;padding:0 9mm}
+.qr h2{font-size:8mm;line-height:1;font-weight:800;letter-spacing:-.02em}
+.qr p{font-size:3.7mm;color:#5b606b;margin-top:2.5mm;line-height:1.3;font-weight:500}
+.q{text-align:center}
+.q img{width:34mm;height:34mm;display:block;margin:0 auto}
+.q b{display:block;margin-top:2.5mm;font-size:4mm;font-weight:800}
+.q small{display:block;font-size:2.9mm;color:#6b707a;font-weight:600}
+.ball{display:inline-block;width:6mm;height:6mm;vertical-align:-.6mm;margin-left:1mm}
+</style></head><body><div class="p">
+<svg class="court" viewBox="0 0 210 297" preserveAspectRatio="none"><g fill="none" stroke="#fff" stroke-width=".5"><rect x="20" y="-40" width="170" height="380"/><line x1="40" y1="-40" x2="40" y2="340"/><line x1="170" y1="-40" x2="170" y2="340"/><line x1="40" y1="60" x2="170" y2="60"/><line x1="105" y1="60" x2="105" y2="240"/><line x1="40" y1="240" x2="170" y2="240"/></g></svg>
+<div class="top"><img src="icon.png"><b>Montée</b></div>
+<div class="free">Gratuit</div>
+<h1>Tu montes<br>à la prochaine<br><em>sortie ?</em></h1>
+<p class="sub">Ton classement calculé <b>match après match</b>, les adversaires qui rapportent le plus, et ton <b>plan de jeu</b> avant d'entrer sur le court.</p>
+<svg class="arc" viewBox="0 0 210 30"><path d="M8 26C60 4 150 -2 204 8" stroke="#D4E64A" stroke-width=".7" stroke-dasharray=".3 3" stroke-linecap="round" fill="none" opacity=".8"/></svg>
+<div class="ph ph1"><img src="s1.png"></div>
+<div class="ph ph3"><img src="s3.png"></div>
+<div class="ph ph2"><img src="s2.png"></div>
+<div class="qr">
+ <div><h2>Scanne,<br>et joue malin.<svg class="ball" viewBox="0 0 22 22"><circle cx="11" cy="11" r="10" fill="#D4E64A"/><path d="M3.2 5.5C7.5 8.5 7.5 13.5 3.2 16.5M18.8 5.5C14.5 8.5 14.5 13.5 18.8 16.5" stroke="#15171C" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg></h2><p>Gratuit sur iPhone et Android.<br>Pour tous les joueurs classés FFT.</p></div>
+ <div class="q"><img src="ios.png"><b>iPhone</b><small>App Store</small></div>
+ <div class="q"><img src="and.png"><b>Android</b><small>Google Play</small></div>
+</div>
+</div></body></html>
