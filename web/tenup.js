@@ -261,9 +261,14 @@
       };
       var findPoule = function (id, club, dates, nomH) {
         var isMine = function (det) { return ((det && det.poule && det.poule.equipes) || []).filter(function (e) { return nrm(e.nom).indexOf(nrm(club)) === 0; }).map(function (e) { return e.id; }); };
+        // 3.55 (retour testeur : « j'ai joué en équipe 2, il m'extrait l'équipe 3 ») : une équipe du club n'est la tienne que si elle a joué
+        // une rencontre un de tes jours de match (± 2 jours : rencontre étalée sur le week-end). Avant, la 1re poule avec une équipe du club gagnait.
+        var dayN = function (x) { var t = Date.parse(String(x || "").slice(0, 10) + "T12:00:00Z"); return isNaN(t) ? null : Math.round(t / 864e5); };
+        var myDays = dates.map(dayN).filter(function (x) { return x != null; });
+        var playedBy = function (det, ids) { return ids.filter(function (t) { return ((det.poule || {}).rencontres || []).some(function (r) { var d = dayN(r.dateReelle || r.dateTheorique); return (r.idEquipe1 === t || r.idEquipe2 === t) && d != null && myDays.some(function (x) { return Math.abs(x - d) <= 2; }); }); }); };
         var pick = function (det, ids, cx) {
           // plusieurs équipes du club dans la poule : celle qui a joué tes jours de match
-          var me = ids[0]; if (ids.length > 1) { var hit = ids.filter(function (t) { return ((det.poule || {}).rencontres || []).some(function (r) { return (r.idEquipe1 === t || r.idEquipe2 === t) && dates.indexOf(String(r.dateReelle || r.dateTheorique || "").slice(0, 10)) >= 0; }); })[0]; if (hit) me = hit; }
+          var me = ids[0], hit = playedBy(det, ids)[0]; if (hit) me = hit;
           var o = slim(det, id, { mine: me, club: ids });
           // 3.50.1 : la réponse d'une division ne redonne pas toujours le championnat : nom, divisions et barème depuis la 1re lecture
           var c0 = (D0 && D0.championnat) || {};
@@ -276,21 +281,23 @@
           if (!o.div && cx.dn) o.div = cx.dn;
           return o;
         };
-        var n = 0, base = "championnats-equipes/" + id, D0 = null;
+        var n = 0, base = "championnats-equipes/" + id, D0 = null, FB = null;
         var path = function (d, p, q) { return "v2/" + base + (d ? "/divisions/" + d : "") + (d && p ? "/phases/" + p : "") + (d && p && q ? "/poules/" + q : ""); };
         var get = function (d, p, q) { n++; return jg(path(d, p, q)).catch(function () { return jg("v1/" + base + (d ? "/divisions/" + d : "") + (d && p ? "/phases/" + p : "") + (d && p && q ? "/poules/" + q : "")); }); };
         var tryPoules = function (det, dv) {
           dv = dv || {}; var dId = (det.division || {}).id || dv.id, pId = (det.phase || {}).id;
-          var ids = isMine(det); if (ids.length) return Promise.resolve(pick(det, ids, { d: dId, p: pId, q: (det.poule || {}).id, dn: dv.nom }));
+          // une poule avec une équipe du club qui n'a pas joué tes jours de match : gardée en secours, on continue de chercher
+          var take = function (d2, cx) { var i2 = isMine(d2); if (!i2.length) return null; var o = pick(d2, i2, cx); if (playedBy(d2, i2).length || !myDays.length) return o; if (!FB) FB = o; return null; };
+          var r0 = take(det, { d: dId, p: pId, q: (det.poule || {}).id, dn: dv.nom }); if (r0) return Promise.resolve(r0);
           var others = ((det.phase || {}).poules || []).filter(function (q) { return q.id !== (det.poule || {}).id; });
-          return others.reduce(function (ch, q) { return ch.then(function (r) { if (r || n > 14 || !dId || !pId) return r; return get(dId, pId, q.id).then(function (d2) { var i2 = isMine(d2); return i2.length ? pick(d2, i2, { d: dId, p: pId, q: q.id, dn: dv.nom }) : null; }).catch(function () { return null; }); }); }, Promise.resolve(null));
+          return others.reduce(function (ch, q) { return ch.then(function (r) { if (r || n > 24 || !dId || !pId) return r; return get(dId, pId, q.id).then(function (d2) { return take(d2, { d: dId, p: pId, q: q.id, dn: dv.nom }); }).catch(function () { return null; }); }); }, Promise.resolve(null));
         };
         return jg("v1/" + base).then(function (det0) { D0 = det0;
           return tryPoules(det0).then(function (r) {
             if (r) return r;
             var divs = ((det0.championnat || {}).divisions || []).filter(function (d) { return d.id !== (det0.division || {}).id; });
-            return divs.reduce(function (ch, d) { return ch.then(function (r2) { if (r2 || n > 14) return r2; return get(d.id).then(function (dd) { return tryPoules(dd, d); }).catch(function () { return null; }); }); }, Promise.resolve(null));
-          }).then(function (r) { return r || { id: String(id), nom: (det0.championnat || {}).nom || "", none: true }; });
+            return divs.reduce(function (ch, d) { return ch.then(function (r2) { if (r2 || n > 24) return r2; return get(d.id).then(function (dd) { return tryPoules(dd, d); }).catch(function () { return null; }); }); }, Promise.resolve(null));
+          }).then(function (r) { return r || FB || { id: String(id), nom: (det0.championnat || {}).nom || "", none: true }; });
         });
       };
       var lim = new Date(); lim.setDate(lim.getDate() - 400); var limI = lim.toISOString().slice(0, 10);

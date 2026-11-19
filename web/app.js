@@ -1100,13 +1100,15 @@
       var sd = 0, gd = 0, scN = 0;
       games.forEach(function (gm) { var side = key(gm.a) === k ? 0 : key(gm.b) === k ? 1 : -1; if (side < 0 || !gm.sc) return; var ss = String(gm.sc).match(/\d{1,2}\s*[-\/]\s*\d{1,2}/g) || []; if (!ss.length) return; scN++;
         ss.forEach(function (x) { var q = x.split(/[-\/]/).map(function (y) { return +y; }), a = side === 0 ? q[0] : q[1], b2 = side === 0 ? q[1] : q[0]; if (a > b2) sd++; else if (b2 > a) sd--; if (Math.max(a, b2) <= 7) gd += a - b2; }); });
-      return { m: m, res: res, v: v, d: res.filter(function (x) { return x === "D"; }).length, sd: sd, gd: gd, scN: scN };
-    }).sort(function (a, b) { return (b.v - a.v) || (a.d - b.d) || (b.sd - a.sd) || (b.gd - a.gd); });
-    var tieUsed = st.some(function (x, i) { var y = st[i + 1]; return y && x.v === y.v && x.d === y.d; });
+      // 3.55 (retour testeur : un joueur à 0-0 classé devant ceux à 0-1) : classement aux points, victoire 2, défaite 1 ; qui n'a pas joué a 0 point
+      var d = res.filter(function (x) { return x === "D"; }).length;
+      return { m: m, res: res, v: v, d: d, p: 2 * v + d, sd: sd, gd: gd, scN: scN };
+    }).sort(function (a, b) { return (b.p - a.p) || (b.v - a.v) || (b.sd - a.sd) || (b.gd - a.gd); });
+    var tieUsed = st.some(function (x, i) { var y = st[i + 1]; return y && x.p === y.p; });
     var sgn = function (x) { return (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x); };
     var s = '<div class="card pl-st"><span class="eyebrow">Le classement</span>' + st.map(function (x, i) {
-      return '<div class="pl-r' + (x.m.me ? " me" : "") + (!x.m.me && x.m.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.m.tid) + '" role="button' : "") + '"><b class="pl-k' + (i < (t.qual || 1) ? " q" : "") + '">' + (i + 1) + "</b><b>" + esc(x.m.me ? "Toi" : trNm(x.m.name)) + (x.m.rank ? ' <span class="muted">· ' + esc(x.m.rank) + "</span>" : "") + (!x.m.me && x.m.age ? '<span class="muted pl-age"> · ' + x.m.age + " ans</span>" : "") + (x.scN ? '<small class="pl-tb">sets ' + sgn(x.sd) + " · jeux " + sgn(x.gd) + "</small>" : "") + '</b><span class="pl-d">' + x.res.map(function (r) { return '<i class="' + (r === "V" ? "v" : r === "D" ? "d" : "") + '"></i>'; }).join("") + '</span><b class="pl-vd">' + x.v + "-" + x.d + "</b></div>";
-    }).join("") + (tieUsed ? '<span class="small">À égalité de victoires : départage aux sets gagnés − perdus, puis aux jeux.' + (games.some(function (gm) { return !gm.sc; }) ? " Il manque des scores : ajoute-les pour un départage juste." : "") + "</span>" : "") + (NATIVE ? "" : '<span class="small">Les matchs des autres se lisent sur Ten\'Up depuis l\'appli iPhone ou Android.</span>') + "</div>";
+      return '<div class="pl-r' + (x.m.me ? " me" : "") + (!x.m.me && x.m.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.m.tid) + '" role="button' : "") + '"><b class="pl-k' + (i < (t.qual || 1) ? " q" : "") + '">' + (i + 1) + "</b><b>" + esc(x.m.me ? "Toi" : trNm(x.m.name)) + (x.m.rank ? ' <span class="muted">· ' + esc(x.m.rank) + "</span>" : "") + (!x.m.me && x.m.age ? '<span class="muted pl-age"> · ' + x.m.age + " ans</span>" : "") + (x.scN ? '<small class="pl-tb">sets ' + sgn(x.sd) + " · jeux " + sgn(x.gd) + "</small>" : "") + '</b><span class="pl-d">' + x.res.map(function (r) { return '<i class="' + (r === "V" ? "v" : r === "D" ? "d" : "") + '"></i>'; }).join("") + '</span><b class="pl-vd">' + x.v + "-" + x.d + '<small class="pl-pt">' + plural(x.p, "pt", "pts") + "</small></b></div>";
+    }).join("") + '<span class="small">Classement aux points : victoire 2 pts, défaite 1 pt, pas encore joué 0.' + (tieUsed ? " À égalité de points : départage aux sets gagnés − perdus, puis aux jeux." + (games.some(function (gm) { return !gm.sc; }) ? " Il manque des scores : ajoute-les pour un départage juste." : "") : "") + "</span>" + (NATIVE ? "" : '<span class="small">Les matchs des autres se lisent sur Ten\'Up depuis l\'appli iPhone ou Android.</span>') + "</div>";
     var played = games.slice().sort(function (a, b) { return (b.me ? 1 : 0) - (a.me ? 1 : 0); });
     s += poolTimingHtml(t);
     var todo = (t.pool || []).map(function (x, i) { return { x: x, i: i }; }).filter(function (z) { return !z.x.res; });
@@ -1199,11 +1201,11 @@
   function teamsRefresh(force) {
     if (!NATIVE || !S.tenup.linked || UI.tmBusy) return;
     var t = S.teams, live = t && myTeams().some(function (c) { return (c.renc || []).some(tmLive); });
-    if (!force && t && t.qv === 3 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; // qv : relecture forcée quand la lecture change (3.50.1)
+    if (!force && t && t.qv === 4 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe)
     UI.tmBusy = true;
     tenupQuery("equipes", { club: (t && t.club && t.club.code) || S.tenup.clubCode || "", pid: (t && t.pid) || "", nomClub: (t && t.club && t.club.nom) || "" }).then(function (r) {
       UI.tmBusy = false;
-      if (r && !r.error && r.champs) { r.qv = 3; S.teams = r; if (r.club && r.club.code && !S.tenup.clubCode) S.tenup.clubCode = r.club.code; UI.tmErr = null; save(); } else UI.tmErr = (r && r.error) || "Ten'Up n'a pas répondu";
+      if (r && !r.error && r.champs) { r.qv = 4; S.teams = r; if (r.club && r.club.code && !S.tenup.clubCode) S.tenup.clubCode = r.club.code; UI.tmErr = null; save(); } else UI.tmErr = (r && r.error) || "Ten'Up n'a pas répondu";
       var rt = route(); if (rt === "" || rt.indexOf("tournoi") === 0 || rt.indexOf("equipe") === 0) render();
     });
   }
@@ -6684,8 +6686,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var list = fType === "d" ? [] : all.filter(function (m) { return (fRes === "all" || m.result === (fRes === "v" ? "V" : "D")) && (!fTodo || !annotated(m)); });
     var dbl = fType === "s" || fTodo ? [] : (S.doubles || []).filter(function (m) { return fRes === "all" || m.result === (fRes === "v" ? "V" : "D"); });
     // 3.48.7 (Yann) : la liste principale = la saison en cours ; les saisons d'avant sont repliées en dessous
-    var t9 = today(), sStart = E.iso(new Date(t9.getMonth() >= 8 ? t9.getFullYear() : t9.getFullYear() - 1, 8, 1));
-    if (!fTodo) { list = list.filter(function (m) { return !m.date || m.date >= sStart; }); dbl = dbl.filter(function (m) { return !m.date || m.date >= sStart; }); }
+    // 3.55 (Yann) : « en cours » = les 12 mois glissants, ceux qui comptent pour ton classement (un match de l'an dernier encore au bilan reste ici)
+    if (!fTodo) { list = list.filter(function (m) { return !m.date || m.date > from; }); dbl = dbl.filter(function (m) { return !m.date || m.date > from; }); }
     // 3.29 : onglet « Activité » — la bande des jours, puis Matchs / Entraînements séparés
     var act = UI.actTab === "t" ? "t" : "m";
     var nT = (S.trainings || []).filter(function (t) { var a = new Date(today()); a.setDate(1); return t.date && t.date >= E.iso(a); }).length;
@@ -6725,7 +6727,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var chB = {}; try { var nxB = c.proj.next; if (nxB && nxB.bonusCh) { var chR = E.BAREME.champ(nxB.calc), nB = 0; all.filter(function (m) { return m.kind === "champ" && m.result === "V" && !m.wo && counts(m); }).sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) { if (nB < chR.max) { chB[m.id] = chR.par; nB++; } }); } } catch (e) {}
     var tgHtml = function (g) {
       var ms = g.ms, nv = ms.filter(function (m) { return m.result === "V"; }).length, nd = ms.length - nv, lastM = ms[ms.length - 1];
-      var tot = ms.reduce(function (a, m) { return a + (m.result === "V" && counts(m) && pts[m.id] != null ? pts[m.id] : 0) + (chB[m.id] || 0); }, 0);
+      // 3.55 (retour testeur : +15 affiché pour +15, +1, +1) : le total compte aussi les points des doubles, comme les lignes ; rien pour une saison passée
+      var tot = old ? 0 : ms.reduce(function (a, m) { if (m._dbl || m.dbl) { var gd = gotD[m.id]; return a + (m.result === "V" && gd ? gd.pts : 0); } return a + (m.result === "V" && counts(m) && pts[m.id] != null ? pts[m.id] : 0) + (chB[m.id] || 0); }, 0);
       var d0 = E.parseDate(ms[0].date), d1 = E.parseDate(lastM.date), rng = d0.getMonth() === d1.getMonth() ? (d0.getDate() === d1.getDate() ? "" : d0.getDate() + "–") + fdate(lastM.date).replace(/\.$/, "") : fdate(ms[0].date).replace(/\.$/, "") + " – " + fdate(lastM.date).replace(/\.$/, "");
       var sgl = ms.filter(function (m) { return !m._dbl && !m.dbl; }), dbs = ms.filter(function (m) { return m._dbl || m.dbl; });
       var nvp = sgl.filter(function (m) { return m.result === "V" && !m.wo; }).length, ndp = sgl.filter(function (m) { return m.result === "D" && !m.wo; }).length;
@@ -6735,7 +6738,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var h = '<div class="card tg' + (old ? " old" : "") + '"><div class="tg-h"><b>' + esc(m2Title(ms[0].comp)) + "</b>" + (tot ? '<span class="pts pos">+' + tot + " pts</span>" : "") + '</div><span class="tgw"><span class="small">' + esc([rng, nvp + " V" + (ndp ? " · " + ndp + " D" : ""), dbT, st].filter(Boolean).join(" · ")) + "</span>" + (g.won ? '<span class="tg-win">' + trophy + " Vainqueur</span>" : "") + '</span><div class="tg-l">';
       ms.forEach(function (m, i) {
         var pt = pts[m.id], pH = m.result !== "V" || old ? "" : !counts(m) ? '<small class="muted">ne compte pas</small>' : pt != null ? (chB[m.id] ? '<span class="tg-pp"><span class="pts pos">+' + pt + '</span><small class="tg-bn">+' + chB[m.id] + " bonus</small></span>" : '<span class="pts pos">+' + pt + "</span>") : chB[m.id] ? '<span class="tg-pp"><span class="pts pos">+' + chB[m.id] + '</span><small class="tg-bn">bonus</small></span>' : '<small class="muted">hors quota</small>';
-        var todo = annotated(m) ? "" : '<span class="tag todo">À annoter</span>';
+        var todo = annotated(m) || old ? "" : '<span class="tag todo">À annoter</span>';
         var wo = m.wo, cls = wo ? (m.result === "V" ? "V wov" : "wo") : m.result, fin = g.won && m === ms.filter(function (x) { return !x._dbl && !x.dbl; }).pop();
         if (wo) { pH = m.result === "V" ? '<small class="muted">qualifié</small>' : '<small class="muted">ne compte pas</small>'; todo = ""; }
         if (m._dbl || m.dbl) { var gd = gotD[m.id]; pH = m.result === "V" && gd && !old ? '<span class="pts pos">+' + gd.pts + "</span>" : ""; todo = ""; }
@@ -6769,14 +6772,33 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     });
     s += "</div>";
     // 3.48.7 (Yann) : les saisons passées, repliées ; on ouvre pour voir le détail
+    // 3.55 (Yann) : seulement les matchs sortis des 12 mois (les autres sont plus haut), et la même présentation que la saison en cours
+    // (épreuves en timeline, mois par mois), sans points : un cumul de points n'a pas de sens pour une saison passée
+    var pastHtml = function (L) {
+      var o = "", cm = "", TGp = {}, dn = {}, sv = old;
+      try { tourGroups(L, true).forEach(function (g) { g.ms.forEach(function (m) { TGp[m.id] = g; }); }); } catch (e) {}
+      old = true;
+      L.forEach(function (m) {
+        var g = TGp[m.id]; if (g && dn[g.id]) return; if (g) dn[g.id] = 1;
+        var dd = E.parseDate(m.date), mk = MOIS_L[dd.getMonth()] + " " + dd.getFullYear();
+        if (mk !== cm) { cm = mk; o += '<h2 class="sz-mh">' + mk.replace(/^./, function (x) { return x.toUpperCase(); }) + "</h2>"; }
+        if (g) { o += tgHtml(g).replace('<div class="card tg old"', '<div class="card tg"'); return; }
+        if (m.dbl || m._dbl) { o += dRow(m); return; }
+        o += '<a class="row" href="#/match/' + esc(m.id) + '" style="background:var(--card);border-radius:20px"><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(nameCase(m.opp) || "Adversaire") + ' <span class="muted" style="font-weight:400">· ' + esc(m.oppRank || "") + '</span></span><span class="s">' + esc([fdate(m.date), m.score].filter(Boolean).join(" · ")) + "</span>" + (m.note ? '<span class="tag">Raconté</span>' : "") + "</span></a>";
+      });
+      old = sv; return o;
+    };
     if (!fTodo) (function () {
-      var t0 = today(), yCur = t0.getMonth() >= 8 ? t0.getFullYear() + 1 : t0.getFullYear(), ys = {};
-      knownMatches(true).forEach(function (m) { if (!m.date) return; var d = E.parseDate(m.date), y = d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear(); if (y < yCur) ys[y] = (ys[y] || 0) + 1; });
+      var ys = {}, yOf = function (m) { var d = E.parseDate(m.date); return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear(); };
+      var K = knownMatches(true).filter(function (m) { return m.date && m.date <= from && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+      K.forEach(function (m) { var y = yOf(m); (ys[y] = ys[y] || []).push(m); });
       var keys = Object.keys(ys).map(Number).sort(function (a, b) { return b - a; }); if (!keys.length) return;
-      s += '<h2 class="h3sec" style="margin-top:14px">Saisons passées</h2><div class="stack" style="gap:8px">' + keys.map(function (y) {
-        var on = (UI.szOpen || {})[y], L = seasonMatches(y).filter(function (m) { return m.result === "V" || m.result === "D"; }), sg = L.filter(function (m) { return !m.dbl; }), v = sg.filter(function (m) { return m.result === "V" && !m.wo; }).length, d2 = sg.filter(function (m) { return m.result === "D" && !m.wo; }).length;
-        return '<div class="card sz-c' + (on ? " on" : "") + '"><button class="sz-h" data-a="szTog" data-v="' + y + '" aria-expanded="' + !!on + '"><b>' + (y - 1) + "-" + String(y).slice(2) + '</b><span class="sz-sum"><em class="g">' + v + ' V</em> – <em class="r">' + d2 + " D</em>" + (L.length > sg.length ? " · " + plural(L.length - sg.length, "double") : "") + '</span><span class="chev">' + svg(on ? '<path d="M6 15l6-6 6 6"/>' : '<path d="M6 9l6 6 6-6"/>', 2.2) + "</span></button>" + (on ? '<div class="sz-b">' + seasonBodyHtml(L).replace(/^<div class="sz-k">[\s\S]*?<\/div>/, "") + "</div>" : "") + "</div>";
-      }).join("") + "</div>";
+      var fd = E.parseDate(from), cutLab = fd.getDate() + " " + MOIS[fd.getMonth()] + " " + fd.getFullYear();
+      s += '<h2 class="h3sec" style="margin-top:14px">Saisons passées</h2><span class="small" style="margin:-4px 4px 8px;display:block;color:var(--muted)">Les matchs joués jusqu\'au ' + esc(cutLab) + " : ils ne comptent plus pour ton classement.</span>" + keys.map(function (y) {
+        var on = (UI.szOpen || {})[y], L = ys[y], sg = L.filter(function (m) { return !m.dbl; }), v = sg.filter(function (m) { return m.result === "V" && !m.wo; }).length, d2 = sg.filter(function (m) { return m.result === "D" && !m.wo; }).length;
+        var part = y === yOf({ date: E.iso(fd) }) ? " · jusqu'au " + cutLab : "";
+        return '<div class="stack" style="gap:8px;margin-bottom:8px"><div class="card sz-c' + (on ? " on" : "") + '"><button class="sz-h" data-a="szTog" data-v="' + y + '" aria-expanded="' + !!on + '"><b>' + (y - 1) + "-" + String(y).slice(2) + '</b><span class="sz-sum"><em class="g">' + v + ' V</em> – <em class="r">' + d2 + " D</em>" + (L.length > sg.length ? " · " + plural(L.length - sg.length, "double") : "") + esc(part) + '</span><span class="chev">' + svg(on ? '<path d="M6 15l6-6 6 6"/>' : '<path d="M6 9l6 6 6-6"/>', 2.2) + "</span></button></div>" + (on ? pastHtml(L) : "") + "</div>";
+      }).join("");
     })();
     if (UI.palSheet) {
       var ch = function (k, v, t) { var on = (k === "res" ? fRes : fType) === v; return '<button class="chip' + (on ? " on" : "") + '" data-a="palSet" data-k="' + k + '" data-v="' + v + '">' + t + "</button>"; };
@@ -7138,6 +7160,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
   // ---------- Saisies à la main et Ten'Up : vérification, récapitulatif, oubliés ----------
   function mById(id) { return S.matches.filter(function (m) { return m.id === id; })[0]; }
+  // 3.55 (Yann : « ça devrait pouvoir renseigner une fiche même ancienne ») : un match d'une saison passée (palmarès Ten'Up relu)
+  // s'ouvre comme les autres : à l'ouverture, il rejoint tes matchs (source « tenup-hist » : jamais retiré par une synchro, déjà hors des 12 mois du bilan)
+  function histPromote(id, dbl) {
+    var h = (S.histMatches || []).filter(function (x) { return x.id === id && !!x.dbl === !!dbl; })[0]; if (!h) return null;
+    var c = Object.assign({}, h, { source: "tenup-hist", noted: true });
+    if (dbl) (S.doubles = S.doubles || []).push(c); else S.matches.push(c);
+    S.histMatches = S.histMatches.filter(function (x) { return x !== h; }); save(); return c;
+  }
   // Une ligne « match » compacte ; diff = champs à surligner (différents de l'autre version)
   function mLine(m, diff) {
     var hl = function (k, txt) { return diff && diff[k] ? '<mark>' + esc(txt) + "</mark>" : esc(txt); };
@@ -7400,7 +7430,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!isNew) tryMark("an");
     if (!UI.draft || UI.draft._for !== (id || "new")) {
       var base = isNew ? { id: uid(), date: E.iso(today()), opp: "", oppRank: "", result: "V", wo: false, score: "", kind: "tournoi", surface: "", indoor: null, racketId: "", string: "", tension: null, tensionCross: null, feel: null, note: "", source: "manual" } :
-        JSON.parse(JSON.stringify(S.matches.filter(function (m) { return m.id === id; })[0] || {}));
+        JSON.parse(JSON.stringify(S.matches.filter(function (m) { return m.id === id; })[0] || histPromote(id, false) || {}));
       if (!base.id) { go("palmares"); return ""; }
       // Match neuf ou pas encore annoté : on présélectionne la raquette principale
       if (isNew || (!base.racketId && !base.wo)) {
@@ -7486,7 +7516,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   var DBL_KEYS = ["surface", "indoor", "minutes", "feel", "feelAuto", "felt", "note", "racketId", "string", "tension", "tensionCross", "noted"];
   V.double = function (id) {
-    var src = (S.doubles || []).filter(function (x) { return x.id === id; })[0];
+    var src = (S.doubles || []).filter(function (x) { return x.id === id; })[0] || histPromote(id, true);
     if (!src) { go("palmares"); return ""; }
     if (!UI.draft || UI.draft._for !== "dbl:" + id) {
       var base = JSON.parse(JSON.stringify(src));
@@ -9102,7 +9132,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (P0.steps.length) { planRemember(key, P0.steps); s += lastTimeCard(ms[0], P0) + coachCard(P0, false); }
     s += sonJeuCard(key, hT0, mS0);
     s += "<h2>Vos matchs et tes retours</h2><div class=\"list\">" + ms.map(function (m) {
-      var hist = !S.matches.some(function (q) { return q.id === m.id; });
+      var hist = !m.id; // 3.55 : un match d'une saison passée s'ouvre aussi (histPromote)
       return (hist ? '<div class="row"' : '<a class="row" href="#/match/' + m.id + '"') + '><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.oppRank || "") + (m.comp ? " · " + esc(m.comp) : "") + "</span>" + (m.note ? '<span class="s rev">« ' + esc(m.note) + " »</span>" : "") + "</span>" + (hist ? '<span class="tag">saison passée</span></div>' : I.next + "</a>");
     }).join("") + "</div>";
     return s + "</div>";
