@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.55.2",
+    VERSION: "3.55.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -6583,7 +6583,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var t = (S.trainings || []).filter(function (x) { return x.src === "montre" && x.date >= l && x.curve; }).sort(function (a, b) { return (b.at || 0) - (a.at || 0); })[0];
     if (!t) return "";
     var it = trainIntensity(t);
-    return '<a class="wk-train" href="#/entrainement/' + esc(t.id) + '">' + hrCurveSvg(t.curve, t.thr, 120, 34, "w" + t.id.replace(/\W/g, "")) +
+    return '<a class="wk-train" href="#/entrainement/' + esc(t.id) + '">' + hrCurveSvg(hrFinePts(t) || t.curve, hrThr(), 120, 34, "w" + t.id.replace(/\W/g, "")) +
       "<span><b>Entraînement · " + esc(fmtDur(t.minutes)) + "</b><small>" + esc(dayLab(t.date)) + (it ? " · " + it.label + " · " + it.pct + " % zone 3+" : "") + (t.serve && (t.serve.ins + t.serve.outs) ? " · service " + Math.round(t.serve.ins * 100 / (t.serve.ins + t.serve.outs)) + " %" : "") + "</small></span></a>";
   }
   // ---------- Semaine type : créneaux fixes à confirmer d'un tap ----------
@@ -11669,7 +11669,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var t = hrMatchOf(t0.id) || t0;
     if (!t.curve && !t.zones && !t.serve) return hrTrainAsk(t);
     var it = trainIntensity(t), ZF = hrZFor(t), s = '<div class="card tw-card"><span class="eyebrow">' + (IOS || t.hw || t.src === "montre" ? "Ta montre · cardio et zones" : "Ton cardio · zones") + "</span>";
-    if (t.curve && t.curve.length > 1) s += hrCurveSvg(t.curve, ZF.thr, 300, 90, t.id.replace(/\W/g, ""));
+    var FP = hrFinePts(t); if (FP && FP.length > 1) s += hrCurveSvg(FP, ZF.thr, 300, 90, t.id.replace(/\W/g, ""));
     if (ZF.z) {
       s += zoneBarHtml(ZF.z);
       s += '<div class="zleg">' + ZF.z.map(function (v, i) { return v ? '<span><i style="background:' + ZONE_C[i] + '"></i>' + ZONE_N[i] + " " + v + " %</span>" : ""; }).join("") + "</div>";
@@ -12080,6 +12080,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (m.wt0) { var last = (m.wevT || []).reduce(function (a, b) { return Math.max(a, b); }, 0); return { a: m.wt0, b: m.wt0 + Math.max(last + 60, (m.minutes || 0) * 60 + 300) * 1000 }; }
     if (m.hat) return { a: m.hat, b: m.hend || m.hat + Math.max(30, m.minutes || 90) * 60000 };
     if (m.hid && m.at && m.minutes && !m.curve) return { a: m.at, b: m.hend || m.at + m.minutes * 60000 }; // entraînement venu de Santé (3.53.1)
+    // 3.55.3 (Yann : « 100 % récup » avec un max à 157) : un entraînement de la montre relit aussi ses bpm fins dans Santé,
+    // sa courbe (48 moyennes de 2 min) ne suffit pas pour les zones. Heure exacte de la séance Santé si on l'a, sinon début + durée.
+    if (m.src === "montre" && m.at && m.minutes) {
+      var x = m.hid && HC_OK ? hcAll().filter(function (y) { return y.id === m.hid; })[0] : null;
+      return x && x.start && x.end ? { a: x.start, b: x.end } : { a: m.at, b: m.at + (m.minutes + 2) * 60000 };
+    }
     return null;
   }
   // 3.53.3 (Yann : « 220 − âge, ça suffit pas ») : tes zones cardio. FC max : saisie, sinon ton max mesuré (12 mois),
@@ -12122,11 +12128,28 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function hrMax() { return hrZones().max; }
   function hrThr() { return hrZones().thr; }
+  // 3.55.3 : temps passé dans chaque zone, comme la montre : chaque mesure compte jusqu'à la suivante (30 s au plus, un trou n'est pas du temps en zone)
+  function hrZT(raw, thr) {
+    var z = [0, 0, 0, 0, 0], n = 0, gaps = [];
+    for (var i = 0; i + 1 < raw.length; i++) gaps.push(raw[i + 1][0] - raw[i][0]);
+    var med = gaps.length ? gaps.slice().sort(function (a, b) { return a - b; })[gaps.length >> 1] : 5;
+    raw.forEach(function (x, j) { if (x[1] == null) return; var w = j + 1 < raw.length ? raw[j + 1][0] - x[0] : med; w = Math.max(1, Math.min(30, w)); var k = 0; thr.forEach(function (q) { if (x[1] >= q) k++; }); z[k] += w; n += w; });
+    return n ? z.map(function (x) { return Math.round(x * 100 / n); }) : null;
+  }
+  // Une courbe plus fine que les 48 points de la montre : moyennes d'environ 20 s, prises dans les bpm de Santé
+  function hrFinePts(o) {
+    var raw = o.hrc && o.hrc.raw; if (!raw || raw.length < 20) return o.curve && o.curve.length > 1 ? o.curve : o.hrc && o.hrc.pts || null;
+    var dur = Math.max(60, raw[raw.length - 1][0]), N = Math.max(24, Math.min(300, Math.round(dur / 20), raw.length)), pts = [];
+    for (var k = 0; k < N; k++) { var a = dur * k / N, b = dur * (k + 1) / N, s0 = 0, n0 = 0; raw.forEach(function (x) { if (x[0] >= a && (x[0] < b || k === N - 1 && x[0] <= b)) { s0 += x[1]; n0++; } }); pts.push(n0 ? Math.round(s0 / n0) : null); }
+    for (k = 0; k < N; k++) if (pts[k] == null) pts[k] = k && pts[k - 1] != null ? pts[k - 1] : pts.filter(function (x) { return x != null; })[0];
+    return pts;
+  }
   function hrZ(vals, thr) { var z = [0, 0, 0, 0, 0], n = 0; (vals || []).forEach(function (v) { if (v == null) return; var i = 0; thr.forEach(function (q) { if (v >= q) i++; }); z[i]++; n++; }); return n ? z.map(function (x) { return Math.round(x * 100 / n); }) : null; }
   // Les zones d'une séance, toujours recalculées avec TES zones (les plus fines données d'abord)
   function hrZFor(o) {
     var thr = hrThr(), raw = o.hrc && o.hrc.raw;
-    var z = raw && raw.length ? hrZ(raw.map(function (x) { return x[1]; }), thr) : o.curve && o.curve.length > 4 ? hrZ(o.curve, thr) : o.hrc && o.hrc.pts ? hrZ(o.hrc.pts, thr) : null;
+    // 3.55.3 : les bpm fins d'abord ; la courbe de la montre (moyennes de 2 min) écrase les pics, elle ne sert qu'en dernier recours
+    var z = raw && raw.length >= 10 ? hrZT(raw, thr) : o.hrc && o.hrc.pts ? hrZ(o.hrc.pts, thr) : o.curve && o.curve.length > 4 ? hrZ(o.curve, thr) : null;
     if (!z && o.zones) { var tot = o.zones.reduce(function (a, b) { return a + (b || 0); }, 0); z = tot ? o.zones.map(function (v) { return Math.round((v || 0) * 100 / tot); }) : null; }
     return { z: z, thr: thr };
   }
@@ -12142,8 +12165,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var dur = Math.max(60, t[t.length - 1] || 60), N = Math.min(96, v.length), pts = [], sum = 0, mx = 0, pkT = 0, thr = hrThr(), z = [0, 0, 0, 0, 0];
       for (var k = 0; k < N; k++) { var a = dur * k / N, b = dur * (k + 1) / N, s0 = 0, n0 = 0; for (var j = 0; j < v.length; j++) if (t[j] >= a && (t[j] < b || k === N - 1 && t[j] <= b)) { s0 += v[j]; n0++; } pts.push(n0 ? Math.round(s0 / n0) : null); }
       for (k = 0; k < pts.length; k++) if (pts[k] == null) pts[k] = pts[k - 1] != null ? pts[k - 1] : pts.filter(function (x) { return x != null; })[0];
-      v.forEach(function (x, j) { sum += x; if (x > mx) { mx = x; pkT = t[j]; } var zi = 0; thr.forEach(function (q) { if (x >= q) zi++; }); z[zi]++; });
-      mm.hrc = { pts: pts, dur: dur, avg: Math.round(sum / v.length), max: mx, pkT: pkT, kcal: r.kcal ? Math.round(r.kcal) : null, z: z.map(function (x) { return Math.round(x * 100 / v.length); }), thr: thr, w: !!r.watch, at: Date.now() };
+      v.forEach(function (x, j) { sum += x; if (x > mx) { mx = x; pkT = t[j]; } });
+      z = hrZT(v.map(function (x, j) { return [t[j], x]; }), thr);
+      mm.hrc = { pts: pts, dur: dur, avg: Math.round(sum / v.length), max: mx, pkT: pkT, kcal: r.kcal ? Math.round(r.kcal) : null, z: z, thr: thr, w: !!r.watch, at: Date.now() };
       // pour les phrases : les bpm d'origine (secondes, bpm), allégés
       var step = Math.max(1, Math.floor(v.length / 400)); mm.hrc.raw = []; for (j = 0; j < v.length; j += step) mm.hrc.raw.push([t[j], v[j]]);
       // 3.53.1 : un entraînement reprend la carte « cardio et zones » de la montre (courbe, zones, moyenne, calories)
@@ -12156,7 +12180,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function hrBackfill() {
     if (!UI.hkAsked && UI.hc && UI.hc.st && UI.hc.st.hr) { UI.hkAsked = 1; hkProfile(); }
     if (hrBusy || !HC_OK || !Tenup || !Tenup.healthHR || !(UI.hc && UI.hc.st && UI.hc.st.hr)) return;
-    var want = function (m) { return hrWin(m) && (!m.hrc || (m.hrc.none && Date.now() - m.hrc.at > 3 * 864e5 && (Date.now() - hrWin(m).a) < 10 * 864e5)); };
+    // 3.55.3 : séance de moins de 2 jours sans bpm (Santé pas encore synchronisé) : on réessaie après 10 min, pas 3 jours
+    var want = function (m) { var W = hrWin(m); if (!W) return false; if (!m.hrc) return true; if (!m.hrc.none) return false; var age = Date.now() - W.a; return age < 10 * 864e5 && Date.now() - m.hrc.at > (age < 2 * 864e5 ? 6e5 : 3 * 864e5); };
     var L = S.matches.filter(function (m) { return !m.dbl && !m.wo && want(m); }).concat((S.trainings || []).filter(want)).sort(function (a, b) { return (b.date || "") < (a.date || "") ? -1 : 1; }).slice(0, 8);
     if (!L.length) return;
     hrBusy = true;
