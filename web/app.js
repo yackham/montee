@@ -11063,21 +11063,31 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var Q = profSecs(P);
     return [Q.t].concat(Q.h, Q.X.map(function (x) { return "\n" + x[0].toUpperCase() + "\n" + x[1].join("\n"); })).join("\n");
   }
+  // 3.55.4 (Yann, option B) : une illustration en tête. Le carnet tant que le point du mois n'est pas parti, l'avion en papier ensuite.
+  function profIll(sent) {
+    var ball = function (x, y, r) { return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="url(#pfB)"/><path d="M' + (x - r * .75) + " " + (y - r * .35) + " Q" + x + " " + y + " " + (x + r * .75) + " " + (y - r * .35) + "M" + (x - r * .75) + " " + (y + r * .35) + " Q" + x + " " + y + " " + (x + r * .75) + " " + (y + r * .35) + '" stroke="#F4F7E1" stroke-width="' + (r * .14) + '" fill="none"/>'; };
+    var def = '<defs><linearGradient id="pfG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2E2B28"/><stop offset="1" stop-color="#1B1A19"/></linearGradient><linearGradient id="pfV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2B7350"/><stop offset="1" stop-color="#16432E"/></linearGradient><radialGradient id="pfB" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#EEF7A0"/><stop offset=".6" stop-color="#D4E64A"/><stop offset="1" stop-color="#AFC23A"/></radialGradient><pattern id="pfS" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M0 0h5M0 0v5" stroke="#F4F7E1" stroke-width=".8" opacity=".55"/></pattern></defs><rect width="330" height="118" fill="url(#pfG)"/>';
+    var body = sent ?
+      '<path d="M30 118 L300 118 L240 66 L90 66 Z" fill="url(#pfV)"/><path d="M50 116 L280 116 L232 72 L98 72 Z" fill="none" stroke="#E2EEDC" stroke-width="1.5" opacity=".75"/><path d="M76 96h178" stroke="#121212" stroke-width="3"/><path d="M165 72v44" stroke="#E2EEDC" stroke-width="1.2" opacity=".6"/>' +
+        '<g transform="translate(56 44) rotate(-20) scale(.82)"><rect x="-4" y="34" width="8" height="40" rx="3" fill="#121212"/><rect x="-4.5" y="58" width="9" height="18" rx="3" fill="#D4E64A"/><path d="M-4 36 L-10 22 M4 36 L10 22" stroke="#121212" stroke-width="4" stroke-linecap="round"/><ellipse cx="0" cy="0" rx="22" ry="27" fill="url(#pfS)" stroke="#121212" stroke-width="5"/></g>' +
+        '<path d="M78 40 C120 10 170 60 236 26" stroke="#F4F2EE" stroke-width="2" stroke-dasharray="3 6" fill="none" stroke-linecap="round" opacity=".85"/>' +
+        '<g transform="translate(240 24) rotate(-14)"><path d="M0 0 L46 -14 L18 14 Z" fill="#F4F2EE"/><path d="M18 14 L46 -14 L22 4 Z" fill="#D9D5CE"/><path d="M0 0 L22 4 L46 -14" stroke="#121212" stroke-width="1" fill="none" opacity=".35"/></g>' + ball(296, 86, 8) :
+      '<g transform="translate(40 12) rotate(-3 125 47)"><rect x="0" y="0" width="250" height="94" rx="8" fill="#F4F2EE"/><path d="M125 4v86" stroke="#121212" stroke-width="1.2" opacity=".25"/><circle cx="125" cy="18" r="2" fill="#121212" opacity=".3"/><circle cx="125" cy="47" r="2" fill="#121212" opacity=".3"/><circle cx="125" cy="76" r="2" fill="#121212" opacity=".3"/>' +
+        '<rect x="14" y="14" width="70" height="7" rx="3.5" fill="#121212"/><path d="M14 34h96M14 46h88M14 58h92M14 70h60" stroke="#121212" stroke-width="3" stroke-linecap="round" opacity=".3"/><path d="M14 82h40" stroke="#D4E64A" stroke-width="5" stroke-linecap="round"/>' +
+        '<g transform="translate(142 14)"><rect x="0" y="0" width="92" height="64" fill="none" stroke="#B04A22" stroke-width="2"/><path d="M46 -3v70" stroke="#121212" stroke-width="2.4"/><path d="M0 10h92M0 54h92M20 10v44M72 10v44M20 32h52" stroke="#B04A22" stroke-width="1.2" opacity=".75"/><path d="M8 50 Q30 6 82 18" stroke="#121212" stroke-width="1.8" stroke-dasharray="2 4" fill="none" stroke-linecap="round"/><path d="M77 14l6 4-5.5 4" stroke="#121212" stroke-width="1.8" fill="none" stroke-linecap="round"/>' + ball(8, 50, 6) + "</g></g>" +
+        '<g transform="translate(262 70) rotate(-38)"><rect x="0" y="-5" width="58" height="10" rx="2" fill="#D4E64A"/><rect x="-6" y="-5" width="8" height="10" rx="2" fill="#E08A5E"/><path d="M58 -5 L70 0 L58 5z" fill="#F0D9B8"/><path d="M66 -1.6 L70 0 L66 1.6z" fill="#121212"/></g>';
+    return '<div class="pf-ill"><svg viewBox="0 0 330 118" aria-hidden="true" focusable="false">' + def + body + "</svg></div>";
+  }
+  function profSentOf(P) { var x = S.profSent; return x && x.m === E.iso(P.a) ? E.parseDate(x.d) : null; }
   function profHtml() {
     var P = profData(); if (!P) return "";
-    var lock = PLUS_LOCK(), th = P.TH[0];
-    var t = th ? 'Ce qui coince ce mois-ci : <span class="hl-t">' + esc(th[0].toLowerCase()) + "</span>." : esc((P.M.length ? plural(P.M.length, "match", "matchs") + ", " : "") + plural(P.TR.length, "séance") + " ce mois-ci.");
-    var three = P.M.filter(function (m) { return setsOf(m.score).length >= 3; }).length;
-    var tile = function (k, v, sub) { return '<div class="pf-tile"><small>' + k + "</small><b>" + v + "</b><span>" + sub + "</span></div>"; };
-    var tiles = '<div class="pf-tiles">' + tile("Matchs", P.M.length ? P.V.length + " V · " + P.D.length + " D" : "0", P.M.length ? (three ? three + " au 3e set" : "aucun au 3e set") : "ce mois-ci") +
-      tile("Séances", String(P.TR.length), P.TR.length ? esc(fmtDur(P.mins)) : "ce mois-ci") +
-      (P.sD != null && P.sV != null && !P.tight ? tile("1res balles", P.sV + " %", "en victoire, " + P.sD + " % en défaite") : tile("Serrés", P.tight ? plural(P.tight, "set") : "0", P.tight ? "perdu" + (P.tight > 1 ? "s" : "") + " de 2 jeux ou au tie-break" : "set perdu de peu")) + "</div>";
-    var themes = P.TH.map(function (x, i) { return '<div class="pf-th"><span class="rb-n">' + (i + 1) + '</span><span><b>' + esc(x[0]) + '</b><span class="small">' + esc(x[1]) + "</span></span></div>"; }).join("");
-    return '<div class="card pf-card"><div class="ch-hd"><span class="eyebrow">Pour ton prof · ' + esc(P.mo) + '</span><span class="ch-plus">Montée+</span></div>' +
-      '<b class="m2-t">' + t + "</b>" +
-      '<div class="' + (lock ? "ch-blur" : "") + '">' + tiles + themes + "</div>" +
+    var lock = PLUS_LOCK(), th = P.TH[0], sent = !lock && profSentOf(P);
+    var t = sent ? "Envoyé le " + sent.getDate() + " " + MOIS_L[sent.getMonth()] + ". Ton prof a tout ce qu'il faut." : "Ton prof saura tout de ton mois, sans avoir vu un match.";
+    var sub = (P.M.length ? plural(P.M.length, "match détaillé", "matchs détaillés") + ", " : "") + (P.TR.length ? plural(P.TR.length, "séance") + ", " : "") + "tes tendances" + (th ? ", et ce que tu veux travailler : " + th[0].toLowerCase() + "." : ".");
+    return '<div class="card pf-card">' + profIll(!!sent) + '<div class="ch-hd"><span class="eyebrow">Pour ton prof · ' + esc(P.mo) + '</span><span class="ch-plus">Montée+</span></div>' +
+      '<b class="m2-t pf-t">' + esc(t) + '</b><span class="small' + (lock ? " ch-blur" : "") + '">' + esc(sub) + "</span>" +
       (lock ? '<button class="btn primary small ch-cta" data-a="goSoutenirComp">Envoyer le point du mois avec Montée+</button>' :
-        '<div class="pf-foot"><button class="linkbtn pf-lnk" data-a="sheet" data-k="prof" data-v="1">Aperçu</button><button class="btn primary small" data-a="profSend">Envoyer à ton prof ' + I.next + "</button></div>") + "</div>";
+        '<div class="pf-foot"><button class="linkbtn pf-lnk" data-a="sheet" data-k="prof" data-v="1">Aperçu</button><button class="btn primary small" data-a="profSend">' + (sent ? "Renvoyer " : "Envoyer ") + I.next + "</button></div>") + "</div>";
   }
   // texte seul, sans liens vers l'app (message pour le prof)
   function sharePlain(txt) {
@@ -13061,10 +13071,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     profSend: function (el) {
       var P = profData(); if (!P) return;
       var t = profText(P), v = el && el.dataset.v, u = encodeURIComponent(t);
+      if (v === "sms" || v === "wa" || v === "mail") { S.profSent = { m: E.iso(P.a), d: E.iso(today()) }; save(); UI.sheet = null; }
       if (v === "sms") window.open("sms:" + (IOS ? "&" : "?") + "body=" + u, "_system");
       else if (v === "wa") window.open("https://wa.me/?text=" + u, "_system");
       else if (v === "mail") window.open("mailto:?subject=" + encodeURIComponent(profSecs(P).t) + "&body=" + u, "_system");
-      else { UI.sheet = { k: "prof", v: 1 }; render(); }
+      else { UI.sheet = { k: "prof", v: 1 }; render(); return; }
+      render();
     },
     profCopy: function () { var P = profData(); if (!P) return; var t = profText(P); if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { toast("Message copié : colle-le où tu veux."); }, function () { toast("Copie impossible sur ce téléphone."); }); else toast("Copie impossible sur ce téléphone."); },
     warmGo: function (el) {

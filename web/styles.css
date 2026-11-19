@@ -4866,3 +4866,7 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .pf-bub li { margin: 3px 0; }
 .pf-send { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .cap > .cap-row small { white-space: normal; flex: 1; min-width: 0; }
+.pf-card { display: flex; flex-direction: column; gap: 8px; }
+.pf-ill { border-radius: 16px; overflow: hidden; line-height: 0; margin-bottom: 4px; }
+.pf-ill svg { width: 100%; height: auto; display: block; }
+.pf-t { font-size: 17px; }
