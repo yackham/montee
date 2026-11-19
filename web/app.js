@@ -4831,7 +4831,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function dfLine(f, cur) {
     var e = Math.round(f.g.e), v = f.g.v, w = v > 1 ? f.verb[1] : f.verb[0];
-    return v + " " + w + " sur " + f.g.n + ", un " + lab(cur) + " en " + (f.verb[0] === "gagné" ? "gagne" : f.verb[0] === "renversé" ? "renverse" : "sauve") + " " + e;
+    // retour testeur (19/11) : « 1 gagné sur 4, un 15/4 en gagne 2 » n'était pas compris
+    return "Toi : " + v + " " + w + " sur " + f.g.n + ". Un joueur classé " + lab(cur) + ", face aux mêmes adversaires : " + e + " sur " + f.g.n + ".";
   }
   function dfRow(f, cur, isNew) {
     var cl = f.vd === "above" ? "g" : "t";
@@ -4851,7 +4852,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // retenir ce qui a été montré, pour « Nouveau » la prochaine fois
     var nx = {}; a.concat(k).forEach(function (f) { nx[f.id] = f.vd; });
     if (JSON.stringify(nx) !== JSON.stringify(seen)) setTimeout(function () { S.diffSeen = nx; save(); }, 0);
-    return '<a class="card df2" href="#/gagner"><span class="eyebrow">Ce qui fait la différence</span><b class="df-t">' + esc(title) + '</b><span class="small">Comparé à ce qu\'un ' + lab(cur) + " gagne face aux mêmes adversaires.</span>" +
+    return '<a class="card df2" href="#/gagner"><span class="eyebrow">Ce qui fait la différence</span><b class="df-t">' + esc(title) + '</b><span class="small">Comparé à ce qu\'un joueur classé ' + lab(cur) + " (ton classement) gagne face aux mêmes adversaires.</span>" +
       (a.length ? '<span class="df-h g">Ça t\'aide</span>' + a.map(function (f) { return dfRow(f, cur, isNew(f)); }).join("") : "") +
       (k.length ? '<span class="df-h t">Ça te coûte</span>' + k.map(function (f) { return dfRow(f, cur, isNew(f)); }).join("") : "") +
       (!a.length && !k.length ? '<span class="small">Tes matchs ne montrent pas encore d\'écart net avec ce qu\'on attend de toi.</span>' : "") +
@@ -5973,7 +5974,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       ["carte", "Ta carte du mois (après la sortie)"], ["charge", "Ta charge de jeu"], ["essayer", "3 choses à essayer"], ["cordage", "Alertes cordage"], ["sync", "Rappel de synchro Ten'Up"], ["rate", "Noter tes séances"], ["slot", "« T'as joué ? » (semaine type)"],
       ["drops", "Victoires qui sortent"], ["todo", "Matchs à annoter"]],
     courbes: [["chances", "Tes chances de monter"], ["forces", "Tes forces"], ["saisons", "Tes saisons"], ["bilan", "Ton bilan"], ["niveau", "Ton niveau de jeu"], ["defend", "Points à défendre"], ["mental", "Mental"], ["plafond", "Face à chaque classement"], ["records", "Tes records"],
-      ["forme", "Forme du moment"], ["gagner", "Ce qui te fait gagner"], ["h2h", "Face-à-face"], ["where", "Où tu gagnes"], ["raquette", "Avec quoi tu gagnes"], ["temps", "Temps de jeu"], ["service", "Ton service"], ["chiffres", "Tes chiffres (breaks, doubles fautes)"]]
+      ["forme", "Forme du moment"], ["gagner", "Ce qui fait la différence"], ["h2h", "Face-à-face"], ["where", "Où tu gagnes"], ["raquette", "Avec quoi tu gagnes"], ["temps", "Temps de jeu"], ["service", "Ton service"], ["chiffres", "Tes chiffres (breaks, doubles fautes)"]]
   };
   function prefsOf(page) {
     S.prefs = S.prefs || {};
@@ -7755,13 +7756,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var leaks = [];
     var byR = {}; ms.forEach(function (m) { var o = E.idx(m.oppRank); if (o > cur) return; var r = byR[o] = byR[o] || { o: o, v: 0, n: 0, e: 0 }; r.n++; if (m.result === "V") r.v++; var oe = oppEffIdx(m); r.e += expWin(oe != null && oe > o ? oe : o, cur); });
     Object.keys(byR).map(function (k) { return byR[k]; }).filter(function (r) { return r.n >= 4 && r.e - r.v >= 1.2; }).sort(function (a, b) { return (b.e - b.v) - (a.e - a.v); }).slice(0, 1).forEach(function (r) {
-      var miss = r.e - r.v; leaks.push({ k: "rank", o: r.o, v: r.v, n: r.n, e: r.e, t: "Tes matchs contre les " + lab(r.o), pts: Math.round(miss * Math.max(10, winPts(r.o))), s: r.v + " V – " + (r.n - r.v) + " D : un " + P.curL + " en gagne " + Math.round(r.e) + " sur " + r.n, link: "courbes?to=plafond" });
+      var miss = r.e - r.v; leaks.push({ k: "rank", o: r.o, v: r.v, n: r.n, e: r.e, t: "Tes matchs contre les " + lab(r.o), pts: Math.round(miss * Math.max(10, winPts(r.o))), s: r.v + " V – " + (r.n - r.v) + " D, un joueur classé " + P.curL + " : " + Math.round(r.e) + " V sur " + r.n, link: "courbes?to=plafond" });
     });
     var LK = { perf: ["Contre les mieux classés", "courbes?to=plafond"], solid: ["Contre les moins bien classés", "courbes?to=plafond"], mental: ["Quand tu perds le 1er set", "courbes?to=gagner"], endu: ["Tes matchs en 3 sets", "courbes?to=gagner"], rythme: ["Tes retours après 3 semaines sans jouer", "palmares"] };
     Object.keys(LK).forEach(function (k) {
       var x = P.R[k]; if (!x || x.st !== "faible" || (k === "solid" && leaks.some(function (l) { return l.k === "rank"; }))) return;
       var miss = Math.max(0, x.g.e - x.g.v); if (miss < 0.8) return;
-      leaks.push({ k: k, v: x.g.v, n: x.g.n, e: x.g.e, t: LK[k][0], pts: Math.round(miss * (k === "perf" ? winPts(cur + 1) : avgW)), s: x.g.v + " sur " + x.g.n + ", un " + P.curL + " en " + x.verb + " " + Math.round(x.g.e), link: LK[k][1] });
+      leaks.push({ k: k, v: x.g.v, n: x.g.n, e: x.g.e, t: LK[k][0], pts: Math.round(miss * (k === "perf" ? winPts(cur + 1) : avgW)), s: "toi " + x.g.v + " sur " + x.g.n + ", un joueur classé " + P.curL + " : " + Math.round(x.g.e) + " sur " + x.g.n, link: LK[k][1] });
     });
     // tes chiffres / ta montre : doubles fautes dans les défaites
     var D = ms.filter(function (m) { return m.result === "D" && (numFilled(m) || (m.serve && m.serve.me && m.serve.me.pts)); });
@@ -7776,8 +7777,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       rank: function (l) { return ["Joue les " + lab(l.o) + " comme des " + lab(Math.min(cur + 1, E.MAX_CALC)), "Tu baisses d'intensité quand tu es favori : même routine, même concentration que contre plus fort.", "Face à chaque classement"]; },
       solid: function () { return ["Ne lâche rien contre moins bien classé", "Tes défaites contre plus faible te coûtent le plus : joue chaque point, même mené 5-1.", "Face à chaque classement"]; },
       perf: function () { return ["Va chercher les perfs", "Tu as le niveau : inscris-toi aux tournois où tu croises des " + lab(cur + 1) + ", c'est là que tu montes.", "Face à chaque classement"]; },
-      mental: function () { return ["Après un 1er set perdu, repars de zéro", "Change une chose (rythme, cible, 1re balle) au lieu de forcer : tu renverses moins que la moyenne.", "Ce qui te fait gagner"]; },
-      endu: function () { return ["Gagne en 2 sets", "Les matchs longs t'échappent : physique une fois par semaine et attaque plus tôt dans les points.", "Ce qui te fait gagner"]; },
+      mental: function () { return ["Après un 1er set perdu, repars de zéro", "Change une chose (rythme, cible, 1re balle) au lieu de forcer : tu renverses moins que la moyenne.", "Ce qui fait la différence"]; },
+      endu: function () { return ["Gagne en 2 sets", "Les matchs longs t'échappent : physique une fois par semaine et attaque plus tôt dans les points.", "Ce qui fait la différence"]; },
       rythme: function () { return ["Ne reste pas 3 semaines sans jouer", "Tes reprises te coûtent : une séance par semaine, même courte, entre deux tournois.", "Tes entraînements"]; },
       service: function () { return ["Une séance service par semaine", "Tes doubles fautes arrivent dans tes défaites : 2e balle plus sûre, avec de l'effet.", "Ton service"]; },
       service2: function () { return ["Tiens tes jeux de service", "Joue ta 1re balle sur sa faiblesse et ne cherche pas l'ace.", "Ton service"]; }
@@ -7812,9 +7813,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var lv = null; try { lv = levelNow(c); } catch (e) {}
     return { c: c, P: P, cur: cur, tgt: tgt, nx: nx, ms: ms, matches: matches, leaks: leaks, strong: strong, plan: plan, best: best.sort(function (a, b) { return b.p - a.p; }).slice(0, 4), seen: seen, ch: ch, lv: lv, drops: c.drops || [] };
   }
-  var COACH_SHEET = { "Face à chaque classement": "plafond", "Ce qui te fait gagner": "gagner", "Tes entraînements": "train", "Ton service": "service" };
+  var COACH_SHEET = { "Face à chaque classement": "plafond", "Ce qui fait la différence": "gagner", "Tes entraînements": "train", "Ton service": "service" };
   var COACH_SHEET_L = { rank: "plafond", perf: "plafond", solid: "plafond", mental: "gagner", endu: "gagner", rythme: "train", service: "chiffres", service2: "service" };
-  var COACH_LINK = { "Face à chaque classement": "courbes?to=plafond", "Ce qui te fait gagner": "courbes?to=gagner", "Tes entraînements": "palmares", "Ton service": "service" };
+  var COACH_LINK = { "Face à chaque classement": "courbes?to=plafond", "Ce qui fait la différence": "courbes?to=gagner", "Tes entraînements": "palmares", "Ton service": "service" };
   // La carte d'entrée, en haut des Courbes (remplace « Ton profil de compétiteur »)
   function coachCardHtml() {
     if (!PLUS) return "";
@@ -7914,7 +7915,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (k === "retour") return x.st === "lock" ? "Suis quelques matchs de plus à la montre pour le mesurer." : x.me + " % de balles de break converties, tes adversaires " + x.him + " %.";
     var g = x.g;
     if (x.st === "lock") return "Encore " + plural(4 - g.n, "match") + " " + { perf: "contre des mieux classés", solid: "contre des moins bien classés", mental: "après un 1er set perdu", endu: "en 3 sets", rythme: "de reprise après 3 semaines sans jouer" }[k] + " pour le mesurer.";
-    return cap1(x.what) + " : " + g.v + " sur " + g.n + ", un " + P.curL + " en " + x.verb + " " + Math.round(g.e) + ".";
+    return cap1(x.what) + " : toi " + g.v + " sur " + g.n + ". Un joueur classé " + P.curL + ", face aux mêmes adversaires : " + Math.round(g.e) + " sur " + g.n + ".";
   }
   V.comp = function (k) {
     if (!isSup()) { return '<div class="screen">' + topbar("", "Courbes") + '<h1>Ton profil</h1><div class="card"><span>Ton profil de compétiteur fait partie de Montée+.</span><button class="btn primary" data-a="goSoutenirComp">Découvrir avec Montée+</button></div></div>'; }
@@ -7995,9 +7996,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var bi = -1;
       g.ms.forEach(function (m, i) { if (x.st === "faible" ? m.result === "D" && (bi < 0 || g.es[i] > g.es[bi]) : m.result === "V" && (bi < 0 || g.es[i] < g.es[bi])) bi = i; });
       if (bi >= 0) {
-        var mm = g.ms[bi], pr = Math.round(g.es[bi] * 10);
+        var mm = g.ms[bi], pr = Math.round(g.es[bi] * 10), oi = E.idx(mm.oppRank), oe = oppEffIdx(mm), vb = k === "mental" ? ", mené d'un set," : "";
+        var above = oe != null && oi != null && oe > oi ? " Il jouait au-dessus de son " + esc(mm.oppRank) + ", plutôt au niveau " + esc(lab(oe)) + "." : "";
         s += '<div class="card cp-emb"><span class="df-h cpc">' + (x.st === "faible" ? "Le match qui résume" : "Ton plus beau match") + "</span>" + listHtml([mm], null, "") +
-          '<span class="small">' + (x.st === "faible" ? "Ta défaite la plus coûteuse : un " + esc(P.curL) + " gagne ce match " + pr + " fois sur 10." : "Un " + esc(P.curL) + " gagne ce match " + pr + " fois sur 10.") + "</span></div>";
+          // retour testeur (19/11) : « un 15/4 gagne ce match 5 fois sur 10 » était flou
+          '<span class="small">' + (x.st === "faible" ? "Ta défaite la plus inattendue : contre cet adversaire, un joueur classé " + esc(P.curL) + vb + " gagne le match " + pr + " fois sur 10." : "Ta victoire la plus forte : contre cet adversaire, un joueur classé " + esc(P.curL) + vb + " ne gagne le match que " + pr + " fois sur 10.") + above + "</span></div>";
       }
     }
     // Trimestre par trimestre (12 mois glissants, 4 blocs de 3 mois)
@@ -8011,7 +8014,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         return '<span><b style="color:' + col + '">' + (z.n < 2 ? "–" : gg > 0 ? "+" + gg : gg < 0 ? "−" + (-gg) : "=") + '</b><i style="height:' + (z.n < 2 || !gg ? 4 : 8 + Math.abs(gg) / mxg * 30) + "px;background:" + col + '"></i><small>' + MOIS[(z.a.getMonth() + 1) % 12].replace(/\.$/, "") + "–" + MOIS[z.b.getMonth()].replace(/\.$/, "") + "</small>" + (z.n ? '<small class="cp-trn">' + z.v + " sur " + z.n + "</small>" : '<small class="cp-trn">aucun match</small>') + "</span>";
       }).join("") + "</div>" +
       // 3.54.2 (Davy ne comprenait pas ce graphique) : ce que veut dire +1 / −2
-      '<span class="small">Victoires en plus (+) ou en moins (−) que ce qu\'un ' + esc(P.curL) + " gagne contre les mêmes adversaires, sur chaque période de 3 mois. « – » : pas assez de matchs.</span></div>";
+      '<span class="small">Victoires en plus (+) ou en moins (−) que ce qu\'un joueur classé ' + esc(P.curL) + " gagne contre les mêmes adversaires, sur chaque période de 3 mois. « – » : pas assez de matchs.</span></div>";
     }
     // D'où ça vient : sur les défaites (à travailler) ou les victoires (point fort)
     var focus = x.st === "faible" ? g.ms.filter(function (m) { return m.result === "D"; }) : g.ms.filter(function (m) { return m.result === "V"; });
@@ -8627,7 +8630,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         else if (k === "service") html = watchStatsHtml() + serveTrendHtml();
         else { var box = document.createElement("div"), keep = UI.sheet; UI.sheet = null; box.innerHTML = V.courbes(); UI.sheet = keep; var el = box.querySelector("#cb-" + k); html = el ? el.innerHTML : ""; }
       } catch (e) { html = ""; }
-      var T0 = { plafond: "Face à chaque classement", gagner: "Ce qui te fait gagner", train: "Tes entraînements", service: "Ton service", chiffres: "Tes chiffres" };
+      var T0 = { plafond: "Face à chaque classement", gagner: "Ce qui fait la différence", train: "Tes entraînements", service: "Ton service", chiffres: "Tes chiffres" };
       return { title: T0[k] || "Le détail", body: html || '<span class="small">Pas encore assez de données.</span>' };
     },
     // 3.48.4 (Yann) : chercher un joueur sans quitter l'écran : une feuille par le bas, puis sa fiche face-à-face (retour possible)
