@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.55.1",
+    VERSION: "3.55.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2455,6 +2455,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // 3.55 (Yann, nouveautés 19/11) : check-in d'avant-match. 4 curseurs le jour d'un match programmé,
   // reliés ensuite aux matchs du même jour (victoires vs attendu). Rien ne quitte le téléphone.
+  // 3.55.2 (Yann, 19/11) : check-in mis de côté (« pas convaincu, on verra plus tard »). Passer à true pour le réactiver.
+  var CHECKIN_ON = false;
   var CI_F = [
     { k: "sl", t: "Sommeil", l: "peu", r: "beaucoup", ic: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>' },
     { k: "en", t: "Énergie", l: "à plat", r: "au top", ic: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>' },
@@ -2466,8 +2468,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var W = { en: ["À plat", "Moyenne", "Bonne", "Au top"], st: ["Zen", "Un peu", "Tendu", "Très tendu"], ev: ["Bof", "Moyenne", "Forte", "À fond"] }[k];
     return W[Math.min(3, Math.floor(v / 25))];
   }
-  function ciToday() { return (S.checkin || {})[E.iso(today())]; }
+  function ciToday() { return CHECKIN_ON ? (S.checkin || {})[E.iso(today())] : null; }
   function ciAsk() {
+    if (!CHECKIN_ON) return "";
     var td = E.iso(today());
     if (ciToday() || S.ciSkip === td || new Date().getHours() >= 22) return "";
     if (!plans().some(function (x) { return dGap(x.day) === 0; })) return "";
@@ -2503,6 +2506,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return { n: R.length, L: out, top: out.filter(function (o) { return o.net; }).sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); })[0] };
   }
   function ciCardHtml(c) {
+    if (!CHECKIN_ON) return "";
     var I2 = ciInsight(c.cur); if (!I2.L) return "";
     var lock = PLUS_LOCK(), t = I2.top, sg = function (d) { return (d > 0 ? "+" : d < 0 ? "−" : "") + fmt1(Math.abs(d)); };
     var head = !t ? "Pas encore de tendance nette : il faut au moins 4 matchs de chaque côté." :
@@ -6404,7 +6408,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       ["carte", "Ta carte du mois (après la sortie)"], ["charge", "Ta charge de jeu"], ["essayer", "3 choses à essayer"], ["cordage", "Alertes cordage"], ["sync", "Rappel de synchro Ten'Up"], ["rate", "Noter tes séances"], ["slot", "« T'as joué ? » (semaine type)"],
       ["drops", "Victoires qui sortent"], ["todo", "Matchs à annoter"]],
     courbes: [["chances", "Tes chances de monter"], ["forces", "Tes forces"], ["saisons", "Tes saisons"], ["bilan", "Ton bilan"], ["niveau", "Ton niveau de jeu"], ["defend", "Points à défendre"], ["mental", "Mental"], ["plafond", "Face à chaque classement"], ["records", "Tes records"],
-      ["forme", "Forme du moment"], ["gagner", "Ce qui fait la différence"], ["h2h", "Face-à-face"], ["where", "Où tu gagnes"], ["raquette", "Avec quoi tu gagnes"], ["temps", "Temps de jeu"], ["service", "Ton service"], ["chiffres", "Tes chiffres (breaks, doubles fautes)"], ["defaites", "Tes défaites"], ["defis", "Tes défis"], ["reussit", "Ce qui te réussit"]]
+      ["forme", "Forme du moment"], ["gagner", "Ce qui fait la différence"], ["h2h", "Face-à-face"], ["where", "Où tu gagnes"], ["raquette", "Avec quoi tu gagnes"], ["temps", "Temps de jeu"], ["service", "Ton service"], ["chiffres", "Tes chiffres (breaks, doubles fautes)"], ["defaites", "Tes défaites"], ["defis", "Tes défis"]].concat(CHECKIN_ON ? [["reussit", "Ce qui te réussit"]] : [])
   };
   function prefsOf(page) {
     S.prefs = S.prefs || {};
