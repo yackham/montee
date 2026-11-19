@@ -12,6 +12,8 @@ struct TLive: Codable {
     var t0 = Date()
     var t1: Date? = nil
     var maxHR: Double = 190
+    /// 3.55.3 : zones figées au début de la séance (celles de l'iPhone)
+    var thr: [Int]? = nil
     var samples: [Int] = []          // cardio toutes les 10 s
     var zoneSec: [Int] = [0, 0, 0, 0, 0]
     var moments: [TMoment] = []
@@ -47,6 +49,11 @@ struct OutTrain: Codable {
 let ZONE_NAMES = ["Récupération", "Endurance", "Tempo", "Seuil", "Max"]
 let ZONE_COLORS: [Color] = [Color(red: 0.55, green: 0.62, blue: 0.75), .gazon, .balle, .terre, Color(red: 0.93, green: 0.33, blue: 0.33)]
 func thresholds(_ maxHR: Double) -> [Int] { [0.6, 0.7, 0.8, 0.9].map { Int(($0 * maxHR).rounded()) } }
+/// 3.55.3 (Yann) : les zones réglées dans l'appli iPhone ; sinon 60–90 % de ta FC max
+func userThr(_ maxHR: Double) -> [Int] {
+    if let t = PhoneLink.shared.ctx.hrThr, t.count == 4, t[0] >= 60, t[3] < 230, zip(t, t.dropFirst()).allSatisfy({ $0.0 < $0.1 }) { return t }
+    return thresholds(maxHR)
+}
 func zoneOf(_ bpm: Int, _ thr: [Int]) -> Int { var z = 0; for t in thr where bpm >= t { z += 1 }; return z }
 
 final class TrainVM: ObservableObject {
@@ -62,7 +69,7 @@ final class TrainVM: ObservableObject {
         }
     }
 
-    var thr: [Int] { thresholds(live?.maxHR ?? 190) }
+    var thr: [Int] { live?.thr ?? userThr(live?.maxHR ?? 190) }
     var paused: Bool { live?.pausedAt != nil }
     var moment: TMoment? { if let m = live?.moments.last, m.t1 == nil { return m }; return nil }
 
@@ -115,7 +122,8 @@ final class TrainVM: ObservableObject {
     func begin() {
         guard live == nil else { return }
         Workout.shared.start()
-        live = TLive(maxHR: Workout.shared.maxHR)
+        let mx = Workout.shared.maxHR
+        live = TLive(maxHR: mx, thr: userThr(mx))
         save()
         shareLive()
         tick()
@@ -239,7 +247,7 @@ final class TrainVM: ObservableObject {
                         kcal: l.kcal > 0 ? l.kcal : nil,
                         zones: l.zoneSec.map { Int((Double($0) / 60).rounded()) },
                         curve: downsample(l.samples, 48),
-                        thr: thresholds(l.maxHR),
+                        thr: l.thr ?? thresholds(l.maxHR),
                         serve: all.isEmpty ? nil : OutServe(ins: all.filter { $0 }.count, outs: all.filter { !$0 }.count, minutes: max(1, Int(sMin / 60))),
                         tag: l.tag, hkid: nil)
     }
@@ -534,7 +542,7 @@ struct TrainEndView: View {
                     if l.sent { Image(systemName: "checkmark.circle.fill").font(.system(size: 22)).foregroundColor(.gazon) }
                 }
                 if l.samples.count > 1 {
-                    HRCurve(pts: downsample(l.samples, 60), thr: thresholds(l.maxHR), lineWidth: 2.5).frame(height: 52)
+                    HRCurve(pts: downsample(l.samples, 60), thr: l.thr ?? thresholds(l.maxHR), lineWidth: 2.5).frame(height: 52)
                     ZoneMinutes(sec: l.zoneSec)
                 }
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
