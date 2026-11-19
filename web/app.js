@@ -8378,36 +8378,31 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Le cap remplace « Ce que le coach te demande ». Il vise l'échelon au-dessus, à la 1re sortie à 45 jours ou plus,
   // et se garde (S.cap) jusqu'à son échéance pour que le compteur ne reparte pas de zéro à chaque match.
   function capData(c) {
-    var cur = c.cur < 0 ? 0 : c.cur, p = c.proj, t = today();
+    var cur = c.cur < 0 ? 0 : c.cur, p = c.proj, t = today(), MO = 30.4 * 864e5;
     if (p.status === "top" || p.status === "montee" || cur >= E.MAX_CALC || !p.next || !p.next.norme) return null;
     var sg = function (m) { return m.date && !m.dbl && !m.wo && (m.result === "V" || m.result === "D") && E.idx(m.oppRank) != null; };
-    var yOf = function (lv) { return playedOf(p.matches).filter(function (m) { return sg(m) && E.idx(m.oppRank) >= lv; }); };
-    // Chance de victoire lissée (3 matchs fictifs à 40 %) : 1 sur 4 ne fait pas croire qu'il faut 4 matchs par victoire
-    var rateOf = function (y) { var v = y.filter(function (m) { return m.result === "V"; }).length; return Math.max(0.25, (v + 1.2) / (y.length + 3)); };
-    // Ton rythme réel : matchs par mois contre ce niveau sur 12 mois (au moins 1 par mois : équipes, indivs, un tournoi), +25 % pour l'effort
-    var paceOf = function (y) { return Math.max(1, y.length / 12); };
     var tgt = Math.min(cur + 1, E.MAX_CALC), cp = S.cap;
-    if (!cp || cp.v !== 2 || cp.tgt !== tgt || E.parseDate(cp.by) < t) {
+    if (!cp || cp.v !== 3 || cp.tgt !== tgt || E.parseDate(cp.by) < t) {
       var w = winsFor(c, tgt), top = w.top != null && w.top <= 4 ? w.top : null, n = top || (w.n <= 6 ? w.n : null);
       if (!n) return null;
-      var lv0 = top ? tgt : w.lvl, y0 = yOf(lv0), need0 = Math.max(n, Math.ceil(n / rateOf(y0))), pm = paceOf(y0) * 1.25;
-      // Échéance : la 1re sortie à 45 jours ou plus où ce nombre de matchs tient dans ton rythme (12 mois au plus)
-      var rel = p.release; for (var i = 0; i < 12 && (rel - t) / 864e5 < 45; i++) rel = E.nextRelease(rel);
-      for (var j = 0; j < 12 && need0 > Math.floor(pm * (rel - t) / (30.4 * 864e5)); j++) { var nx = E.nextRelease(rel); if ((nx - t) / 864e5 > 366) break; rel = nx; }
+      // Yann (19/11) : on vise des victoires, jamais un nombre de matchs. Rythme : 1 victoire par mois,
+      // donc l'échéance est la 1re sortie de classement à n mois ou plus (45 jours au moins).
+      var rel = p.release; for (var i = 0; i < 24 && (rel - t) < Math.max(45 * 864e5, n * MO); i++) rel = E.nextRelease(rel);
       var by = new Date(rel.getTime() - 864e5);
-      cp = S.cap = { v: 2, tgt: tgt, lvl: lv0, n: n, at: E.iso(t), by: E.iso(by), rel: E.iso(rel) };
+      cp = S.cap = { v: 3, tgt: tgt, lvl: top ? tgt : w.lvl, n: n, at: E.iso(t), by: E.iso(by), rel: E.iso(rel) };
       save();
     }
-    var at = cp.at, lvl = cp.lvl;
+    var at = cp.at, lvl = cp.lvl, atD = E.parseDate(at), byD = E.parseDate(cp.by);
     var since = S.matches.filter(function (m) { return sg(m) && m.date >= at; });
     var won = since.filter(function (m) { return m.result === "V" && E.idx(m.oppRank) >= lvl; });
-    var played = since.filter(function (m) { return E.idx(m.oppRank) >= lvl; });
-    var y = yOf(lvl), yv = y.filter(function (m) { return m.result === "V"; }).length;
-    var rate = rateOf(y), left = Math.max(0, cp.n - won.length), byD = E.parseDate(cp.by);
+    var y = playedOf(p.matches).filter(function (m) { return sg(m) && E.idx(m.oppRank) >= lvl; }), yv = y.filter(function (m) { return m.result === "V"; }).length;
+    // Le mois en cours du cap : 1 victoire à aller chercher avant sa fin (le dernier mois va jusqu'à l'échéance)
+    var mi = Math.max(0, Math.min(cp.n - 1, Math.floor((t - atD) / MO))), mS = new Date(atD.getTime() + mi * MO), mE = mi === cp.n - 1 ? byD : new Date(atD.getTime() + (mi + 1) * MO - 864e5);
+    var mWon = won.filter(function (m) { return m.date >= E.iso(mS) && m.date <= E.iso(mE); }).length;
     var pts = 0; try { pts = E.BAREME.win(lvl - tgt); } catch (e) { pts = 0; }
-    var needM = Math.max(left, Math.ceil(left / rate)), mo = Math.max(1, (byD - t) / (30.4 * 864e5));
-    return { tgt: tgt, lvl: lvl, n: cp.n, at: at, by: byD, rel: E.parseDate(cp.rel), won: won, played: played, yv: yv, yn: y.length, ym: y,
-      needM: needM, perM: Math.max(1, Math.round(Math.max(0, needM - played.length) / mo)), pace: Math.round(y.length / 12 * 10) / 10, rate: Math.round(rate * 100),
+    var mon = function (d) { return d.toLocaleDateString("fr-FR", { month: "long" }); };
+    return { tgt: tgt, lvl: lvl, n: cp.n, at: at, by: byD, rel: E.parseDate(cp.rel), won: won, yv: yv, yn: y.length, ym: y,
+      mi: mi, mEnd: mE, mWon: mWon, mDays: Math.max(0, Math.round((mE - t) / 864e5)), m1: mon(atD), m2: mon(new Date(atD.getTime() + (cp.n - 1) * MO + 15 * 864e5)),
       days: Math.max(0, Math.round((byD - t) / 864e5)), gap: Math.max(0, p.next.norme - p.next.total), pts: pts, done: won.length >= cp.n };
   }
   function capDots(n, k) { if (n > 6) return '<span class="cap-bar" role="img" aria-label="' + k + " sur " + n + '"><i style="width:' + Math.round(100 * Math.min(k, n) / n) + '%"></i></span>'; var o = ""; for (var i = 0; i < n; i++) o += '<i class="' + (i < k ? "on" : "") + '"></i>'; return '<span class="cap-dots">' + o + "</span>"; }
@@ -8419,9 +8414,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<div class="cap-row">' + capDots(cp.n, cp.won.length) + '<small>' + cp.won.length + " sur " + cp.n + " · coché tout seul dès qu'un match entre</small></div>" +
       '<div class="cap-kv">' +
       (cp.gap ? "<span>Pourquoi " + cp.n + "</span><b>il te manque " + cp.gap + " pts" + (cp.pts ? ", un " + L(cp.lvl) + " battu en vaut " + cp.pts : "") + "</b>" : "") +
-      (cp.yn ? "<span>Faisable</span><b>cette saison, tu en as battu " + (cp.yn ? '<button class="num-l" data-a="sheet" data-k="capm" data-v="1">' + cp.yv + " sur " + cp.yn + "</button>" : "") + "</b>" : "") +
+      "<span>Le rythme</span><b>1 victoire par mois" + (cp.n > 1 ? (cp.m1 === cp.m2 ? "" : ", de " + cp.m1 + " à " + cp.m2) : "") + "</b>" +
+      (cp.yn ? '<span>Cette saison</span><b>tu en as battu <button class="num-l" data-a="sheet" data-k="capm" data-v="1">' + cp.yv + " sur " + cp.yn + "</button>" + (cp.yv / cp.yn < 0.34 ? " : c'est le vrai défi" : "") + "</b>" : "") +
       '<span>Ce que ça donne</span><b class="g">' + L(cp.tgt) + " à la sortie du " + esc(fdate(cp.rel).replace(/\.$/, "")) + "</b>" +
-      "<span>Il te faut</span><b>≈ " + plural(cp.needM, "match") + " contre des " + L(cp.lvl) + " ou mieux, ≈ " + cp.perM + " par mois" + (cp.played.length ? " (" + cp.played.length + " joué" + (cp.played.length > 1 ? "s" : "") + ")" : "") + "</b></div>" +
+      "</div>" +
       '<button class="go-pill right" data-a="sheet" data-k="capm" data-v="1">Les matchs ' + I.next + "</button></div>";
     return s;
   }
@@ -8430,7 +8426,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var P = d.P, out = [], at = cp ? cp.at : E.iso(today()), by = cp ? cp.by : null, due = by ? " d'ici le " + fdate(by).replace(/\.$/, "") : "";
     var sg = function (m) { return m.date >= at && !m.dbl && !m.wo && (m.result === "V" || m.result === "D"); }, since = S.matches.filter(sg).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     var s1 = function (m) { var x = setsOf(m.score); return x.length ? x[0][0] > x[0][1] : null; };
-    if (cp && !cp.done) out.push({ t: "Joue " + plural(cp.needM, "match") + " contre des " + lab(cp.lvl) + " ou mieux" + due + ".", s: "Tu gagnes ≈ " + cp.rate + " % de ces matchs : il en faut " + cp.needM + " pour " + plural(cp.n, "victoire") + ". Soit ≈ " + cp.perM + " par mois. Sur 12 mois, tu en as joué " + cp.yn + " : l'échéance en tient compte.", n: cp.needM, k: Math.min(cp.needM, cp.played.length) });
+    if (cp && !cp.done) { var nth = Math.min(cp.n, cp.won.length + 1), mok = cp.mWon >= 1; out.push({ t: "Ce mois-ci : bats 1 joueur classé " + lab(cp.lvl) + " ou mieux, avant le " + fdate(cp.mEnd).replace(/\.$/, "") + ".", s: (mok ? "Fait pour ce mois. " : "") + (cp.n > 1 ? "C'est la " + (nth === 1 ? "1re" : nth + "e") + " des " + cp.n + " victoires de ton cap. " : "C'est la victoire de ton cap. ") + "Choisis le match où tu as le plus de chances : ta chance est sur la fiche de chaque adversaire.", n: 1, k: mok ? 1 : 0, left: mok ? "" : plural(cp.mDays, "jour") + " restant" + (cp.mDays > 1 ? "s" : "") }); }
     var M = P.R.mental;
     if (M && M.g && M.g.n >= 4 && (M.st === "faible" || cpSurv(M))) {
       var l1 = since.filter(function (m) { return s1(m) === false; }).slice(0, 3);
@@ -8459,7 +8455,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var ok = o.dots ? o.dots.filter(function (x) { return x === "on"; }).length >= 1 : o.k >= o.n;
       var dots = o.dots ? '<span class="cap-dots">' + [0, 1, 2].map(function (j) { return '<i class="' + (o.dots[j] || "") + '"></i>'; }).join("") + "</span>" : capDots(o.n, o.k);
       var btn = o.num ? '<button class="go-pill" data-a="sheet" data-k="num" data-v="' + esc(o.num) + '">Le détail ' + I.next + "</button>" : o.go ? (o.go[1] === "defend" ? '<button class="go-pill" data-a="goDefend">' : '<a class="go-pill" href="#/' + o.go[1] + '">') + esc(o.go[0]) + " " + I.next + (o.go[1] === "defend" ? "</button>" : "</a>") : "";
-      return '<div class="cap-o' + (ok ? " ok" : "") + '"><span class="cap-n">' + (ok ? "✓" : i + 1) + '</span><span class="grow"><b>' + esc(o.t) + "</b><small>" + esc(o.s) + '</small><span class="cap-row">' + dots + '<small class="grow">' + (ok ? "fait" : o.dots ? o.dots.length + " sur 3 joués" : o.k + " sur " + o.n) + "</small>" + btn + "</span></span></div>";
+      return '<div class="cap-o' + (ok ? " ok" : "") + '"><span class="cap-n">' + (ok ? "✓" : i + 1) + '</span><span class="grow"><b>' + esc(o.t) + "</b><small>" + esc(o.s) + '</small><span class="cap-row">' + dots + '<small class="grow">' + (ok ? "fait" : o.dots ? o.dots.length + " sur 3 joués" : o.k + " sur " + o.n + (o.left ? " · " + o.left : "")) + "</small>" + btn + "</span></span></div>";
     }).join("") + '<span class="ch-how">Tout se coche d\'après tes matchs. Une consigne réussie laisse la place à la suivante.</span></div>';
   }
   V.coach = function () {
@@ -9366,7 +9362,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     capm: function () {
       var cp = null; try { cp = capData(ctx()); } catch (e) {} if (!cp) return null;
       var rows = cp.ym.slice().sort(byDateDesc).map(function (m) { var nw = m.date >= cp.at; return '<a class="num-r" href="#/match/' + esc(m.id) + '"><span class="vd ' + m.result + '">' + m.result + '</span><span class="grow"><b>' + esc(nameCase(m.opp || "") || "Adversaire") + "</b> <small>· " + esc(m.oppRank || "") + '</small><small class="d">' + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + "</small></span><em>" + (nw ? "pour ton cap" : "") + "</em></a>"; }).join("");
-      return { title: "Ton cap · les matchs", body: '<div class="card num-c"><div class="num-calc"><b>Le calcul.</b> Il te manque ' + cp.gap + " pts pour " + esc(lab(cp.tgt)) + ". Montée rejoue ton bilan avec des victoires en plus : il en faut " + cp.n + " contre des " + esc(lab(cp.lvl)) + " ou mieux. Tu gagnes ≈ " + cp.rate + " % de ces matchs (tes résultats sur 12 mois, lissés), donc ≈ " + plural(cp.needM, "match") + " à jouer. L'échéance est la 1re sortie de classement où ce nombre tient dans ton rythme (" + plural(cp.yn, "match") + " contre ce niveau sur 12 mois, au moins 1 par mois, un peu plus avec l'effort). Le compteur part du " + esc(fdate(cp.at)) + " ; chaque victoire en simple contre ce classement ou mieux, homologuée ou saisie, coche une case.</div>" +
+      return { title: "Ton cap · les matchs", body: '<div class="card num-c"><div class="num-calc"><b>Le calcul.</b> Il te manque ' + cp.gap + " pts pour " + esc(lab(cp.tgt)) + ". Montée rejoue ton bilan avec des victoires en plus : il en faut " + cp.n + " contre des " + esc(lab(cp.lvl)) + " ou mieux. Le rythme : 1 victoire par mois, d'où l'échéance (" + esc(fdate(cp.by).replace(/\.$/, "")) + ", veille de la sortie). Cette saison, tu en as battu " + cp.yv + " sur " + cp.yn + ". Le compteur part du " + esc(fdate(cp.at)) + " ; chaque victoire en simple contre ce classement ou mieux, homologuée ou saisie, coche une case.</div>" +
         '<span class="num-h">Tes matchs contre des ' + esc(lab(cp.lvl)) + " ou mieux" + " · 12 mois</span>" + (rows || '<span class="small">Aucun pour l\'instant.</span>') + "</div>" };
     },
     // 3.48.7 (Yann) : le palmarès d'une saison (passée : ton palmarès Ten'Up de la saison ; en cours : tes matchs)
