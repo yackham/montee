@@ -11,7 +11,7 @@ workflows:
       java: 21
       # Clé de signature Android, rangée dans Codemagic (plus dans le dépôt)
       android_signing:
-        - montee_keystore
+        - montee-test.keystore
     scripts:
       - name: Dézipper le projet
         script: |
@@ -30,8 +30,8 @@ workflows:
         script: cd montee && npm run sync:android
       - name: Clé de signature Android (fournie par Codemagic)
         script: |
-          # Codemagic › Team settings › Code signing identities › Android keystores, nom « montee_keystore »
-          if [ -z "$CM_KEYSTORE_PATH" ]; then echo "CLÉ ANDROID MANQUANTE : ajoute le keystore dans Codemagic sous le nom montee_keystore."; exit 1; fi
+          # Codemagic › Team settings › Code signing identities › Android keystores, nom « montee-test.keystore »
+          if [ -z "$CM_KEYSTORE_PATH" ]; then echo "CLÉ ANDROID MANQUANTE : ajoute le keystore dans Codemagic sous le nom montee-test.keystore."; exit 1; fi
           cat > montee/android/keystore.properties <<EOF
           storeFile=$CM_KEYSTORE_PATH
           storePassword=$CM_KEYSTORE_PASSWORD
@@ -57,7 +57,7 @@ workflows:
       java: 21
       # Clé de signature Android, rangée dans Codemagic (plus dans le dépôt)
       android_signing:
-        - montee_keystore
+        - montee-test.keystore
     scripts:
       - name: Dézipper le projet
         script: |
@@ -76,8 +76,8 @@ workflows:
         script: cd montee && npm run sync:android
       - name: Clé de signature Android (fournie par Codemagic)
         script: |
-          # Codemagic › Team settings › Code signing identities › Android keystores, nom « montee_keystore »
-          if [ -z "$CM_KEYSTORE_PATH" ]; then echo "CLÉ ANDROID MANQUANTE : ajoute le keystore dans Codemagic sous le nom montee_keystore."; exit 1; fi
+          # Codemagic › Team settings › Code signing identities › Android keystores, nom « montee-test.keystore »
+          if [ -z "$CM_KEYSTORE_PATH" ]; then echo "CLÉ ANDROID MANQUANTE : ajoute le keystore dans Codemagic sous le nom montee-test.keystore."; exit 1; fi
           cat > montee/android/keystore.properties <<EOF
           storeFile=$CM_KEYSTORE_PATH
           storePassword=$CM_KEYSTORE_PASSWORD
