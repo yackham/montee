@@ -1237,6 +1237,7 @@ body.glow::before { content: ""; position: absolute; left: 0; right: 0; top: 0; 
 .an-tx > span { font-size: 14px; line-height: 1.42; color: var(--muted); }
 .an-k { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
 .an-note { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.an-note.an-foot { font-size: 12px; padding-top: 8px; border-top: 1px solid var(--line, rgba(0,0,0,.06)); } /* 3.55 (audit R9) */
 .an-streak { display: flex; gap: 4px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 .an-streak i { width: 22px; height: 22px; border-radius: 11px; font-style: normal; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; background: var(--gazon); color: var(--on-gazon); }
 .an-streak i.you { background: var(--terre); color: var(--on-terre); box-shadow: 0 0 0 2.5px var(--balle); }
@@ -4523,3 +4524,41 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .tf-m i { width: 9px; height: 9px; display: inline-block; } .tf-m i.s { border-radius: 2px; } .tf-m i.d { border-radius: 50%; } .tf-m i.V { background: var(--gazon); } .tf-m i.D { background: var(--terre); }
 .tf-pl { font-size: 12px; color: var(--muted); } .tf-pl b { color: var(--ink); } .tf-pl .up { color: var(--gazon); } .tf-pl .dn { color: var(--terre); }
 .tm-oth { padding: 0; } .tm-oh { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 16px 18px; font-size: 15px; }
+.qa1-more { font-weight: 500; color: var(--muted); font-size: .85em; } /* 3.55 (audit R12) */
+/* 3.55 (Yann, maquette I) : accueil de première synchro */
+.fr-w { gap: 10px; }
+.fr-top { display: flex; align-items: flex-start; gap: 10px; }
+.fr-tx { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.fr-tx b { font-size: 19px; line-height: 1.25; letter-spacing: -.01em; }
+.fr-tx .eyebrow svg { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
+.fr-x { flex: none; margin-left: auto; background: none; border: 0; color: var(--muted); font-size: 17px; padding: 2px 4px; min-height: 0; cursor: pointer; }
+.fr-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.fr-chip { background: var(--chip); color: var(--ink); border-radius: 99px; padding: 7px 12px; font-size: 13.5px; font-weight: 600; text-decoration: none; }
+.qa-fresh { flex-direction: column; align-items: stretch; }
+.qa-fresh .qa1-r b { display: flex; flex-direction: column; gap: 2px; }
+.qa-fresh .qa1-r b .qa1-more { font-size: 13px; }
+.qa-fn { text-align: left; padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--line); line-height: 1.4; }
+.qa-fresh .qa1-r b .qa1-more { white-space: normal; }
+/* 3.55 (Yann, maquette F) : paliers illustrés dans Activité */
+.pal-c { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; text-decoration: none; color: inherit; }
+.pal-i { flex: none; width: 60px; height: 60px; }
+.pal-i svg { width: 60px; height: 60px; display: block; border-radius: 14px; }
+.pal-t { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pal-e { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--gazon); }
+.pal-t b { font-size: 16px; line-height: 1.25; }
+.pal-t > span:last-child { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.pal-go { flex: none; margin-left: auto; color: var(--muted); display: flex; }
+.pal-go svg { width: 18px; height: 18px; }
+/* 3.55 (Yann, maquette H) : légende du profil en pétales */
+.cp-lg2 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 4px 0 2px; }
+.cp-lg2 span { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px; color: var(--ink); text-align: center; line-height: 1.2; }
+.cp-lg2 span.lock { color: var(--muted); }
+.cp-lg2 small { color: var(--muted); font-size: 11px; }
+.cp-lg2-n { font-size: 12.5px; color: var(--muted); text-align: center; margin: 2px 8px 0; line-height: 1.4; }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) :is(.cp-lg2 span, .cp-lg2-n, .cp-lg2 small) { color: var(--page-ink, var(--ink)); }
+/* 3.55 (Yann, maquette G) : états vides illustrés */
+.emp-c { align-items: center; text-align: center; gap: 8px; padding: 22px 18px; }
+.emp-c > svg { width: 160px; height: 96px; color: var(--ink); }
+.emp-c b { font-size: 18px; }
+.emp-c p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.45; }
+.emp-c .btn { align-self: stretch; margin-top: 6px; }
