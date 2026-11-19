@@ -1018,6 +1018,9 @@ struct WarmupView: View {
         let wu = vm.warmup
         ScrollView {
             VStack(alignment: .leading, spacing: 7) {
+                if wu?.guided == true {
+                    GuidedWarm(wu: wu, bpm: w.bpm)
+                } else {
                 Text("Échauffement").font(.system(size: 13, weight: .heavy)).foregroundColor(.balle)
                 TimelineView(.periodic(from: .now, by: 1)) { c in
                     let s = Int(c.date.timeIntervalSince(wu?.t0 ?? c.date))
@@ -1027,7 +1030,10 @@ struct WarmupView: View {
                         if w.bpm > 0 { Text("♥ \(Int(w.bpm))").font(.system(size: 14, weight: .bold)).foregroundColor(.red) }
                     }
                 }
-                Text("contre " + (wu?.opp.name ?? "")).font(.system(size: 11.5, weight: .semibold)).foregroundColor(.secondary).lineLimit(1)
+                }
+                if !(wu?.opp.name ?? "").isEmpty {
+                    Text("contre " + (wu?.opp.name ?? "")).font(.system(size: 11.5, weight: .semibold)).foregroundColor(.secondary).lineLimit(1)
+                }
                 Text("Qui sert ?").font(.system(size: 13, weight: .heavy)).padding(.top, 2)
                 ServeChoice(srv: $srv)
                 Button { go() } label: {
@@ -1047,6 +1053,39 @@ struct WarmupView: View {
     func go() {
         guard let s = srv, let wu = vm.warmup else { return }
         vm.begin(opp: wu.opp, hom: wu.hom, fmt: wu.fmt, srv0: s)
+    }
+}
+
+/// 3.55 : échauffement guidé : l'étape, le temps qui reste, puis ta phrase du plan de jeu
+struct GuidedWarm: View {
+    let wu: WarmUp?
+    let bpm: Double
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { c in
+            let e = Int(c.date.timeIntervalSince(wu?.t0 ?? c.date))
+            let st = warmStep(e)
+            VStack(alignment: .leading, spacing: 5) {
+                if st.k < WARM_STEPS.count {
+                    let x = WARM_STEPS[st.k]
+                    Text("Étape \(st.k + 1) sur \(WARM_STEPS.count) · " + x.t).font(.system(size: 13, weight: .heavy)).foregroundColor(.balle).lineLimit(1)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(String(format: "%d:%02d", st.left / 60, st.left % 60)).font(.system(size: 30, weight: .heavy)).monospacedDigit()
+                        Spacer()
+                        if bpm > 0 { Text("♥ \(Int(bpm))").font(.system(size: 14, weight: .bold)).foregroundColor(.red) }
+                    }
+                    if st.k == WARM_STEPS.count - 1 { Quote(t: phrase) }
+                    Text(x.s).font(.system(size: 11.5, weight: .semibold)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("Prêt. À toi de jouer.").font(.system(size: 15, weight: .heavy)).foregroundColor(.balle)
+                    Quote(t: phrase)
+                }
+            }
+        }
+    }
+    var phrase: String {
+        if let t = wu?.opp.plan?.first?.t, !t.isEmpty { return t }
+        if let t = wu?.opp.tip, !t.isEmpty { return t }
+        return "Premier jeu, première balle avec de la marge, et fais-le jouer."
     }
 }
 

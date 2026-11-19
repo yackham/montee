@@ -541,7 +541,8 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "storeManage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "watchSync", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "watchTake", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "watchStatus", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "watchStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "watchWarm", returnType: CAPPluginReturnPromise)
     ]
 
     override public func load() {
@@ -622,6 +623,21 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func watchStatus(_ call: CAPPluginCall) {
         let s = WCSession.isSupported() ? WCSession.default : nil
         call.resolve(["supported": s != nil, "paired": s?.isPaired ?? false, "installed": s?.isWatchAppInstalled ?? false])
+    }
+
+    /// 3.55 : échauffement guidé. Ouvre Montée sur la montre (séance tennis) puis lui dit quel adversaire.
+    @objc func watchWarm(_ call: CAPPluginCall) {
+        let oid = call.getString("oid") ?? ""
+        guard WCSession.isSupported(), WCSession.default.isPaired, WCSession.default.isWatchAppInstalled else {
+            call.resolve(["ok": false]); return
+        }
+        let cfg = HKWorkoutConfiguration()
+        cfg.activityType = .tennis
+        cfg.locationType = .outdoor
+        MonteeHealth.store.startWatchApp(with: cfg) { ok, _ in
+            WatchLink.shared.warm(oid)
+            call.resolve(["ok": ok])
+        }
     }
 
     // ---------- Widgets ----------
@@ -1267,6 +1283,19 @@ final class WatchLink: NSObject, WCSessionDelegate {
         let s = WCSession.default
         guard s.activationState == .activated, s.isPaired, s.isWatchAppInstalled else { return }
         try? s.updateApplicationContext(["json": json, "at": Date().timeIntervalSince1970])
+    }
+
+    /// 3.55 : l'échauffement guidé. En direct si la montre est joignable, sinon en file (reçu à l'ouverture).
+    func warm(_ oid: String) {
+        guard WCSession.isSupported() else { return }
+        let s = WCSession.default
+        guard s.activationState == .activated else { return }
+        let msg: [String: Any] = ["warm": oid, "at": Date().timeIntervalSince1970]
+        if s.isReachable {
+            s.sendMessage(msg, replyHandler: nil) { _ in _ = s.transferUserInfo(msg) }
+        } else {
+            _ = s.transferUserInfo(msg)
+        }
     }
 
     func take() -> [String] {

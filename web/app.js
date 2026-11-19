@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.54.3",
+    VERSION: "3.55.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -8751,6 +8751,28 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return body;
   }
   var DET = {
+    // 3.55 : échauffement guidé (les étapes, l'envoi à la montre, la version iPhone)
+    warm: function (id) { var pl = planOf(id); if (!pl) return null; return { title: "Échauffement guidé", sub: "8 minutes, une vibration à chaque étape. Rien à regarder pendant l'effort.", body: warmSheetBody(pl, false) + '<span class="small">La phrase vient de ton plan de jeu contre ' + esc(pl.name || "cet adversaire") + ".</span>" }; },
+    warmFree: function (id) {
+      var pl = planOf(id); if (!pl) return null; var w = S.watchSt || {};
+      return { title: "Échauffement guidé · Montée+", sub: w.installed ? "Ton match montre offert du mois comprend l'échauffement. Avec Montée+, à chaque match." : "Avec Montée+, à chaque match, sur ta montre ou ton iPhone.", body: warmSheetBody(pl, false) +
+        '<div class="ls-foot"><button class="go-pill" data-a="goSoutenirComp">Montée+ ' + I.next + "</button>" + (w.installed ? '<button class="btn primary small" data-a="warmFreeGo" data-id="' + esc(id) + '">Utiliser le match offert</button>' : "") + "</div>" };
+    },
+    warmWait: function () { return { title: "Sur ta montre", sub: "Montée s'ouvre sur ta montre…", body: "" }; },
+    warmOk: function (id) {
+      var pl = planOf(id); if (!pl) return null;
+      return { title: "C'est parti. Lève le poignet.", sub: "Montée s'est ouverte sur ta montre à l'étape 1. Tu peux ranger ton téléphone : tout se passe au poignet, et ton cardio compte dans la séance.", body: warmSheetBody(pl, false) };
+    },
+    warmKo: function (id) {
+      var pl = planOf(id); if (!pl) return null;
+      return { title: "Ouvre Montée sur ta montre", sub: "Elle est peut-être verrouillée ou trop loin. Dès que tu ouvres Montée au poignet, l'échauffement t'attend en premier écran.", body: '<p class="small">Pas ta montre sous la main ? Fais-le sur l\'iPhone : mêmes 4 étapes, avec une vibration à chaque changement.</p><div class="ls-foot"><button class="go-pill" data-a="warmGo" data-id="' + esc(id) + '" data-ok="1">Réessayer ' + I.next + '</button><button class="btn primary small" data-a="warmPhone" data-id="' + esc(id) + '">Sur l\'iPhone</button></div>' };
+    },
+    warmPhone: function (id) {
+      var pl = planOf(id), W = UI.warm; if (!pl || !W || !W.phone) return null;
+      var done = W.k >= WARM.length;
+      return { title: done ? "Prêt. À toi de jouer." : "Échauffement guidé", sub: done ? "Ton plan de jeu t'attend, le mode match aussi." : "Garde l'iPhone à côté : il vibre à chaque étape.", body: warmSheetBody(pl, true) +
+        '<div class="ls-foot">' + (done ? '<button class="go-pill" data-a="warmStop">Fermer</button><button class="btn primary small" data-a="planGo" data-id="' + esc(id) + '">Lancer le match</button>' : '<button class="go-pill" data-a="warmStop">Arrêter</button>') + "</div>" };
+    },
     // 3.55 : aperçu du point pour ton prof (le texte exact qui part)
     prof: function () {
       var P = profData(); if (!P) return null;
@@ -9080,14 +9102,38 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         '<div class="jj-links"><button data-a="watchDrop" data-id="' + esc(w.wid) + '">' + I.cross + "Supprimer</button></div></div>";
     }).join("");
   }
+  // 3.55 (Yann, nouveautés 19/11) : échauffement guidé, 8 min en 4 étapes, sur la montre (ou l'iPhone)
+  var WARM = [["Corps", 180, "Footing, pas chassés, montées de genoux. Le cardio monte doucement."], ["Mini-tennis", 120, "Au filet avec l'adversaire : toucher, sans forcer."], ["Services", 120, "5 en 1re, 5 en 2de. Vise 70 % de 1res."], ["Ta phrase", 60, ""]];
+  function warmPhrase(pl) { var c = {}; try { c = watchCoach(pl && pl.name); } catch (e) {} return c.plan && c.plan[0] ? c.plan[0].t : "Premier jeu, première balle avec de la marge, et fais-le jouer."; }
+  function warmRow(pl) {
+    var w = S.watchSt || {};
+    return '<div class="wu-row"><span class="grow"><b>Échauffement guidé · 8 min</b>' + (isSup() ? "" : ' <span class="ch-plus">Montée+</span>') + '<span class="small">À lancer 15 min avant. ' + (w.installed ? "Le match démarre sur ta montre à la fin." : "Sur ton iPhone, un son et une vibration à chaque étape.") + '</span><button class="linkbtn wu-lnk" data-a="sheet" data-k="warm" data-v="' + esc(pl.id) + '">Les 4 étapes ›</button></span>' +
+      '<button class="wu-go" data-a="warmGo" data-id="' + esc(pl.id) + '" aria-label="' + (w.installed ? "Lancer l'échauffement sur la montre" : "Lancer l'échauffement") + '">' + (w.installed ? svg('<rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 6l1-3h4l1 3M9 18l1 3h4l1-3M12 10v2l1.5 1"/>', 2.2) : svg('<path d="M8 5v14l11-7z"/>', 2.2)) + "</button></div>";
+  }
+  // Sur l'iPhone : un chrono par étape, une vibration à chaque changement (l'écran peut rester allumé à côté)
+  var warmTimer = null;
+  function warmPhoneTick() {
+    var W = UI.warm; if (!W || !W.phone) { clearInterval(warmTimer); warmTimer = null; return; }
+    var s = Math.floor((Date.now() - W.t0) / 1000), acc = 0, k = 0;
+    while (k < WARM.length && s >= acc + WARM[k][1]) { acc += WARM[k][1]; k++; }
+    if (k !== W.k) { W.k = k; haptic(k >= WARM.length ? "success" : "medium"); if (navigator.vibrate) try { navigator.vibrate(200); } catch (e) {} render(); return; }
+    var el = document.getElementById("wu-clock"); if (el && k < WARM.length) { var r = acc + WARM[k][1] - s; el.textContent = Math.floor(r / 60) + ":" + ("0" + (r % 60)).slice(-2); }
+  }
+  function warmSheetBody(pl, live) {
+    var W = UI.warm, k = live && W ? W.k : -1, ph = warmPhrase(pl);
+    return '<div class="wu-steps">' + WARM.map(function (x, i) {
+      var st = k < 0 ? "" : i < k ? " ok" : i === k ? " on" : " off";
+      return '<div class="wu-st' + st + '"><i></i><span class="grow"><b>' + esc(x[0]) + " · " + (x[1] / 60) + " min</b><span class=\"small\">" + esc(i === 3 ? "« " + ph + " » Puis 3 respirations lentes." : x[2]) + "</span></span>" + (i === k ? '<em id="wu-clock"></em>' : "") + "</div>";
+    }).join("") + "</div>";
+  }
   function planHomeHtml() {
     // Tous les matchs à venir (plusieurs le même jour compris), du plus proche au plus lointain
     return plans().filter(function (x) { return dGap(x.day) === 0; }).slice(0, 4).map(function (pl) { // 3.46.2 : le match du jour, d'une épreuve aussi : bouton mode match // 3.46 : les suivants sont dans la frise
       // 3.46.5 (Yann) : une ligne : qui, quand, tes chances, et « Lancer » (la frise montre déjà le reste)
       var tr = pl.tour && tourOf(pl.tour), px = tr ? (tr.pool || []).filter(function (x) { return String(x.tid) === String(pl.id); })[0] : null;
       var when = ["Aujourd'hui", px && px.time ? px.time.replace(":", "h") : "", hostLab(px)].filter(Boolean).join(" · ");
-      return '<div class="card jj-card jj1"><a class="jj1-a" href="#/' + (tr ? "tournoi/" + esc(pl.tour) : "joueur/" + esc(pl.id)) + '"><span class="eyebrow">' + esc(when) + "</span><b>" + esc(pl.name || "Ton adversaire") + (pl.rank ? ' <span class="muted">· ' + esc(pl.rank) + "</span>" : "") + "</b>" + (pl.p != null ? "<small>" + pl.p + " % de chances" + (tr ? " · " + esc(tr.name) : "") + "</small>" : "") + "</a>" +
-        '<button class="btn primary jj1-go" data-a="planGo" data-id="' + esc(pl.id) + '">' + svg('<path d="M8 5v14l11-7z"/>', 2) + " Lancer</button></div>";
+      return '<div class="card jj-card jj1' + (IOS || !NATIVE ? " wu" : "") + '"><a class="jj1-a" href="#/' + (tr ? "tournoi/" + esc(pl.tour) : "joueur/" + esc(pl.id)) + '"><span class="eyebrow">' + esc(when) + "</span><b>" + esc(pl.name || "Ton adversaire") + (pl.rank ? ' <span class="muted">· ' + esc(pl.rank) + "</span>" : "") + "</b>" + (pl.p != null ? "<small>" + pl.p + " % de chances" + (tr ? " · " + esc(tr.name) : "") + "</small>" : "") + "</a>" +
+        '<button class="btn primary jj1-go" data-a="planGo" data-id="' + esc(pl.id) + '">' + svg('<path d="M8 5v14l11-7z"/>', 2) + " Lancer</button>" + (IOS || !NATIVE ? warmRow(pl) : "") + "</div>"; // 3.55 : échauffement guidé
     }).join("");
   }
   // Stats de service d'un match compté à la montre : toi à gauche, lui à droite
@@ -12336,6 +12382,25 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     leagueOut: function (el) { S.league = S.league || { y: seasonY(), start: {} }; S.league.out = (S.league.out || []).concat([el.dataset.v]); save(); render(); toast("Retiré de ta ligue. Tu le suis toujours."); },
     profSend: function () { var P = profData(); if (P) sharePlain(profText(P)); },
+    warmGo: function (el) {
+      var id = el.dataset.id, pl = planOf(id); if (!pl) return;
+      UI.warm = { id: id };
+      if (!isSup() && !el.dataset.ok) { UI.sheet = { k: "warmFree", v: id }; render(); return; }
+      var w = S.watchSt || {};
+      if (w.installed && Tenup && typeof Tenup.watchWarm === "function") {
+        UI.sheet = { k: "warmWait", v: id }; render();
+        Promise.resolve(Tenup.watchWarm({ oid: String(id) })).then(function (r) { UI.sheet = { k: r && r.ok ? "warmOk" : "warmKo", v: id }; render(); }, function () { UI.sheet = { k: "warmKo", v: id }; render(); });
+        return;
+      }
+      A.warmPhone(el);
+    },
+    warmFreeGo: function (el) { el.dataset.ok = "1"; A.warmGo(el); },
+    warmPhone: function (el) {
+      var id = el.dataset.id || (UI.warm && UI.warm.id); if (!planOf(id)) return;
+      UI.warm = { id: id, phone: true, t0: Date.now(), k: 0 }; UI.sheet = { k: "warmPhone", v: id }; haptic("medium"); render();
+      clearInterval(warmTimer); warmTimer = setInterval(warmPhoneTick, 1000); warmPhoneTick();
+    },
+    warmStop: function () { UI.warm = null; clearInterval(warmTimer); warmTimer = null; UI.sheet = null; render(); },
     rebondOpen: function () { UI.rebondOpen = !UI.rebondOpen; render(); },
     rebondHide: function (el) { S.rebond = S.rebond || {}; S.rebond.hid = el.dataset.v; save(); render(); toast("Masqué jusqu'à ta prochaine série."); },
     hideWatchCard: function () { S.prefs = S.prefs || {}; S.prefs.hideWatchCard = 1; UI.sheet = null; save(); render(); toast("Carte masquée. Tu la retrouves dans Réglages."); },

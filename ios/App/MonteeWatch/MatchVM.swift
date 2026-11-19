@@ -54,6 +54,25 @@ struct WarmUp: Codable {
     var hom: Bool
     var fmt: String
     var t0 = Date()
+    /// 3.55 : échauffement guidé lancé depuis l'iPhone (4 étapes, une vibration à chaque changement)
+    var guided: Bool? = nil
+}
+
+/// 3.55 : les 4 étapes de l'échauffement guidé (mêmes durées que l'iPhone), en secondes
+let WARM_STEPS: [(t: String, s: String, d: Int)] = [
+    ("Corps", "Footing, pas chassés, montées de genoux.", 180),
+    ("Mini-tennis", "Au filet : toucher, sans forcer.", 120),
+    ("Services", "5 en 1re, 5 en 2de. Vise 70 % de 1res.", 120),
+    ("Ta phrase", "Puis 3 respirations lentes.", 60)
+]
+/// Étape en cours (WARM_STEPS.count = terminé) et secondes restantes dans l'étape
+func warmStep(_ elapsed: Int) -> (k: Int, left: Int) {
+    var acc = 0
+    for (i, x) in WARM_STEPS.enumerated() {
+        if elapsed < acc + x.d { return (i, acc + x.d - elapsed) }
+        acc += x.d
+    }
+    return (WARM_STEPS.count, 0)
 }
 
 /// Ce que l'iPhone reçoit à la fin du match
@@ -94,7 +113,7 @@ final class MatchVM: ObservableObject {
             if l.t1 == nil { DispatchQueue.main.async { Workout.shared.start() } }
         } else if let d = UserDefaults.standard.data(forKey: wkey), let w = try? JSONDecoder().decode(WarmUp.self, from: d) {
             warmup = w
-            DispatchQueue.main.async { Workout.shared.start() }
+            DispatchQueue.main.async { Workout.shared.start(); self.scheduleWarmBuzz() }
         }
     }
 
@@ -104,11 +123,39 @@ final class MatchVM: ObservableObject {
     }
 
     /// Échauffement : la séance Tennis démarre (cardio, calories), le match n'est pas encore compté
-    func beginWarmup(opp: WOpp, hom: Bool, fmt: String) {
-        warmup = WarmUp(opp: opp, hom: hom, fmt: fmt)
+    func beginWarmup(opp: WOpp, hom: Bool, fmt: String, guided: Bool = false) {
+        warmup = WarmUp(opp: opp, hom: hom, fmt: fmt, guided: guided ? true : nil)
         saveWarm()
         Workout.shared.start()
         buzz(.start)
+        scheduleWarmBuzz()
+    }
+
+    /// 3.55 : l'iPhone précise l'adversaire après coup (la montre a pu s'ouvrir avant de recevoir le message)
+    func setWarmOpp(_ opp: WOpp) {
+        guard var w = warmup else { return }
+        w.opp = opp
+        if let h = opp.hom { w.hom = h }
+        warmup = w
+        saveWarm()
+    }
+
+    /// 3.55 : une vibration à chaque étape, même poignet baissé (la séance Santé garde l'app active)
+    private func scheduleWarmBuzz() {
+        guard let w = warmup, w.guided == true else { return }
+        let t0 = w.t0
+        var acc = 0
+        for (i, x) in WARM_STEPS.enumerated() {
+            acc += x.d
+            let at = t0.addingTimeInterval(TimeInterval(acc)).timeIntervalSinceNow
+            guard at > 0 else { continue }
+            let last = i == WARM_STEPS.count - 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + at) { [weak self] in
+                guard let self = self, self.live == nil, let cur = self.warmup, cur.t0 == t0 else { return }
+                self.buzz(last ? .success : .directionUp)
+                if last { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { WKInterfaceDevice.current().play(.success) } }
+            }
+        }
     }
 
     func cancelWarmup() {
