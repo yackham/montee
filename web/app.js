@@ -4478,10 +4478,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var tags = (m.felt || []).map(function (k) { return feltLabel(m, k); }), snap = planSnapOf(m), res = m.planRes || {}, auto = planAuto(m), ok = [], ko = [];
     (snap || []).forEach(function (st) { var r = res[st.id] != null ? res[st.id] : auto[st.id]; if (r === 1) ok.push(st.t); else if (r === 0) ko.push(st.t); });
     var li = function (c, t, s) { return '<div class="lt-r"><i class="' + c + '"></i><div><b>' + t + '</b><span class="small">' + esc(s) + "</span></div></div>"; };
-    return '<a class="card lt2" href="#/match/' + m.id + '"><span class="eyebrow">La dernière fois · ' + esc(fdate(m.date).replace(/\.$/, "")) + "</span><b>" + (m.result === "V" ? "Victoire" : "Défaite") + " " + esc(m.score || "") + "</b>" +
+    // 3.55 (Yann : « le lien est toujours mort ») : lien seulement vers une fiche qui s'ouvre vraiment (tes matchs, ou une saison passée relue) ; sinon une carte simple
+    var open = m.id && (S.matches.some(function (x) { return x.id === m.id; }) || (S.histMatches || []).some(function (x) { return x.id === m.id && !x.dbl; }));
+    var tagO = open ? '<a class="card lt2" href="#/match/' + esc(m.id) + '">' : '<div class="card lt2">', tagC = open ? "</a>" : "</div>";
+    return tagO + '<span class="eyebrow">La dernière fois · ' + esc(fdate(m.date).replace(/\.$/, "")) + "</span><b>" + (m.result === "V" ? "Victoire" : "Défaite") + " " + esc(m.score || "") + "</b>" +
       (tags.length ? li("n", "Tu l'as senti", tags.join(" · ")) : "") + (ok.length ? li("g", "Ce qui a marché", ok.join(" · ")) : "") + (ko.length ? li("t", "Ce qui a raté", ko.join(" · ")) : "") +
       (m.note ? li("n", "Ta note", "« " + String(m.note).trim().slice(0, 120) + " »") : "") +
-      (!tags.length && !ok.length && !ko.length && !m.note ? '<span class="small">Raconte ce match pour que ta revanche en profite.</span>' : "") + "</a>";
+      (!tags.length && !ok.length && !ko.length && !m.note && open ? '<span class="small">Raconte ce match pour que ta revanche en profite.</span>' : "") + tagC;
   }
   // ---------- Ton jeu (profil) ----------
   function myMeasured() {
@@ -6902,20 +6905,36 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 2 · Ce que ça change en match : chaque match rangé selon ton entraînement de la semaine d'avant
     var by = {}; TR.forEach(function (x) { if (x.date) by[x.date] = (by[x.date] || 0) + playMinutes(x); });
     var cut = E.iso(new Date(t.getTime() - 365 * 864e5)), ms12 = playedOf(S.matches).filter(function (m) { return m.date >= cut; });
-    var B = [{ l: "Rien", lo: 0, hi: 1 }, { l: "< 1 h 30", lo: 1, hi: 90 }, { l: "1 h 30 à 3 h", lo: 90, hi: 180 }, { l: "3 h et +", lo: 180, hi: 1e9 }].map(function (b) { b.ms = []; return b; });
-    ms12.forEach(function (m) { var h = loadBefore(by, E.parseDate(m.date), 7); B.filter(function (b) { return h >= b.lo && h < b.hi; })[0].ms.push(m); });
-    if (TR.length >= 4 && ms12.length >= 6) {
-      var ok = B.filter(function (b) { return b.ms.length >= 3; }), pc = function (b) { return Math.round(b.ms.filter(function (m) { return m.result === "V"; }).length / b.ms.length * 100); };
-      var best = ok.slice().sort(function (x, y) { return pc(y) - pc(x); })[0], worst = ok.slice().sort(function (x, y) { return pc(x) - pc(y); })[0];
-      var head = best && worst && pc(best) - pc(worst) >= 12 ? "Tu gagnes le plus après une semaine à <b>" + best.l.toLowerCase().replace("rien", "zéro entraînement") + "</b> d'entraînement : <b>" + pc(best) + " %</b> de victoires." : "L'entraînement de la semaine d'avant ne change pas grand-chose à tes résultats.";
-      var cap = 10;
-      o += '<div class="card te"><span class="eyebrow">Ce que ça change en match</span><b class="te-h">' + head + "</b>" +
-        '<div class="te-g">' + B.map(function (b) {
-          var vs = b.ms.slice().sort(function (x, y) { return x.result === y.result ? 0 : x.result === "V" ? -1 : 1; }), more = vs.length > cap ? vs.length - cap : 0;
-          return '<div class="te-c' + (b === best && ok.length > 1 ? " best" : "") + '"><small class="p">' + (b.ms.length >= 3 ? pc(b) + " %" : b.ms.length ? "–" : "") + '</small><span class="te-st">' + (more ? '<em>+' + more + "</em>" : "") + vs.slice(0, cap).reverse().map(function (m) { return '<i class="' + (m.result === "V" ? "v" : "d") + '"></i>'; }).join("") + '</span><small class="l">' + b.l + "</small></div>";
-        }).join("") + "</div>" +
-        '<span class="ch-how">Tes ' + plural(ms12.length, "match", "matchs") + " des 12 derniers mois, rangés selon tes heures d'entraînement les 7 jours d'avant. Carré vert : victoire, orange : défaite.</span></div>";
-    } else if (TR.length) o += '<div class="card te"><span class="eyebrow">Ce que ça change en match</span><span class="small">Note tes entraînements et joue encore ' + plural(Math.max(1, 6 - ms12.length), "match", "matchs") + " : tu verras après combien d'heures d'entraînement tu gagnes le plus.</span></div>";
+    // 3.55 (Yann : « 64 % contre 60 %, pas parlant ») : deux groupes (semaine avec / sans entraînement), seulement depuis ton 1er entraînement noté,
+    // et ce qui compte : les victoires de plus (ou de moins) que prévu vu le classement de tes adversaires. Chaque chiffre a son détail.
+    var t1 = TR.reduce(function (a2, x) { return x.date && (!a2 || x.date < a2) ? x.date : a2; }, ""), cur0 = curIdx();
+    var msT = ms12.filter(function (m) { return t1 && m.date >= t1; }).sort(function (x, y) { return x.date < y.date ? 1 : -1; });
+    var G2 = [{ k: "a", l: "Semaine avec entraînement", ms: [] }, { k: "b", l: "Semaine sans", ms: [] }];
+    msT.forEach(function (m) { var h = loadBefore(by, E.parseDate(m.date), 7), o2 = E.idx(T.normRank(m.oppRank) || m.oppRank); (h > 0 ? G2[0] : G2[1]).ms.push({ m: m, h: h, p: o2 == null ? 0.5 : expWin(o2, cur0) }); });
+    G2.forEach(function (g) { g.v = g.ms.filter(function (x) { return x.m.result === "V"; }).length; g.ex = g.ms.reduce(function (a2, x) { return a2 + x.p; }, 0); g.dl = g.v - g.ex; });
+    var f1 = function (x) { var r = Math.round(x * 10) / 10; return (r > 0 ? "+" : r < 0 ? "−" : "") + Math.abs(r).toFixed(1).replace(".", ",").replace(",0", ""); };
+    var nV = function (x) { var r = Math.abs(Math.round(x * 10) / 10); return String(r).replace(".", ",") + (r >= 2 ? " matchs" : " match"); };
+    if (TR.length >= 4 && msT.length >= 6) {
+      var gA = G2[0], gB = G2[1], both = gA.ms.length >= 3 && gB.ms.length >= 3, diff = gA.dl - gB.dl;
+      var head = !gA.ms.length ? "Tu n'as pas encore joué de match après une semaine d'entraînement." : !both || Math.abs(diff) < 1 ? "Pour l'instant, t'entraîner la semaine d'avant ne change <b>pas nettement</b> tes résultats." :
+        diff > 0 ? (gA.dl >= 0.5 ? "Quand tu t'es entraîné la semaine d'avant, tu gagnes <b>" + nV(gA.dl) + " de plus que prévu</b>." : "Quand tu t'es entraîné la semaine d'avant, tu fais <b>mieux que sans</b> : " + f1(gA.dl) + " contre " + f1(gB.dl) + ".") :
+        "Pour l'instant, tes semaines <b>sans entraînement</b> réussissent mieux : " + f1(gB.dl) + " contre " + f1(gA.dl) + ".";
+      var lead = both && Math.abs(diff) >= 1 ? (diff > 0 ? "a" : "b") : "";
+      var box = function (g) {
+        var cl = Math.round(g.dl * 10) / 10, col = !lead ? "" : cl > 0 ? " pos" : cl < 0 ? " neg" : "", sq = g.ms.slice(0, 12).map(function (x) { return '<i class="' + (x.m.result === "V" ? "v" : "d") + '"></i>'; }).join("");
+        return '<button class="te2-b' + (g.k === lead ? " lead" : "") + (UI.teOpen === g.k ? " on" : "") + '" data-a="teOpen" data-v="' + g.k + '"' + (g.ms.length ? "" : " disabled") + '><small>' + g.l + '</small><b class="te2-n' + col + '">' + (g.ms.length ? f1(g.dl) : "–") + "</b><span>" + (g.v + " V · " + (g.ms.length - g.v) + " D sur " + plural(g.ms.length, "match", "matchs")) + '</span><span class="te2-sq">' + sq + (g.ms.length > 12 ? "<em>+" + (g.ms.length - 12) + "</em>" : "") + "</span>" + (g.ms.length ? '<span class="te2-more">' + (UI.teOpen === g.k ? "Masquer" : "Le détail") + " ›</span>" : "") + "</button>";
+      };
+      var det = "", gO = UI.teOpen === "a" ? gA : UI.teOpen === "b" ? gB : null;
+      if (gO && gO.ms.length) det = '<div class="te2-d"><span class="eyebrow">' + esc(gO.l) + " · " + plural(gO.ms.length, "match", "matchs") + '</span><span class="small">Prévu : <b>' + String(Math.round(gO.ex * 10) / 10).replace(".", ",") + " victoire" + (gO.ex >= 2 ? "s" : "") + "</b> (la somme de tes chances avant chaque match). Réel : <b>" + gO.v + "</b>. Écart : <b>" + f1(gO.dl) + "</b>.</span>" +
+        gO.ms.map(function (x) { var m = x.m; return '<a class="te2-r" href="#/match/' + esc(m.id) + '"><span class="vd ' + m.result + '">' + m.result + '</span><span class="grow"><b>' + esc(nameCase(m.opp) || "Adversaire") + ' <span class="muted">· ' + esc(m.oppRank || "") + "</span></b><small>" + esc(fdate(m.date).replace(/\.$/, "")) + " · " + (x.h ? fmtDur(x.h) + " d'entraînement avant" : "pas d'entraînement avant") + '</small></span><span class="te2-p">' + Math.round(x.p * 100) + " % de chances</span></a>"; }).join("") +
+        '<span class="small">Chances : calculées sur l\'écart entre ton classement et celui de l\'adversaire le jour du match, comme ailleurs dans Montée.</span></div>';
+      var nOld = ms12.length - msT.length, few = [gA, gB].filter(function (g) { return g.ms.length < 5; });
+      var dT = E.parseDate(t1), t1L = dT.getDate() + " " + MOIS[dT.getMonth()].replace(/\.$/, "") + (dT.getFullYear() !== t.getFullYear() ? " " + dT.getFullYear() : "");
+      o += '<div class="card te te2"><span class="eyebrow">Ce que ça change en match</span><b class="te-h">' + head + "</b>" +
+        '<div class="te2-g">' + box(gA) + box(gB) + "</div>" + det +
+        '<span class="ch-how">' + (lead || gA.ms.length ? "<b>" + f1(gA.dl) + "</b> : tes victoires moins celles que Montée attendait vu le classement de tes adversaires. Au-dessus de 0, tu fais mieux que prévu. " : "") + "Une semaine « avec » : au moins une séance notée dans les 7 jours avant le match.</span>" +
+        '<span class="te2-note">Seuls les ' + plural(msT.length, "match joué", "matchs joués") + " depuis ton 1er entraînement noté (" + esc(t1L) + ") comptent" + (nOld > 0 ? " : les " + nOld + " d'avant ne disent rien de tes entraînements" : "") + "." + (few.length ? " Encore " + few.map(function (g) { return plural(5 - g.ms.length, "match", "matchs") + " dans « " + g.l + " »"; }).join(" et ") + " pour une tendance solide." : "") + "</span></div>";
+    } else if (TR.length) o += '<div class="card te"><span class="eyebrow">Ce que ça change en match</span><span class="small">Note tes entraînements et joue encore ' + plural(Math.max(1, 6 - msT.length), "match", "matchs") + " depuis ton 1er entraînement noté : tu verras si t'entraîner la semaine d'avant te fait gagner plus que prévu.</span></div>";
     // 3.48.2 (Yann) : ce que tes séances changent : les matchs joués dans les 10 jours après une séance sur un point, contre les autres
     (function () {
       var since = E.iso(new Date(t.getTime() - 183 * 864e5)), ms6 = playedOf(S.matches).filter(function (m) { return m.date >= since; });
@@ -12754,6 +12773,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     skipImport: function () { UI.draft = null; if (!S.profile.rank) { UI.afterProfil = "match/new"; go("profil"); return; } S.onboarded = true; save(); go("match/new"); },
     palTab: function (el) { UI.palTab = el.dataset.v; render(); },
+    teOpen: function (el) { UI.teOpen = UI.teOpen === el.dataset.v ? null : el.dataset.v; render(); },
     szTog: function (el) { UI.szOpen = UI.szOpen || {}; var y = el.dataset.v; UI.szOpen[y] = !UI.szOpen[y]; render(); },
     h2hAll: function () { UI.h2hAll = !UI.h2hAll; render(); },
     actTab: function (el) { UI.actTab = el.dataset.v; render(); window.scrollTo(0, 0); },

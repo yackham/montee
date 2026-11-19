@@ -4484,3 +4484,21 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .ins-st .ins-p { border-color: color-mix(in srgb, var(--page-ink) 70%, transparent); color: var(--page-ink); background: color-mix(in srgb, #fff 14%, transparent); }
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .ins-st .linkbtn { color: var(--page-ink); }
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .tk-l { color: var(--page-muted); }
+/* 3.55 : Ce que ça change en match, avec / sans entraînement, écart à l'attendu */
+.te2-g { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.te2-b { all: unset; box-sizing: border-box; cursor: pointer; border-radius: 18px; padding: 14px; background: var(--chip); display: flex; flex-direction: column; gap: 5px; text-align: left; color: var(--ink); }
+.te2-b[disabled] { cursor: default; opacity: .7; }
+.te2-b.lead { box-shadow: inset 0 0 0 2px var(--gazon); }
+.te2-b.on { background: color-mix(in srgb, var(--gazon) 14%, var(--chip)); }
+.te2-b small { font-size: 12px; font-weight: 600; color: var(--muted); line-height: 1.25; }
+.te2-b > span { font-size: 13px; font-weight: 650; }
+.te2-n { font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.te2-n.pos { color: var(--gazon); } .te2-n.neg { color: var(--terre); }
+:root[data-theme="nuit"] .te2-n.pos { color: #6FCF97; }
+.te2-sq { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; } .te2-sq i { width: 13px; height: 13px; border-radius: 4px; background: var(--gazon); } .te2-sq i.d { background: var(--terre); } .te2-sq em { font-style: normal; font-size: 11px; color: var(--muted); font-weight: 700; }
+.te2-more { color: var(--gazon); font-size: 12px !important; font-weight: 700 !important; }
+.te2-d { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
+.te2-r { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit; }
+.te2-r .grow { display: flex; flex-direction: column; } .te2-r b { font-size: 14px; font-weight: 650; } .te2-r small { font-size: 12px; color: var(--muted); }
+.te2-p { font-size: 12px; font-weight: 700; border-radius: 20px; padding: 3px 8px; background: var(--chip); white-space: nowrap; }
+.te2-note { font-size: 12.5px; color: var(--muted); background: var(--chip); border-radius: 12px; padding: 10px; line-height: 1.45; }
