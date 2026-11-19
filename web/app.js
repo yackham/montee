@@ -8338,6 +8338,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // 3.31 : la forme (6 derniers matchs), sa courbe glissante sur 12 mois, tes séries
   var FORM_N = 6; // la forme = tes 6 derniers matchs, partout
+  // 3.55 (audit, validé) : la forme en vraie courbe (lissée), plus en marches d'escalier
+  function smoothD(P) {
+    if (P.length < 3) return "M" + P.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" L");
+    var d = "M" + P[0][0].toFixed(1) + "," + P[0][1].toFixed(1);
+    for (var i = 0; i < P.length - 1; i++) { var p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || p2, t = 0.18;
+      d += " C" + (p1[0] + (p2[0] - p0[0]) * t).toFixed(1) + "," + (p1[1] + (p2[1] - p0[1]) * t).toFixed(1) + " " + (p2[0] - (p3[0] - p1[0]) * t).toFixed(1) + "," + (p2[1] - (p3[1] - p1[1]) * t).toFixed(1) + " " + p2[0].toFixed(1) + "," + p2[1].toFixed(1); }
+    return d;
+  }
   function formeData() {
     var c = ctx(), all = sortedMatches().filter(function (m) { return m.date && !m.wo && (m.result === "V" || m.result === "D"); });
     if (all.length < 3) return null;
@@ -8779,7 +8787,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var X = function (i) { return 8 + i * (Wd - 16) / Math.max(1, n - 1); }, Y = function (v) { return 14 + (hi - v) / Math.max(.05, hi - lo) * (Hh - 22); };
         curve = '<svg width="100%" viewBox="0 0 ' + Wd + " " + Hh + '" class="fo-svg" aria-hidden="true"><line x1="8" x2="' + (Wd - 8) + '" y1="' + Y(F.season).toFixed(1) + '" y2="' + Y(F.season).toFixed(1) + '" stroke="var(--muted)" stroke-dasharray="4 4"/>' +
           '<text x="' + (Wd - 8) + '" y="' + (Y(F.season) - 6).toFixed(1) + '" text-anchor="end" font-size="11" font-weight="700" fill="var(--muted)">saison ' + Math.round(F.season * 100) + ' %</text>' +
-          '<polyline points="' + F.roll.map(function (v, i) { return X(i).toFixed(1) + "," + Y(v).toFixed(1); }).join(" ") + '" fill="none" stroke="var(--hacc3)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>' +
+          '<path d="' + smoothD(F.roll.map(function (v, i) { return [X(i), Y(v)]; })) + '" fill="none" stroke="var(--hacc3)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>' +
           '<circle cx="' + X(n - 1).toFixed(1) + '" cy="' + Y(F.roll[n - 1]).toFixed(1) + '" r="5" fill="var(--hacc3)"/></svg>';
       }
       return { title: "Ta forme", body: '<div class="fo-ps">' + pills + '<small class="fo-ord">avant · récent</small></div><b class="fo-say">' + esc(F.say) + "</b>" +
@@ -9165,7 +9173,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (F && F.roll.length >= 3) {
       var Wd = 320, Hh = 84, n = F.roll.length, lo = Math.max(0, Math.min(F.season, Math.min.apply(null, F.roll)) - .1), hi = Math.min(1, Math.max(F.season, Math.max.apply(null, F.roll)) + .1);
       var X = function (i) { return 8 + i * (Wd - 16) / Math.max(1, n - 1); }, Y = function (v) { return 12 + (hi - v) / Math.max(.05, hi - lo) * (Hh - 20); };
-      curve = '<svg width="100%" viewBox="0 0 ' + Wd + " " + Hh + '" class="fo-svg" aria-hidden="true"><line x1="8" x2="' + (Wd - 8) + '" y1="' + Y(F.season).toFixed(1) + '" y2="' + Y(F.season).toFixed(1) + '" stroke="var(--muted)" stroke-dasharray="4 4"/><text x="' + (Wd - 8) + '" y="' + (Y(F.season) - 6).toFixed(1) + '" text-anchor="end" font-size="11" font-weight="700" fill="var(--muted)">saison ' + Math.round(F.season * 100) + ' %</text><polyline points="' + F.roll.map(function (v, i) { return X(i).toFixed(1) + "," + Y(v).toFixed(1); }).join(" ") + '" fill="none" stroke="var(--hacc3)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><circle cx="' + X(n - 1).toFixed(1) + '" cy="' + Y(F.roll[n - 1]).toFixed(1) + '" r="5" fill="var(--hacc3)"/></svg>';
+      curve = '<svg width="100%" viewBox="0 0 ' + Wd + " " + Hh + '" class="fo-svg" aria-hidden="true"><line x1="8" x2="' + (Wd - 8) + '" y1="' + Y(F.season).toFixed(1) + '" y2="' + Y(F.season).toFixed(1) + '" stroke="var(--muted)" stroke-dasharray="4 4"/><text x="' + (Wd - 8) + '" y="' + (Y(F.season) - 6).toFixed(1) + '" text-anchor="end" font-size="11" font-weight="700" fill="var(--muted)">saison ' + Math.round(F.season * 100) + ' %</text><path d="' + smoothD(F.roll.map(function (v, i) { return [X(i), Y(v)]; })) + '" fill="none" stroke="var(--hacc3)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><circle cx="' + X(n - 1).toFixed(1) + '" cy="' + Y(F.roll[n - 1]).toFixed(1) + '" r="5" fill="var(--hacc3)"/></svg>';
     }
     return '<div class="card fm3"><div class="fm3-h"><div class="ct"><b>Forme du moment</b><span class="small">' + "Tes " + esc(lbl) + '</span></div><span class="tj3-pill" style="color:' + tone[1] + ";background:color-mix(in srgb," + tone[1] + ' 16%,transparent)">' + tone[0] + "</span></div>" +
       '<div class="fm3-k"><b>' + a + ' %</b><span class="small">de victoires<br>contre <b>' + b + " %</b> sur 12 mois</span></div>" +
