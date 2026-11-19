@@ -199,4 +199,42 @@ final class PhoneLink: NSObject, ObservableObject, WCSessionDelegate {
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         apply(applicationContext)
     }
+
+    // MARK: 3.55 : échauffement guidé lancé depuis l'iPhone
+    func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        warm(message)
+    }
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        warm(userInfo)
+    }
+
+    /// L'adversaire du match : parmi ceux envoyés par l'iPhone, sinon le prochain match
+    func opp(for oid: String) -> WOpp? {
+        if let o = ctx.opps.first(where: { $0.id == oid }) { return o }
+        if let nx = ctx.nextOpp, oid.isEmpty || nx.id == oid {
+            return WOpp(id: (nx.id ?? "").isEmpty ? "new" : nx.id!, name: nx.name, rank: nx.rank, p: nx.p, tip: nx.tip, plan: nx.plan, forts: nx.forts, faibles: nx.faibles)
+        }
+        return nil
+    }
+
+    private func warm(_ d: [String: Any]) {
+        guard let oid = d["warm"] as? String else { return }
+        // Une demande restée en file trop longtemps (montre loin) ne lance plus rien
+        if let at = d["at"] as? Double, Date().timeIntervalSince1970 - at > 20 * 60 { return }
+        DispatchQueue.main.async { PhoneLink.startGuidedWarmup(oid: oid) }
+    }
+
+    /// Démarre (ou complète) l'échauffement guidé. Appelé par le message de l'iPhone et à l'ouverture par séance (startWatchApp).
+    static func startGuidedWarmup(oid: String?) {
+        let link = PhoneLink.shared, vm = MatchVM.shared
+        guard vm.live == nil, TrainVM.shared.live == nil else { return }
+        let o = oid.flatMap { link.opp(for: $0) }
+        if let w = vm.warmup {
+            if w.guided == true, let o = o { vm.setWarmOpp(o) }
+            return
+        }
+        guard link.canPlay else { return }
+        let opp = o ?? link.opp(for: "") ?? WOpp(id: "new", name: "", rank: "")
+        Workout.shared.authorize { vm.beginWarmup(opp: opp, hom: opp.hom ?? Draft.shared.hom, fmt: "?", guided: true) }
+    }
 }

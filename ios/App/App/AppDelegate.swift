@@ -529,6 +529,7 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setBars", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "haptic", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "healthSleep", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthRequest", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthRead", returnType: CAPPluginReturnPromise),
@@ -541,7 +542,8 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "storeManage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "watchSync", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "watchTake", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "watchStatus", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "watchStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "watchWarm", returnType: CAPPluginReturnPromise)
     ]
 
     override public func load() {
@@ -622,6 +624,21 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func watchStatus(_ call: CAPPluginCall) {
         let s = WCSession.isSupported() ? WCSession.default : nil
         call.resolve(["supported": s != nil, "paired": s?.isPaired ?? false, "installed": s?.isWatchAppInstalled ?? false])
+    }
+
+    /// 3.55 : échauffement guidé. Ouvre Montée sur la montre (séance tennis) puis lui dit quel adversaire.
+    @objc func watchWarm(_ call: CAPPluginCall) {
+        let oid = call.getString("oid") ?? ""
+        guard WCSession.isSupported(), WCSession.default.isPaired, WCSession.default.isWatchAppInstalled else {
+            call.resolve(["ok": false]); return
+        }
+        let cfg = HKWorkoutConfiguration()
+        cfg.activityType = .tennis
+        cfg.locationType = .outdoor
+        MonteeHealth.store.startWatchApp(with: cfg) { ok, _ in
+            WatchLink.shared.warm(oid)
+            call.resolve(["ok": ok])
+        }
     }
 
     // ---------- Widgets ----------
@@ -834,6 +851,12 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         ])
     }
 
+    /// 3.55 : check-in d'avant-match : la nuit dernière (heures de sommeil), si Santé l'autorise
+    @objc func healthSleep(_ call: CAPPluginCall) {
+        guard MonteeHealth.available else { call.resolve([:]); return }
+        MonteeHealth.lastNight { h in if let h = h { call.resolve(["h": h]) } else { call.resolve() } }
+    }
+
     @objc func healthProfile(_ call: CAPPluginCall) {
         MonteeHealth.profile { r in call.resolve(r) }
     }
@@ -1037,6 +1060,28 @@ enum MonteeHealth {
                 if ok { MonteeHealth.asked = true; MonteeHealth.hrAsked = true }
                 completion(ok)
             }
+        }
+    }
+
+    /// 3.55 : heures de sommeil de la nuit dernière (hier 18 h → maintenant). Une seule source comptée
+    /// (celle qui en a le plus : montre ou iPhone) pour ne pas additionner deux fois la même nuit. nil si rien ou refusé.
+    static func lastNight(completion: @escaping (Double?) -> Void) {
+        guard let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { completion(nil); return }
+        store.requestAuthorization(toShare: nil, read: [sleepType]) { _, _ in
+            let cal = Calendar.current
+            let start = cal.date(byAdding: .hour, value: -6, to: cal.startOfDay(for: Date())) ?? Date().addingTimeInterval(-86400)
+            let pred = HKQuery.predicateForSamples(withStart: start, end: Date(), options: [])
+            let q = HKSampleQuery(sampleType: sleepType, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, res, _ in
+                var bySource: [String: Double] = [:]
+                let inBed = HKCategoryValueSleepAnalysis.inBed.rawValue
+                let awake = HKCategoryValueSleepAnalysis.awake.rawValue
+                for case let x as HKCategorySample in res ?? [] where x.value != inBed && x.value != awake {
+                    bySource[x.sourceRevision.source.bundleIdentifier, default: 0] += x.endDate.timeIntervalSince(x.startDate)
+                }
+                let secs = bySource.values.max() ?? 0
+                DispatchQueue.main.async { completion(secs >= 1800 ? (secs / 3600 * 10).rounded() / 10 : nil) }
+            }
+            store.execute(q)
         }
     }
 
@@ -1267,6 +1312,19 @@ final class WatchLink: NSObject, WCSessionDelegate {
         let s = WCSession.default
         guard s.activationState == .activated, s.isPaired, s.isWatchAppInstalled else { return }
         try? s.updateApplicationContext(["json": json, "at": Date().timeIntervalSince1970])
+    }
+
+    /// 3.55 : l'échauffement guidé. En direct si la montre est joignable, sinon en file (reçu à l'ouverture).
+    func warm(_ oid: String) {
+        guard WCSession.isSupported() else { return }
+        let s = WCSession.default
+        guard s.activationState == .activated else { return }
+        let msg: [String: Any] = ["warm": oid, "at": Date().timeIntervalSince1970]
+        if s.isReachable {
+            s.sendMessage(msg, replyHandler: nil) { _ in _ = s.transferUserInfo(msg) }
+        } else {
+            _ = s.transferUserInfo(msg)
+        }
     }
 
     func take() -> [String] {

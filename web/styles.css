@@ -2810,7 +2810,7 @@ button.rr { border: 0; font: inherit; width: calc(100% + 40px); cursor: pointer;
 .rw-r b { font-size: inherit; font-weight: 800; }
 .rw-l.dn { stroke: var(--terre); }
 /* 3.39.1 : même bouton « Le détail → » partout (comme la carte Montée de l'accueil) */
-.go-pill { flex: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; background: var(--chip); color: var(--ink); border-radius: 99px; padding: 6px 11px; font-weight: 700; font-size: 13px; }
+.go-pill { border: 0; font-family: inherit; cursor: pointer; flex: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; background: var(--chip); color: var(--ink); border-radius: 99px; padding: 6px 11px; font-weight: 700; font-size: 13px; }
 .go-pill svg { width: 15px; height: 15px; }
 .bl2 .sel-panel { align-items: center; }
 .bl2 .sel-panel .grow b { font-size: 14.5px; }
@@ -4524,6 +4524,78 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .tf-m i { width: 9px; height: 9px; display: inline-block; } .tf-m i.s { border-radius: 2px; } .tf-m i.d { border-radius: 50%; } .tf-m i.V { background: var(--gazon); } .tf-m i.D { background: var(--terre); }
 .tf-pl { font-size: 12px; color: var(--muted); } .tf-pl b { color: var(--ink); } .tf-pl .up { color: var(--gazon); } .tf-pl .dn { color: var(--terre); }
 .tm-oth { padding: 0; } .tm-oh { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 16px 18px; font-size: 15px; }
+
+/* 3.55 (Yann, nouveautés 19/11) : « Tes défaites » (Courbes) et « Passage à vide » (accueil) */
+.ls-card { display: flex; flex-direction: column; gap: 8px; }
+.ls-bars { position: relative; display: flex; gap: 10px; align-items: flex-end; height: 132px; padding: 0 2px; margin-top: 4px; }
+.ls-b { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
+.ls-b b { font-size: 13px; font-weight: 700; }
+.ls-b i { display: block; width: 100%; max-width: 46px; border-radius: 7px 7px 3px 3px; background: var(--chart-d); }
+.ls-b i.ok { background: var(--chart-v); }
+.ls-b i.ls-x { height: 4px; background: var(--line); }
+.ls-b span { font-size: 11px; line-height: 16px; color: var(--muted); white-space: nowrap; height: 16px; }
+.ls-b.now span { color: var(--ink); font-weight: 700; }
+.ls-ref { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--muted); opacity: .55; pointer-events: none; }
+.ls-foot { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 2px; }
+.ls-foot .linkbtn { margin-right: auto; padding: 0; min-height: 0; }
+.ls-pp { flex: none; font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 99px; background: var(--chip); white-space: nowrap; }
+.ls-pp.ok { color: var(--gazon); box-shadow: inset 0 0 0 1.5px currentColor; background: transparent; }
+.ls-pp.ko { color: var(--terre); }
+.rb-card { display: flex; flex-direction: column; gap: 8px; }
+.rb-dots { margin: 2px 0; }
+.rb-proof { background: var(--chip); border-radius: 14px; padding: 11px 12px; display: flex; flex-direction: column; gap: 4px; }
+.rb-proof .eyebrow { font-size: 11px; }
+.rb-proof b { font-size: 15px; line-height: 1.3; }
+.rb-proof .go-pill { align-self: flex-end; text-decoration: none; }
+.rb-steps { display: flex; flex-direction: column; }
+.rb-st { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
+.rb-st:first-child { border-top: 0; }
+.rb-st > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.rb-n { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; box-shadow: inset 0 0 0 2px var(--hl); color: var(--ink); }
+.rb-q { border-top: 1px solid var(--line); padding-left: 0; padding-right: 0; background: transparent; }
+.ls-foot a.go-pill { text-decoration: none; }
+/* 3.55 : la ligue des copains (Joueurs) */
+.lg-card { display: flex; flex-direction: column; gap: 8px; }
+.lg-h { display: flex; justify-content: space-between; align-items: baseline; }
+.lg-r { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.lg-r:first-of-type { border-top: 0; }
+.lg-k { width: 16px; font-weight: 800; color: var(--muted); text-align: center; }
+.lg-r .ini { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; background: var(--chip); }
+.lg-r .ini.me { background: transparent; box-shadow: inset 0 0 0 2px var(--hl); }
+.lg-r .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lg-r .grow b { font-size: 15px; font-weight: 700; }
+.lg-r em { font-style: normal; font-weight: 800; font-size: 15px; min-width: 46px; text-align: right; }
+.lg-bar { display: block; height: 5px; border-radius: 3px; background: var(--chip); margin-top: 5px; overflow: hidden; }
+.lg-bar i { display: block; height: 100%; border-radius: 3px; background: var(--hl); }
+.lg-up { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--gazon); box-shadow: inset 0 0 0 1.5px currentColor; border-radius: 99px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+/* 3.55 : le point pour ton prof (Activité › Entraînements) */
+.pf-card { display: flex; flex-direction: column; gap: 8px; }
+.pf-card .hl-t { color: var(--acc-ink); }
+.pf-kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; font-size: 13.5px; }
+.pf-kv span { color: var(--muted); }
+.pf-kv b { font-weight: 600; }
+.pf-sub { margin-top: 8px; font-size: 12px; color: var(--muted); }
+.pf-prev { background: var(--chip); border-radius: 14px; padding: 14px; font-size: 14px; line-height: 1.5; }
+/* 3.55 : échauffement guidé (carte du match du jour + feuilles) */
+.jj1.wu { flex-wrap: wrap; }
+.wu-row { flex-basis: 100%; display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+.wu-row .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.wu-row b { font-size: 15px; }
+.wu-row .ch-plus { margin-left: 0; }
+.wu-lnk { align-self: flex-start; padding: 2px 0 0; min-height: 0; font-weight: 700; font-size: 13px; }
+.wu-go { flex: none; width: 52px; height: 52px; border-radius: 50%; border: 0; background: var(--hl); color: var(--on-balle); display: grid; place-items: center; cursor: pointer; }
+.wu-go svg { width: 24px; height: 24px; }
+.wu-steps { display: flex; flex-direction: column; margin-bottom: 10px; }
+.wu-st { display: flex; gap: 12px; align-items: flex-start; padding: 9px 0; border-top: 1px solid var(--line); }
+.wu-st:first-child { border-top: 0; }
+.wu-st .grow { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.wu-st i { flex: none; width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--muted); position: relative; }
+.wu-st.ok i { box-shadow: inset 0 0 0 2px var(--gazon); }
+.wu-st.ok i:after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; font-weight: 900; color: var(--gazon); }
+.wu-st.on i { box-shadow: inset 0 0 0 2px var(--hl); }
+.wu-st.on i:after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--hl); }
+.wu-st.off { opacity: .55; }
+.wu-st em { font-style: normal; font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
 .qa1-more { font-weight: 500; color: var(--muted); font-size: .85em; } /* 3.55 (audit R12) */
 /* 3.55 (Yann, maquette I) : accueil de première synchro */
 .fr-w { gap: 10px; }
@@ -4699,3 +4771,44 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { text-decoration: none; color: var(--ink); }
 .sheet .num-c b { font-size: inherit; letter-spacing: 0; }
 .sheet .num-big { font-size: 26px; } .sheet .num-hd .r b { font-size: 17px; } .sheet .num-r b { font-size: 15px; }
+/* 3.55 : défis de saison (Courbes) */
+.df-card { display: flex; flex-direction: column; gap: 8px; }
+.df-list { display: flex; flex-direction: column; }
+.df-r { display: flex; align-items: center; gap: 12px; padding: 10px 0; border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; width: 100%; cursor: pointer; }
+.df-r:first-child { border-top: 0; }
+.df-r .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.df-r .grow b { font-size: 14.5px; font-weight: 700; }
+.df-r em { font-style: normal; font-weight: 800; font-size: 13px; white-space: nowrap; color: var(--muted); }
+.df-r em.pos { color: var(--acc-ink); }
+.df-b { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 2px var(--line); color: var(--muted); }
+.df-b.ok { box-shadow: inset 0 0 0 2px var(--hl); color: var(--acc-ink); }
+.df-b svg { width: 20px; height: 20px; }
+.df-bar { display: block; position: relative; height: 5px; border-radius: 3px; background: var(--chip); margin-top: 6px; overflow: hidden; }
+.df-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--hl); }
+.df-ill { display: grid; place-items: center; padding: 4px 0 8px; }
+.df-how { background: var(--chip); border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.df-how b { color: var(--ink); font-weight: 700; font-size: inherit; }
+.df-foot { margin-top: 12px; }
+.df-foot .btn { flex: none; width: auto; }
+/* 3.55 : pourquoi tu joues (accueil, Réglages) */
+.wy-card { display: flex; flex-direction: column; gap: 8px; }
+.wy-chs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.wy-ch { border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 16px; padding: 12px; box-shadow: inset 0 0 0 1.5px var(--line); display: flex; flex-direction: column; gap: 3px; }
+.wy-ch b { font-size: 14.5px; font-weight: 700; }
+.wy-ch span { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.wy-ch svg { width: 22px; height: 22px; color: var(--acc-ink); margin-bottom: 2px; }
+.wy-ch.on { box-shadow: inset 0 0 0 2px var(--hl); }
+/* 3.55 : check-in d'avant-match (accueil) */
+.ci-card { display: flex; flex-direction: column; gap: 6px; }
+.ci-r { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid var(--line); }
+.ci-h { display: flex; align-items: center; gap: 8px; }
+.ci-h b { font-size: 14.5px; font-weight: 700; }
+.ci-h em { margin-left: auto; font-style: normal; font-weight: 800; font-size: 13px; }
+.ci-src { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--gazon); box-shadow: inset 0 0 0 1.5px currentColor; border-radius: 99px; padding: 1px 6px; }
+.ci-sl { width: 100%; margin: 8px 0 2px; accent-color: var(--hl); }
+.ci-l { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+.ci-dots { display: flex; gap: 6px; margin-top: 4px; }
+.ci-dots i { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line); display: block; position: relative; }
+.ci-dots i.on { box-shadow: inset 0 0 0 2px var(--gazon); }
+.ci-dots i.on:after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--gazon); }
+.df-r em.neg { color: var(--terre); }
