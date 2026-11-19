@@ -11428,6 +11428,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function watchCtx() {
     var d = {}; try { d = widgetData(); } catch (e) {}
+    try { d.hrThr = hrThr(); } catch (e) {} // 3.55.3 (Yann) : la montre colore avec TES zones
     var o = [], seen = {};
     var add = function (x) { if (!x.name || seen[x.id]) return; seen[x.id] = 1; o.push(Object.assign(x, watchCoach(x.name))); };
     plans().filter(function (x) { return dGap(x.day) >= 0; }).forEach(function (pl) { add({ id: pl.id, name: pl.name, rank: pl.rank || "", p: pl.p, tag: "Prévu " + dayLab(pl.day), hom: pl.hom, fmt: pl.fmt }); });
@@ -12094,7 +12095,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function hrAge() {
     if (S.hk && S.hk.year) return today().getFullYear() - S.hk.year;
     var w = S.matches.filter(function (x) { return x.wmax && x.wmax !== 190; })[0]; if (w) return 220 - w.wmax;
-    var t = (S.trainings || []).filter(function (x) { return x.src === "montre" && x.thr && x.thr.length === 4 && Math.round(x.thr[3] / 0.9) !== 190; })[0];
+    var t = (S.trainings || []).filter(function (x) { return x.src === "montre" && x.thr && x.thr.length === 4 && Math.round(x.thr[3] / 0.9) !== 190 && Math.abs(x.thr[0] - Math.round(0.6 * x.thr[3] / 0.9)) <= 1; })[0];
     return t ? 220 - Math.round(t.thr[3] / 0.9) : null;
   }
   function hrObsMax() {
@@ -12426,7 +12427,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.53.3 : FC de repos / âge pas encore autorisés (autorisation demandée avant la 3.53.2) : on les demande une fois en ouvrant la page
     if (HC_OK && Tenup && Tenup.healthRequest && !(S.hk && S.hk.rest) && S.hkReq !== 2 && UI.hc && UI.hc.st && UI.hc.st.granted) { S.hkReq = 2; save(); setTimeout(function () { Promise.resolve(Tenup.healthRequest()).then(function () { setTimeout(hkProfile, 1200); }, function () {}); }, 400); }
     var s = '<div class="screen hz-scr">' + topbar("", "Réglages") + '<h1 class="nf-h">Tes zones cardio</h1>' +
-      '<p class="nf-sub">Elles colorent tes courbes et calculent ton intensité, sur tes matchs et tes entraînements, anciens compris.</p>';
+      '<p class="nf-sub">Elles colorent tes courbes et calculent ton intensité, sur tes matchs et tes entraînements, anciens compris. Ta montre les utilise aussi, en direct.</p>';
     s += '<div class="tabs hz-m">' + [["auto", "Automatique"], ["kar", "Karvonen"], ["man", "À la main"]].map(function (x) { return '<button class="' + (mode === x[0] ? "on" : "") + '" data-a="hrzMode" data-v="' + x[0] + '">' + x[1] + "</button>"; }).join("") + "</div>";
     var row = function (k, lab, val, sub, step) { return '<div class="field inline"><span class="lbl">' + lab + '<span class="small" style="display:block;font-weight:400">' + sub + '</span></span><span class="stepper"><button data-a="hrzStep" data-k="' + k + '" data-v="-' + step + '" aria-label="' + lab + ' : baisser">−</button><span>' + val + '</span><button data-a="hrzStep" data-k="' + k + '" data-v="' + step + '" aria-label="' + lab + ' : monter">+</button></span></div>'; };
     if (mode === "auto") {
