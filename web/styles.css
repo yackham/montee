@@ -4621,3 +4621,27 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .cond-min .grow { display: flex; flex-direction: column; gap: 3px; }
 .cond-min small { color: var(--sub); font-size: 13px; }
 .rk-other select { width: auto; max-width: 55%; flex: none; }
+
+/* 3.55 · Face-à-face, Plan de jeu (maquette A) */
+.ff-oh { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ff-jj { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 99px; padding: 7px 13px; background: var(--balle); color: var(--on-balle); font: inherit; font-weight: 700; font-size: 13.5px; cursor: pointer; white-space: nowrap; }
+.ff-stake .prog { height: 14px; }
+.ff-stake .pl .g { color: var(--gazon); font-weight: 800; }
+.ff-beat .tug-v { font-size: 15px; }
+.cp2-how { display: block; margin-top: 6px; font-size: 14.5px; line-height: 1.4; }
+.cp2-how b { color: var(--hl, var(--acc-ink)); }
+.cp2-av { display: flex; gap: 8px; align-items: baseline; border-top: 1px solid var(--line); padding-top: 10px; font-size: 14px; }
+.cp2-av b { color: var(--terre); white-space: nowrap; }
+.ff-rps summary { font-weight: 700; }
+.ff-rps .rp { margin-top: 10px; }
+.lu-card { gap: 10px; }
+.lu-f { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lu-cs { display: flex; gap: 8px; flex-wrap: wrap; }
+.lu-c { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 99px; background: var(--chip); font-weight: 700; font-size: 14px; }
+.lu-c.w svg { color: var(--terre); } .lu-c.g svg { color: var(--gazon); }
+.ff-never { display: flex; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 10px; font-size: 14px; color: var(--sub); }
+.ff-never b { color: var(--ink); }
+.ff-fm { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }
+.ff-fm .lab2 { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--sub); }
+.ff-fm .vd { width: 20px; height: 20px; font-size: 10px; }
+.lu-c small { font-weight: 600; font-size: 12px; color: var(--sub); }

@@ -3485,8 +3485,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return '<div class="ff-why"><div class="wh"><span class="ff-av sm ' + cls + '">' + esc(ini) + "</span><b>" + esc(title) + "</b></div>" + lines.map(function (x) { return '<div class="wl"><span>' + esc(x.l) + "</span><b>" + esc(x.r) + '</b><span class="ex">' + esc(x.ex) + "</span></div>"; }).join("") + "</div>";
     };
     var rr = function (v, off) { var r = Math.round(v); return Math.abs(v - off) < 0.5 ? "bien " + lab(off) : "plutôt " + (r < 0 ? "NC" : lab(r)); };
-    s += '<span class="small">Tes résultats et les siens contre les mêmes adversaires sont dans le tableau « À adversité égale » ci-dessous.</span>';
-    s += '<span class="small">Comment c\'est calculé : pour chaque niveau, Montée compare les victoires réelles à celles qu\'on attend d\'un joueur de ce niveau face aux mêmes adversaires, sur 12 mois. Sans perf, on ne place jamais un joueur au-dessus de son classement.</span></div>';
+    s += '<details class="ff-bdd"><summary>Comment c\'est calculé</summary><span class="small">pour chaque niveau, Montée compare les victoires réelles à celles qu\'on attend d\'un joueur de ce niveau face aux mêmes adversaires, sur 12 mois. Sans perf, on ne place jamais un joueur au-dessus de son classement.</span></details></div>';
     return s;
   }
 
@@ -3700,8 +3699,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var lossTxt = lo < 0 ? (down ? "Tu perdrais ta montée : défaite" : "Défaite") + " contre moins bien classé, une victoire de moins comptée" : hi >= D.me ? "Défaite contre un joueur de ton échelon ou au-dessus : rien n'est retiré" : "Elle ne change pas ton bilan";
     var tail = up1 ? "<b>Une victoire te fait monter " + nx.label + ".</b>" : gap > 0 && g > 0 ? "Après une victoire, <b>il te manquera " + gap + " pts pour monter " + nx.label + "</b>." : gap > 0 ? "Il te manque " + gap + " pts pour monter " + nx.label + "." : "";
     var him = hi < D.me ? "Pour lui : te battre vaudrait une perf (+" + E.BAREME.win(D.me - hi - 1) + " pts). Il jouera libéré." : hi === D.me ? "Pour lui aussi, c'est un match à son échelon." : "Pour lui : il a plus à perdre que toi.";
-    return '<div class="card key ff-stake"><span class="eyebrow">Ton enjeu</span><div class="stk2"><div class="sb g"><span class="k">Si tu gagnes</span><b>' + (g > 0 ? "+" + g : "0") + " pt" + (Math.abs(g) > 1 ? "s" : "") + "</b><span>" + esc(winTxt) + '</span></div><div class="sb t"><span class="k">Si tu perds</span><b>' + (lo < 0 ? lo : "0") + " pt" + (Math.abs(lo) > 1 ? "s" : "") + "</b><span>" + esc(lossTxt) + "</span></div></div>" +
-      '<div class="prog"><i style="width:' + pct(nx.total) + '%;background:var(--gazon)"></i>' + (g > 0 ? '<i style="left:' + pct(nx.total) + "%;width:" + Math.max(0, pct(after) - pct(nx.total)) + '%;background:color-mix(in srgb,var(--gazon) 45%,transparent)"></i>' : "") + '</div><div class="pl"><span>' + nx.total + " pts aujourd'hui</span><span>norme " + esc(nx.label) + " : " + nx.norme + "</span></div>" +
+    return '<div class="card key ff-stake"><span class="eyebrow">Ce qui se joue pour toi</span><div class="stk2"><div class="sb g"><span class="k">Si tu gagnes</span><b>' + (g > 0 ? "+" + g : "0") + " pt" + (Math.abs(g) > 1 ? "s" : "") + "</b><span>" + esc(winTxt) + '</span></div><div class="sb t"><span class="k">Si tu perds</span><b>' + (lo < 0 ? lo : "0") + " pt" + (Math.abs(lo) > 1 ? "s" : "") + "</b><span>" + esc(lossTxt) + "</span></div></div>" +
+      '<div class="prog"><i style="width:' + pct(nx.total) + '%;background:var(--gazon)"></i>' + (g > 0 ? '<i style="left:' + pct(nx.total) + "%;width:" + Math.max(0, pct(after) - pct(nx.total)) + '%;background:color-mix(in srgb,var(--gazon) 45%,transparent)"></i>' : "") + '</div><div class="pl"><span>' + nx.total + " aujourd'hui</span>" + (g > 0 ? '<span class="g">' + after + " si tu gagnes</span>" : "") + "<span>" + nx.norme + " pour " + esc(nx.label) + "</span></div>" +
       (tail ? '<span class="p">' + tail + "</span>" : "") + '<span class="small">' + esc(him) + "</span></div>";
   }
   // Rapport de force : les points qui comptent vraiment, pondérés (classement, bilans face au classement de l'autre…)
@@ -3728,11 +3727,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return '<div class="fps">' + head + (rest.length ? '<details class="ff-bdd fp-more"><summary>' + plural(rest.length, "autre point") + "</summary>" + rest.map(row).join("") + "</details>" : "") + "</div>";
   }
   function ffStatsTab(D) {
-    var s = ffForceCard(D) + ffLevelsCard(D) + ffRisenCard(D);
+    var fc = ffForceCard(D);
+    // 3.55 (maquette A-Statistiques validée) : « Toi contre lui » tient en une ligne quand vous n'avez jamais joué
+    if (fc && !(D.mine || []).length) fc = fc.replace(/<\/div>$/, '<div class="ff-never"><span>Toi contre lui</span><b>Jamais joué</b></div></div>');
+    var s = fc + ffLevelsCard(D) + ffRisenCard(D);
     if (D.few) {
       s += '<div class="card"><span class="eyebrow">À adversité égale</span><span class="p">Dès qu\'il aura joué 3 matchs cette saison, tu verras ici vos bilans contre les mêmes adversaires et ce qui joue pour qui.</span></div>';
     } else {
-      s += ffSameTable(D) + ffFormCard(D);
+      s += ffSameTable(D);
       var A = D.A, B = D.B, first = D.first;
       // 4. Vos repères, en miroir : toi à gauche, lui à droite, le meilleur en couleur
       var idx = function (m) { var x = m ? E.idx(m.oppRank) : null; return x == null ? null : x; };
@@ -3749,10 +3751,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         rowM("Meilleure victoire", A.best ? esc(A.best.oppRank0 || A.best.oppRank) : "–", sub(A.best), B.best ? esc(B.best.oppRank0 || B.best.oppRank) : "–", sub(B.best), bA != null ? bA + 2 : 0, bB != null ? bB + 2 : 0, "hi") +
         rowM("Pire défaite", wLab(A.worst), sub(A.worst), wLab(B.worst), sub(B.worst), wA != null ? wA + 2 : 0, wB != null ? wB + 2 : 0, A.worst && B.worst ? "hi" : null) +
         rowM("Victoires", Math.round(pA * 100) + " %", A.v + " V · " + (A.n - A.v) + " D", Math.round(pB * 100) + " %", B.v + " V · " + (B.n - B.v) + " D", pA, pB, A.n >= 3 && B.n >= 3 && Math.abs(pA - pB) >= 0.05 ? "hi" : null) +
-        rowM("Matchs joués", String(A.n), "12 mois", String(B.n), "cette saison", A.n, B.n, null) + "</div></div>";
+        rowM("Matchs joués", String(A.n), "12 mois", String(B.n), "cette saison", A.n, B.n, null) + "</div>" +
+        (function () { var dots = function (L) { return (L || []).slice(0, 5).reverse().map(function (m) { return '<span class="vd ' + m.result + '">' + m.result + "</span>"; }).join(""); }, a = dots(A.last), b = dots(B.last);
+          return a || b ? '<div class="ff-fm"><span class="form-dots">' + a + '</span><span class="lab2">Forme</span><span class="form-dots">' + b + "</span></div>" : ""; })() + "</div>";
     }
     if (D.common.length) s += ffCrossCard(D);
-    s += ffMyStake(D);
+    if (!D.few) s += ffBandCard(D); // 3.55 : « Contre des joueurs comme toi » finit l'onglet
     return s;
   }
   function ffFormsCard(D) {
@@ -4961,11 +4965,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function ffPlanTab(D, extra) {
     var od = D.od, R = reperesOf(D); D.reperes = R.list; D.sitH = R.H; D.sitM = R.M;
     var pl0 = planOf(route().split("/")[1]);
-    var s = (od ? '<button class="btn primary mm-go" data-a="jjAsk">' + svg('<path d="M8 5v14l11-7z"/>', 2) + " Je joue contre lui</button>" +
+    // 3.55 (Yann, maquette A validée) : « Je joue contre lui » devient une pastille dans l'en-tête de « Le match »
+    var jjB = od ? '<button class="ff-jj" data-a="jjAsk">' + JJ_BOLT + "Je joue contre lui</button>" : "";
+    var s = (od ? "" +
       (pl0 ? '<button class="jj-note" data-a="jjEdit" data-id="' + esc(pl0.id) + '">' + JJ_CAL + "<span>Prévu <b>" + esc(dayLab(pl0.day)) + "</b> · " + (pl0.hom ? "homologué" : "libre") + "</span><i>Modifier</i></button>" : "") : "");
     // Le match : tes chances + le rapport de force par secteur, dans la même carte
     var oc = ffOddsCard(D), tg = D.few || (od && (od.k === "impossible" || od.k === "abyssal")) ? "" : tugHtml(sectorsOf(R)), di = oc.indexOf('<details class="ff-bdd">');
-    s += di >= 0 ? oc.slice(0, di) + tg + oc.slice(di) : oc.replace(/<\/div>$/, tg + "</div>");
+    var plain = od && ["impossible", "abyssal", "monde"].indexOf(od.k) < 0;
+    if (jjB) oc = oc.replace('<span class="eyebrow">Le match</span>', '<div class="ff-oh"><span class="eyebrow">Le match</span>' + jjB + "</div>");
+    if (plain) { oc = oc.replace(/<span class="p">[^<]*<\/span>/, ""); s = oc + s; }
+    else s = (di >= 0 ? oc.slice(0, di) + tg + oc.slice(di) : oc.replace(/<\/div>$/, tg + "</div>")) + s;
     if (od && od.k === "impossible") {
       var gl = [["Prendre un jeu", "le plus beau trophée de la journée"], ["Tenir un jeu de service", "à la montre, ça se compte"], ["Gagner un point sur sa 1re balle", "fais-la rebondir avant de paniquer"], ["Aller au bout du match", "sans demander l'heure à l'arbitre"]];
       s += '<div class="card ff-safe"><i>✓</i><span><b>Zéro risque.</b> Une défaite contre lui ne te coûte aucun point. Une victoire… on n\'en parle même pas.</span></div>' +
@@ -4999,15 +5008,63 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     D.planPicked = P.steps; planRemember(D.gkey, P.steps);
     // Widget « Prochain adversaire » et montre : la consigne n°1 du plan
     var lsx = S.lastScout; if (lsx && P.steps[0] && String(lsx.id) === String(route().split("/")[1]) && lsx.tip !== P.steps[0].t) { lsx.tip = P.steps[0].t; lsx.tipS = P.steps[0].why; save(); }
-    s += lastTimeCard(D.mine[0], P) + coachCard(P, true) + sonJeuCard(D.gkey, hisT, D.measured || {}, D.first);
-    var list = R.list;
-    if (list.length) s += '<div class="sec-h"><span>Ses repères chiffrés</span><small>' + list.length + "</small></div>" + list.map(repCard).join("");
-    else if (!D.few) s += '<div class="card soft"><span class="p">' + (D.hp.length < 5 ? "Encore quelques matchs pour lui cette saison et Montée pourra te donner des repères." : "Rien ne le distingue d'un joueur classique de son niveau : pas de point faible net, pas de piège particulier. Joue ton jeu.") + "</span></div>";
-    if (!D.few && R.list.length) s += '<p class="small rp-foot">Seulement les situations où l\'un de vous deux prend nettement le dessus. Ses scores ne disent rien de la durée des échanges ni de son style : complète « Son jeu » pour affiner.</p>';
-    if (!D.few) s += ffBandCard(D);
+    // 3.55 (maquette A) : Le match › Ce qui se joue pour toi › Comment le battre › Lui en ce moment
+    s += (od ? ffMyStake(D) : "") + lastTimeCard(D.mine[0], P) + beatCard(D, P, hisT, plain ? tg : "", R.list) + luiCard(D, hisT);
     return s + extra;
   }
 
+
+  var JJ_BOLT = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>';
+  // « Concrètement : » une action qu'on peut faire sur le court, par consigne
+  var HOW = {
+    "a-service": "avance d'un pas sur sa 2e balle et frappe ton retour long au centre.", "a-retour": "1re balle au corps ou sur son côté faible, puis attaque la balle suivante.",
+    "a-cd": "sers et rejoue sur son coup droit, surtout sur les points importants.", "a-revers": "balles larges et basses côté revers, slice court pour le faire plier.",
+    "a-volee": "amortie ou balle courte, puis passing ou lob au pied.", "a-physique": "une balle de plus, au centre et profonde : pas de risque avant le 6e coup.",
+    "a-mental": "à 30-30 et sur les balles de break, joue la balle sûre : c'est lui qui doit faire la faute.", "a-regul": "pas de coup gagnant avant qu'il soit en difficulté : fais-le jouer.",
+    "p-service": "recule d'un mètre au retour et renvoie au centre, sans chercher la ligne.", "p-retour": "1re balle à 65 % : vise le corps plutôt que la vitesse.",
+    "p-cd": "joue sur son revers et ne change de côté que pour le surprendre.", "p-revers": "joue au centre ou sur le coup droit, pas dans son revers.",
+    "p-volee": "balles basses et longues dans les pieds quand il approche.", "p-physique": "attaque la 1re balle courte et monte : ne fais pas durer.",
+    "p-mental": "gagne les 3 premiers jeux : un break tôt le met sous pression.", "p-regul": "attends la balle courte pour accélérer, sans forcer avant.",
+    "h-g": "décale-toi d'un pas vers ta gauche au retour côté avantage.", "h-1": "balles hautes et liftées sur son revers, au-dessus de l'épaule.",
+    "s-f": "passing croisé bas, ou lob s'il colle au filet.", "s-c": "avance sur chaque balle courte et finis au filet.", "s-k": "slice, balles lentes et profondes au centre : ne lui donne pas ta vitesse.",
+    "c-mental": "après un set perdu, change une chose : cible, rythme ou 1re balle.", "c-endu": "attaque plus tôt dans l'échange pour éviter le 3e set.",
+    "c-solid": "même routine que contre plus fort : joue chaque point, même mené 5-1.", "c-perf": "joue ton jeu sans complexe : tu bats déjà des joueurs de son niveau.",
+    "r-slow": "attaque dès les premiers jeux : il démarre lentement.", "r-fast": "assure tes jeux de service au début, il part vite.", "r-back": "garde le même plan après le 1er set, c'est là qu'il revient.",
+    "r-lets": "s'il mène, reste au contact jeu par jeu : il se relâche.", "r-long": "attaque la 1re balle courte et monte.", "r-tired": "fais durer les échanges en 1er set : le 3e est pour toi.",
+    "r-clutch": "prends des risques tôt, pas à 5-5.", "r-shaky": "reste collé au score : il craque quand c'est serré.", "r-cale": "attaque sa 2e balle dès le 1er jeu.",
+    "r-big": "pas de complexe : il perd aussi contre plus faible.", "r-upset": "mets la pression dès le début.", "r-rust": "agresse dès l'échauffement : il manque de matchs.",
+    "r-mine": "à 5-5, joue ton point fort.", "r-mine3": "au 3e set, garde ton plan et allonge les échanges."
+  };
+  var AVOID = { service: "les retours de puissance sur sa 1re balle", retour: "la 1re balle au milieu sans effet", cd: "l'échange croisé dans son coup droit", revers: "nourrir son revers en cadence", volee: "les balles mi-hautes qui l'invitent au filet", physique: "les longs rallyes sans but", mental: "attendre la fin de set pour tenter", regul: "forcer trop tôt dans l'échange" };
+  function beatCard(D, P, hisT, tug, reps) {
+    var s = '<div class="card cp2 ff-beat"><span class="eyebrow">' + (P.last ? "Comment le battre · la revanche" : "Comment le battre") + "</span>" + (tug || "");
+    if (!P.steps.length) s += '<span class="p">' + (D.few ? "Pas encore assez de matchs pour lui : note son jeu pour avoir un plan." : "Rien ne le distingue d'un joueur de son niveau. Joue ton jeu, et note le sien pour un plan précis.") + "</span>";
+    else {
+      s += '<b class="cp2-t">' + esc(P.title) + "</b>" + P.steps.map(function (x, i) {
+        var tag = x.tag || SRC_TAG[x.src] || "", how = HOW[x.id] || "";
+        if (tag === "SCORES") tag = "SES SCORES"; else if (tag === "TES NOTES") tag = "SON JEU";
+        return '<div class="cp2-s"><span class="cp2-n' + (x.kind === "pro" ? " pro" : "") + '">' + (i + 1) + '</span><div class="grow"><div class="cp2-h"><b>' + esc(x.t) + "</b>" + (tag ? '<span class="cp2-tag ' + (x.tag === "GARDÉ" ? "kept" : x.tag ? "new" : "src") + '">' + tag + "</span>" : "") + '</div><span class="small">' + esc(x.why) + "</span>" + (how ? '<span class="cp2-how"><b>Concrètement :</b> ' + esc(how) + "</span>" : "") + "</div></div>";
+      }).join("");
+      var pro = P.steps.filter(function (x) { return /^p-/.test(x.id); })[0], av = pro ? AVOID[pro.theme] : (hisT.f || []).map(function (k) { return AVOID[k]; }).filter(Boolean)[0];
+      if (av) s += '<div class="cp2-av"><b>À éviter</b><span class="small">' + esc(av) + " : c'est son terrain.</span></div>";
+      if (P.dropped.length) s += '<span class="small cp2-f">« ' + esc(P.dropped.join(" », « ")) + " » retiré" + (P.dropped.length > 1 ? "s" : "") + " : ça n'a pas marché.</span>";
+    }
+    if (reps && reps.length) s += '<details class="ff-bdd ff-rps"><summary>Ses repères chiffrés · ' + reps.length + "</summary>" + reps.map(repCard).join("") + '<p class="small rp-foot">Seulement les situations où l\'un de vous deux prend nettement le dessus.</p></details>';
+    return s + "</div>";
+  }
+  function luiCard(D, T) {
+    var p = (D.B && D.B.last || []).slice(0, 5).reverse(), v = p.filter(function (m) { return m.result === "V"; }).length, sp = D.sp;
+    var sim = sp ? (sp.dir === "same" ? "maintien " + lab(sp.cur) + " prévu" : sp.dir === "up" ? "montée " + lab(sp.proj) + " prévue" : "descente " + lab(sp.proj) + " prévue") : "";
+    var rows = []; try { rows = traitRows(T, D.measured || {}); } catch (e) {}
+    var style = T.style ? (STY_HIS[T.style] || GSTY[T.style]) : "", chips = [style, T.hand ? gameLabel("hand", T.hand) : "", T.backhand ? "Revers " + gameLabel("backhand", T.backhand).toLowerCase() : ""].filter(Boolean).map(function (t) { return '<span class="lu-c">' + esc(t) + "</span>"; }).join("") +
+      rows.map(function (r) { return '<span class="lu-c ' + (r.v > 0 ? "w" : "g") + '">' + trIc(r.k, 14) + esc(TR_LAB[r.k]) + '<small>' + (r.v > 0 ? "force" : "faille") + "</small></span>"; }).join("");
+    var href = "#/jeu/" + encodeURIComponent(D.gkey || "");
+    if (!p.length && !chips) return '<div class="card sj2 empty"><span class="eyebrow">Lui en ce moment</span><b>Tu l\'as déjà vu jouer ?</b><span class="small">Ses forces et faiblesses rendent le plan précis. 30 secondes.</span><a class="go-pill right" href="' + href + '">Noter son jeu →</a></div>';
+    return '<div class="card lu-card"><div class="sj2-h"><span class="eyebrow">Lui en ce moment</span><a class="lnk" href="' + href + '">' + (chips ? "Modifier son jeu" : "Noter son jeu") + "</a></div>" +
+      (p.length ? '<div class="lu-f"><span class="form-dots">' + p.map(function (m) { return '<span class="vd ' + m.result + '">' + m.result + "</span>"; }).join("") + '</span><span class="small">' + v + " V sur ses " + p.length + " derniers" + (sim ? " · " + esc(sim) : "") + "</span></div>" : "") +
+      (chips ? '<div class="lu-cs">' + chips + "</div>" : '<span class="small">Note son jeu (main, revers, style) : ton plan passe des chiffres à une vraie tactique.</span>') +
+      (T.note ? '<div class="sj2-n"><span class="eyebrow">Ta note</span><span>« ' + esc(T.note) + " »</span></div>" : "") + "</div>";
+  }
   function ffStake(D) {
     var c = D.c, me = D.me, hi = D.hi, sp = D.sp, s = "";
     var sw = null; try { sw = E.simulateWin(allMatches(), c.cur, c.sex, hi, c.opts); } catch (e) {}
@@ -5123,12 +5180,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       (vsMe.length ? '<div class="kv-r"><span>Contre les ' + esc(myR) + "</span><b>" + vsV + " V · " + (vsMe.length - vsV) + " D</b></div>" : "") +
       (sp ? '<div class="kv-r"><span>Sa simulation Ten\'Up · ' + esc(fdate(sp.rel).replace(/\.$/, "")) + '</span><b class="simv ' + sp.dir + '">' + (sp.dir === "same" ? "Maintien " + lab(sp.cur) : lab(sp.cur) + " → " + lab(sp.proj) + (sp.dir === "up" ? " ↑" : " ↓")) + "</b></div>" : simTxt ? '<div class="kv-r"><span>Simulation Ten\'Up</span><b>' + esc(simTxt) + "</b></div>" : "") + "</div>";
     // toi contre lui + adversaires communs
-    s += "<h2>Toi contre lui</h2>";
+    if (!D || mine.length) s += "<h2>Toi contre lui</h2>";
     if (mine.length) {
       var mv = mine.filter(function (m) { return m.result === "V"; }).length;
       s += '<div class="card"><div class="h2h-big"><span>Toi</span><b>' + mv + " – " + (mine.length - mv) + "</b><span>" + esc(pr.prenom || "Lui") + "</span></div>" + mine.map(function (m) { return '<a class="row" href="#/match/' + m.id + '"><span class="vd lg ' + m.result + '">' + m.result + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.comp || "") + "</span></span>" + I.next + "</a>"; }).join("") + "</div>";
     }
-    if (!mine.length) s += '<div class="card"><span style="font-size:15px"><b>Jamais joué.</b> ' + (common0.length ? "Vos adversaires communs sont plus haut." : "Pas encore d\'adversaire commun cette saison.") + "</span></div>";
+    if (!mine.length && !D) s += '<div class="card"><span style="font-size:15px"><b>Jamais joué.</b> ' + (common0.length ? "Vos adversaires communs sont plus haut." : "Pas encore d\'adversaire commun cette saison.") + "</span></div>";
     var statsHtml = s.slice(s0); s = s.slice(0, s0) + (tab === "plan" && !mixed ? planHtml : tab === "pal" ? palHtml(rows, id, name, pr) : statsHtml);
     if (D && UI.mmOpen === String(id)) UI.mmOv = mmHtml(D, name, pr); // ajouté hors de .screen (sinon « fixed » est piégé par l'animation)
     if (mixed) s = s.replace(/<button data-a="plTab" data-v="plan" class="[^"]*"[^>]*>Plan de jeu<\/button>/, "").replace('data-v="stats" class="' + (tab === "pal" ? "" : ""), 'data-v="stats" class="' + (tab === "pal" ? "" : "on"));
