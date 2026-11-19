@@ -22,6 +22,9 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: android-actions/setup-android@v3
+        with:
+          # Le paquet « tools » n'existe plus chez Google : on ne demande que platform-tools
+          packages: platform-tools
       - run: npm ci
       - run: npm run sync:android
       - name: Clé de signature (si elle est dans les secrets GitHub)
