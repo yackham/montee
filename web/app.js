@@ -1110,7 +1110,8 @@
       var o = { today: today(), release: rel }; if (prot) o.protectUntil = prot;
       var pr = E.project(all, cur, sx, o), nx = pr.status === "top" ? cur : pr.projected;
       if (nx < cur && !prot) prot = E.nextRelease(new Date(rel.getFullYear() + 1, rel.getMonth(), 1));
-      out.push({ rel: rel, relI: relI, from: cur, rank: nx, dir: nx > cur ? "up" : nx < cur ? "down" : "same", kept: !!pr.kept, gain: gainVs(nx) });
+      var prevI = i ? out[i - 1].relI : z.relI, lost = all.filter(function (m) { if (m.result !== "V") return false; var d = E.parseDate(m.date); d.setFullYear(d.getFullYear() + 1); var x = E.iso(d); return x > prevI && x <= relI; }).length;
+      out.push({ rel: rel, relI: relI, from: cur, rank: nx, dir: nx > cur ? "up" : nx < cur ? "down" : "same", kept: !!pr.kept, gain: gainVs(nx), lost: lost });
       cur = nx;
     }
     return out;
@@ -1127,28 +1128,84 @@
       }).join("") +
         '<div class="pt-up"><b>Avant ou après ? Montée+ fait le calcul.</b><span class="small">Ce que vaut ta victoire contre chacun avant et après la sortie, le bon moment pour le jouer, et un rappel 5 jours avant.</span><button class="btn primary small" data-a="goSoutenirComp">Essayer 1 mois gratuit</button></div></div>';
     }
-    // 3.45.1 (maquette r445 validée, hiérarchisée) : la sortie en tête, puis les joueurs regroupés par urgence :
-    // à jouer avant la sortie, mieux après, quand tu veux, et ceux dont la projection est invisible (anonymes…)
-    var z0 = L[0], rel = z0.rel, rd = function (z) { return z.rel.getDate() + " " + MOIS[z.rel.getMonth()].replace(/\.$/, ""); }, dj = Math.max(0, dGap(z0.relI));
-    var head2 = '<div class="bm-rel"><span class="bm-ri">' + svg('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>', 2.2) + '</span><span class="grow"><b>Sortie du ' + rel.getDate() + " " + MOIS_L[rel.getMonth()] + "</b><small>" + JOURS[rel.getDay()] + " · " + (dj === 0 ? "aujourd'hui" : dj === 1 ? "demain" : "dans " + dj + " jours") + ((t.dl || t.to) ? " · poule jusqu'au " + E.parseDate(t.dl || t.to).getDate() + " " + MOIS[E.parseDate(t.dl || t.to).getMonth()].replace(/\.$/, "") : "") + "</small></span></div>";
-    // 3.45.1 : une vraie grille : [initiales | joueur | avant | après], les intitulés de colonnes une seule fois en haut
-    var box = function (v, best, unk) { return '<span class="bm-p' + (best ? " on" : "") + (unk ? " unk" : "") + '">' + (v == null ? "?" : "+" + v) + "</span>"; };
-    var row = function (z) {
-      var mv = z.sp.kept ? "protégé" : z.sp.dir === "same" ? "ne bouge pas" : (z.sp.dir === "up" ? "↗ " : "↘ ") + lab(z.sp.proj) + " au " + rd(z);
-      var pc = z.sp.dir === "up" && !z.sp.kept ? "up" : z.sp.dir === "down" && !z.sp.kept ? "dn" : "";
-      var fu = []; try { fu = poolFuture(t, z, 2); } catch (e) {}
-      var fuH = fu.length ? '<div class="bm-fu"><span class="bm-fl">Ensuite, s\'il ne rejoue pas</span>' + fu.map(function (f) { return '<span class="bm-fm"><small>' + f.rel.getDate() + " " + MOIS[f.rel.getMonth()].replace(/\.$/, "") + '</small><b class="' + (f.dir === "up" ? "up" : f.dir === "down" ? "dn" : "") + '">' + (f.dir === "up" ? "↗ " : f.dir === "down" ? "↘ " : "") + esc(lab(f.rank)) + "</b><small>" + (f.gain != null ? "+" + f.gain : "") + "</small></span>"; }).join("") + "</div>" : "";
-      return '<div class="bm-rw"><div class="bm-r"><span class="tq-av">' + esc(initials(trNm(z.x.name))) + '</span><span class="bm-n"><b>' + esc(trNm(z.x.name)) + '</b><small>' + esc(lab(z.sp.cur)) + ' · <span class="bm-mv ' + pc + '">' + esc(mv) + "</span></small></span>" + box(z.now, z.adv === "before") + box(z.after, z.adv === "after") + "</div>" + fuH + "</div>";
-    };
-    var G = [["before", "À jouer avant le " + rd(z0), "bm-go"], ["after", "Mieux après le " + rd(z0), "bm-wait"], ["any", "Quand tu veux", "bm-any"]];
-    var body = G.map(function (g) { var l = L.filter(function (z) { return z.adv === g[0]; }); return l.length ? '<div class="bm-g ' + g[2] + '"><span class="bm-gh"><i></i>' + g[1] + "</span>" + l.map(row).join("") + "</div>" : ""; }).join("");
-    var U = poolUnknown(t);
-    if (U.length) body += '<div class="bm-g bm-unk"><span class="bm-gh"><i></i>Projection invisible</span>' + U.map(function (u) {
-      return '<div class="bm-r"><span class="tq-av">?</span><span class="bm-n"><b>' + esc(trNm(u.x.name) || "Un joueur") + "</b><small>" + esc((u.x.rank ? u.x.rank + " · " : "") + (u.x.tid ? "fiche à relire" : "anonyme")) + "</small></span>" + box(u.g, false) + box(null, false, true) + "</div>";
-    }).join("") + "</div>";
-    var colh = '<div class="bm-r bm-colh"><span></span><span></span><span>avant</span><span>après</span></div>';
-    return '<div class="card pt-card bm">' + head + head2 + colh + body +
-      '<span class="small bm-ft">Points d\'après la simulation Ten\'Up de chacun, à ton classement actuel. Ten\'Up ne prévoit que la prochaine sortie : les suivantes (« Ensuite »), Montée les calcule sur son palmarès comme s\'il ne rejouait plus, avec la règle FFT d\'une descente au plus par 12 mois. Utile si tu sais que tu ne pourras pas jouer pendant un moment.' + " Protégé : déjà descendu cette année, Ten'Up ne le fait pas redescendre. Anonyme : sa projection n'est pas visible." + (t.to ? "" : " Indique la date limite (Modifier, en haut) pour savoir s'il reste du temps après la sortie.") + "</span></div>";
+    // 3.55.3 (maquette « meilleure date » validée par Yann) : pour chaque adversaire, la meilleure date pour le jouer d'ici la fin de la poule :
+    // un plan en colonnes (avant la sortie, entre deux sorties, après), puis une frise par joueur (maintenant, sortie Ten'Up, sortie suivante calculée)
+    // avec la case MEILLEUR, le conseil et l'alerte (rappel, il remonte encore, descente possible).
+    var P = L.map(function (z) { return bmPlan(t, z); }), U = poolUnknown(t);
+    var ref = P.reduce(function (a, q) { return q.cells.length > a.cells.length ? q : a; }, P[0]), cols = ref.cells.slice(0, 3), nC = cols.length;
+    var td = E.iso(today()), endS = (t.dl || t.to) ? dm(E.parseDate(t.dl || t.to)) : "";
+    var sub = '<span class="bx-sub">La meilleure date pour chaque adversaire' + (endS ? ", d'ici la fin de la poule (" + endS + ")" : "") + ".</span>";
+    var plan = "";
+    if (nC > 1) {
+      var ch = function (j) { return j === 0 ? "Avant le<b>" + dm(cols[1].d) + "</b>" : j === nC - 1 ? "Après le<b>" + dm(cols[j].d) + "</b>" : "Du " + dm(cols[j].d) + "<b>au " + dm(cols[j + 1].d) + "</b>"; };
+      var dj = Math.max(0, dGap(cols[1].dI));
+      plan = '<div class="bx-plan" style="grid-template-columns:repeat(' + nC + ',1fr)">' + cols.map(function (c, j) {
+        var who = P.filter(function (q) { return Math.min(q.col, nC - 1) === j; });
+        return '<div class="bx-col"><span class="bx-ch">' + ch(j) + "</span>" + (j === 0 ? '<span class="bx-today">' + (dj === 0 ? "AUJOURD'HUI" : dj === 1 ? "DEMAIN" : "DANS " + dj + " JOURS") + "</span>" : "") + who.map(function (q) {
+          var nm = trNm(q.z.x.name).split(" ")[0];
+          return '<span class="bx-pl ' + q.kind + '"><i>' + esc(initials(trNm(q.z.x.name))) + "</i><span>" + esc(nm) + "<small>" + esc(q.tag) + "</small></span></span>";
+        }).join("") + "</div>";
+      }).join("") + "</div>";
+    }
+    var BELL = svg('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>', 2.2), WARN = svg('<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>', 2.2);
+    var body = P.map(function (q) {
+      var z = q.z, cells = q.cells.slice(0, 3).map(function (c, j) {
+        var mv = c.dir === "up" ? '<em class="up">↗</em> ' : c.dir === "down" ? '<em class="dn">↘</em> ' : "";
+        return '<div class="bx-c' + (j === q.best && q.kind !== "any" ? " best" : "") + '"><small>' + esc(c.when) + "</small><b>" + (c.g == null ? "?" : "+" + c.g) + "</b><span>" + mv + esc(lab(c.rank)) + (c.kept ? " · protégé" : "") + "</span></div>";
+      }).join("");
+      return '<div class="bx-p"><div class="bx-h"><span class="tq-av">' + esc(initials(trNm(z.x.name))) + '</span><span class="bx-n"><b>' + esc(trNm(z.x.name)) + "</b><small>" + esc(lab(z.sp.cur)) + " aujourd'hui" + (z.x.day ? " · match le " + esc(dm(E.parseDate(z.x.day))) : "") + "</small></span></div>" +
+        '<span class="bx-v ' + q.kind + '">' + esc(q.verdict) + "</span>" +
+        '<div class="bx-tl" style="grid-template-columns:repeat(' + Math.min(3, q.cells.length) + ',1fr)">' + cells + "</div>" +
+        q.alerts.map(function (a) { return '<span class="bx-al ' + a[0] + '">' + (a[0] === "warn" ? WARN : BELL) + "<span>" + a[1] + "</span></span>"; }).join("") + "</div>";
+    }).join("");
+    if (U.length) body += U.map(function (u) {
+      return '<div class="bx-p"><div class="bx-h"><span class="tq-av">?</span><span class="bx-n"><b>' + esc(trNm(u.x.name) || "Un joueur") + "</b><small>" + esc((u.x.rank ? u.x.rank + " · " : "") + (u.x.tid ? "fiche à relire" : "anonyme")) + "</small></span>" + (u.g != null ? '<b class="bx-g0">+' + u.g + "</b>" : "") + '</div><span class="bx-al">' + BELL + "<span>Sa projection n'est pas visible : pas de meilleure date pour lui." + (u.g != null ? " Aujourd'hui, ta victoire vaut +" + u.g + "." : "") + "</span></span></div>";
+    }).join("");
+    return '<div class="card pt-card bx">' + head + sub + plan + body +
+      '<span class="small bx-ft">Points : ce que vaut ta victoire, à ton classement actuel. La prochaine sortie vient de la simulation Ten\'Up ; la suivante, Montée la calcule sur son palmarès comme s\'il ne rejouait plus, avec la règle FFT d\'une descente au plus par 12 mois (protégé : déjà descendu cette année).' + (t.to || t.dl ? "" : " Indique la date limite (Modifier, en haut) pour ne voir que les dates encore jouables.") + "</span></div>";
+  }
+  function dm(d) { return d.getDate() + " " + MOIS[d.getMonth()]; }
+  // 3.55.3 : la meilleure date pour un adversaire : cases (maintenant, chaque sortie jusqu'à la fin de la poule), la meilleure, le conseil, les alertes
+  function bmPlan(t, z) {
+    var fu = []; try { fu = poolFuture(t, z, 2); } catch (e) {}
+    var end = t.dl || t.to || "", x = z.x;
+    var C = [{ when: "maintenant", d: today(), dI: E.iso(today()), rank: z.sp.cur, dir: "", g: z.now }];
+    if (!end || z.relI <= end) {
+      C.push({ when: "dès le " + dm(z.rel), d: z.rel, dI: z.relI, rank: z.sp.proj, dir: z.sp.kept ? "" : z.sp.dir, g: z.after, kept: z.sp.kept });
+      fu.forEach(function (f) { C.push({ when: "dès le " + dm(f.rel), d: f.rel, dI: f.relI, rank: f.rank, dir: f.dir, g: f.gain, kept: f.kept, lost: f.lost }); });
+    }
+    var G = function (c) { return c.g == null ? -1 : c.g; }, shown = Math.min(3, C.length), best = 0;
+    for (var i = 1; i < shown; i++) if (G(C[i]) >= G(C[best]) + 5) best = i;
+    var drop = -1; for (i = best + 1; i < C.length; i++) if (G(C[i]) <= G(C[best]) - 5) { drop = i; break; }
+    var ups = C.slice(1, best + 1).filter(function (c) { return c.dir === "up"; }).length, day = x.day || "", dd = day ? dm(E.parseDate(day)) : "";
+    var q = { z: z, cells: C, best: best, col: best, kind: "any", verdict: "", tag: "", alerts: [], notif: null };
+    if (best > 0) {
+      var B = C[best]; q.kind = "wait"; q.tag = "+" + B.g;
+      q.verdict = "Attends le " + dm(B.d) + " : il monte" + (ups > 1 ? " deux fois" : "") + (drop > 0 ? ", puis joue-le avant le " + dm(C[drop].d) : "");
+      if (best > 1) {
+        var at = new Date(B.d.getTime() - 3 * 864e5);
+        q.alerts.push(["bell", "Il monte encore le " + dm(B.d) + " : <b>Montée te prévient le " + dm(at) + "</b> pour programmer ou décaler votre match." + (day && day < B.dI ? " Votre match est prévu le <b>" + dd + "</b> : décale-le après le " + dm(B.d) + " si tu peux." : "")]);
+        q.notif = { at: at, title: trNm(x.name) + " monte encore le " + dm(B.d), body: "Après la sortie, ta victoire vaudra +" + B.g + " au lieu de +" + G(C[best - 1]) + "." + (day && day < B.dI ? " Votre match est prévu le " + dd + " : décale-le après le " + B.d.getDate() + " si tu peux." : " Programme votre match après le " + B.d.getDate() + "."), until: B.d };
+      } else if (day && day < B.dI) q.alerts.push(["bell", "Votre match est prévu le <b>" + dd + "</b> : décale-le après le " + dm(B.d) + " si tu peux."]);
+      else if (!day) q.alerts.push(["bell", "Programme votre match après le <b>" + dm(B.d) + "</b>."]);
+    } else if (drop > 0) {
+      var D = C[drop], lim = dm(D.d), late = day && day >= D.dI;
+      q.tag = "+" + G(C[0]);
+      if (drop === 1) {
+        q.kind = "go"; q.verdict = "Joue-le avant le " + lim + " : il descend, ta victoire perd " + (G(C[0]) - G(D)) + " pts";
+        var rp = new Date(D.d.getTime() - 5 * 864e5);
+        if (late) q.alerts.push(["warn", "Votre match est prévu le <b>" + dd + "</b>, après sa descente : avance-le avant le " + lim + " si tu peux."]);
+        else if (!day && dGap(E.iso(rp)) >= 0) q.alerts.push(["bell", "Rappel le <b>" + dm(rp) + "</b> s'il n'est pas programmé."]);
+      } else {
+        q.kind = "warn"; q.tag = "avant " + MOIS[D.d.getMonth()]; q.verdict = "Joue-le avant le " + lim + " : il risque de descendre";
+        q.alerts.push(["warn", (D.lost ? "<b>" + plural(D.lost, "victoire sort", "victoires sortent") + "</b> de ses 12 mois le " + lim : "Son bilan sur 12 mois ne suffit plus le " + lim) + " : sans résultat d'ici là, il passe " + esc(lab(D.rank)) + " (ta victoire : +" + G(D) + ")." + (late ? " Votre match est prévu le " + dd + " : avance-le si tu peux." : "")]);
+        q.notif = { at: new Date(D.d.getTime() - 7 * 864e5), title: trNm(x.name) + " risque de descendre le " + lim, body: (D.lost ? plural(D.lost, "victoire sort", "victoires sortent") + " de ses 12 mois. " : "") + "Joue-le avant : +" + G(C[0]) + ", puis +" + G(D) + ".", until: D.d };
+      }
+    } else {
+      q.tag = "+" + G(C[0]);
+      q.verdict = C.length > 1 ? "Quand tu veux : ta victoire vaut +" + G(C[0]) + " jusqu'au " + dm(C[C.length - 1].d) + (C.length > 3 ? "" : "") : "Quand tu veux : pas de sortie avant la fin de la poule";
+    }
+    return q;
   }
   function poolUnknown(t) {
     return (t.pool || []).filter(function (x) { return !x.res && !(x.sim && simProj(x.sim, x.rankNow || x.rank)); }).map(function (x) { var o = E.idx(T.normRank(x.rankNow || x.rank || "")); return { x: x, g: o == null ? null : gainVs(o) }; });
@@ -1159,13 +1216,18 @@
     if (!NATIVE || !S.notif || !LN || PLUS_LOCK()) return;
     var list = [], now = new Date();
     toursAll().forEach(function (t) { if (tourOver(t)) return; TR_KIND = t.kind === "champ" ? "champ" : "tournoi"; poolTiming(t).forEach(function (z) {
-      if (z.adv !== "before" || list.length >= 3) return;
+      if (list.length >= 5) return;
+      var q; try { q = bmPlan(t, z); } catch (e) { return; }
+      var url = { url: "montee://open/tournoi/" + t.id };
+      // 3.55.3 : il remonte encore (prévenir 3 jours avant pour programmer ou décaler) ; descente possible calculée (7 jours avant)
+      if (q.notif) { var a0 = q.notif.at; a0.setHours(9, 0, 0, 0); if (a0 > now && a0 < q.notif.until) list.push({ id: 1200 + list.length, title: q.notif.title, body: q.notif.body, schedule: { at: a0 }, extra: url }); return; }
+      if (q.kind !== "go" || (z.x.day && z.x.day < z.relI)) return;
       var at = new Date(z.rel.getTime() - 5 * 864e5); at.setHours(9, 0, 0, 0); if (at < now) { at = new Date(now.getTime() + 3600e3); if (at >= z.rel) return; }
-      list.push({ id: 1200 + list.length, title: "Joue " + trNm(z.x.name) + " avant le " + z.rel.getDate() + " " + MOIS_L[z.rel.getMonth()], body: (z.sp.dir === "down" ? "Il redescend " + lab(z.sp.proj) + " : " : "") + "ta victoire vaudra " + (z.now - z.after) + " pts de moins après.", schedule: { at: at }, extra: { url: "montee://open/tournoi/" + t.id } });
+      list.push({ id: 1200 + list.length, title: "Joue " + trNm(z.x.name) + " avant le " + z.rel.getDate() + " " + MOIS_L[z.rel.getMonth()], body: (z.sp.dir === "down" ? "Il redescend " + lab(z.sp.proj) + " : " : "") + "ta victoire vaudra " + (z.now - z.after) + " pts de moins après.", schedule: { at: at }, extra: url });
     }); });
     if (!np("poule")) list = [];
     var key = JSON.stringify(list.map(function (n) { return [n.title, n.schedule.at.getTime()]; })); if (key === lastTimingKey) return; lastTimingKey = key;
-    LN.cancel({ notifications: [{ id: 1200 }, { id: 1201 }, { id: 1202 }] }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
+    LN.cancel({ notifications: [{ id: 1200 }, { id: 1201 }, { id: 1202 }, { id: 1203 }, { id: 1204 }] }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
   }
   var SMS_IC = svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', 2), CALL_IC = svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>', 2);
   // 3.44.4 (Yann) : le lien du comité pour envoyer tes résultats (lu dans le mail ou collé après coup), toujours sous la main
@@ -8183,7 +8245,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       s += '<button class="card cond-min" data-a="condOpen"><span class="grow"><span class="eyebrow">Les conditions</span><b>' + esc(cS ? cap1(cS) : "Surface, lieu, durée") + "</b><small>" + (cS ? "Comme ton dernier match · durée et ton retour en option" : "En option : surface, lieu, durée, ton retour") + '</small></span><span class="cond-ed">Modifier</span></button>';
     } else
     s += '<h2>' + (official || !isNew ? "Tes annotations · les conditions" : "Les conditions") + '</h2><div class="form">' +
-      '<div class="field"><span class="lbl">Surface</span><div class="chips">' + SURFACES.map(function (x) { return '<button class="chip' + (m.surface === x ? " on" : "") + '" data-a="dset" data-k="surface" data-v="' + x + '">' + (SURF_LAB[x] || x) + "</button>"; }).join("") + "</div></div>" +
+      '<div class="field"><span class="lbl">Surface</span><div class="chips">' + SURFACES.map(function (x) { return '<button class="chip' + (m.surface === x ? " on" : "") + '" data-a="dset" data-k="surface" data-v="' + x + '">' + surfPic(x) + (SURF_LAB[x] || x) + "</button>"; }).join("") + "</div></div>" +
       '<div class="field"><span class="lbl">Où</span><div class="seg"><button data-a="dset" data-k="indoor" data-v="1" class="' + (m.indoor === true ? "on" : "") + '">Intérieur</button><button data-a="dset" data-k="indoor" data-v="0" class="' + (m.indoor === false ? "on" : "") + '">Extérieur</button></div></div>' +
       (m.wo ? "" : durationHtml(m, true)) +
       '<div class="field"><label for="m-note">Ton retour sur ce match</label><textarea id="m-note" data-d="note" rows="3" placeholder="Ex. : il a tout joué sur mon revers, j\'ai lâché au 3e set">' + esc(m.note || "") + "</textarea>" + '<span class="small">Un retour par match : il ressortira avant votre prochaine rencontre. Ce qui vaut pour toujours (gaucher, sert au T…) va dans ' +
@@ -8219,7 +8281,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       (!dblMate(m) && m.skel && NATIVE ? '<button class="linkbtn" data-a="dblDiag" data-v="' + esc(m.id) + '" style="align-self:flex-start;padding:6px 0 0;min-height:0;font-size:13px">Envoyer la structure de ce match à Claude (sans les noms)</button>' : "") +
       '<span class="small">Ten\'Up fait foi pour le score et les joueurs. Une victoire en double compte en bonus, pas comme une victoire en simple.</span></div>';
     s += "<h2>Tes annotations · les conditions</h2><div class=\"form\">" +
-      '<div class="field"><span class="lbl">Surface</span><div class="chips">' + SURFACES.map(function (x) { return '<button class="chip' + (m.surface === x ? " on" : "") + '" data-a="dset" data-k="surface" data-v="' + x + '">' + (SURF_LAB[x] || x) + "</button>"; }).join("") + "</div></div>" +
+      '<div class="field"><span class="lbl">Surface</span><div class="chips">' + SURFACES.map(function (x) { return '<button class="chip' + (m.surface === x ? " on" : "") + '" data-a="dset" data-k="surface" data-v="' + x + '">' + surfPic(x) + (SURF_LAB[x] || x) + "</button>"; }).join("") + "</div></div>" +
       '<div class="field"><span class="lbl">Où</span><div class="seg"><button data-a="dset" data-k="indoor" data-v="1" class="' + (m.indoor === true ? "on" : "") + '">Intérieur</button><button data-a="dset" data-k="indoor" data-v="0" class="' + (m.indoor === false ? "on" : "") + '">Extérieur</button></div></div>' +
       (m.wo ? "" : durationHtml(m, true)) + "</div>" +
       // 3.47 (Yann) : le même « Raconte-le » qu'en simple (au lieu de la note de 1 à 5)
