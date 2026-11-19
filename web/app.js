@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.55.0",
+    VERSION: "3.55.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -3126,9 +3126,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var rec = Object.keys(S.scout || {}).map(function (k) { return { id: k, sc: S.scout[k] }; }).filter(function (x) { return x.sc && x.sc.hit && !(S.follow || {})[x.id]; }).sort(function (a, b) { return (b.sc.ts || 0) - (a.sc.ts || 0); }).slice(0, 8);
     var ft = UI.fafTab || (fl.length ? "suivis" : "adv");
     if (searching) ft = "adv";
-    if (!searching) { try { s += leagueHtml(); } catch (e) {} } // 3.55 (Yann) : ta ligue
     if (!searching) s += '<div class="faf-tabs">' + [["suivis", "Suivis", fl.length], ["adv", "Tes adversaires", oppIndex().length], ["rec", "Récents", rec.length]].map(function (x) { return '<button class="' + (ft === x[0] ? "on" : "") + '" data-a="fafTab" data-v="' + x[0] + '">' + x[1] + (x[2] ? " · " + x[2] : "") + "</button>"; }).join("") + "</div>";
     if (ft === "suivis") {
+      try { s += leagueHtml(); } catch (e) {} // 3.55.1 (Yann) : la ligue dans Suivis, compacte
       // 3.37 : « Du nouveau » en haut, « Les autres » dessous ; noms en minuscules ; pas de cloche (tout le monde est suivi ici)
       var frow = function (f) {
         var nw = f.news && Date.now() - (f.newsAt || 0) < 14 * 864e5 ? f.news : null, sc = (S.scout || {})[f.id], sn = sc ? folSnap(sc) : f.snap || {};
@@ -5870,17 +5870,24 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     });
     return out.sort(function (a, b) { return b.pc - a.pc || (b.up - a.up); });
   }
+  // 3.55.1 (Yann) : compacte (top 3, ou top 2 + toi), dépliable ; dans l'onglet Suivis
   function leagueHtml() {
     var R = leagueRows(); if (R.length < 2) return "";
-    var i = R.map(function (r) { return r.me; }).indexOf(true), me = R[i];
-    var t = me ? (i === 0 ? "Tu mènes ta ligue." : "Tu es " + (i + 1) + "e sur " + R.length + ".") + (me.up ? " Et tu es monté cette saison." : me.norme > me.total ? " Encore " + (me.norme - me.total) + " pts et tu montes." : "") : "";
-    return '<div class="card lg-card"><span class="lg-h"><span class="eyebrow">Ta ligue · saison ' + (seasonY() - 1) + "-" + String(seasonY()).slice(2) + '</span><span class="small">' + plural(R.length, "joueur") + "</span></span>" +
-      (t ? '<b class="m2-t">' + esc(t) + "</b>" : "") +
-      R.map(function (r, k) {
-        return '<div class="lg-r"><span class="lg-k">' + (k + 1) + '</span><span class="ini' + (r.me ? " me" : "") + '">' + esc(r.me ? initials(S.profile.name || "Toi") : initials(r.name)) + '</span><span class="grow"><b>' + esc(r.name) + (r.up ? '<span class="lg-up">monté ↑</span>' : "") + '</b><span class="small">' + (r.up ? esc(r.from) + " → " + esc(r.rank) : esc(r.rank) + " → " + esc(r.next)) + '</span><span class="lg-bar"><i style="width:' + r.pc + '%"></i></span></span><em>' + r.pc + " %</em></div>";
-      }).join("") +
-      '<span class="small">% du chemin fait vers son prochain échelon : chacun court contre sa propre barre.</span>' +
-      '<div class="ls-foot"><button class="go-pill" data-a="leagueShare">Partager ' + I.next + '</button><button class="go-pill" data-a="sheet" data-k="league" data-v="1">La ligue ' + I.next + "</button></div></div>";
+    var i = R.map(function (r) { return r.me; }).indexOf(true), me = R[i], open = !!UI.lgOpen;
+    var t = me ? (i === 0 ? "Tu mènes ta ligue." : "Tu es " + (i + 1) + "e.") + (me.up ? " Et tu es monté cette saison." : i > 0 && i < 3 && R[0].pc - me.pc <= 5 ? " " + R[0].name + " n'est qu'à " + (R[0].pc - me.pc) + " %." : me.norme > me.total ? " Encore " + (me.norme - me.total) + " pts et tu montes." : "") : "";
+    var row = function (r, k, first) {
+      return '<div class="lgc' + (r.me ? " me" : "") + (first ? " f" : "") + '"><span class="lg-k">' + (k + 1) + '</span><span class="ini' + (r.me ? " me" : "") + '">' + esc(r.me ? initials(S.profile.name || "Toi") : initials(r.name)) + "</span>" +
+        '<span class="grow"><span class="lgc-n"><b>' + esc(r.name) + "</b>" + (r.up ? '<span class="lg-up">monté ↑</span>' : "<small>" + esc(r.rank) + " → " + esc(r.next) + "</small>") + '</span><span class="lgc-bar"><i style="width:' + r.pc + '%"></i></span></span><em>' + r.pc + " %</em></div>";
+    };
+    var body;
+    if (open || R.length <= 3) body = R.map(function (r, k) { return row(r, k, !k); }).join("");
+    else if (i < 3) body = R.slice(0, 3).map(function (r, k) { return row(r, k, !k); }).join("");
+    else body = row(R[0], 0, true) + row(R[1], 1) + (i > 2 ? '<div class="lgc-gap">' + plural(i - 2, "joueur") + "</div>" : "") + row(me, i, true);
+    var tg = R.length > 3 ? '<button class="lgc-tg" data-a="leagueToggle">' + (open ? "Replier" : "Voir les " + R.length) + " " + svg(open ? '<path d="M6 15l6-6 6 6"/>' : '<path d="M6 9l6 6 6-6"/>', 2.6) + "</button>" : "";
+    return '<div class="card lg-card"><span class="lg-h"><span class="eyebrow">Ta ligue · ' + (seasonY() - 1) + "-" + String(seasonY()).slice(2) + '</span><span class="small">' + plural(R.length, "joueur") + "</span></span>" +
+      (t ? '<b class="m2-t lgc-t">' + esc(t) + "</b>" : "") + body +
+      (open || R.length <= 3 ? '<span class="small" style="margin-top:4px">% du chemin fait vers son prochain échelon : chacun court contre sa propre barre.</span>' +
+        '<div class="ls-foot"><button class="go-pill" data-a="leagueShare">Partager</button><button class="go-pill" data-a="sheet" data-k="league" data-v="1">Comment c\'est compté ' + I.next + "</button></div>" : "") + tg + "</div>";
   }
   function folSnap(sc) {
     var p = playedOf(sc.rows || []).filter(function (m) { return m.date; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
@@ -9277,7 +9284,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.55 : aperçu du point pour ton prof (le texte exact qui part)
     prof: function () {
       var P = profData(); if (!P) return null;
-      return { title: "Aperçu pour ton prof", sub: "Envoyé en message (Messages, WhatsApp, mail…). Ton prof n'a pas besoin de l'app.", body: '<div class="pf-prev">' + esc(profText(P)).replace(/\n/g, "<br>") + '</div><div class="ls-foot" style="margin-top:12px"><button class="go-pill" data-a="profSend">Envoyer ' + I.next + "</button></div>" };
+      var Q = profSecs(P);
+      return { title: "Aperçu du message", sub: "À ton prof, par Messages, WhatsApp ou mail. Il n'a pas besoin de l'app.",
+        body: '<div class="pf-bub"><b class="pf-bt">' + esc(Q.t) + "</b>" + Q.X.map(function (x) { return "<h4>" + esc(x[0]) + "</h4><p>" + x[1].map(esc).join("<br>") + "</p>"; }).join("") + "</div>" +
+          '<p class="small pf-ed">Tu pourras le modifier avant de l\'envoyer.</p><div class="ls-foot df-foot"><button class="go-pill" data-a="profCopy">Copier</button><button class="btn primary small" data-a="profSend">Envoyer ' + I.next + "</button></div>" };
     },
     // 3.55 : la ligue des copains, comment c'est compté
     league: function () {
@@ -10952,29 +10962,34 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var mins = TR.reduce(function (s, x) { return s + playMinutes(x); }, 0);
     return { a: a, mo: MOIS_L[a.getMonth()], M: M, V: V, D: D, TR: TR, mins: mins, sD: sD, sV: sV, tight: tight, TH: TH.slice(0, 2), work: work, good: good, fs: fs };
   }
+  // 3.55.1 (Yann) : le message en sections (titre, puis Matchs / À travailler / Entraînement / Ce qui a marché)
+  function profSecs(P) {
+    var nm = S.profile.name || "", y = P.a.getFullYear(), X = [];
+    if (P.M.length) X.push(["Matchs", [plural(P.V.length, "victoire") + ", " + plural(P.D.length, "défaite")].concat(P.M.map(function (m) { var f = P.fs(m); return m.result + " contre " + (isAnon(m.opp) ? "un joueur" : nameCase(m.opp)) + (m.oppRank ? " (" + m.oppRank + ")" : "") + (m.score ? " · " + m.score : "") + (f != null ? " · 1res balles " + f + " %" : ""); }))]);
+    if (P.TH.length) X.push(["À travailler", P.TH.map(function (x, i) { return (i + 1) + ". " + x[0] + " (" + x[1] + ")"; })]);
+    if (P.TR.length) X.push(["Entraînement", [plural(P.TR.length, "séance") + " · " + fmtDur(P.mins) + (P.work.length ? " · " + P.work.join(", ") : "")]]);
+    if (P.good.length) X.push(["Ce qui a marché", [P.good.slice(0, 2).join(", ")]]);
+    return { t: (nm ? "Le point de " + nm : "Mon point tennis") + " · " + P.mo + " " + y + (effRank() ? " · " + effRank() : ""), X: X };
+  }
   function profText(P) {
-    var nm = S.profile.name || "", y = P.a.getFullYear();
-    var L = [(nm ? "Le point de " + nm : "Mon point tennis") + " · " + P.mo + " " + y + (effRank() ? " · " + effRank() : ""), ""];
-    if (P.M.length) { L.push("Matchs : " + P.V.length + " V · " + P.D.length + " D"); P.M.forEach(function (m) { var f = P.fs(m); L.push("• " + m.result + " " + (nameCase(m.opp) || "") + " (" + (m.oppRank || "") + ") " + (m.score || "") + (f != null ? " · 1res " + f + " %" : "")); }); L.push(""); }
-    if (P.good.length) L.push("Ce qui a marché : " + P.good.slice(0, 2).join(", "));
-    if (P.TH.length) { L.push("À travailler, d'après mes matchs :"); P.TH.forEach(function (x, i) { L.push((i + 1) + ". " + x[0] + " (" + x[1] + ")"); }); }
-    if (P.TR.length) L.push("Séances : " + P.TR.length + " · " + fmtDur(P.mins) + (P.work.length ? " · " + P.work.join(", ") : ""));
-    return L.join("\n");
+    var Q = profSecs(P);
+    return [Q.t].concat(Q.X.map(function (x) { return "\n" + x[0].toUpperCase() + "\n" + x[1].join("\n"); })).join("\n");
   }
   function profHtml() {
     var P = profData(); if (!P) return "";
     var lock = PLUS_LOCK(), th = P.TH[0];
-    var t = (P.M.length ? plural(P.M.length, "match", "matchs") + ", " : "") + plural(P.TR.length, "séance") + "." + (th ? " Ce qui coince : " : "");
-    var kv = function (k, v) { return "<span>" + k + "</span><b>" + v + "</b>"; };
-    var body = '<div class="pf-kv">' + (P.M.length ? kv("Matchs", P.V.length + " V · " + P.D.length + " D") : "") + (P.TR.length ? kv("Séances", P.TR.length + " · " + esc(fmtDur(P.mins))) : "") +
-      (P.tight ? kv("Serré", plural(P.tight, "set perdu", "sets perdus") + " de 2 jeux ou au tie-break") : "") + (P.sD != null && P.sV != null ? kv("Service", "1res à " + P.sD + " % dans les défaites, " + P.sV + " % dans les victoires") : "") +
-      (P.good.length ? kv("Marché", esc(P.good.slice(0, 2).join(", "))) : "") + "</div>" +
-      (P.TH.length ? '<span class="eyebrow pf-sub">' + (P.TH.length > 1 ? "2 thèmes proposés" : "Un thème proposé") + "</span>" + P.TH.map(function (x, i) { return '<div class="rb-st"><span class="rb-n">' + (i + 1) + '</span><span><b>' + esc(x[0]) + '</b><span class="small">' + esc(x[1]) + "</span></span></div>"; }).join("") : "");
-    return '<div class="card pf-card"><div class="ch-hd"><span class="eyebrow">Le point pour ton prof · ' + esc(P.mo) + '</span><span class="ch-plus">Montée+</span></div>' +
-      '<b class="m2-t">' + esc(t) + (th ? '<span class="hl-t">' + esc(th[0].toLowerCase()) + "</span>." : "") + "</b>" +
-      '<div class="' + (lock ? "ch-blur" : "") + '">' + body + "</div>" +
+    var t = th ? 'Ce qui coince ce mois-ci : <span class="hl-t">' + esc(th[0].toLowerCase()) + "</span>." : esc((P.M.length ? plural(P.M.length, "match", "matchs") + ", " : "") + plural(P.TR.length, "séance") + " ce mois-ci.");
+    var three = P.M.filter(function (m) { return setsOf(m.score).length >= 3; }).length;
+    var tile = function (k, v, sub) { return '<div class="pf-tile"><small>' + k + "</small><b>" + v + "</b><span>" + sub + "</span></div>"; };
+    var tiles = '<div class="pf-tiles">' + tile("Matchs", P.M.length ? P.V.length + " V · " + P.D.length + " D" : "0", P.M.length ? (three ? three + " au 3e set" : "aucun au 3e set") : "ce mois-ci") +
+      tile("Séances", String(P.TR.length), P.TR.length ? esc(fmtDur(P.mins)) : "ce mois-ci") +
+      (P.sD != null && P.sV != null && !P.tight ? tile("1res balles", P.sV + " %", "en victoire, " + P.sD + " % en défaite") : tile("Serrés", P.tight ? plural(P.tight, "set") : "0", P.tight ? "perdu" + (P.tight > 1 ? "s" : "") + " de 2 jeux ou au tie-break" : "set perdu de peu")) + "</div>";
+    var themes = P.TH.map(function (x, i) { return '<div class="pf-th"><span class="rb-n">' + (i + 1) + '</span><span><b>' + esc(x[0]) + '</b><span class="small">' + esc(x[1]) + "</span></span></div>"; }).join("");
+    return '<div class="card pf-card"><div class="ch-hd"><span class="eyebrow">Pour ton prof · ' + esc(P.mo) + '</span><span class="ch-plus">Montée+</span></div>' +
+      '<b class="m2-t">' + t + "</b>" +
+      '<div class="' + (lock ? "ch-blur" : "") + '">' + tiles + themes + "</div>" +
       (lock ? '<button class="btn primary small ch-cta" data-a="goSoutenirComp">Envoyer le point du mois avec Montée+</button>' :
-        '<span class="small">Tu relis avant d\'envoyer. Rien ne part sans toi.</span><div class="ls-foot"><button class="go-pill" data-a="sheet" data-k="prof" data-v="1">Aperçu ' + I.next + '</button><button class="go-pill" data-a="profSend">Envoyer à ton prof ' + I.next + "</button></div>") + "</div>";
+        '<div class="pf-foot"><button class="linkbtn pf-lnk" data-a="sheet" data-k="prof" data-v="1">Aperçu</button><button class="btn primary small" data-a="profSend">Envoyer à ton prof ' + I.next + "</button></div>") + "</div>";
   }
   // texte seul, sans liens vers l'app (message pour le prof)
   function sharePlain(txt) {
@@ -12929,6 +12944,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     leagueOut: function (el) { S.league = S.league || { y: seasonY(), start: {} }; S.league.out = (S.league.out || []).concat([el.dataset.v]); save(); render(); toast("Retiré de ta ligue. Tu le suis toujours."); },
     profSend: function () { var P = profData(); if (P) sharePlain(profText(P)); },
+    profCopy: function () { var P = profData(); if (!P) return; var t = profText(P); if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { toast("Message copié : colle-le où tu veux."); }, function () { toast("Copie impossible sur ce téléphone."); }); else toast("Copie impossible sur ce téléphone."); },
     warmGo: function (el) {
       var id = el.dataset.id, pl = planOf(id); if (!pl) return;
       UI.warm = { id: id };
@@ -12949,6 +12965,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var lim = E.iso(new Date(today() - 730 * 864e5)); Object.keys(S.checkin).forEach(function (d) { if (d < lim) delete S.checkin[d]; });
       save(); haptic("light"); UI.sheet = { k: "ciDone", v: 1 }; render();
     },
+    leagueToggle: function () { UI.lgOpen = !UI.lgOpen; render(); },
     whySet: function (el) { S.why = el.dataset.v; save(); UI.sheet = { k: "why", v: S.why }; haptic("light"); render(); },
     defiShare: function (el) {
       var D = defisData(), r = D.list.filter(function (x) { return x.d.k === el.dataset.v; })[0]; if (!r || !r.done) return;
