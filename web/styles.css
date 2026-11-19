@@ -4539,3 +4539,13 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .qa-fresh .qa1-r b .qa1-more { font-size: 13px; }
 .qa-fn { text-align: left; padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--line); line-height: 1.4; }
 .qa-fresh .qa1-r b .qa1-more { white-space: normal; }
+/* 3.55 (Yann, maquette F) : paliers illustrés dans Activité */
+.pal-c { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; text-decoration: none; color: inherit; }
+.pal-i { flex: none; width: 60px; height: 60px; }
+.pal-i svg { width: 60px; height: 60px; display: block; border-radius: 14px; }
+.pal-t { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pal-e { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--gazon); }
+.pal-t b { font-size: 16px; line-height: 1.25; }
+.pal-t > span:last-child { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.pal-go { flex: none; margin-left: auto; color: var(--muted); display: flex; }
+.pal-go svg { width: 18px; height: 18px; }
