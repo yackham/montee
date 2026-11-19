@@ -1094,6 +1094,27 @@
     });
     return out;
   }
+  // 3.55.3 (idée testeur, validée par Yann) : ses sorties suivantes (M+1, M+2), s'il ne rejoue pas. Ten'Up ne simule que la prochaine :
+  // Montée refait le calcul sur son palmarès (saison en cours + saisons passées lues sur sa fiche), en partant du classement que Ten'Up
+  // lui donne à la prochaine sortie. Règle FFT : 1 échelon de descente au plus par 12 mois (descendu à M+0 ou protégé → pas de 2e descente).
+  function poolFuture(t, z, n) {
+    var sc = z.x.tid && (S.scout || {})[String(z.x.tid)]; if (!sc || !sc.rows) return [];
+    var all = [], k = 0, add = function (m) { if (!m || !m.date || m.ok === false || !(m.result === "V" || m.result === "D")) return; all.push({ id: "o" + (k++), date: m.date, result: m.result, oppRank: m.oppRank, wo: !!m.wo, dbl: !!m.dbl, kind: m.kind || "tournoi", score: m.score || "" }); };
+    sc.rows.forEach(add); (sc.past || []).forEach(function (y) { (y.rows || []).forEach(add); });
+    var seen = {}; all = all.filter(function (m) { var key = [m.date, m.result, m.oppRank, m.score, m.dbl].join("|"); if (seen[key]) return false; seen[key] = 1; return true; });
+    var sx = String((sc.profil && sc.profil.sexe) || (sc.hit && sc.hit.sexe) || "H").charAt(0).toUpperCase() === "F" ? "F" : "H";
+    var cur = z.sp.proj, rel = z.rel, prot = z.sp.kept ? new Date(rel.getFullYear() + 1, rel.getMonth(), rel.getDate()) : z.sp.dir === "down" ? E.nextRelease(new Date(rel.getFullYear() + 1, rel.getMonth(), 1)) : null, end = t.dl || t.to || "", out = [];
+    for (var i = 0; i < (n || 2); i++) {
+      rel = E.nextRelease(new Date(rel.getTime() + 864e5)); var relI = E.iso(rel);
+      if (end && relI > end) break;
+      var o = { today: today(), release: rel }; if (prot) o.protectUntil = prot;
+      var pr = E.project(all, cur, sx, o), nx = pr.status === "top" ? cur : pr.projected;
+      if (nx < cur && !prot) prot = E.nextRelease(new Date(rel.getFullYear() + 1, rel.getMonth(), 1));
+      out.push({ rel: rel, relI: relI, from: cur, rank: nx, dir: nx > cur ? "up" : nx < cur ? "down" : "same", kept: !!pr.kept, gain: gainVs(nx) });
+      cur = nx;
+    }
+    return out;
+  }
   function poolTimingHtml(t) {
     var L = poolTiming(t); if (!L.length) return "";
     var head = '<span class="eyebrow">Le bon moment pour les jouer</span>';
@@ -1115,7 +1136,9 @@
     var row = function (z) {
       var mv = z.sp.kept ? "protégé" : z.sp.dir === "same" ? "ne bouge pas" : (z.sp.dir === "up" ? "↗ " : "↘ ") + lab(z.sp.proj) + " au " + rd(z);
       var pc = z.sp.dir === "up" && !z.sp.kept ? "up" : z.sp.dir === "down" && !z.sp.kept ? "dn" : "";
-      return '<div class="bm-r"><span class="tq-av">' + esc(initials(trNm(z.x.name))) + '</span><span class="bm-n"><b>' + esc(trNm(z.x.name)) + '</b><small>' + esc(lab(z.sp.cur)) + ' · <span class="bm-mv ' + pc + '">' + esc(mv) + "</span></small></span>" + box(z.now, z.adv === "before") + box(z.after, z.adv === "after") + "</div>";
+      var fu = []; try { fu = poolFuture(t, z, 2); } catch (e) {}
+      var fuH = fu.length ? '<div class="bm-fu"><span class="bm-fl">Ensuite, s\'il ne rejoue pas</span>' + fu.map(function (f) { return '<span class="bm-fm"><small>' + f.rel.getDate() + " " + MOIS[f.rel.getMonth()].replace(/\.$/, "") + '</small><b class="' + (f.dir === "up" ? "up" : f.dir === "down" ? "dn" : "") + '">' + (f.dir === "up" ? "↗ " : f.dir === "down" ? "↘ " : "") + esc(lab(f.rank)) + "</b><small>" + (f.gain != null ? "+" + f.gain : "") + "</small></span>"; }).join("") + "</div>" : "";
+      return '<div class="bm-rw"><div class="bm-r"><span class="tq-av">' + esc(initials(trNm(z.x.name))) + '</span><span class="bm-n"><b>' + esc(trNm(z.x.name)) + '</b><small>' + esc(lab(z.sp.cur)) + ' · <span class="bm-mv ' + pc + '">' + esc(mv) + "</span></small></span>" + box(z.now, z.adv === "before") + box(z.after, z.adv === "after") + "</div>" + fuH + "</div>";
     };
     var G = [["before", "À jouer avant le " + rd(z0), "bm-go"], ["after", "Mieux après le " + rd(z0), "bm-wait"], ["any", "Quand tu veux", "bm-any"]];
     var body = G.map(function (g) { var l = L.filter(function (z) { return z.adv === g[0]; }); return l.length ? '<div class="bm-g ' + g[2] + '"><span class="bm-gh"><i></i>' + g[1] + "</span>" + l.map(row).join("") + "</div>" : ""; }).join("");
@@ -1125,7 +1148,7 @@
     }).join("") + "</div>";
     var colh = '<div class="bm-r bm-colh"><span></span><span></span><span>avant</span><span>après</span></div>';
     return '<div class="card pt-card bm">' + head + head2 + colh + body +
-      '<span class="small bm-ft">Points d\'après la simulation Ten\'Up de chacun, à ton classement actuel. Ten\'Up ne prévoit que la prochaine sortie : après le ' + rd(z0) + ", Montée refait le calcul pour la suivante." + " Protégé : déjà descendu cette année, Ten'Up ne le fait pas redescendre. Anonyme : sa projection n'est pas visible." + (t.to ? "" : " Indique la date limite (Modifier, en haut) pour savoir s'il reste du temps après la sortie.") + "</span></div>";
+      '<span class="small bm-ft">Points d\'après la simulation Ten\'Up de chacun, à ton classement actuel. Ten\'Up ne prévoit que la prochaine sortie : les suivantes (« Ensuite »), Montée les calcule sur son palmarès comme s\'il ne rejouait plus, avec la règle FFT d\'une descente au plus par 12 mois. Utile si tu sais que tu ne pourras pas jouer pendant un moment.' + " Protégé : déjà descendu cette année, Ten'Up ne le fait pas redescendre. Anonyme : sa projection n'est pas visible." + (t.to ? "" : " Indique la date limite (Modifier, en haut) pour savoir s'il reste du temps après la sortie.") + "</span></div>";
   }
   function poolUnknown(t) {
     return (t.pool || []).filter(function (x) { return !x.res && !(x.sim && simProj(x.sim, x.rankNow || x.rank)); }).map(function (x) { var o = E.idx(T.normRank(x.rankNow || x.rank || "")); return { x: x, g: o == null ? null : gainVs(o) }; });
@@ -6750,24 +6773,39 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     var m = list[0], last = S.lastQA || {};
     if (!UI.qa || UI.qa.id !== m.id) {
-      var main = racketFor("match");
-      UI.qa = { id: m.id, racketId: main ? main.id : "", surface: m.surface || last.surface || "", indoor: m.indoor != null ? m.indoor : (last.indoor != null ? last.indoor : null), feel: m.feel || 0, more: false };
+      // 3.55.3 (Yann) : la principale, sauf si son cordage est cassé (depuis avant ce match) : avec 2 raquettes dans le sac, on prend
+      // l'autre ; avec plus, tu choisis (la liste s'ouvre)
+      var main = racketFor("match"), bk = main && brokenNow(main), rkOpen = false;
+      if (main && bk && (!bk.date || !m.date || bk.date <= m.date)) {
+        var others = bag().filter(function (r) { return r.id !== main.id && !brokenNow(r); });
+        if (others.length === 1) main = others[0]; else { main = null; rkOpen = others.length > 1; }
+      }
+      UI.qa = { id: m.id, rkOpen: rkOpen, racketId: main ? main.id : "", surface: m.surface || last.surface || "", indoor: m.indoor != null ? m.indoor : (last.indoor != null ? last.indoor : null), feel: m.feel || 0, more: false };
+      if (!m.surface && m.indoor == null && (last.surface || last.indoor != null)) UI.qa.pre = { surface: last.surface || "", indoor: last.indoor != null ? last.indoor : null };
     }
     var q = UI.qa, total = list.length + (UI.qaRun || 0), pos = (UI.qaRun || 0) + 1;
     var chip = function (a, v, on, label) { return '<button class="chip' + (on ? " on" : "") + '" data-a="' + a + '" data-v="' + esc(String(v)) + '" aria-pressed="' + on + '">' + esc(label) + "</button>"; };
-    var s = '<div class="card qa">';
+    // 3.55.3 (Yann, maquette validée) : feuille plus compacte : le match sur une ligne, raquette, surface et lieu dans une carte neutre
+    // (sélecteurs à onglets), les ressentis en grille 2 colonnes (liseré, pas d'aplat), « Plus tard » en lien
+    var seg = function (a, items) { return '<span class="an-seg" role="group">' + items.map(function (x) { return '<button class="' + (x.on ? "on" : "") + '" data-a="' + a + '" data-v="' + esc(String(x.v)) + '" aria-pressed="' + !!x.on + '">' + esc(x.l) + "</button>"; }).join("") + "</span>"; };
+    var V = m.result === "V", s = '<div class="card qa an">';
     if (done) s += '<span class="qa-done" role="status">' + I.check + " " + esc(done.label) + " : annoté</span>";
-    s += '<span class="qa-top"><span class="eyebrow">Annote ton match' + (total > 1 ? " · " + pos + " sur " + total : "") + "</span></span>" +
-      '<span style="font-size:20px;font-weight:600;letter-spacing:-.02em;line-height:1.2">' + (m.result === "V" ? "Victoire" : "Défaite") + " contre " + esc(m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "un " + m.oppRank) + ' <span style="opacity:.6;font-weight:500">' + esc(m.oppRank) + "</span></span>" +
-      '<span class="small" style="color:inherit;opacity:.75;margin-top:-4px">' + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + (m.comp ? " · " + esc(m.comp) : "") + "</span>" + revHint(m.opp, m.id, true);
-    s += '<span class="qa-l">Raquette</span><div class="chips">' + (bag().length ? bag().map(function (r) { return chip("qaRacket", r.id, q.racketId === r.id, r.name); }).join("") : '<a class="chip" href="#/raquette/new">+ Ajoute ta raquette</a>') + "</div>";
-    var surfs = q.more ? SURFACES : qaSurfaces(q.surface);
-    s += '<span class="qa-l">Surface</span><div class="chips">' + surfs.map(function (x) { return chip("qaSurface", x, q.surface === x, SURF_LAB[x] || x); }).join("") +
-      (q.more ? "" : '<button class="chip ghost" data-a="qaMore">Autre…</button>') + "</div>";
-    s += '<span class="qa-l">Où</span><div class="chips">' + chip("qaIndoor", "1", q.indoor === true, "Intérieur") + chip("qaIndoor", "0", q.indoor === false, "Extérieur") + "</div>";
+    s += '<div class="an-h"><span class="eyebrow">Annote ton match</span>' + (total > 1 ? '<span class="an-pos"><span class="small">' + pos + " sur " + total + '</span><span class="an-st">' + Array.apply(null, Array(Math.min(total, 8))).map(function (_, i) { return '<i class="' + (i < pos ? "on" : "") + '"></i>'; }).join("") + "</span></span>" : "") + "</div>";
+    s += '<div class="an-m"><span class="an-r ' + (V ? "V" : "D") + '">' + (V ? "V" : "D") + '</span><span class="grow"><b>' + (V ? "Victoire" : "Défaite") + " contre " + esc(m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "un " + m.oppRank) + ' <span class="an-rk0">' + esc(m.oppRank) + "</span></b><small>" + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + (m.comp ? " · " + esc(m.comp) : "") + "</small></span></div>" + revHint(m.opp, m.id, true);
+    // raquette : celle retenue (touche pour changer) ; plusieurs dans le sac → la liste s'ouvre
+    var B = bag(), rk = B.filter(function (r) { return r.id === q.racketId; })[0], rkRow;
+    if (!B.length) rkRow = '<a class="an-add" href="#/raquette/new">+ Ajoute ta raquette</a>';
+    else if (q.rkOpen || !rk) rkRow = '<div class="an-list" role="listbox">' + B.map(function (r) { var on = q.racketId === r.id; return '<button class="an-li' + (on ? " on" : "") + '" role="option" aria-selected="' + on + '" data-a="qaRacket" data-v="' + esc(r.id) + '"><span>' + esc(r.name) + (brokenNow(r) ? ' <small class="an-bk">· cordage cassé</small>' : r.string ? ' <small class="an-sm">· ' + esc(r.string) + "</small>" : "") + "</span>" + (on ? I.check : "") + "</button>"; }).join("") + "</div>";
+    else rkRow = '<button class="an-rkb" data-a="qaRkOpen"' + (B.length > 1 ? "" : " disabled") + '><span><b>' + esc(rk.name) + "</b>" + (rk.string || rk.tension ? " <small>· " + esc([rk.string, rk.tension ? rk.tension + " kg" : ""].filter(Boolean).join(" · ")) + "</small>" : "") + "</span>" + (B.length > 1 ? '<span class="an-go">Changer ' + I.next + "</span>" : "") + "</button>";
+    // 3.55.3 (Yann) : 8 surfaces possibles : la surface retenue sur une ligne, la liste complète s'ouvre au toucher (les plus jouées d'abord)
+    var SH = { "Autre": "Autre (gymnase, parquet…)" }, order = qaSurfaces("").concat(SURFACES).filter(function (x, i, a) { return a.indexOf(x) === i; });
+    var surfRow = q.more ? '<div class="an-list" role="listbox">' + order.map(function (x) { var on = q.surface === x; return '<button class="an-li' + (on ? " on" : "") + '" role="option" aria-selected="' + on + '" data-a="qaSurface" data-v="' + esc(x) + '"><span>' + esc(SH[x] || x) + "</span>" + (on ? I.check : "") + "</button>"; }).join("") + "</div>"
+      : '<button class="an-rkb" data-a="qaMore"><span>' + (q.surface ? "<b>" + esc(SH[q.surface] || q.surface) + "</b>" : '<span class="an-ph">Choisir</span>') + '</span><span class="an-go">' + (q.surface ? "Changer " : "") + I.next + "</span></button>";
+    s += '<div class="an-c"><div class="an-row"><span class="an-k">Raquette</span>' + rkRow + '</div><div class="an-row"><span class="an-k">Surface</span>' + surfRow + '</div><div class="an-row"><span class="an-k">Lieu</span>' + seg("qaIndoor", [{ v: "1", l: "Intérieur", on: q.indoor === true }, { v: "0", l: "Extérieur", on: q.indoor === false }]) + "</div></div>";
+    if (q.pre && (q.surface === q.pre.surface || q.indoor === q.pre.indoor)) s += '<span class="an-pre">Surface et lieu repris de ton dernier match annoté : change-les si besoin.</span>';
     var qf = q.felt || [];
-    s += '<span class="qa-l">' + (m.result === "V" ? "Ce qui a fait la différence" : "Comment tu l'as senti") + '</span><div class="rl2-c">' + FELT[m.result === "V" ? "V" : "D"].map(function (x) { var a = qf.indexOf(x[0]) >= 0; return '<button class="rl2-p' + (a ? " on" : "") + '" data-a="qaFelt" data-v="' + x[0] + '" aria-pressed="' + a + '"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + x[2] + "</svg>" + esc(x[1]) + (a ? " ✓" : "") + "</button>"; }).join("") + "</div>";
-    s += '<div class="btn-pair" style="margin-top:8px"><button class="btn balle" data-a="qaSave">' + (list.length > 1 ? "Enregistrer · suivant" : "Enregistrer") + '</button><button class="btn qa-later" data-a="qaSkip">Plus tard</button></div></div>';
+    s += '<div class="an-fh"><span class="an-k">' + (V ? "Ce qui a fait la différence" : "Comment tu l'as senti") + '</span><small>facultatif</small></div><div class="an-g">' + FELT[V ? "V" : "D"].map(function (x) { var a = qf.indexOf(x[0]) >= 0; return '<button class="an-t ' + (V ? "V" : "D") + (a ? " on" : "") + '" data-a="qaFelt" data-v="' + x[0] + '" aria-pressed="' + a + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + x[2] + "</svg><span>" + esc(x[1]) + "</span></button>"; }).join("") + "</div>";
+    s += '<div class="an-f"><button class="btn balle" data-a="qaSave">' + (list.length > 1 ? "Enregistrer · suivant" : "Enregistrer") + '</button><button class="an-later" data-a="qaSkip">Plus tard</button></div></div>';
     return s;
   }
 
@@ -13128,9 +13166,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     scoreStb: function (el) { UI.stb = el.dataset.v === "1"; render(); },
     stbExt: function (el) { UI.stbExt = Math.max(11, Math.min(40, (UI.stbExt || 11) + (+el.dataset.v))); render(); },
     scoreManual: function () { UI.scoreManual = !UI.scoreManual; if (!UI.scoreManual) { UI.draft.sets = setsOf(UI.draft.score); } render(); },
-    qaRacket: function (el) { UI.qa.racketId = UI.qa.racketId === el.dataset.v ? "" : el.dataset.v; render(); },
-    qaSurface: function (el) { UI.qa.surface = UI.qa.surface === el.dataset.v ? "" : el.dataset.v; render(); },
+    qaRacket: function (el) { UI.qa.racketId = el.dataset.v; UI.qa.rkOpen = false; render(); },
+    qaSurface: function (el) { UI.qa.surface = el.dataset.v; UI.qa.more = false; render(); },
     qaMore: function () { UI.qa.more = true; render(); },
+    qaRkOpen: function () { UI.qa.rkOpen = true; render(); },
     qaIndoor: function (el) { var v = el.dataset.v === "1"; UI.qa.indoor = UI.qa.indoor === v ? null : v; render(); },
     qaFelt: function (el) { var q = UI.qa; q.felt = q.felt || []; var i = q.felt.indexOf(el.dataset.v); if (i >= 0) q.felt.splice(i, 1); else q.felt.push(el.dataset.v); haptic("light"); render(); },
     qaFeel: function (el) { var v = +el.dataset.v; UI.qa.feel = UI.qa.feel === v ? 0 : v; haptic("light"); render(); },
