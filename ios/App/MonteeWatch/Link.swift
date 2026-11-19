@@ -69,6 +69,8 @@ struct WCtx: Codable {
     /// 3.49 : face-à-face (complication) et tes chances de monter (Montée+)
     var faf: WFaf? = nil
     var chances: WChances? = nil
+    /// 3.55.3 : tes zones cardio réglées sur l'iPhone (seuils des zones 2 à 5, en bpm : automatique, Karvonen ou à la main)
+    var hrThr: [Int]? = nil
 }
 
 /// 3.49 : un face-à-face : prénom, quand (« Sam. »), victoires, défaites, carrés du plus ancien au plus récent

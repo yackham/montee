@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.55.2",
+    VERSION: "3.55.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -6605,7 +6605,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var t = (S.trainings || []).filter(function (x) { return x.src === "montre" && x.date >= l && x.curve; }).sort(function (a, b) { return (b.at || 0) - (a.at || 0); })[0];
     if (!t) return "";
     var it = trainIntensity(t);
-    return '<a class="wk-train" href="#/entrainement/' + esc(t.id) + '">' + hrCurveSvg(t.curve, t.thr, 120, 34, "w" + t.id.replace(/\W/g, "")) +
+    return '<a class="wk-train" href="#/entrainement/' + esc(t.id) + '">' + hrCurveSvg(hrFinePts(t) || t.curve, hrThr(), 120, 34, "w" + t.id.replace(/\W/g, "")) +
       "<span><b>Entraînement · " + esc(fmtDur(t.minutes)) + "</b><small>" + esc(dayLab(t.date)) + (it ? " · " + it.label + " · " + it.pct + " % zone 3+" : "") + (t.serve && (t.serve.ins + t.serve.outs) ? " · service " + Math.round(t.serve.ins * 100 / (t.serve.ins + t.serve.outs)) + " %" : "") + "</small></span></a>";
   }
   // ---------- Semaine type : créneaux fixes à confirmer d'un tap ----------
@@ -8400,36 +8400,31 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Le cap remplace « Ce que le coach te demande ». Il vise l'échelon au-dessus, à la 1re sortie à 45 jours ou plus,
   // et se garde (S.cap) jusqu'à son échéance pour que le compteur ne reparte pas de zéro à chaque match.
   function capData(c) {
-    var cur = c.cur < 0 ? 0 : c.cur, p = c.proj, t = today();
+    var cur = c.cur < 0 ? 0 : c.cur, p = c.proj, t = today(), MO = 30.4 * 864e5;
     if (p.status === "top" || p.status === "montee" || cur >= E.MAX_CALC || !p.next || !p.next.norme) return null;
     var sg = function (m) { return m.date && !m.dbl && !m.wo && (m.result === "V" || m.result === "D") && E.idx(m.oppRank) != null; };
-    var yOf = function (lv) { return playedOf(p.matches).filter(function (m) { return sg(m) && E.idx(m.oppRank) >= lv; }); };
-    // Chance de victoire lissée (3 matchs fictifs à 40 %) : 1 sur 4 ne fait pas croire qu'il faut 4 matchs par victoire
-    var rateOf = function (y) { var v = y.filter(function (m) { return m.result === "V"; }).length; return Math.max(0.25, (v + 1.2) / (y.length + 3)); };
-    // Ton rythme réel : matchs par mois contre ce niveau sur 12 mois (au moins 1 par mois : équipes, indivs, un tournoi), +25 % pour l'effort
-    var paceOf = function (y) { return Math.max(1, y.length / 12); };
     var tgt = Math.min(cur + 1, E.MAX_CALC), cp = S.cap;
-    if (!cp || cp.v !== 2 || cp.tgt !== tgt || E.parseDate(cp.by) < t) {
+    if (!cp || cp.v !== 3 || cp.tgt !== tgt || E.parseDate(cp.by) < t) {
       var w = winsFor(c, tgt), top = w.top != null && w.top <= 4 ? w.top : null, n = top || (w.n <= 6 ? w.n : null);
       if (!n) return null;
-      var lv0 = top ? tgt : w.lvl, y0 = yOf(lv0), need0 = Math.max(n, Math.ceil(n / rateOf(y0))), pm = paceOf(y0) * 1.25;
-      // Échéance : la 1re sortie à 45 jours ou plus où ce nombre de matchs tient dans ton rythme (12 mois au plus)
-      var rel = p.release; for (var i = 0; i < 12 && (rel - t) / 864e5 < 45; i++) rel = E.nextRelease(rel);
-      for (var j = 0; j < 12 && need0 > Math.floor(pm * (rel - t) / (30.4 * 864e5)); j++) { var nx = E.nextRelease(rel); if ((nx - t) / 864e5 > 366) break; rel = nx; }
+      // Yann (19/11) : on vise des victoires, jamais un nombre de matchs. Rythme : 1 victoire par mois,
+      // donc l'échéance est la 1re sortie de classement à n mois ou plus (45 jours au moins).
+      var rel = p.release; for (var i = 0; i < 24 && (rel - t) < Math.max(45 * 864e5, n * MO); i++) rel = E.nextRelease(rel);
       var by = new Date(rel.getTime() - 864e5);
-      cp = S.cap = { v: 2, tgt: tgt, lvl: lv0, n: n, at: E.iso(t), by: E.iso(by), rel: E.iso(rel) };
+      cp = S.cap = { v: 3, tgt: tgt, lvl: top ? tgt : w.lvl, n: n, at: E.iso(t), by: E.iso(by), rel: E.iso(rel) };
       save();
     }
-    var at = cp.at, lvl = cp.lvl;
+    var at = cp.at, lvl = cp.lvl, atD = E.parseDate(at), byD = E.parseDate(cp.by);
     var since = S.matches.filter(function (m) { return sg(m) && m.date >= at; });
     var won = since.filter(function (m) { return m.result === "V" && E.idx(m.oppRank) >= lvl; });
-    var played = since.filter(function (m) { return E.idx(m.oppRank) >= lvl; });
-    var y = yOf(lvl), yv = y.filter(function (m) { return m.result === "V"; }).length;
-    var rate = rateOf(y), left = Math.max(0, cp.n - won.length), byD = E.parseDate(cp.by);
+    var y = playedOf(p.matches).filter(function (m) { return sg(m) && E.idx(m.oppRank) >= lvl; }), yv = y.filter(function (m) { return m.result === "V"; }).length;
+    // Le mois en cours du cap : 1 victoire à aller chercher avant sa fin (le dernier mois va jusqu'à l'échéance)
+    var mi = Math.max(0, Math.min(cp.n - 1, Math.floor((t - atD) / MO))), mS = new Date(atD.getTime() + mi * MO), mE = mi === cp.n - 1 ? byD : new Date(atD.getTime() + (mi + 1) * MO - 864e5);
+    var mWon = won.filter(function (m) { return m.date >= E.iso(mS) && m.date <= E.iso(mE); }).length;
     var pts = 0; try { pts = E.BAREME.win(lvl - tgt); } catch (e) { pts = 0; }
-    var needM = Math.max(left, Math.ceil(left / rate)), mo = Math.max(1, (byD - t) / (30.4 * 864e5));
-    return { tgt: tgt, lvl: lvl, n: cp.n, at: at, by: byD, rel: E.parseDate(cp.rel), won: won, played: played, yv: yv, yn: y.length, ym: y,
-      needM: needM, perM: Math.max(1, Math.round(Math.max(0, needM - played.length) / mo)), pace: Math.round(y.length / 12 * 10) / 10, rate: Math.round(rate * 100),
+    var mon = function (d) { return d.toLocaleDateString("fr-FR", { month: "long" }); };
+    return { tgt: tgt, lvl: lvl, n: cp.n, at: at, by: byD, rel: E.parseDate(cp.rel), won: won, yv: yv, yn: y.length, ym: y,
+      mi: mi, mEnd: mE, mWon: mWon, mDays: Math.max(0, Math.round((mE - t) / 864e5)), m1: mon(atD), m2: mon(new Date(atD.getTime() + (cp.n - 1) * MO + 15 * 864e5)),
       days: Math.max(0, Math.round((byD - t) / 864e5)), gap: Math.max(0, p.next.norme - p.next.total), pts: pts, done: won.length >= cp.n };
   }
   function capDots(n, k) { if (n > 6) return '<span class="cap-bar" role="img" aria-label="' + k + " sur " + n + '"><i style="width:' + Math.round(100 * Math.min(k, n) / n) + '%"></i></span>'; var o = ""; for (var i = 0; i < n; i++) o += '<i class="' + (i < k ? "on" : "") + '"></i>'; return '<span class="cap-dots">' + o + "</span>"; }
@@ -8441,9 +8436,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<div class="cap-row">' + capDots(cp.n, cp.won.length) + '<small>' + cp.won.length + " sur " + cp.n + " · coché tout seul dès qu'un match entre</small></div>" +
       '<div class="cap-kv">' +
       (cp.gap ? "<span>Pourquoi " + cp.n + "</span><b>il te manque " + cp.gap + " pts" + (cp.pts ? ", un " + L(cp.lvl) + " battu en vaut " + cp.pts : "") + "</b>" : "") +
-      (cp.yn ? "<span>Faisable</span><b>cette saison, tu en as battu " + (cp.yn ? '<button class="num-l" data-a="sheet" data-k="capm" data-v="1">' + cp.yv + " sur " + cp.yn + "</button>" : "") + "</b>" : "") +
+      "<span>Le rythme</span><b>1 victoire par mois" + (cp.n > 1 ? (cp.m1 === cp.m2 ? "" : ", de " + cp.m1 + " à " + cp.m2) : "") + "</b>" +
+      (cp.yn ? '<span>Cette saison</span><b>tu en as battu <button class="num-l" data-a="sheet" data-k="capm" data-v="1">' + cp.yv + " sur " + cp.yn + "</button>" + (cp.yv / cp.yn < 0.34 ? " : c'est le vrai défi" : "") + "</b>" : "") +
       '<span>Ce que ça donne</span><b class="g">' + L(cp.tgt) + " à la sortie du " + esc(fdate(cp.rel).replace(/\.$/, "")) + "</b>" +
-      "<span>Il te faut</span><b>≈ " + plural(cp.needM, "match") + " contre des " + L(cp.lvl) + " ou mieux, ≈ " + cp.perM + " par mois" + (cp.played.length ? " (" + cp.played.length + " joué" + (cp.played.length > 1 ? "s" : "") + ")" : "") + "</b></div>" +
+      "</div>" +
       '<button class="go-pill right" data-a="sheet" data-k="capm" data-v="1">Les matchs ' + I.next + "</button></div>";
     return s;
   }
@@ -8452,7 +8448,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var P = d.P, out = [], at = cp ? cp.at : E.iso(today()), by = cp ? cp.by : null, due = by ? " d'ici le " + fdate(by).replace(/\.$/, "") : "";
     var sg = function (m) { return m.date >= at && !m.dbl && !m.wo && (m.result === "V" || m.result === "D"); }, since = S.matches.filter(sg).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     var s1 = function (m) { var x = setsOf(m.score); return x.length ? x[0][0] > x[0][1] : null; };
-    if (cp && !cp.done) out.push({ t: "Joue " + plural(cp.needM, "match") + " contre des " + lab(cp.lvl) + " ou mieux" + due + ".", s: "Tu gagnes ≈ " + cp.rate + " % de ces matchs : il en faut " + cp.needM + " pour " + plural(cp.n, "victoire") + ". Soit ≈ " + cp.perM + " par mois. Sur 12 mois, tu en as joué " + cp.yn + " : l'échéance en tient compte.", n: cp.needM, k: Math.min(cp.needM, cp.played.length) });
+    if (cp && !cp.done) { var nth = Math.min(cp.n, cp.won.length + 1), mok = cp.mWon >= 1; out.push({ t: "Ce mois-ci : bats 1 joueur classé " + lab(cp.lvl) + " ou mieux, avant le " + fdate(cp.mEnd).replace(/\.$/, "") + ".", s: (mok ? "Fait pour ce mois. " : "") + (cp.n > 1 ? "C'est la " + (nth === 1 ? "1re" : nth + "e") + " des " + cp.n + " victoires de ton cap. " : "C'est la victoire de ton cap. ") + "Choisis le match où tu as le plus de chances : ta chance est sur la fiche de chaque adversaire.", n: 1, k: mok ? 1 : 0, left: mok ? "" : plural(cp.mDays, "jour") + " restant" + (cp.mDays > 1 ? "s" : "") }); }
     var M = P.R.mental;
     if (M && M.g && M.g.n >= 4 && (M.st === "faible" || cpSurv(M))) {
       var l1 = since.filter(function (m) { return s1(m) === false; }).slice(0, 3);
@@ -8481,7 +8477,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var ok = o.dots ? o.dots.filter(function (x) { return x === "on"; }).length >= 1 : o.k >= o.n;
       var dots = o.dots ? '<span class="cap-dots">' + [0, 1, 2].map(function (j) { return '<i class="' + (o.dots[j] || "") + '"></i>'; }).join("") + "</span>" : capDots(o.n, o.k);
       var btn = o.num ? '<button class="go-pill" data-a="sheet" data-k="num" data-v="' + esc(o.num) + '">Le détail ' + I.next + "</button>" : o.go ? (o.go[1] === "defend" ? '<button class="go-pill" data-a="goDefend">' : '<a class="go-pill" href="#/' + o.go[1] + '">') + esc(o.go[0]) + " " + I.next + (o.go[1] === "defend" ? "</button>" : "</a>") : "";
-      return '<div class="cap-o' + (ok ? " ok" : "") + '"><span class="cap-n">' + (ok ? "✓" : i + 1) + '</span><span class="grow"><b>' + esc(o.t) + "</b><small>" + esc(o.s) + '</small><span class="cap-row">' + dots + '<small class="grow">' + (ok ? "fait" : o.dots ? o.dots.length + " sur 3 joués" : o.k + " sur " + o.n) + "</small>" + btn + "</span></span></div>";
+      return '<div class="cap-o' + (ok ? " ok" : "") + '"><span class="cap-n">' + (ok ? "✓" : i + 1) + '</span><span class="grow"><b>' + esc(o.t) + "</b><small>" + esc(o.s) + '</small><span class="cap-row">' + dots + '<small class="grow">' + (ok ? "fait" : o.dots ? o.dots.length + " sur 3 joués" : o.k + " sur " + o.n + (o.left ? " · " + o.left : "")) + "</small>" + btn + "</span></span></div>";
     }).join("") + '<span class="ch-how">Tout se coche d\'après tes matchs. Une consigne réussie laisse la place à la suivante.</span></div>';
   }
   V.coach = function () {
@@ -9393,7 +9389,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     capm: function () {
       var cp = null; try { cp = capData(ctx()); } catch (e) {} if (!cp) return null;
       var rows = cp.ym.slice().sort(byDateDesc).map(function (m) { var nw = m.date >= cp.at; return '<a class="num-r" href="#/match/' + esc(m.id) + '"><span class="vd ' + m.result + '">' + m.result + '</span><span class="grow"><b>' + esc(nameCase(m.opp || "") || "Adversaire") + "</b> <small>· " + esc(m.oppRank || "") + '</small><small class="d">' + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + "</small></span><em>" + (nw ? "pour ton cap" : "") + "</em></a>"; }).join("");
-      return { title: "Ton cap · les matchs", body: '<div class="card num-c"><div class="num-calc"><b>Le calcul.</b> Il te manque ' + cp.gap + " pts pour " + esc(lab(cp.tgt)) + ". Montée rejoue ton bilan avec des victoires en plus : il en faut " + cp.n + " contre des " + esc(lab(cp.lvl)) + " ou mieux. Tu gagnes ≈ " + cp.rate + " % de ces matchs (tes résultats sur 12 mois, lissés), donc ≈ " + plural(cp.needM, "match") + " à jouer. L'échéance est la 1re sortie de classement où ce nombre tient dans ton rythme (" + plural(cp.yn, "match") + " contre ce niveau sur 12 mois, au moins 1 par mois, un peu plus avec l'effort). Le compteur part du " + esc(fdate(cp.at)) + " ; chaque victoire en simple contre ce classement ou mieux, homologuée ou saisie, coche une case.</div>" +
+      return { title: "Ton cap · les matchs", body: '<div class="card num-c"><div class="num-calc"><b>Le calcul.</b> Il te manque ' + cp.gap + " pts pour " + esc(lab(cp.tgt)) + ". Montée rejoue ton bilan avec des victoires en plus : il en faut " + cp.n + " contre des " + esc(lab(cp.lvl)) + " ou mieux. Le rythme : 1 victoire par mois, d'où l'échéance (" + esc(fdate(cp.by).replace(/\.$/, "")) + ", veille de la sortie). Cette saison, tu en as battu " + cp.yv + " sur " + cp.yn + ". Le compteur part du " + esc(fdate(cp.at)) + " ; chaque victoire en simple contre ce classement ou mieux, homologuée ou saisie, coche une case.</div>" +
         '<span class="num-h">Tes matchs contre des ' + esc(lab(cp.lvl)) + " ou mieux" + " · 12 mois</span>" + (rows || '<span class="small">Aucun pour l\'instant.</span>') + "</div>" };
     },
     // 3.48.7 (Yann) : le palmarès d'une saison (passée : ton palmarès Ten'Up de la saison ; en cours : tes matchs)
@@ -11505,6 +11501,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function watchCtx() {
     var d = {}; try { d = widgetData(); } catch (e) {}
+    try { d.hrThr = hrThr(); } catch (e) {} // 3.55.3 (Yann) : la montre colore avec TES zones
     var o = [], seen = {};
     var add = function (x) { if (!x.name || seen[x.id]) return; seen[x.id] = 1; o.push(Object.assign(x, watchCoach(x.name))); };
     plans().filter(function (x) { return dGap(x.day) >= 0; }).forEach(function (pl) { add({ id: pl.id, name: pl.name, rank: pl.rank || "", p: pl.p, tag: "Prévu " + dayLab(pl.day), hom: pl.hom, fmt: pl.fmt }); });
@@ -11746,7 +11743,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var t = hrMatchOf(t0.id) || t0;
     if (!t.curve && !t.zones && !t.serve) return hrTrainAsk(t);
     var it = trainIntensity(t), ZF = hrZFor(t), s = '<div class="card tw-card"><span class="eyebrow">' + (IOS || t.hw || t.src === "montre" ? "Ta montre · cardio et zones" : "Ton cardio · zones") + "</span>";
-    if (t.curve && t.curve.length > 1) s += hrCurveSvg(t.curve, ZF.thr, 300, 90, t.id.replace(/\W/g, ""));
+    var FP = hrFinePts(t); if (FP && FP.length > 1) s += hrCurveSvg(FP, ZF.thr, 300, 90, t.id.replace(/\W/g, ""));
     if (ZF.z) {
       s += zoneBarHtml(ZF.z);
       s += '<div class="zleg">' + ZF.z.map(function (v, i) { return v ? '<span><i style="background:' + ZONE_C[i] + '"></i>' + ZONE_N[i] + " " + v + " %</span>" : ""; }).join("") + "</div>";
@@ -12157,6 +12154,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (m.wt0) { var last = (m.wevT || []).reduce(function (a, b) { return Math.max(a, b); }, 0); return { a: m.wt0, b: m.wt0 + Math.max(last + 60, (m.minutes || 0) * 60 + 300) * 1000 }; }
     if (m.hat) return { a: m.hat, b: m.hend || m.hat + Math.max(30, m.minutes || 90) * 60000 };
     if (m.hid && m.at && m.minutes && !m.curve) return { a: m.at, b: m.hend || m.at + m.minutes * 60000 }; // entraînement venu de Santé (3.53.1)
+    // 3.55.3 (Yann : « 100 % récup » avec un max à 157) : un entraînement de la montre relit aussi ses bpm fins dans Santé,
+    // sa courbe (48 moyennes de 2 min) ne suffit pas pour les zones. Heure exacte de la séance Santé si on l'a, sinon début + durée.
+    if (m.src === "montre" && m.at && m.minutes) {
+      var x = m.hid && HC_OK ? hcAll().filter(function (y) { return y.id === m.hid; })[0] : null;
+      return x && x.start && x.end ? { a: x.start, b: x.end } : { a: m.at, b: m.at + (m.minutes + 2) * 60000 };
+    }
     return null;
   }
   // 3.53.3 (Yann : « 220 − âge, ça suffit pas ») : tes zones cardio. FC max : saisie, sinon ton max mesuré (12 mois),
@@ -12165,7 +12168,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function hrAge() {
     if (S.hk && S.hk.year) return today().getFullYear() - S.hk.year;
     var w = S.matches.filter(function (x) { return x.wmax && x.wmax !== 190; })[0]; if (w) return 220 - w.wmax;
-    var t = (S.trainings || []).filter(function (x) { return x.src === "montre" && x.thr && x.thr.length === 4 && Math.round(x.thr[3] / 0.9) !== 190; })[0];
+    var t = (S.trainings || []).filter(function (x) { return x.src === "montre" && x.thr && x.thr.length === 4 && Math.round(x.thr[3] / 0.9) !== 190 && Math.abs(x.thr[0] - Math.round(0.6 * x.thr[3] / 0.9)) <= 1; })[0];
     return t ? 220 - Math.round(t.thr[3] / 0.9) : null;
   }
   function hrObsMax() {
@@ -12199,11 +12202,28 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function hrMax() { return hrZones().max; }
   function hrThr() { return hrZones().thr; }
+  // 3.55.3 : temps passé dans chaque zone, comme la montre : chaque mesure compte jusqu'à la suivante (30 s au plus, un trou n'est pas du temps en zone)
+  function hrZT(raw, thr) {
+    var z = [0, 0, 0, 0, 0], n = 0, gaps = [];
+    for (var i = 0; i + 1 < raw.length; i++) gaps.push(raw[i + 1][0] - raw[i][0]);
+    var med = gaps.length ? gaps.slice().sort(function (a, b) { return a - b; })[gaps.length >> 1] : 5;
+    raw.forEach(function (x, j) { if (x[1] == null) return; var w = j + 1 < raw.length ? raw[j + 1][0] - x[0] : med; w = Math.max(1, Math.min(30, w)); var k = 0; thr.forEach(function (q) { if (x[1] >= q) k++; }); z[k] += w; n += w; });
+    return n ? z.map(function (x) { return Math.round(x * 100 / n); }) : null;
+  }
+  // Une courbe plus fine que les 48 points de la montre : moyennes d'environ 20 s, prises dans les bpm de Santé
+  function hrFinePts(o) {
+    var raw = o.hrc && o.hrc.raw; if (!raw || raw.length < 20) return o.curve && o.curve.length > 1 ? o.curve : o.hrc && o.hrc.pts || null;
+    var dur = Math.max(60, raw[raw.length - 1][0]), N = Math.max(24, Math.min(300, Math.round(dur / 20), raw.length)), pts = [];
+    for (var k = 0; k < N; k++) { var a = dur * k / N, b = dur * (k + 1) / N, s0 = 0, n0 = 0; raw.forEach(function (x) { if (x[0] >= a && (x[0] < b || k === N - 1 && x[0] <= b)) { s0 += x[1]; n0++; } }); pts.push(n0 ? Math.round(s0 / n0) : null); }
+    for (k = 0; k < N; k++) if (pts[k] == null) pts[k] = k && pts[k - 1] != null ? pts[k - 1] : pts.filter(function (x) { return x != null; })[0];
+    return pts;
+  }
   function hrZ(vals, thr) { var z = [0, 0, 0, 0, 0], n = 0; (vals || []).forEach(function (v) { if (v == null) return; var i = 0; thr.forEach(function (q) { if (v >= q) i++; }); z[i]++; n++; }); return n ? z.map(function (x) { return Math.round(x * 100 / n); }) : null; }
   // Les zones d'une séance, toujours recalculées avec TES zones (les plus fines données d'abord)
   function hrZFor(o) {
     var thr = hrThr(), raw = o.hrc && o.hrc.raw;
-    var z = raw && raw.length ? hrZ(raw.map(function (x) { return x[1]; }), thr) : o.curve && o.curve.length > 4 ? hrZ(o.curve, thr) : o.hrc && o.hrc.pts ? hrZ(o.hrc.pts, thr) : null;
+    // 3.55.3 : les bpm fins d'abord ; la courbe de la montre (moyennes de 2 min) écrase les pics, elle ne sert qu'en dernier recours
+    var z = raw && raw.length >= 10 ? hrZT(raw, thr) : o.hrc && o.hrc.pts ? hrZ(o.hrc.pts, thr) : o.curve && o.curve.length > 4 ? hrZ(o.curve, thr) : null;
     if (!z && o.zones) { var tot = o.zones.reduce(function (a, b) { return a + (b || 0); }, 0); z = tot ? o.zones.map(function (v) { return Math.round((v || 0) * 100 / tot); }) : null; }
     return { z: z, thr: thr };
   }
@@ -12219,8 +12239,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var dur = Math.max(60, t[t.length - 1] || 60), N = Math.min(96, v.length), pts = [], sum = 0, mx = 0, pkT = 0, thr = hrThr(), z = [0, 0, 0, 0, 0];
       for (var k = 0; k < N; k++) { var a = dur * k / N, b = dur * (k + 1) / N, s0 = 0, n0 = 0; for (var j = 0; j < v.length; j++) if (t[j] >= a && (t[j] < b || k === N - 1 && t[j] <= b)) { s0 += v[j]; n0++; } pts.push(n0 ? Math.round(s0 / n0) : null); }
       for (k = 0; k < pts.length; k++) if (pts[k] == null) pts[k] = pts[k - 1] != null ? pts[k - 1] : pts.filter(function (x) { return x != null; })[0];
-      v.forEach(function (x, j) { sum += x; if (x > mx) { mx = x; pkT = t[j]; } var zi = 0; thr.forEach(function (q) { if (x >= q) zi++; }); z[zi]++; });
-      mm.hrc = { pts: pts, dur: dur, avg: Math.round(sum / v.length), max: mx, pkT: pkT, kcal: r.kcal ? Math.round(r.kcal) : null, z: z.map(function (x) { return Math.round(x * 100 / v.length); }), thr: thr, w: !!r.watch, at: Date.now() };
+      v.forEach(function (x, j) { sum += x; if (x > mx) { mx = x; pkT = t[j]; } });
+      z = hrZT(v.map(function (x, j) { return [t[j], x]; }), thr);
+      mm.hrc = { pts: pts, dur: dur, avg: Math.round(sum / v.length), max: mx, pkT: pkT, kcal: r.kcal ? Math.round(r.kcal) : null, z: z, thr: thr, w: !!r.watch, at: Date.now() };
       // pour les phrases : les bpm d'origine (secondes, bpm), allégés
       var step = Math.max(1, Math.floor(v.length / 400)); mm.hrc.raw = []; for (j = 0; j < v.length; j += step) mm.hrc.raw.push([t[j], v[j]]);
       // 3.53.1 : un entraînement reprend la carte « cardio et zones » de la montre (courbe, zones, moyenne, calories)
@@ -12233,7 +12254,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function hrBackfill() {
     if (!UI.hkAsked && UI.hc && UI.hc.st && UI.hc.st.hr) { UI.hkAsked = 1; hkProfile(); }
     if (hrBusy || !HC_OK || !Tenup || !Tenup.healthHR || !(UI.hc && UI.hc.st && UI.hc.st.hr)) return;
-    var want = function (m) { return hrWin(m) && (!m.hrc || (m.hrc.none && Date.now() - m.hrc.at > 3 * 864e5 && (Date.now() - hrWin(m).a) < 10 * 864e5)); };
+    // 3.55.3 : séance de moins de 2 jours sans bpm (Santé pas encore synchronisé) : on réessaie après 10 min, pas 3 jours
+    var want = function (m) { var W = hrWin(m); if (!W) return false; if (!m.hrc) return true; if (!m.hrc.none) return false; var age = Date.now() - W.a; return age < 10 * 864e5 && Date.now() - m.hrc.at > (age < 2 * 864e5 ? 6e5 : 3 * 864e5); };
     var L = S.matches.filter(function (m) { return !m.dbl && !m.wo && want(m); }).concat((S.trainings || []).filter(want)).sort(function (a, b) { return (b.date || "") < (a.date || "") ? -1 : 1; }).slice(0, 8);
     if (!L.length) return;
     hrBusy = true;
@@ -12478,7 +12500,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.53.3 : FC de repos / âge pas encore autorisés (autorisation demandée avant la 3.53.2) : on les demande une fois en ouvrant la page
     if (HC_OK && Tenup && Tenup.healthRequest && !(S.hk && S.hk.rest) && S.hkReq !== 2 && UI.hc && UI.hc.st && UI.hc.st.granted) { S.hkReq = 2; save(); setTimeout(function () { Promise.resolve(Tenup.healthRequest()).then(function () { setTimeout(hkProfile, 1200); }, function () {}); }, 400); }
     var s = '<div class="screen hz-scr">' + topbar("", "Réglages") + '<h1 class="nf-h">Tes zones cardio</h1>' +
-      '<p class="nf-sub">Elles colorent tes courbes et calculent ton intensité, sur tes matchs et tes entraînements, anciens compris.</p>';
+      '<p class="nf-sub">Elles colorent tes courbes et calculent ton intensité, sur tes matchs et tes entraînements, anciens compris. Ta montre les utilise aussi, en direct.</p>';
     s += '<div class="tabs hz-m">' + [["auto", "Automatique"], ["kar", "Karvonen"], ["man", "À la main"]].map(function (x) { return '<button class="' + (mode === x[0] ? "on" : "") + '" data-a="hrzMode" data-v="' + x[0] + '">' + x[1] + "</button>"; }).join("") + "</div>";
     var row = function (k, lab, val, sub, step) { return '<div class="field inline"><span class="lbl">' + lab + '<span class="small" style="display:block;font-weight:400">' + sub + '</span></span><span class="stepper"><button data-a="hrzStep" data-k="' + k + '" data-v="-' + step + '" aria-label="' + lab + ' : baisser">−</button><span>' + val + '</span><button data-a="hrzStep" data-k="' + k + '" data-v="' + step + '" aria-label="' + lab + ' : monter">+</button></span></div>'; };
     if (mode === "auto") {

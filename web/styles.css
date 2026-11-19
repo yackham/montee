@@ -4865,3 +4865,4 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .pf-bub ul { margin: 2px 0 0; padding-left: 16px; }
 .pf-bub li { margin: 3px 0; }
 .pf-send { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.cap > .cap-row small { white-space: normal; flex: 1; min-width: 0; }
