@@ -4812,3 +4812,9 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .ci-dots i.on { box-shadow: inset 0 0 0 2px var(--gazon); }
 .ci-dots i.on:after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--gazon); }
 .df-r em.neg { color: var(--terre); }
+/* 3.55.1 · compteur long (> 6) : barre fine ; la ligne du compteur passe à la ligne au lieu de déborder */
+.cap-row { flex-wrap: wrap; row-gap: 8px; }
+.cap-row small { white-space: nowrap; }
+.cap-row small.grow { white-space: normal; min-width: 60px; }
+.cap-bar { flex: none; width: 72px; height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.cap-bar i { display: block; height: 100%; background: var(--gazon); border-radius: 99px; }

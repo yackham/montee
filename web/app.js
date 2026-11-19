@@ -8388,7 +8388,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return { tgt: tgt, lvl: lvl, n: cp.n, at: at, by: E.parseDate(cp.by), rel: E.parseDate(cp.rel), won: won, played: played, yv: yv, yn: y.length, ym: y,
       needM: Math.max(left, Math.ceil(left / Math.max(0.25, rate))), days: Math.max(0, Math.round((E.parseDate(cp.by) - t) / 864e5)), gap: Math.max(0, p.next.norme - p.next.total), pts: pts, done: won.length >= cp.n };
   }
-  function capDots(n, k) { var o = ""; for (var i = 0; i < n; i++) o += '<i class="' + (i < k ? "on" : "") + '"></i>'; return '<span class="cap-dots">' + o + "</span>"; }
+  function capDots(n, k) { if (n > 6) return '<span class="cap-bar" role="img" aria-label="' + k + " sur " + n + '"><i style="width:' + Math.round(100 * Math.min(k, n) / n) + '%"></i></span>'; var o = ""; for (var i = 0; i < n; i++) o += '<i class="' + (i < k ? "on" : "") + '"></i>'; return '<span class="cap-dots">' + o + "</span>"; }
   function capHtml(cp) {
     if (!cp) return "";
     var L = function (r) { return esc(lab(r)); }, who = "joueurs classés " + L(cp.lvl) + " ou mieux";
@@ -8408,7 +8408,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var P = d.P, out = [], at = cp ? cp.at : E.iso(today()), by = cp ? cp.by : null, due = by ? " d'ici le " + fdate(by).replace(/\.$/, "") : "";
     var sg = function (m) { return m.date >= at && !m.dbl && !m.wo && (m.result === "V" || m.result === "D"); }, since = S.matches.filter(sg).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     var s1 = function (m) { var x = setsOf(m.score); return x.length ? x[0][0] > x[0][1] : null; };
-    if (cp && !cp.done) out.push({ t: "Joue " + plural(cp.needM, "match") + " contre des " + lab(cp.lvl) + " ou mieux" + due + ".", s: "C'est là que se trouvent les victoires de ton cap : tournois ouverts à ces classements, indivs, équipes.", n: cp.needM, k: Math.min(cp.needM, cp.played.length), go: ["Où en trouver", "tournois"] });
+    if (cp && !cp.done) out.push({ t: "Joue " + plural(cp.needM, "match") + " contre des " + lab(cp.lvl) + " ou mieux" + due + ".", s: "C'est là que se trouvent les victoires de ton cap : tournois ouverts à ces classements, indivs, équipes.", n: cp.needM, k: Math.min(cp.needM, cp.played.length) });
     var M = P.R.mental;
     if (M && M.g && M.g.n >= 4 && (M.st === "faible" || cpSurv(M))) {
       var l1 = since.filter(function (m) { return s1(m) === false; }).slice(0, 3);
