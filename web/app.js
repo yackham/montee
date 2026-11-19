@@ -113,7 +113,7 @@
     var caps = p.filter(up), low = p.filter(function (x) { return !up(x); });
     var pre, nom;
     if (caps.length && low.length) { pre = low.join(" "); nom = caps.join(" "); } else { pre = p[0]; nom = p.slice(1).join(" "); }
-    return titleCase(pre) + " " + nom.toUpperCase();
+    return titleCase(pre) + " " + titleCase(nom); // 3.55 (audit R11) : une seule casse partout, « Julien Moreau », « J. Lefèvre »
   }
   function dGap(iso) { return Math.round((E.parseDate(iso) - today()) / 864e5); }
   function dayLab(iso) { var g = dGap(iso), d = E.parseDate(iso); return g === 0 ? "aujourd'hui" : g === 1 ? "demain" : g === -1 ? "hier" : JOURS[d.getDay()].slice(0, 3) + ". " + d.getDate() + (g > 6 || g < 0 ? " " + MOIS[d.getMonth()] : ""); }
@@ -2790,7 +2790,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         return '<button class="row hit" data-a="fafOpen" data-v="' + i + '"><span class="rk-b' + (h.rank ? "" : " ini") + '">' + esc(h.rank || initials(nm)) + '</span><span class="grow"><span class="t">' + esc(nm) + "</span>" + (sub ? '<span class="s">' + esc(sub) + "</span>" : "") + "</span>" + (me ? '<span class="tag me">C\'est toi</span>' : (h.played === true || (h.played == null && seen && UI.fafHits.filter(function (o) { return nameKey([o.prenom, o.nom].join(" ")) === nameKey(nm); }).length === 1)) ? '<span class="tag ok">Déjà joué</span>' : "") + (me ? I.next : folStar((S.follow || {})[String(h.id)], 'data-a="followHit" data-v="' + i + '"')) + "</button>";
       }).join("") + "</div>";
     }
-    var fl = Object.keys(S.follow || {}).map(function (k) { return S.follow[k]; }), searching = !!(q.q && q.q.trim()) || UI.fafHits;
+    // 3.55 (audit R13) : un suivi sans id ne retrouvait pas sa fiche lue (« Pas encore de match lu » alors que la fiche en a 16)
+    var fl = Object.keys(S.follow || {}).map(function (k) { var f = S.follow[k]; if (f && f.id == null) f.id = k; return f; }), searching = !!(q.q && q.q.trim()) || UI.fafHits;
     var rec = Object.keys(S.scout || {}).map(function (k) { return { id: k, sc: S.scout[k] }; }).filter(function (x) { return x.sc && x.sc.hit && !(S.follow || {})[x.id]; }).sort(function (a, b) { return (b.sc.ts || 0) - (a.sc.ts || 0); }).slice(0, 8);
     var ft = UI.fafTab || (fl.length ? "suivis" : "adv");
     if (searching) ft = "adv";
@@ -2852,14 +2853,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
   // Analyse d'un palmarès (du point de vue du joueur) : de quoi bâtir un plan de jeu
   function scoutStats(rows) {
-    var ms = rows.filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); }), st = { n: ms.length, v: 0, three: { v: 0, n: 0 }, f1l: { v: 0, n: 0 }, f1: { lost: 0, n: 0 }, tb: { v: 0, n: 0 }, sun: { v: 0, n: 0 }, oth: { v: 0, n: 0 }, second: { v: 0, n: 0 }, up: { v: 0, n: 0 } };
+    var ms = rows.filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); }), st = { n: ms.length, v: 0, three: { v: 0, n: 0 }, f1l: { v: 0, n: 0 }, f1: { lost: 0, n: 0 }, tb: { v: 0, n: 0 }, tb7: { v: 0, n: 0 }, sun: { v: 0, n: 0 }, oth: { v: 0, n: 0 }, second: { v: 0, n: 0 }, up: { v: 0, n: 0 } };
     var byDay = {};
     ms.forEach(function (m) { (byDay[m.date] = byDay[m.date] || []).push(m); });
     ms.forEach(function (m) {
       var won = m.result === "V", sets = setsOf(m.score); if (won) st.v++;
       if (sets.length === 3) { st.three.n++; if (won) st.three.v++; }
       if (sets.length) { st.f1.n++; if (sets[0][0] < sets[0][1]) { st.f1.lost++; st.f1l.n++; if (won) st.f1l.v++; } }
-      sets.forEach(function (x, i) { if (isTb(x) || isSuperTb(x, i)) { st.tb.n++; if (x[0] > x[1]) st.tb.v++; } });
+      sets.forEach(function (x, i) { if (isTb(x) || isSuperTb(x, i)) { st.tb.n++; if (x[0] > x[1]) st.tb.v++; } if (isTb(x) && !isSuperTb(x, i)) { st.tb7.n++; if (x[0] > x[1]) st.tb7.v++; } });
       var dw = m.date ? E.parseDate(m.date).getDay() : -1, g = dw === 0 ? st.sun : st.oth; g.n++; if (won) g.v++;
       if (m.date) { var prev = E.parseDate(m.date); prev.setDate(prev.getDate() - 1); if (byDay[E.iso(prev)] && m.comp && byDay[E.iso(prev)].some(function (x) { return x.comp === m.comp; })) { st.second.n++; if (won) st.second.v++; } }
     });
@@ -3378,13 +3379,23 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (above.length && !above.some(function (m) { return m.result === "V"; })) lines.push({ l: "Contre mieux classé", r: "0 perf", ex: me ? "aucune victoire au-dessus de ton classement : tu restes à ton niveau" : "aucune victoire au-dessus de son classement : rien ne le place plus haut" });
     return lines;
   }
+  // 3.55 (audit R15) : l'écart réel comparé au papier, dans le bon sens (avant : « plus grand que sur le papier » entre deux 15/1)
+  function gapTxt(real, paper) {
+    var ech = function (x) { x = Math.round(Math.abs(x) * 10) / 10; return String(x).replace(".", ",") + (x >= 2 ? " échelons" : " échelon"); }, who = function (x) { return x > 0 ? "toi" : "lui"; };
+    if (Math.abs(real) < 0.5 && Math.abs(paper) < 0.5) return "Sur le papier comme en vrai, vous êtes au même niveau.";
+    if (Math.abs(paper) < 0.5) return "Sur le papier, vous êtes au même niveau. En vrai, " + ech(real) + " d'avance pour " + who(real) + ".";
+    if (Math.abs(real) >= 0.5 && real * paper < 0) return "En vrai, c'est l'inverse du papier : " + ech(real) + " d'avance pour " + who(real) + ".";
+    if (Math.abs(real) > Math.abs(paper) + 0.5) return "L'écart réel est plus grand que sur le papier : " + ech(real) + " d'avance pour " + who(real) + ".";
+    if (Math.abs(real) < Math.abs(paper) - 0.5) return "L'écart réel est plus petit que sur le papier" + (Math.abs(real) >= 0.5 ? " : " + ech(real) + " d'avance pour " + who(real) : " : vous êtes presque au même niveau") + ".";
+    return "L'écart réel colle aux classements.";
+  }
   function ffLevelsCard(D) {
     if (D && D.mixed) return "";
     var me = D.me, hi = D.hi, myL = D.myL, hisL = D.hisL;
     var desc = function (d, t) { return d >= 0.5 ? "au-dessus de " + t + " classement" : d <= -0.5 ? "en dessous de " + t + " classement" : "à " + t + " niveau"; };
     var real = myL - hisL, paper = me - hi;
     var head = D.few ? (D.hp.length ? "Seulement " + plural(D.hp.length, "match", "matchs") + " pour lui cette saison : trop peu pour juger son niveau." : "Aucun match pour lui cette saison : on ne connaît que son classement.") :
-      "<b>Tu joues " + desc(myL - me, "ton") + ", lui " + desc(hisL - hi, "son") + ".</b> " + (Math.abs(real) < 0.3 && Math.round(myL) !== Math.round(hisL) ? "Mais en vrai, vous êtes tout proches : " + (Math.abs(real) < 0.05 ? "même niveau" : (Math.round(Math.abs(real) * 10) / 10).toString().replace(".", ",") + " échelon d'avance pour " + (real > 0 ? "toi" : "lui")) + "." : real > paper + 0.5 ? "L'écart réel est plus grand que sur le papier." : real < paper - 0.5 ? "L'écart réel est plus petit que sur le papier." : "L'écart réel colle aux classements.");
+      "<b>Tu joues " + desc(myL - me, "ton") + ", lui " + desc(hisL - hi, "son") + ".</b> " + (Math.abs(real) < 0.3 && Math.round(myL) !== Math.round(hisL) ? "Mais en vrai, vous êtes tout proches : " + (Math.abs(real) < 0.05 ? "même niveau" : (Math.round(Math.abs(real) * 10) / 10).toString().replace(".", ",") + " échelon d'avance pour " + (real > 0 ? "toi" : "lui")) + "." : Math.round(myL) === Math.round(hisL) && Math.abs(paper) >= 0.5 ? "Sur le terrain, vous jouez tous les deux " + lab(Math.max(0, Math.round(myL))) + " : l'écart du papier disparaît." : gapTxt(real, paper)); // 3.55 (audit R15)
     var lo = Math.max(-1, Math.floor(Math.min(me, hi, myL, hisL)) - 1), up = Math.ceil(Math.max(me, hi, myL, hisL)) + 1, X = function (v) { return Math.max(2, Math.min(98, (v - lo) / (up - lo) * 100)); };
     var step = up - lo > 8 ? 2 : 1, ticks = "";
     for (var L = lo; L <= up; L++) if ((L - lo) % step === 0 || L === me || L === hi) ticks += '<span class="tk" style="left:' + X(L) + '%">' + (L < 0 ? "NC" : lab(L)) + "</span>";
@@ -4964,7 +4975,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (UI.scoutBusy === id) return s + '<div class="card empty"><b>Lecture de son palmarès sur Ten\'Up…</b><span class="small">Quelques secondes.</span></div></div>';
       return s + '<div class="card empty"><b>Fiche indisponible</b><span class="small">' + esc(UI.scoutErr || "Relance la recherche.") + '</span>' + (oi ? '<a class="btn soft small" href="#/adversaire/' + encodeURIComponent(oi.key) + '">Voir votre historique</a>' : "") + '<a class="btn soft small" href="#/faf">Revenir à la recherche</a></div></div>';
     }
-    var pr = p.profil || {}, name = [pr.prenom, pr.nom].filter(Boolean).join(" "), rows = p.rows || [], played = rows.filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); });
+    var pr = p.profil || {}, name = nameCase([pr.prenom, pr.nom].filter(Boolean).join(" ")), rows = p.rows || [], played = rows.filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); });
     var gkey = nameKey([pr.prenom, pr.nom].filter(Boolean).join(" ")), st = scoutStats(rows), hisG = oppGame([gkey, nameKey([pr.nom, pr.prenom].join(" "))], p.fiche), sp = simProj(p.sim, pr.classement), stip = simTip(sp, pr.prenom ? pr.prenom.charAt(0) + pr.prenom.slice(1).toLowerCase() : ""), tips = (stip ? [stip] : []).concat(gameTips(hisG, st)).concat(gamePlan(st, pr.classement)).filter(function (t, i, a) { return !t.k || a.findIndex(function (u) { return u.k === t.k; }) === i; }).slice(0, 5);
     var k1 = nameKey(name), k2 = nameKey([pr.nom, pr.prenom].join(" ")), mine = knownMatches(false).filter(function (m) { var k = nameKey(m.opp); return m.opp && !isAnon(m.opp) && (k === k1 || k === k2) && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
     var notes = revNotes(name), n2 = revNotes([pr.nom, pr.prenom].join(" "));
@@ -5660,7 +5671,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function cardPeriod(which) {
     if (which === "season") return seasonPeriod();
     var R = lastReleases(), t = today(), done = which === "done";
-    var from = done ? R.r0 : R.r1, to = done ? R.r1 : new Date(t.getTime() + 864e5);
+    // 3.55 (audit R3) : « Novembre » = du 1er au 30 novembre (avant : depuis la sortie du 1er mardi, le 2 nov. était oublié)
+    var m1 = new Date(t.getFullYear(), t.getMonth(), 1), from = done ? new Date(t.getFullYear(), t.getMonth() - 1, 1) : m1, to = done ? m1 : new Date(t.getTime() + 864e5);
     var ms = allMatches().filter(function (m) { var d = m.date && E.parseDate(m.date); return d && !m.dbl && d >= from && d < to && !m.wo && (m.result === "V" || m.result === "D") && E.idx(m.oppRank) != null; })
       .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     var v = ms.filter(function (m) { return m.result === "V"; }), cur = curIdx() < 0 ? 0 : curIdx();
@@ -5676,9 +5688,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var p = ctx().proj;
       if (p.status === "montee" || p.status === "descente") { from_ = lab(cur); to_ = lab(p.projected); projected = true; }
     }
-    var mo = done ? R.r0 : R.r1;
+    var mo = from;
     return { done: done, from: from, to: to, month: MOIS_L[mo.getMonth()].replace(/^./, function (x) { return x.toUpperCase(); }) + " " + mo.getFullYear(),
-      span: done ? "Du " + fdate(R.r0).replace(/\.$/, "") + " au " + fdate(R.r1).replace(/\.$/, "") : "Depuis le " + fdate(R.r1).replace(/\.$/, ""),
+      span: done ? "Du " + fdate(from).replace(/\.$/, "") + " au " + fdate(new Date(to.getTime() - 864e5)).replace(/\.$/, "") : "Depuis le " + fdate(from).replace(/\.$/, ""),
       ms: ms, v: v.length, d: ms.length - v.length, best: best, streak: streak, perfs: perfs, rankFrom: from_, rankTo: to_, projected: projected, rank: effRank() || "" };
   }
   // Polices de la carte (embarquées : pas de réseau)
@@ -6204,7 +6216,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var list = qaList(), done = UI.qaDone && Date.now() - UI.qaDone.at < 6000 ? UI.qaDone : null;
     if (!list.length) return done ? '<div class="card qa qa-end">' + I.check + '<span><b>Tes matchs récents sont annotés.</b><span class="small" style="color:inherit;opacity:.75;display:block">Montée s\'en sert pour tes stats.</span></span></div>' : "";
     var m = list[0];
-    return '<button class="card qa1" data-a="qaOpen"><span class="eyebrow">' + (done ? I.check + " " + esc(done.label) + " : annoté · " : "") + "Annote " + (list.length > 1 ? "tes " + list.length + " matchs" : "ton match") + '</span><span class="qa1-r"><b>' + (m.result === "V" ? "Victoire" : "Défaite") + " contre " + esc(m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "un " + m.oppRank) + '</b><span class="qa1-go">Annoter · 20 s ' + I.next + "</span></span></button>";
+    return '<button class="card qa1" data-a="qaOpen"><span class="eyebrow">' + (done ? I.check + " " + esc(done.label) + " : annoté · " : "") + "Annote " + (list.length > 1 ? "tes " + list.length + " matchs" : "ton match") + '</span><span class="qa1-r"><b>' + (m.result === "V" ? "Victoire" : "Défaite") + " contre " + esc(m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "un " + m.oppRank) + (list.length > 1 ? '<small class="qa1-more"> et ' + (list.length === 2 ? "1 autre" : list.length - 1 + " autres") + "</small>" : "") + '</b><span class="qa1-go">Annoter · 20 s ' + I.next + "</span></span></button>";
   }
   function qaFormHtml() {
     var list = qaList(), done = UI.qaDone && Date.now() - UI.qaDone.at < 6000 ? UI.qaDone : null;
@@ -6686,8 +6698,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // 3.46 (Yann) : Activité › Matchs : l'encart « Tes 12 derniers mois » (faits Ten'Up + ce que Montée attendait)
   function actStatsHtml() {
-    var from = E.iso(new Date(today().getTime() - 365 * 864e5)), cur = curIdx();
-    var ms = sortedMatches().filter(function (m) { return m.date >= from && !m.wo && !m.dbl && (m.result === "V" || m.result === "D"); });
+    // 3.55 (audit R1) : même base que l'anneau Victoires et « Tes victoires » (fenêtre du bilan, sans W.O. ni doubles)
+    var cur = curIdx(), ms = playedWin().filter(function (m) { return !m.dbl; });
     if (ms.length < 3) return "";
     var v = ms.filter(function (m) { return m.result === "V"; }).length, B = { up: [0, 0, []], eq: [0, 0, []], dn: [0, 0, []] }, exp = 0;
     ms.forEach(function (m) { var o = E.idx(T.normRank(m.oppRank)); if (o == null) return; var k = o > cur ? "up" : o === cur ? "eq" : "dn"; B[k][1]++; if (m.result === "V") B[k][0]++; B[k][2].push(m); var oe = oppEffIdx(m); exp += expWin(oe == null ? o : oe, cur); });
@@ -6734,7 +6746,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.29 : onglet « Activité » — la bande des jours, puis Matchs / Entraînements séparés
     var act = UI.actTab === "t" ? "t" : "m";
     var nT = (S.trainings || []).filter(function (t) { var a = new Date(today()); a.setDate(1); return t.date && t.date >= E.iso(a); }).length;
-    var s = '<div class="screen has-tabs"><div class="topbar"><div class="title"><span class="small">' + (act === "t" ? plural(nT, "séance", "séances") + " ce mois-ci" : plural(c.proj.matches ? c.proj.matches.length : 0, "match", "matchs") + " sur 12 mois" + (c.proj.next && c.proj.next.label ? " · points au bilan " + esc(c.proj.next.label) : "")) + '</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">Activité</span></div>' +
+    var s = '<div class="screen has-tabs"><div class="topbar"><div class="title"><span class="small">' + (act === "t" ? plural(nT, "séance", "séances") + " ce mois-ci" : plural(playedWin().filter(function (m) { return !m.dbl; }).length, "match", "matchs") + " sur 12 mois" + (c.proj.next && c.proj.next.label ? " · points au bilan " + esc(c.proj.next.label) : "")) + '</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">Activité</span></div>' +
       '<button class="iconbtn" data-a="actPlus" aria-label="Ajouter" style="background:var(--solid);color:var(--on-solid)">' + I.plus + "</button></div>";
     s += dayStripHtml();
     s += '<div class="seg act-seg" role="tablist"><button data-a="actTab" data-v="m" class="' + (act === "m" ? "on" : "") + '" aria-pressed="' + (act === "m") + '">Matchs</button><button data-a="actTab" data-v="t" class="' + (act === "t" ? "on" : "") + '" aria-pressed="' + (act === "t") + '">Entraînements</button></div>';
@@ -7299,6 +7311,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var won = m.result === "V", sets = setsOf(m.score), me = curIdx() < 0 ? 0 : curIdx(), hi = E.idx(T.normRank(m.oppRank)), items = [], head = "";
     var pal = anPal(m), anon = isAnon(m.opp) || (!pal && m.oppTenup != null && isAnon(m.oppTenup));
     var c = ctx(), mine = playedOf(S.matches).filter(function (x) { return x.date && x.date >= E.iso(new Date(E.parseDate(m.date).getTime() - 365 * 864e5)) && x.date <= m.date; });
+    // 3.55 (audit R2) : un match de la saison en cours se compare à la même fenêtre que les Courbes (sinon 3/5 ici, 2/4 là-bas)
+    var inWin = (c.proj.matches || []).some(function (x) { return x.id === m.id; });
+    if (inWin) mine = playedOf(c.proj.matches).filter(function (x) { return x.date && x.date <= m.date; });
     var before = mine.filter(function (x) { return x.id !== m.id && x.date < m.date; }), stB = scoutStats(before), stA = scoutStats(mine);
     var g = anGames(sets), tight = sets.filter(anTight), comeback = won && sets.length === 3 && sets[0][0] < sets[0][1], first = m.opp ? m.opp.split(" ")[0] : "lui";
     // 1. Son palmarès au moment du match
@@ -7369,14 +7384,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         items.push({ ic: "rev", t: "Tu as renversé le match", s: "Premier set perdu, puis " + sets.slice(1).map(function (x) { return x[0] + "-" + x[1]; }).join(" et ") + ". " + (stB.f1l.n ? "C'est ta " + (stB.f1l.v + 1) + "e remontée sur 12 mois, contre " + stB.f1l.v + " sur " + stB.f1l.n + " avant." : "Ta première remontée sur 12 mois."), sets: sets });
         if (!head) head = "Belle remontée : tu ne lâches rien.";
       } else if (won && tw.length) {
-        items.push({ ic: "wall", t: "Solide dans les moments chauds", s: (tw.length > 1 ? "Tu as gagné les " + tw.length + " sets serrés" : "Tu as gagné le set serré") + " (" + tw.map(function (x) { return x[0] + "-" + x[1]; }).join(", ") + ")." + (stA.tb.n >= 3 ? " Tie-breaks sur 12 mois : " + stA.tb.v + " gagnés sur " + stA.tb.n + "." : ""), sets: sets });
+        items.push({ ic: "wall", t: "Solide dans les moments chauds", s: (tw.length > 1 ? "Tu as gagné les " + tw.length + " sets serrés" : "Tu as gagné le set serré") + " (" + tw.map(function (x) { return x[0] + "-" + x[1]; }).join(", ") + ")." + (stA.tb7.n >= 3 ? " Tie-breaks sur 12 mois : " + stA.tb7.v + " gagnés sur " + stA.tb7.n + "." : ""), sets: sets });
       } else if (won && g[1] <= 5 && sets.length === 2) {
         var same = before.filter(function (x) { return x.result === "V" && x.oppRank === m.oppRank; }).map(function (x) { return anGames(setsOf(x.score))[1]; });
         items.push({ ic: "check", t: "Victoire nette", s: g[0] + " jeux à " + g[1] + "." + (same.length && g[1] < Math.min.apply(null, same) ? " Ta victoire la plus large contre un " + m.oppRank + " sur 12 mois." : ""), sets: sets });
         if (!head) head = "Victoire nette et sans bavure.";
       } else if (!won && tl.length) {
         items.push({ ic: "eq", t: "Ça s'est joué à quelques points", s: (tl.length > 1 ? "Sets perdus " : "Set perdu ") + tl.map(function (x, i) { return x[0] + "-" + x[1] + (isTb(x) ? " au tie-break" : ""); }).join(", ") + " : " + g[0] + " jeux à " + g[1] + " au total.", sets: sets });
-        if (stA.tb.n >= 3 && stA.tb.v / stA.tb.n <= 0.4 && tl.some(function (x, i) { return isTb(x) || isSuperTb(x, i); })) items.push({ ic: "target", t: "Les fins de set, ton chantier", s: "Sur 12 mois, tu gagnes " + stA.tb.v + " tie-break" + (stA.tb.v > 1 ? "s" : "") + " sur " + stA.tb.n + ". Un exercice à caler à l'entraînement : jouer des fins de set à 5-5." });
+        if (stA.tb7.n >= 3 && stA.tb7.v / stA.tb7.n <= 0.4 && tl.some(function (x, i) { return isTb(x) || isSuperTb(x, i); })) items.push({ ic: "target", t: "Les fins de set, ton chantier", s: "Sur 12 mois, tu gagnes " + stA.tb7.v + " tie-break" + (stA.tb7.v > 1 ? "s" : "") + " sur " + stA.tb7.n + ". Un exercice à caler à l'entraînement : jouer des fins de set à 5-5." });
       } else if (!won && g[0] <= 4 && sets.length === 2) items.push({ ic: "eq", t: "Il a été plus fort ce jour-là", s: g[0] + " jeux à " + g[1] + ". " + (hi != null && hi > me ? "Contre mieux classé, ça arrive : retiens ce qui n'a pas marché, pas le score." : "Note dans ton retour ce qui n'a pas marché : ça servira pour la revanche.") });
     }
     var scoreItems = items; items = [];
@@ -7389,7 +7404,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 4. Ta raquette
     if (m.racketId) {
       var rk = racket(m.racketId), wr = before.concat([m]).filter(function (x) { return x.racketId === m.racketId; }).slice(-10), wv = wr.filter(function (x) { return x.result === "V"; }).length;
-      if (rk && wr.length >= 5 && (wv / wr.length >= 0.7 || wv / wr.length <= 0.3)) items.push({ ic: "racket", t: "Avec ta " + rk.name + (m.tension ? " cordée à " + m.tension + " kg" : ""), s: wv + " victoire" + (wv > 1 ? "s" : "") + " sur tes " + wr.length + " derniers matchs avec elle." });
+      // 3.55 (audit R10) : seulement quand ça raconte ce match (victoire + raquette qui gagne, défaite + raquette qui perd)
+      if (rk && wr.length >= 5 && (won ? wv / wr.length >= 0.7 : wv / wr.length <= 0.3)) items.push({ ic: "racket", t: "Avec ta " + rk.name + (m.tension ? " cordée à " + m.tension + " kg" : ""), s: wv + " victoire" + (wv > 1 ? "s" : "") + " sur tes " + wr.length + " derniers matchs avec elle." });
     }
     // Titre par défaut
     if (!head) head = won ? (hi != null && hi > me ? "Belle perf : victoire contre mieux classé que toi." : "Victoire maîtrisée.") :
@@ -7443,11 +7459,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var s = '<div class="card an' + (a.anon ? "" : " insight") + '"><span class="eyebrow"' + (a.anon ? ' style="color:var(--muted)"' : "") + ">L'analyse du match</span>";
     if (a.anon) s += '<div class="an-anon"><span class="an-q">?</span><b>Ton adversaire est anonyme sur Ten\'Up</b><span>Il a choisi de masquer son nom : Montée n\'a pas accès à son palmarès. Pas d\'analyse complète possible (sa forme, son vrai niveau, ses dernières victoires).</span></div>' + (a.items.length ? '<span class="an-k">Ce qu\'on peut dire quand même</span>' : "");
     else s += '<span class="an-h">' + esc(a.head) + "</span>";
-    if (!a.anon && !a.pal) s += '<span class="an-note">' + (busy ? '<span class="spin"></span> Lecture de son palmarès sur Ten\'Up…' : err ? esc(err) : NATIVE ? "" : "Son palmarès se lit depuis l'appli Android ou iPhone : ici, l'analyse se limite au score et à ton classement.") + "</span>";
     s += a.items.map(row).join("");
     if (a.weight) s += '<div class="an-weight"><b>↓</b><span><b>Montée pèse peu cette défaite</b> : dans ton vrai niveau et tes stats, elle compte comme une défaite contre un ' + esc(a.weight.to) + ", pas contre un " + esc(a.weight.from) + ".</span></div>";
     if (!a.items.length && !a.anon && a.pal) s += '<span class="an-note">Ses résultats et le score ne montrent rien d\'inhabituel : un match conforme aux classements.</span>';
     if (a.imp.length) s += '<span class="an-k">Pour ton classement</span><div class="an-imp">' + a.imp.map(function (x) { return "<div><b" + (x.v ? ' style="color:var(--gazon)"' : "") + ">" + esc(x.b) + "</b><span>" + esc(x.t) + "</span></div>"; }).join("") + "</div>";
+    // 3.55 (audit R9) : la note Ten'Up (lecture en cours, joueur introuvable) passe en pied de carte, discrète, au lieu d'ouvrir l'analyse
+    if (!a.anon && !a.pal) { var nt = busy ? '<span class="spin"></span> Lecture de son palmarès sur Ten\'Up…' : err ? esc(err) : NATIVE ? "" : "Son palmarès se lit depuis l'appli Android ou iPhone : ici, l'analyse se limite au score et à ton classement."; if (nt) s += '<span class="an-note an-foot">' + nt + (err && isManual(m) && !UI.mEdit ? ' <button class="linkbtn" data-a="mEdit" style="padding:0;min-height:0;font-size:inherit">Corriger le nom</button>' : "") + "</span>"; }
     return s + "</div>";
   }
   // Match officiel Ten'Up : une fiche en lecture seule (les données viennent de Ten'Up), puis les annotations
@@ -7523,7 +7540,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!isNew && m.opp && !isAnon(m.opp) && nameKey(m.opp).length >= 3) {
       var hk = nameKey(m.opp), hm = knownMatches(false).filter(function (x) { return x.opp && nameKey(x.opp) === hk && !x.wo && (x.result === "V" || x.result === "D"); }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
       var hv = hm.filter(function (x) { return x.result === "V"; }).length;
-      s += '<a class="h2h2" href="#/' + advPath(hk) + '"><span class="ini">' + esc(initials(m.opp)) + '</span><span class="grow"><b>Face-à-face avec ' + esc(nameCase(m.opp).split(" ")[0]) + "</b><small>" + (hm.length > 1 ? '<span class="h2h-dots">' + hm.slice(-8).map(function (x) { return '<i class="' + x.result + (x.id === m.id ? " me" : "") + '"></i>'; }).join("") + "</span>" + hv + " – " + (hm.length - hv) : "1er match contre lui · sa fiche ›") + "</small></span>" + I.next + "</a>";
+      s += '<a class="h2h2" href="#/' + advPath(hk) + '"><span class="ini">' + esc(initials(m.opp)) + '</span><span class="grow"><b>Face-à-face avec ' + esc((function (n) { var f = n.split(" ")[0]; return /\.$/.test(f) || f.length < 3 ? n : f; })(nameCase(m.opp))) + "</b><small>" + (hm.length > 1 ? '<span class="h2h-dots">' + hm.slice(-8).map(function (x) { return '<i class="' + x.result + (x.id === m.id ? " me" : "") + '"></i>'; }).join("") + "</span>" + hv + " – " + (hm.length - hv) : "1er match contre lui · sa fiche ›") + "</small></span>" + I.next + "</a>";
     }
     if (!isNew) { var m0 = S.matches.filter(function (x) { return x.id === m.id; })[0] || m; s += feltHtml(m0) + numHtml(m0) + planCheckHtml(m0) + watchFicheHtml(m0) + (m0.serve ? myPropsHtml() : ""); }
     if (!isNew && m.serve) s += serveHtml(m) + dfHtml(m);
@@ -7639,7 +7656,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var ms = playedOf(src).filter(function (m) { return !m.dbl && !m.wo && (m.result === "V" || m.result === "D") && m.date && E.idx(m.oppRank) != null; });
     var E1 = function (m) { var o = E.idx(m.oppRank), oe = oppEffIdx(m); return expWin(oe != null && oe > o ? oe : o, cur); };
     var grp = function (list, ef) { var es = list.map(function (m) { return ef ? ef(E1(m)) : E1(m); }); return { ms: list, es: es, n: list.length, v: list.filter(function (m) { return m.result === "V"; }).length, e: es.reduce(function (s, x) { return s + x; }, 0) }; };
-    var st = function (g, min) { if (g.n < (min || 4)) return "lock"; var vd = vsVerdict(g.v, g.e, g.n); return vd === "above" ? "fort" : vd === "below" ? "faible" : "norme"; };
+    var st = function (g, min) { if (g.n < (min || 4)) return "lock"; var vd = vsVerdict(g.v, g.e, g.n); if (vd === "par" && g.v >= 1.5 * g.e && g.v - g.e >= 0.6) vd = "above"; /* 3.55 (audit R4) : nettement au-dessus de l'attendu (2 sur 4 quand un 15/2 en gagne 1) = point fort */ return vd === "above" ? "fort" : vd === "below" ? "faible" : "norme"; };
     var s1 = function (m) { var x = setsOf(m.score); return x.length ? x[0][0] > x[0][1] : null; };
     var all = S.matches.concat(S.trainings || []).filter(function (x) { return x.date && !x.wo && (!atI || x.date <= atI); });
     var R = {};
@@ -7660,7 +7677,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     R.retour = { k: "retour", w: sm, st: sm.n < 3 || sm.bf < 8 || sm.obf < 4 ? "lock" : d2 >= 10 ? "fort" : d2 <= -10 ? "faible" : "norme", me: bpMe, him: bpHim };
     var forts = CP_KEYS.filter(function (k) { return R[k].st === "fort"; }), faibs = CP_KEYS.filter(function (k) { return R[k].st === "faible"; });
     var bestF = forts.sort(function (a, b) { return (R[b].gap || 0) - (R[a].gap || 0); })[0], worst = faibs.sort(function (a, b) { return (R[a].gap || 0) - (R[b].gap || 0); })[0];
-    var title = bestF && worst ? CP_FORT[bestF] + ", " + CP_FAIB[worst] + "." : bestF ? CP_FORT[bestF] + "." : worst ? "Un joueur " + CP_FAIB[worst] + "." : "Un joueur dans la norme des " + curL + ".";
+    var title = bestF && worst ? CP_FORT[bestF] + ", " + CP_FAIB[worst] + "." : bestF ? CP_FORT[bestF] + "." : worst ? "Un joueur " + CP_FAIB[worst] + "." : (function () { // 3.55 (audit R4) : ne pas dire « norme des 15/2 » quand la jauge dit « tu joues 15/1 »
+      var ln = null; try { ln = levelNow(c); } catch (e) {} var lv = ln && ln.ms ? ln.best : null;
+      return lv != null && lv > cur ? "Tu joues déjà " + lab(lv) + ", sans point faible qui ressort." : lv != null && lv < cur ? "Un joueur sans point fort net, un cran sous ton " + curL + " en ce moment." : "Un joueur complet, au niveau de ton " + curL + "."; })();
     if (!at) {
       var t3 = today(); t3.setMonth(t3.getMonth() - 3);
       var O = compSkills(t3).R;
@@ -8394,7 +8413,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return '<div class="card ws3 wse"><div class="ws3-e"><svg width="74" height="96" viewBox="0 0 74 96" aria-hidden="true"><rect x="20" y="0" width="34" height="22" rx="6" fill="var(--chip)"/><rect x="20" y="74" width="34" height="22" rx="6" fill="var(--chip)"/><rect x="6" y="14" width="62" height="68" rx="18" fill="#3A3D45"/><rect x="11" y="19" width="52" height="58" rx="14" fill="#0E0F12"/><rect x="68" y="34" width="5" height="14" rx="2.5" fill="#55585F"/><text x="37" y="46" text-anchor="middle" font-weight="800" font-size="15" fill="#D4E64A">40-15</text><circle cx="37" cy="62" r="6" fill="#D4E64A"/></svg>' +
         '<div><span class="eyebrow">Ton service</span><b class="ws3-et">Compte tes matchs sur ta montre</b><span class="small">Tu marques chaque point, Montée te sort tes 1res balles, tes balles de break et tes jeux tenus.</span></div></div>' +
         '<div class="ws3-eb"><button class="btn primary" data-a="sheet" data-k="watchSetup">Configurer ma montre</button><button class="btn soft" data-a="hideWatchCard">Masquer</button></div>' +
-        '<span class="small" style="text-align:center">Apple Watch · 1 match gratuit par mois, illimité avec Montée+</span></div>';
+        '<span class="small" style="text-align:center">' + (isSup() ? "Apple Watch · matchs illimités avec ton Montée+" : "Apple Watch · 1 match gratuit par mois, illimité avec Montée+") + "</span></div>"; // 3.55 (audit R5)
     }
     var row = function (l, v, k) { var col = svCol(k, v); return v == null ? "" : '<div class="ws3-b"><div class="ws3-bl"><span>' + l + '</span><b style="color:' + col + '">' + v + " %</b></div>" + ballBar(v, l + " " + v + " %", col) + "</div>"; };
     var chip = function (v, l, k, raw) { return '<span class="ws3-c"><b style="color:' + svCol(k, raw) + '">' + v + "</b><small>" + l + "</small></span>"; };
@@ -9108,7 +9127,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var lostHere = i === 0 || x.lost.length || x.total < pts[i - 1].total, low = x.total < x.norme, col = (low ? "var(--terre)" : "var(--gazon)") + (lostHere ? "" : ";opacity:.4");
       return '<button class="d3b" data-a="sheet" data-k="defend" data-v="' + i + '" aria-label="' + MOIS_L[x.rel.getMonth()] + " : " + x.total + ' pts"><b style="color:' + (low ? "var(--terre)" : "var(--ink)") + '">' + x.total + '</b><i style="height:' + Math.max(6, x.total / mx * BH).toFixed(0) + "px;background:" + col + '"></i><span>' + MOIS[x.rel.getMonth()].replace(/\.$/, "") + "</span></button>";
     }).join("");
-    var line = '<i class="d3n" style="bottom:' + (nor / mx * BH + 20).toFixed(0) + 'px"></i><span class="d3nl" style="bottom:' + (nor / mx * BH + 23).toFixed(0) + 'px">norme ' + nor + "</span>";
+    var line = '<i class="d3n" style="bottom:' + (nor / mx * BH + 20).toFixed(0) + 'px"></i><span class="d3nl" style="bottom:' + (nor / mx * BH + 23).toFixed(0) + 'px">bilan à ' + esc(b0.label) + " · norme " + nor + "</span>"; // 3.55 (audit R14) : dire de quel bilan on parle (≠ « Ton bilan pour » l'échelon visé)
     var gone = []; pts.slice(1).forEach(function (x, j) {
       x.lost.forEach(function (w) { gone.push({ w: w, rel: x.rel }); });
       // 3.49 (Yann) : les points bonus qui sautent aussi (championnat indivs, sans défaite significative, doubles), comme dans le détail du mois
