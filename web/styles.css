@@ -4609,3 +4609,15 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .pw-pill svg { width: 15px; height: 15px; }
 .pw-price { text-align: center; margin-top: -4px; }
 .pw-all { align-self: center; }
+.df-min { padding-top: 14px; padding-bottom: 14px; }
+.df-ml { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.df-ml b { font-size: 15px; font-weight: 600; }
+.chips.rk-near { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.rk-near .chip { padding: 0 4px; }
+.rk-other { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.rk-other label { font-size: 14px; color: var(--sub); }
+.cond-ed { color: var(--hl, var(--acc-ink)); font-weight: 600; font-size: 15px; flex: none; }
+.cond-min { flex-direction: row; align-items: center; gap: 12px; text-align: left; cursor: pointer; border: none; width: 100%; font: inherit; color: inherit; }
+.cond-min .grow { display: flex; flex-direction: column; gap: 3px; }
+.cond-min small { color: var(--sub); font-size: 13px; }
+.rk-other select { width: auto; max-width: 55%; flex: none; }

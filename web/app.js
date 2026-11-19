@@ -4919,6 +4919,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // retenir ce qui a été montré, pour « Nouveau » la prochaine fois
     var nx = {}; a.concat(k).forEach(function (f) { nx[f.id] = f.vd; });
     if (JSON.stringify(nx) !== JSON.stringify(seen)) setTimeout(function () { S.diffSeen = nx; save(); }, 0);
+    // 3.55 (audit, validé) : rien de net = une seule ligne, pas quatre cases à « 0 sur 4 »
+    if (!a.length && !k.length) return '<a class="card df2 df-min" href="#/gagner"><span class="eyebrow">Ce qui fait la différence</span><span class="df-ml"><b>' + (D.soon.length ? plural(D.soon.length, "analyse se débloque", "analyses se débloquent") + " avec tes prochains matchs" : "Rien de net : tu gagnes ce qu'un " + esc(lab(cur)) + " doit gagner") + '</b><span class="go-pill">›</span></span></a>';
     return '<a class="card df2" href="#/gagner"><span class="eyebrow">Ce qui fait la différence</span><b class="df-t">' + esc(title) + '</b><span class="small">Comparé à ce qu\'un joueur classé ' + lab(cur) + " (ton classement) gagne face aux mêmes adversaires.</span>" +
       (a.length ? '<span class="df-h g">Ça t\'aide</span>' + a.map(function (f) { return dfRow(f, cur, isNew(f)); }).join("") : "") +
       (k.length ? '<span class="df-h t">Ça te coûte</span>' + k.map(function (f) { return dfRow(f, cur, isNew(f)); }).join("") : "") +
@@ -7623,6 +7625,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         if (main) { base.racketId = main.id; base.string = main.string || ""; base.tension = main.tension || null; base.tensionCross = main.tensionCross != null ? main.tensionCross : null; base._auto = !isNew; }
       }
       if (isNew && UI.mmPrefill) { var mp = UI.mmPrefill; UI.mmPrefill = null; base.opp = mp.opp; base.oppRank = mp.rank; base.result = mp.r; if (mp.score) base.score = mp.score; if (mp.minutes) base.minutes = mp.minutes; if (mp.feel) base.feel = mp.feel; if (mp.kind) base.kind = mp.kind; if (mp.serve) base.serve = mp.serve; if (mp.hr) base.hr = mp.hr; if (mp.kcal) base.kcal = mp.kcal; if (mp.date) base.date = mp.date; if (mp.wid) base._wid = mp.wid; if (mp.oid) base.oid = String(mp.oid); if (mp.watch) base.watch = true; if (mp.wev) { base.wev = mp.wev; base.wsrv = mp.wsrv; base.wfmt = mp.wfmt; } if (mp.wevT) base.wevT = mp.wevT; if (mp.wt0) base.wt0 = mp.wt0; if (mp.wmax) base.wmax = mp.wmax; }
+      // 3.55 (audit, validé) : un match neuf reprend les conditions de ta dernière saisie (surface, lieu)
+      if (isNew) { var lastC = S.matches.filter(function (x) { return x.surface || x.indoor != null; }).sort(byDateDesc)[0]; if (lastC) { base.surface = SURFACES.indexOf(lastC.surface) >= 0 ? lastC.surface : ""; base.indoor = lastC.indoor != null ? lastC.indoor : null; } UI.condOpen = false; }
       if (isNew && UI.hcPrefillM) { var hm = UI.hcPrefillM; UI.hcPrefillM = null; base.date = hcIso(hm.start); base.minutes = hcMin(hm); base.hid = hm.id; base.hat = hm.start; }
       base._for = id || "new"; UI.draft = base; UI.gearOpen = false; UI.origKey = null; // nouveau brouillon : on reprend la référence « rien de modifié »
       base.sets = setsOf(base.score);
@@ -7669,7 +7673,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<label class="check"><input type="checkbox" data-d="wo"' + (m.wo ? " checked" : "") + "> Par forfait (WO)</label></div>" +
       '<div class="field"><label for="m-opp">Adversaire</label>' + (mTuOn() ? '<div class="sbar msb">' + svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 2.2) + '<input id="m-opp" type="search" data-d="opp" list="opp-list" value="' + esc(m.opp) + '" placeholder="Prénom et nom" autocomplete="off" autocapitalize="words" enterkeyhint="search"><button class="sb-clr" data-a="mOppClr" aria-label="Effacer"' + (m.opp ? "" : " hidden") + ">" + I.cross + '</button><button class="sb-go' + (nameSplits(m.opp || "").length ? " ready" : "") + '" data-a="mTuFind"' + (UI.mBusy ? " disabled" : "") + ">" + (UI.mBusy ? "…" : "Chercher") + "</button></div>" : '<input id="m-opp" type="text" data-d="opp" list="opp-list" value="' + esc(m.opp) + '" placeholder="Prénom et nom, ex. : Julien Moreau" autocomplete="off" autocapitalize="words">') + oppDatalist() +
         mTuHtml(m) + revHint(m.opp, m.id) + "</div>" +
-      '<div class="field inline"><label for="m-rank">Son classement le jour du match</label><select id="m-rank" data-d="oppRank">' + rankOpts + "</select></div>" +
+      (function () { // 3.55 (audit, validé) : les 5 classements autour du tien d'abord, les autres dans la liste
+        var cu = Math.max(0, c.cur), lo = Math.max(0, Math.min(cu - 2, 21 - 4)), near = []; for (var i = lo; i < lo + 5; i++) near.push(lab(i));
+        var other = m.oppRank && near.indexOf(m.oppRank) < 0;
+        return '<div class="field"><span class="lbl">Son classement le jour du match</span><div class="chips rk-near">' + near.map(function (r) { return '<button class="chip' + (m.oppRank === r ? " on" : "") + '" data-a="dset" data-k="oppRank" data-v="' + esc(r) + '">' + esc(r) + "</button>"; }).join("") + "</div>" +
+          '<div class="rk-other"><label for="m-rank">' + (other ? "Classement" : "Autre classement") + '</label><select id="m-rank" data-d="oppRank">' + rankOpts + "</select></div></div>";
+      })() +
       '<div class="field inline"><label for="m-date">Date</label><input id="m-date" type="date" data-d="date" value="' + esc(m.date) + '" max="' + E.iso(today()) + '"></div>' +
       (m.wo ? "" : scoreHtml(m)) +
       '<div class="field"><span class="lbl">Type de match</span><div class="chips">' + KIND_ORDER.map(function (k) { return '<button class="chip' + (m.kind === k[0] ? " on" : "") + '" data-a="dset" data-k="kind" data-v="' + k[0] + '">' + (KIND_FORM[k[0]] || k[1]) + "</button>"; }).join("") + "</div>" +
@@ -7685,6 +7694,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       s += annSummaryHtml(mS) + "</div>";
       return s;
     }
+    if (isNew && !UI.condOpen) { // 3.55 (audit, validé) : repliées, pré-remplies avec ta dernière saisie
+      var cS = [m.surface ? SURF_LAB[m.surface] || m.surface : "", m.indoor === true ? "intérieur" : m.indoor === false ? "extérieur" : ""].filter(Boolean).join(", ");
+      s += '<button class="card cond-min" data-a="condOpen"><span class="grow"><span class="eyebrow">Les conditions</span><b>' + esc(cS ? cap1(cS) : "Surface, lieu, durée") + "</b><small>" + (cS ? "Comme ton dernier match · durée et ton retour en option" : "En option : surface, lieu, durée, ton retour") + '</small></span><span class="cond-ed">Modifier</span></button>';
+    } else
     s += '<h2>' + (official || !isNew ? "Tes annotations · les conditions" : "Les conditions") + '</h2><div class="form">' +
       '<div class="field"><span class="lbl">Surface</span><div class="chips">' + SURFACES.map(function (x) { return '<button class="chip' + (m.surface === x ? " on" : "") + '" data-a="dset" data-k="surface" data-v="' + x + '">' + (SURF_LAB[x] || x) + "</button>"; }).join("") + "</div></div>" +
       '<div class="field"><span class="lbl">Où</span><div class="seg"><button data-a="dset" data-k="indoor" data-v="1" class="' + (m.indoor === true ? "on" : "") + '">Intérieur</button><button data-a="dset" data-k="indoor" data-v="0" class="' + (m.indoor === false ? "on" : "") + '">Extérieur</button></div></div>' +
@@ -13120,6 +13133,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       });
     },
     mTuNone: function () { var d = UI.draft; if (!d) return; UI.mNone = d.opp || ""; UI.mHits = null; UI.mHitsQ = null; delete d.oid; render(); setTimeout(function () { var r = document.getElementById("m-rank"); if (r) r.focus(); }, 60); },
+    condOpen: function () { UI.condOpen = true; render(); },
     mTuPick: function (el) {
       var d = UI.draft, h = (UI.mHits || [])[+el.dataset.v]; if (!d || !h) return;
       var nm = nameCase([h.prenom, h.nom].filter(Boolean).join(" ")), rk = T.normRank(h.rank) || "";
