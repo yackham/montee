@@ -2229,6 +2229,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (B.annoter) B.todo = "";
     if (B.rate) B.slot = "";
     var inv = ["carte", "sync", "goal", "essayer"], got = false; inv.forEach(function (k) { if (B[k]) { if (got) B[k] = ""; got = true; } });
+    X.rebond = rebondHtml(c); // 3.55 (Yann) : mode rebond
+    if (X.rebond && S.rebond && S.rebond.quiet >= E.iso(today())) { B.defendAl = ""; B.drops = ""; }
     s += homeLayout(B, X);
     s += '<p class="small">Calcul indicatif d\'après le barème FFT. Seul le classement officiel fait foi.</p>';
     return s + "</div>" + tabbar("home");
@@ -2249,6 +2251,105 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // v victoires sur n matchs, e victoires attendues : "few" (moins de 3 matchs), "above", "below" ou "par"
   function vsVerdict(v, e, n) { return n < 3 ? "few" : v - e >= 1 ? "above" : e - v >= 0.9 ? "below" : "par"; }
   function lvP(d) { return 1 / (1 + Math.exp(0.75 * d + 0.2)); }
+  // 3.55 (Yann, nouveautés 19/11) : jeux pris dans une défaite, ramenés à 2 sets, comparés à ce qu'on attend contre ce classement.
+  // Attendu = 3 + 12 × chances (expWin) : 6,8 jeux contre un échelon au-dessus, 5,2 à deux, 4,1 à trois (estimation, à caler sur de vrais matchs).
+  function lossGames(m) {
+    var sets = setsOf(m.score).filter(function (st, i) { return !isSuperTb(st, i); });
+    if (!sets.length) return null;
+    var mine = sets.reduce(function (a, st) { return a + st[0]; }, 0);
+    return Math.round(mine * 2 / sets.length * 10) / 10;
+  }
+  function lossExp(o, cur) { return Math.min(11, Math.round((3 + 12 * expWin(o, cur)) * 10) / 10); }
+  function lossRows(cur, up) {
+    return S.matches.filter(function (m) {
+      var o = E.idx(m.oppRank);
+      return m.date && m.result === "D" && !m.wo && !m.dbl && o != null && (!up || o > cur) && lossGames(m) != null;
+    }).map(function (m) { var o = E.idx(m.oppRank); return { m: m, g: lossGames(m), e: lossExp(o, cur) }; })
+      .sort(function (a, b) { return a.m.date < b.m.date ? 1 : -1; });
+  }
+  function fmt1(x) { return String(Math.round(x * 10) / 10).replace(".", ","); }
+  // Carte Courbes « Tes défaites » : 4 périodes de 2 mois, défaites contre mieux classé
+  function lossTrend(cur) {
+    if (cur < 0) return null;
+    var now = today(), P = [], rows = lossRows(cur, true);
+    for (var i = 3; i >= 0; i--) {
+      var to = new Date(now.getFullYear(), now.getMonth() - 2 * i + 1, 1), from = new Date(to.getFullYear(), to.getMonth() - 2, 1);
+      var f = E.iso(from), t = E.iso(to), L = rows.filter(function (r) { return r.m.date >= f && r.m.date < t; });
+      var mo = function (d) { return d.toLocaleDateString("fr-FR", { month: "short" }).replace(".", ""); };
+      P.push({ lab: mo(from) + "–" + mo(new Date(to.getFullYear(), to.getMonth() - 1, 1)), L: L, g: L.length >= 2 ? L.reduce(function (a, r) { return a + r.g; }, 0) / L.length : null, e: L.length ? L.reduce(function (a, r) { return a + r.e; }, 0) / L.length : null });
+    }
+    var ok = P.filter(function (p) { return p.g != null; });
+    if (ok.length < 2) return null;
+    var all = [].concat.apply([], P.map(function (p) { return p.L; }));
+    var eAll = all.reduce(function (a, r) { return a + r.e; }, 0) / all.length, first = ok[0], last = ok[ok.length - 1];
+    var tone = last.g - first.g >= 1 ? "up" : first.g - last.g >= 1 ? "down" : last.g - last.e >= 1 ? "above" : "par";
+    return { P: P, eAll: eAll, first: first, last: last, tone: tone, n: all.length };
+  }
+  function lossCardHtml(c) {
+    var T = lossTrend(c.cur); if (!T) return "";
+    var H = { up: 'Tes défaites contre mieux classé sont <span class="pos">de plus en plus serrées</span>.',
+      above: 'Quand tu perds contre mieux classé, tu prends <span class="pos">plus de jeux que prévu</span>.',
+      down: "Tes défaites récentes contre mieux classé sont moins serrées qu'avant.",
+      par: "Tes défaites contre mieux classé restent dans la norme." }[T.tone];
+    var mx = Math.max.apply(null, T.P.map(function (p) { return p.g || 0; }).concat([T.eAll, 6])) * 1.15;
+    var bars = T.P.map(function (p, i) {
+      var h = p.g == null ? 0 : Math.max(5, Math.round(p.g / mx * 88));
+      return '<div class="ls-b' + (i === T.P.length - 1 ? " now" : "") + '"><b>' + (p.g == null ? "–" : fmt1(p.g)) + "</b>" + (p.g == null ? '<i class="ls-x"></i>' : '<i class="' + (p.g >= T.eAll ? "ok" : "") + '" style="height:' + h + 'px"></i>') + "<span>" + esc(p.lab) + "</span></div>";
+    }).join("");
+    var line = 20 + Math.round(T.eAll / mx * 88);
+    return '<div class="card ls-card"><span class="eyebrow">Tes défaites</span><b class="m2-t">' + H + "</b>" +
+      '<span class="small">Jeux pris par défaite contre mieux classé, ramenés à 2 sets</span>' +
+      '<div class="ls-bars"><div class="ls-ref" style="bottom:' + line + 'px"></div>' + bars + "</div>" +
+      '<span class="small">Pointillés : <b>' + fmt1(T.eAll) + " jeux</b>, ce que Montée attend face à ces classements. Une barre a besoin d'au moins 2 défaites sur la période.</span>" +
+      '<div class="ls-foot"><button class="go-pill" data-a="sheet" data-k="losses" data-v="1">Le détail ' + I.next + "</button></div></div>";
+  }
+  // 3.55 : mode rebond. 3 défaites de suite (simples, hors W.O.), la dernière il y a moins de 30 jours
+  function rebondData(c) {
+    var ms = sortedMatches().filter(function (m) { return m.date && !m.wo && !m.dbl && (m.result === "V" || m.result === "D"); });
+    var k = 0; while (k < ms.length && ms[k].result === "D") k++;
+    if (k < 3) return null;
+    var last = E.parseDate(ms[0].date); if ((today() - last) / 864e5 > 30) return null;
+    var R = S.rebond || {}; if (R.hid === ms[0].id) return null;
+    var L = ms.slice(0, k), cur = c.cur < 0 ? 0 : c.cur;
+    var good = L.filter(function (m) { var o = E.idx(m.oppRank), g = lossGames(m); return o != null && g != null && g >= lossExp(o, cur) - 0.5; }).length;
+    // Tes preuves : la dernière série d'au moins 3 défaites avant celle-ci, et la suite (7 matchs au plus)
+    var asc = ms.slice(k).reverse(), proof = null;
+    for (var i = 0; i < asc.length; i++) {
+      if (asc[i].result !== "D") continue;
+      var j = i; while (j < asc.length && asc[j].result === "D") j++;
+      if (j - i >= 3 && j < asc.length) { var nx = asc.slice(j, j + 7); proof = { n: j - i, d: asc[i].date, v: nx.filter(function (m) { return m.result === "V"; }).length, t: nx.length, best: nx.filter(function (m) { return m.result === "V"; }).sort(function (a, b) { return (E.idx(b.oppRank) || 0) - (E.idx(a.oppRank) || 0); })[0] }; }
+      i = j;
+    }
+    var best = ms.filter(function (m) { return m.result === "V" && E.idx(m.oppRank) != null; }).sort(function (a, b) { return E.idx(b.oppRank) - E.idx(a.oppRank) || (a.date < b.date ? 1 : -1); })[0];
+    var tight = L.filter(function (m) { return setsOf(m.score).some(function (st, i2) { return st[0] < st[1] && (isTb(st) || isSuperTb(st, i2) || st[1] - st[0] <= 2); }); }).length;
+    return { k: k, L: L, good: good, proof: proof, best: best, tight: tight, cur: cur };
+  }
+  function rebondHtml(c) {
+    var D = rebondData(c); if (!D) return "";
+    var R = S.rebond || {}, quiet = R.quiet && R.quiet >= E.iso(today());
+    var nT = ["", "", "", "Trois", "Quatre", "Cinq", "Six"][D.k] || String(D.k);
+    var t = D.good >= 2 ? nT + " défaites, pas " + nT.toLowerCase() + " mauvais matchs." : nT + " défaites de suite. Ça arrive aux meilleurs.";
+    var sub = D.good >= 2 ? plural(D.good, "défaite") + " sur " + D.k + " au niveau ou au-dessus de ce que ton classement prévoyait (jeux pris)." : "Montée regarde ce qui a coincé, et ce qui t'a déjà fait repartir.";
+    var dots = D.L.slice(0, 5).reverse().map(function (m) { return '<span class="vd D">D</span>'; }).join("");
+    var mo = function (d) { return E.parseDate(d).toLocaleDateString("fr-FR", { month: "long", year: E.parseDate(d).getFullYear() === today().getFullYear() ? undefined : "numeric" }); };
+    var pr = D.proof ? "En " + mo(D.proof.d) + ", " + D.proof.n + " défaites de suite. Ensuite : " + D.proof.v + " victoire" + (D.proof.v > 1 ? "s" : "") + " sur " + D.proof.t + "." : D.best ? "Ta plus belle victoire : contre un " + esc(D.best.oppRank) + ", le " + esc(fdate(D.best.date).replace(/\.$/, "")) + "." : "";
+    var prM = D.proof && D.proof.best ? D.proof.best : D.best;
+    var easy = Math.max(0, D.cur - 1), pe = Math.round(expWin(easy, D.cur) * 100);
+    var steps = [
+      ["Un match à ta portée", "Contre un " + lab(easy) + ", tu as " + pe + " % de chances. Un tournoi où tu es parmi les mieux classés, ou un match de poule à jouer maintenant."],
+      D.tight >= 2 ? ["Une seule mission : les fins de set", plural(D.tight, "défaite") + " sur " + D.k + " avec un set perdu de 2 jeux ou au tie-break. Joue ces points comme les autres : même routine, première balle avec de la marge."]
+        : ["Une seule mission : les 3 premiers jeux", "Rentre dans le match tout de suite : échauffement complet, première balle avec de la marge, et fais-le jouer."],
+      ["Une séance « " + (D.tight >= 2 ? "points serrés" : "début de match") + " »", "Note-la dans tes entraînements : Montée te dira si elle change tes prochains matchs."]
+    ];
+    var open = UI.rebondOpen;
+    return '<div class="card rb-card"><span class="eyebrow">Passage à vide</span><b class="m2-t">' + esc(t) + "</b>" +
+      '<span class="small">' + esc(sub) + "</span>" + '<span class="form-dots rb-dots">' + dots + "</span>" +
+      (pr ? '<div class="rb-proof"><span class="eyebrow">Tes preuves</span><b>' + pr + "</b>" + (prM ? '<a class="go-pill" href="#/match/' + prM.id + '">Revoir ce match ' + I.next + "</a>" : "") + "</div>" : "") +
+      (open ? '<div class="rb-steps">' + steps.map(function (x, i) { return '<div class="rb-st"><span class="rb-n">' + (i + 1) + '</span><span><b>' + esc(x[0]) + '</b><span class="small">' + esc(x[1]) + "</span></span></div>"; }).join("") +
+        '<label class="row rb-q" style="cursor:pointer"><span class="grow"><span style="font-size:15px;font-weight:600">Souffler 2 semaines</span><span class="small">Cache « Points à défendre » et les victoires qui sortent sur l\'accueil. Ta carte Sortie reste là.</span></span><input type="checkbox" role="switch" data-a="rebondQuiet"' + (quiet ? " checked" : "") + "></label>" +
+        '<span class="small">Montée repasse en mode normal après ta prochaine victoire.</span></div>' : "") +
+      '<div class="ls-foot"><button class="linkbtn" data-a="rebondHide" data-v="' + esc(D.L[0].id) + '">Masquer</button>' + (open ? '<a class="go-pill" href="#/entrainement/new">Noter une séance ' + I.next + "</a>" : '<button class="go-pill" data-a="rebondOpen">Ton plan pour repartir ' + I.next + "</button>") + "</div></div>";
+  }
   // Résultat « nuancé » d'un match : une défaite accrochée compte un peu, un set pris davantage
   function tightSets(m) { return setsOf(m.score).filter(function (st, i) { return isTb(st) || isSuperTb(st, i) || Math.abs(st[0] - st[1]) <= 2; }).length; }
   function softY(m) {
@@ -5974,7 +6075,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       ["carte", "Ta carte du mois (après la sortie)"], ["charge", "Ta charge de jeu"], ["essayer", "3 choses à essayer"], ["cordage", "Alertes cordage"], ["sync", "Rappel de synchro Ten'Up"], ["rate", "Noter tes séances"], ["slot", "« T'as joué ? » (semaine type)"],
       ["drops", "Victoires qui sortent"], ["todo", "Matchs à annoter"]],
     courbes: [["chances", "Tes chances de monter"], ["forces", "Tes forces"], ["saisons", "Tes saisons"], ["bilan", "Ton bilan"], ["niveau", "Ton niveau de jeu"], ["defend", "Points à défendre"], ["mental", "Mental"], ["plafond", "Face à chaque classement"], ["records", "Tes records"],
-      ["forme", "Forme du moment"], ["gagner", "Ce qui fait la différence"], ["h2h", "Face-à-face"], ["where", "Où tu gagnes"], ["raquette", "Avec quoi tu gagnes"], ["temps", "Temps de jeu"], ["service", "Ton service"], ["chiffres", "Tes chiffres (breaks, doubles fautes)"]]
+      ["forme", "Forme du moment"], ["gagner", "Ce qui fait la différence"], ["h2h", "Face-à-face"], ["where", "Où tu gagnes"], ["raquette", "Avec quoi tu gagnes"], ["temps", "Temps de jeu"], ["service", "Ton service"], ["chiffres", "Tes chiffres (breaks, doubles fautes)"], ["defaites", "Tes défaites"]]
   };
   function prefsOf(page) {
     S.prefs = S.prefs || {};
@@ -5998,7 +6099,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var pr = prefsOf(page), ks = pr.order.filter(function (k) { return pr.hidden.indexOf(k) < 0 && B[k]; });
     if (page === "courbes") {
       // 3.38 : plus de pastilles ; des titres de groupe comme sur l'accueil (l'ordre choisi est respecté)
-      var GRP = { chances: "Ton classement", bilan: "Ton classement", niveau: "Ton classement", defend: "Ton classement", saisons: "Tes résultats", forme: "Tes résultats", records: "Tes résultats", plafond: "Tes résultats",
+      var GRP = { chances: "Ton classement", bilan: "Ton classement", niveau: "Ton classement", defend: "Ton classement", saisons: "Tes résultats", forme: "Tes résultats", records: "Tes résultats", plafond: "Tes résultats", defaites: "Tes résultats",
         mental: "Ton jeu", gagner: "Ton jeu", where: "Ton jeu", h2h: "Ton jeu", service: "Ton jeu", chiffres: "Ton jeu", raquette: "Ton matériel", temps: "Ton jeu", forces: "Tes résultats" };
       var GO = ["Ton classement", "Tes résultats", "Ton jeu", "Ton matériel", "Et aussi"], gi = function (k) { var i = GO.indexOf(GRP[k] || "Et aussi"); return i < 0 ? 9 : i; };
       // 3.47.5 (Yann) : dès que ta montre a mesuré des matchs, « Ton service » passe en tête de « Ton jeu »
@@ -6394,7 +6495,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       ballBar(100) + '<span class="h3-foot"><span>✓ validé</span></span></div>';
   }
   // ---------- Accueil qui hiérarchise : la carte la plus urgente, le reste replié ----------
-  var HOME_URG = ["verify", "hc", "cordage", "carte", "defendAl", "charge", "an", "annoter", "slot", "rate", "sync", "essayer"];
+  var HOME_URG = ["rebond", "verify", "hc", "cordage", "carte", "defendAl", "charge", "an", "annoter", "slot", "rate", "sync", "essayer"];
   var HOME_XN = { verify: "À vérifier", hc: "Nouvelle séance", an: "Analyse de ton match" };
   function homeLayout(B, X) {
     var pr = prefsOf("home"), names = {}; BLOCKS.home.forEach(function (x) { names[x[0]] = x[1]; });
@@ -8194,6 +8295,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     B.defend = defendHtml(c);
     B.chances = chancesHtml(c); // 3.48 (Yann)
     B.chiffres = numTrendHtml(); // 3.48 (Yann) : débrief express
+    B.defaites = lossCardHtml(c); // 3.55 (Yann) : tes défaites progressent
     var CI = ceilingInfo(rows, c.cur), tone = CI && CI.tone ? CI.tone : "var(--gazon)";
     if (CI && CI.weak) mx = Math.max(mx, CI.weak.ex);
     var expOf = function (o) { return expWin(o, c.cur); };
@@ -8614,6 +8716,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return body;
   }
   var DET = {
+    // 3.55 : le détail de « Tes défaites »
+    losses: function () {
+      var c = ctx(), T = lossTrend(c.cur); if (!T) return null;
+      var body = T.P.slice().reverse().filter(function (p) { return p.L.length; }).map(function (p) {
+        return '<h3 class="h3sec" style="margin-top:10px">' + esc(p.lab) + " · " + plural(p.L.length, "défaite") + "</h3>" + listHtml(p.L.map(function (r) { return r.m; }), function (m) {
+          var r = p.L.filter(function (x) { return x.m === m; })[0];
+          return '<span class="ls-pp' + (r.g >= r.e ? " ok" : r.g < r.e - 1 ? " ko" : "") + '">' + fmt1(r.g) + " pris · " + fmt1(r.e) + " att.</span>";
+        });
+      }).join("");
+      return { title: "Tes défaites contre mieux classé", sub: "Pris : tes jeux, ramenés à 2 sets (super tie-break non compté). Attendu : ce qu'un joueur de ton classement prend en moyenne dans une défaite contre ce classement. Estimation de Montée, à caler sur de vrais matchs.", body: body };
+    },
     // 3.48.7 (Yann) : le palmarès d'une saison (passée : ton palmarès Ten'Up de la saison ; en cours : tes matchs)
     season: function (y) {
       y = +y; var from = E.iso(new Date(y - 1, 8, 1)), to = E.iso(new Date(y, 8, 1)), list = [];
@@ -12105,6 +12218,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     rkMenu: function () { UI.rkMenu = !UI.rkMenu; render(); },
     bilanSel: function (el) { UI.bilanSel = +el.dataset.v; render(); },
     sheet: function (el) { UI.sheet = { k: el.dataset.k, v: el.dataset.v }; render(); },
+    rebondOpen: function () { UI.rebondOpen = !UI.rebondOpen; render(); },
+    rebondHide: function (el) { S.rebond = S.rebond || {}; S.rebond.hid = el.dataset.v; save(); render(); toast("Masqué jusqu'à ta prochaine série."); },
     hideWatchCard: function () { S.prefs = S.prefs || {}; S.prefs.hideWatchCard = 1; UI.sheet = null; save(); render(); toast("Carte masquée. Tu la retrouves dans Réglages."); },
     showWatchCard: function () { S.prefs = S.prefs || {}; delete S.prefs.hideWatchCard; save(); render(); },
     openWatchApp: function () { try { window.open("itms-watchs://", "_system"); } catch (e) {} },
@@ -13290,6 +13405,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var pg = el.dataset.p, pr = prefsOf(pg), k = el.dataset.k;
       pr.hidden = pr.hidden.filter(function (x) { return x !== k; }); if (!el.checked) pr.hidden.push(k);
       S.prefs[pg] = pr; save(); render();
+    } else if (el.dataset.a === "rebondQuiet") {
+      S.rebond = S.rebond || {}; S.rebond.quiet = el.checked ? E.iso(new Date(today().getTime() + 14 * 864e5)) : null; save(); render();
     } else if (el.dataset.a === "hcNotify") {
       S.health.notify = el.checked; save(); hcSync(); if (el.checked && LN && LN.requestPermissions) LN.requestPermissions().catch(function () {});
     } else if (el.dataset.a === "teamsToggle") {
