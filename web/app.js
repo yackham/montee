@@ -161,6 +161,17 @@
   }
   function allMatches() { return S.matches.filter(counts).concat(S.doubles || []); }
   function annotated(m) { return !!m.racketId || !!m.wo || !!m.noted; } // un WO ne s'est pas joué : rien à annoter
+  // 3.55 (Yann, maquette I) : première synchro = des matchs joués, aucun encore annoté. Accueil allégé, et seul le dernier mois est « à annoter ».
+  function freshStart() { var n = 0, any = false; S.matches.forEach(function (m) { if (m.wo || !(m.result === "V" || m.result === "D")) return; n++; if (annotated(m)) any = true; }); return n >= 3 && !any; }
+  function freshHtml(c) {
+    if (!freshStart() || (S.prefs || {}).freshHi) return "";
+    var n = (c.proj.matches || []).filter(function (m) { return !m.wo && !m.dbl && (m.result === "V" || m.result === "D"); }).length, rel = c.proj.release;
+    var chip = function (h, t) { return '<a class="fr-chip" href="#/' + h + '">' + t + " ›</a>"; };
+    return '<div class="card fr-w"><div class="fr-top"><span class="fr-tx"><span class="eyebrow" style="color:var(--gazon)">' + I.check + " Ton palmarès est là</span><b>" + plural(n, "match", "matchs") + " des 12 derniers mois, lus sur Ten'Up</b>" +
+      '<span class="small">Montée a déjà calculé ton bilan, ta projection' + (rel ? " pour le " + fdate(rel).replace(/\.$/, "") : "") + " et ton vrai niveau de jeu. Rien à saisir.</span></span>" +
+      '<button class="fr-x" data-a="freshHide" aria-label="Fermer">✕</button></div><div class="fr-chips">' + chip("projection", "Ta projection") + chip("courbes", "Tes courbes") + chip("faf", "Tes adversaires") + "</div></div>";
+  }
+  function needsNote(m) { return !annotated(m) && (!freshStart() || qaPending(m)); }
 
   // 3.42.2 : confirmation maison (le confirm() natif d'iOS affiche « Cancel » en anglais et n'a pas notre style)
   var CUR_ACT = null;
@@ -2147,7 +2158,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     if (p.status === "top") {
       s += '<div class="card ink"><span class="eyebrow" style="color:var(--hl)">Joueur numéroté</span><span style="font-size:20px;font-weight:600">Ton classement se joue au concours des meilleurs bilans : Montée ne peut pas le simuler.</span><span style="font-size:14px;color:#E6E0D8">Tes stats, tes courbes et ton matériel restent disponibles.</span></div>';
-    } else s += watchInHtml() + plusMomentHtml(c) + courbesRings(c) + tourHomeHtml() + planHomeHtml() + heroHtml(c); // 3.44.2 (Yann) : ton prochain match et tes épreuves juste sous les anneaux ; 3.40 : un match de la montre à enregistrer passe avant tout
+    } else s += watchInHtml() + plusMomentHtml(c) + freshHtml(c) + courbesRings(c) + tourHomeHtml() + planHomeHtml() + heroHtml(c); // 3.44.2 (Yann) : ton prochain match et tes épreuves juste sous les anneaux ; 3.40 : un match de la montre à enregistrer passe avant tout
     var X = { verify: verifyHtml(), hc: hcHomeCard(), an: anHomeCard() };
     if (S.syncRecap && S.syncRecap.length && !UI.sheet && !UI.notesOpen) UI.sheet = { k: "recap" }; // récapitulatif après une synchro
     var B = {}; B.official = officialHtml(false);
@@ -2228,6 +2239,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.46.5 (Yann) : pas de doublon « N matchs à annoter » quand la carte d'annotation est là ; une seule question « À noter » à la fois ; une seule invitation à la fois
     if (B.annoter) B.todo = "";
     if (B.rate) B.slot = "";
+    // 3.55 (Yann, maquette I) : première synchro : une seule chose à faire (le dernier match), le reste attend
+    if (freshStart()) { ["cordage", "rate", "slot", "sync", "week", "semaine", "todo", "charge", "essayer", "goal", "carte"].forEach(function (k) { B[k] = ""; }); X.an = ""; B.annoter = qaHtml(true); }
     var inv = ["carte", "sync", "goal", "essayer"], got = false; inv.forEach(function (k) { if (B[k]) { if (got) B[k] = ""; got = true; } });
     s += homeLayout(B, X);
     s += '<p class="small">Calcul indicatif d\'après le barème FFT. Seul le classement officiel fait foi.</p>';
@@ -6212,8 +6225,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return out;
   }
   // 3.46.5 (Yann) : sur l'accueil, une ligne ; le formulaire s'ouvre par le bas
-  function qaHtml() {
+  function qaHtml(fresh) {
     var list = qaList(), done = UI.qaDone && Date.now() - UI.qaDone.at < 6000 ? UI.qaDone : null;
+    if (fresh && list.length) { var f0 = list[0], nOld = (ctx().proj.matches || []).filter(function (m) { return m.id !== f0.id && !m.wo && !m.dbl && (m.result === "V" || m.result === "D"); }).length; // même compte que la carte « Ton palmarès est là »
+      return '<button class="card qa1 qa-fresh" data-a="qaOpen"><span class="eyebrow">À faire · 1</span><span class="qa1-r"><b>Annote ton dernier match<small class="qa1-more">' + (f0.result === "V" ? "Victoire" : "Défaite") + " contre " + esc(f0.opp && !isAnon(f0.opp) ? nameCase(f0.opp) : "un " + f0.oppRank) + " · surface, raquette, ressenti</small></b>" + '<span class="qa1-go">20 s ' + I.next + "</span></span>" +
+        (nOld ? '<span class="small qa-fn">' + (nOld > 1 ? "Tes " + nOld + " autres matchs" : "Ton autre match") + " ? Pas besoin : Montée a déjà l'essentiel. Tu pourras les compléter quand tu veux depuis Activité.</span>" : "") + "</button>"; }
     if (!list.length) return done ? '<div class="card qa qa-end">' + I.check + '<span><b>Tes matchs récents sont annotés.</b><span class="small" style="color:inherit;opacity:.75;display:block">Montée s\'en sert pour tes stats.</span></span></div>' : "";
     var m = list[0];
     return '<button class="card qa1" data-a="qaOpen"><span class="eyebrow">' + (done ? I.check + " " + esc(done.label) + " : annoté · " : "") + "Annote " + (list.length > 1 ? "tes " + list.length + " matchs" : "ton match") + '</span><span class="qa1-r"><b>' + (m.result === "V" ? "Victoire" : "Défaite") + " contre " + esc(m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "un " + m.oppRank) + (list.length > 1 ? '<small class="qa1-more"> et ' + (list.length === 2 ? "1 autre" : list.length - 1 + " autres") + "</small>" : "") + '</b><span class="qa1-go">Annoter · 20 s ' + I.next + "</span></span></button>";
@@ -6736,9 +6752,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var from = E.iso(new Date(today().getFullYear() - 1, today().getMonth(), today().getDate()));
     var all = sortedMatches();
     // 3.38 : plus de rangée de filtres : tout par défaut (simples et doubles) ; une cloche pour les matchs à annoter, un bouton filtre
-    var fRes = UI.palRes || "all", fType = UI.palType || "all", fTodo = !!UI.palTodo, nTodo = all.filter(function (m) { return !annotated(m); }).length;
+    var fRes = UI.palRes || "all", fType = UI.palType || "all", fTodo = !!UI.palTodo, nTodo = all.filter(needsNote).length;
     if (!nTodo) fTodo = UI.palTodo = false;
-    var list = fType === "d" ? [] : all.filter(function (m) { return (fRes === "all" || m.result === (fRes === "v" ? "V" : "D")) && (!fTodo || !annotated(m)); });
+    var list = fType === "d" ? [] : all.filter(function (m) { return (fRes === "all" || m.result === (fRes === "v" ? "V" : "D")) && (!fTodo || needsNote(m)); });
     var dbl = fType === "s" || fTodo ? [] : (S.doubles || []).filter(function (m) { return fRes === "all" || m.result === (fRes === "v" ? "V" : "D"); });
     // 3.48.7 (Yann) : la liste principale = la saison en cours ; les saisons d'avant sont repliées en dessous
     // 3.55 (Yann) : « en cours » = les 12 mois glissants, ceux qui comptent pour ton classement (un match de l'an dernier encore au bilan reste ici)
@@ -6793,7 +6809,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var h = '<div class="card tg' + (old ? " old" : "") + '"><div class="tg-h"><b>' + esc(m2Title(ms[0].comp)) + "</b>" + (tot ? '<span class="pts pos">+' + tot + " pts</span>" : "") + '</div><span class="tgw"><span class="small">' + esc([rng, nvp + " V" + (ndp ? " · " + ndp + " D" : ""), dbT, st].filter(Boolean).join(" · ")) + "</span>" + (g.won ? '<span class="tg-win">' + trophy + " Vainqueur</span>" : "") + '</span><div class="tg-l">';
       ms.forEach(function (m, i) {
         var pt = pts[m.id], pH = m.result !== "V" || old ? "" : !counts(m) ? '<small class="muted">ne compte pas</small>' : pt != null ? (chB[m.id] ? '<span class="tg-pp"><span class="pts pos">+' + pt + '</span><small class="tg-bn">+' + chB[m.id] + " bonus</small></span>" : '<span class="pts pos">+' + pt + "</span>") : chB[m.id] ? '<span class="tg-pp"><span class="pts pos">+' + chB[m.id] + '</span><small class="tg-bn">bonus</small></span>' : '<small class="muted">hors quota</small>';
-        var todo = annotated(m) || old ? "" : '<span class="tag todo">À annoter</span>';
+        var todo = !needsNote(m) || old ? "" : '<span class="tag todo">À annoter</span>';
         var wo = m.wo, cls = wo ? (m.result === "V" ? "V wov" : "wo") : m.result, fin = g.won && m === ms.filter(function (x) { return !x._dbl && !x.dbl; }).pop();
         if (wo) { pH = m.result === "V" ? '<small class="muted">qualifié</small>' : '<small class="muted">ne compte pas</small>'; todo = ""; }
         if (m._dbl || m.dbl) { var gd = gotD[m.id]; pH = m.result === "V" && gd && !old ? '<span class="pts pos">+' + gd.pts + "</span>" : ""; todo = ""; }
@@ -6820,7 +6836,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }
       var pt = pts[m.id];
       var ptsHtml = !counts(m) ? '<span class="pts muted" style="font-weight:500;font-size:13px">ne compte pas</span>' : m.result === "V" ? (old ? "" : pt != null ? '<span class="pts pos">+' + pt + "</span>" : '<span class="pts muted" style="font-weight:500;font-size:13px">hors quota</span>') : "";
-      var tag = m.wo ? '<span class="tag">Forfait · non joué</span>' : annotated(m) ? (oneRk && !m.string && !m.tension ? "" : '<span class="tag">' + esc(setupLabel(m)) + "</span>") : '<span class="tag todo">À annoter</span>';
+      var tag = m.wo ? '<span class="tag">Forfait · non joué</span>' : annotated(m) ? (oneRk && !m.string && !m.tension ? "" : '<span class="tag">' + esc(setupLabel(m)) + "</span>") : needsNote(m) ? '<span class="tag todo">À annoter</span>' : "";
       if (isManual(m)) tag = '<span class="tags"><span class="tag manual" title="Pas encore sur Ten\'Up">' + I.edit + " Saisi à la main</span>" + tag + "</span>";
       else if (m.manualOrigin && m.confirmedAt && dayDiff(m.confirmedAt, E.iso(today())) <= 14) tag = '<span class="tags"><span class="tag ok">' + I.check + " Confirmé par Ten'Up</span>" + tag + "</span>";
       s += '<a class="row' + (isManual(m) ? " manual" : "") + '" href="#/match/' + m.id + '" style="background:var(--card);border-radius:20px' + (old ? ";opacity:.65" : "") + '"><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(nameCase(m.opp) || "Adversaire") + ' <span class="muted" style="font-weight:400">· ' + esc(m.oppRank) + '</span></span><span class="s">' + (m.date ? esc(fdate(m.date)) : "") + (m.score ? (m.date ? " · " : "") + esc(m.score) : "") + (!m.date && !m.score ? "Ajoute date et score si tu veux" : "") + "</span>" + tag + "</span>" + ptsHtml + "</a>";
@@ -12837,6 +12853,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     szTog: function (el) { UI.szOpen = UI.szOpen || {}; var y = el.dataset.v; UI.szOpen[y] = !UI.szOpen[y]; render(); },
     h2hAll: function () { UI.h2hAll = !UI.h2hAll; render(); },
     actTab: function (el) { UI.actTab = el.dataset.v; render(); window.scrollTo(0, 0); },
+    freshHide: function () { S.prefs = S.prefs || {}; S.prefs.freshHi = 1; save(); render(); },
     palTodo: function () { UI.palTodo = true; UI.actTab = "m"; go("palmares"); },
     matTab: function (el) { UI.matTab = el.dataset.v; render(); },
     projLevel: function (el) { UI.projLevel = +el.dataset.v; render(); },
