@@ -4828,10 +4828,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return '<div class="nm2-col"><span class="nm2-cl">' + lab0 + " · " + list.length + '</span><span class="nm2-k"><b>' + r1(avg(list, "bw")) + '</b><small>breaks pris</small></span><span class="nm2-k"><b>' + r1(avg(list, "bl")) + '</b><small>breaks perdus</small></span><span class="nm2-k"><b>' + (dfHi(list) != null ? dfHi(list) + " %" : "–") + "</b><small>avec 5+ doubles fautes</small></span></div>";
     };
     var bars = last.map(function (m) { var g = get(m), b = (g.bw || 0) - (g.bl || 0), h = Math.min(100, Math.abs(b) * 22 + 8); return '<span class="nm2-b ' + (m.result === "V" ? "v" : "d") + '"><i class="' + (b >= 0 ? "up" : "dn") + '" style="height:' + h + '%"></i></span>'; }).join("");
-    return '<div class="card nm2-tr"><div class="ch-hd"><span class="eyebrow">Tes chiffres · ' + plural(ms.length, "match", "matchs") + '</span><span class="ch-plus">Montée+</span></div><b class="nm2-big' + (lock ? " ch-blur" : "") + '">' + esc(head) + "</b>" +
+    return '<div class="card nm2-tr"><div class="ch-hd"><span class="eyebrow">Tes chiffres · ' + plural(ms.length, "match", "matchs") + '</span><span class="ch-plus">Montée+</span></div>' + (lock ? '<span class="eyebrow pw-ey">Ton 1er constat · offert</span>' : "") + '<b class="nm2-big">' + esc(head) + "</b>" +
       '<div class="nm2-cols' + (lock ? " ch-blur" : "") + '">' + col("Victoires", V) + col("Défaites", D) + "</div>" +
       '<span class="nm2-l">Breaks pris − perdus, tes ' + plural(last.length, "dernier match", "derniers matchs") + '</span><div class="nm2-bars' + (lock ? " ch-blur" : "") + '">' + bars + "</div>" +
-      (lock ? '<button class="btn primary ch-cta" data-a="goSoutenirComp">Voir mes tendances avec Montée+</button>' : '<span class="ch-how">Les matchs suivis à la montre comptent aussi. Barre vers le haut : tu as pris plus de breaks que tu n\'en as rendu.</span>') + "</div>";
+      (lock ? plusCta() : '<span class="ch-how">Les matchs suivis à la montre comptent aussi. Barre vers le haut : tu as pris plus de breaks que tu n\'en as rendu.</span>') + "</div>";
   }
   function planCheckHtml(m) {
     var snap = planSnapOf(m); if (!snap || !snap.length || m.wo) return "";
@@ -5945,9 +5945,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }).join("") + "</div>";
     var cur = CONFIG.PRODUCTS.filter(function (p) { return p.id === pick; })[0];
     if (STORE) {
-      s += '<button class="btn primary sup-cta" data-a="supBuy"' + (UI.supBusy ? " disabled" : "") + ">" + (UI.supBusy ? "Un instant…" : (cur.id === "plus_vie" ? "Acheter · " : "S'abonner · ") + esc(price(cur)) + " " + esc(cur.per)) + "</button>";
+      s += '<button class="btn primary sup-cta" data-a="supBuy"' + (UI.supBusy ? " disabled" : "") + ">" + (UI.supBusy ? "Un instant…" : (cur.id === "plus_vie" ? "Acheter · " + esc(price(cur)) : "Essayer 1 mois gratuit")) + "</button>" +
+        (cur.id !== "plus_vie" ? '<span class="small pw-price">puis ' + esc(price(cur)) + " " + esc(cur.per) + " · résiliable à tout moment</span>" : ""); // 3.55 (R6, maquette E)
       s += '<button class="linkbtn" data-a="supRestore" style="align-self:center">Restaurer mes achats</button>';
-      s += '<p class="small plus-legal">' + (!IOS ? (cur.id === "plus_vie" ? "Paiement unique par Google Play." : "Paiement par Google Play à la confirmation. L'abonnement se renouvelle automatiquement au même prix, sauf résiliation avant la fin de la période, dans Google Play › Paiements et abonnements.") : cur.id === "plus_vie" ? "Paiement unique par l'App Store." : "Paiement par l'App Store à la confirmation. L'abonnement se renouvelle automatiquement au même prix, sauf résiliation au moins 24 h avant la fin de la période, dans Réglages › ton nom › Abonnements.") + " Montée ne voit ni ta carte ni tes coordonnées.</p>";
+      s += '<p class="small plus-legal">' + (!IOS ? (cur.id === "plus_vie" ? "Paiement unique par Google Play." : "1 mois gratuit pour un premier abonnement, puis paiement par Google Play à la fin de l'essai (annule avant, rien n'est prélevé). L'abonnement se renouvelle automatiquement au même prix, sauf résiliation avant la fin de la période, dans Google Play › Paiements et abonnements.") : cur.id === "plus_vie" ? "Paiement unique par l'App Store." : "1 mois gratuit pour un premier abonnement, puis paiement par l'App Store à la fin de l'essai (annule au moins 24 h avant, rien n'est prélevé). L'abonnement se renouvelle automatiquement au même prix, sauf résiliation au moins 24 h avant la fin de la période, dans Réglages › ton nom › Abonnements.") + " Montée ne voit ni ta carte ni tes coordonnées.</p>";
       s += '<p class="small plus-legal"><a href="' + esc(IOS ? CONFIG.TERMS_URL : CONFIG.TERMS_URL_PLAY) + '" target="_blank" rel="noopener">Conditions d\'utilisation</a> · <a href="' + esc(CONFIG.PRIVACY_URL) + '" target="_blank" rel="noopener">Confidentialité</a></p>';
     } else {
       s += '<div class="card soft"><span style="font-size:15px;line-height:1.45">Mets à jour Montée pour t\'abonner depuis l\'appli.</span></div>';
@@ -6742,7 +6743,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!X.G.length) return s + '<div class="card emp-c">' + PAL_ILL.tournois + "<b>Ton premier tableau t'attend</b><p>Dès que tu joues un tournoi, Montée le range ici : jusqu'où tu es allé, les points gagnés, tes tours passés par rapport à ton niveau.</p>" + // 3.55 (Yann, maquette G)
       '<button class="btn primary" data-a="apMatch">Ajouter un match de tournoi</button><a class="linkbtn" href="#/tenup">Actualiser depuis Ten\'Up</a></div></div>';
     s += '<p class="lead" style="margin-top:-8px">12 derniers mois · ' + [nT ? plural(nT, "tournoi") : "", nC ? plural(nC, "épreuve") + " d'indivs" : ""].filter(Boolean).join(" · ") + "</p>";
-    if (PLUS_LOCK()) return s + '<div class="card pt-lock"><b class="pt-lt">Où tu vas le plus loin, ton meilleur tournoi, tes tours passés.</b><span class="small">Tes tournois analysés et classés, comparés à ce qu\'on attendait vu tes adversaires.</span><button class="btn primary small" data-a="goSoutenirComp">Montée+ · 1 mois offert</button></div></div>';
+    if (PLUS_LOCK()) { // 3.55 (maquette E) : 1er constat offert, le reste flouté
+      var tip = X.n ? "En tournoi : " + plural(X.w, "victoire") + " sur " + plural(X.n, "match", "matchs") + "." : "", tipS = X.n ? "Un joueur de ton classement, face aux mêmes adversaires, en aurait gagné " + Math.round(X.exp) + "." : "";
+      return s + '<div class="card pw-tip"><span class="eyebrow">Ton 1er constat · offert</span><b>' + esc(tip || "Tes tournois analysés et classés.") + "</b>" + (tipS ? '<span class="small">' + esc(tipS) + "</span>" : "") + "</div>" +
+        '<div class="card pw-lock" aria-hidden="true"><div class="pw-blur"><span class="eyebrow">Ton plus loin</span><b>' + esc(X.far ? X.far.name : "Ton meilleur parcours") + '</b><span class="eyebrow">Ton meilleur tournoi</span><b>Les points gagnés, tour par tour</b><span class="eyebrow">Tes tours passés</span><b>Face à ce qu\'on attendait</b></div><span class="pw-pill">' + I.lock + "Tes " + plural(X.G.length, "tournoi") + " en détail</span></div>" +
+        plusCta() + '<button class="linkbtn pw-all" data-a="goSoutenirComp">Voir toutes les formules ›</button></div>'; }
     var tile = function (k, v, l, sub, col) { return '<button class="ts-t' + (UI.tsExp === k ? " on" : "") + '" data-a="tsExp" data-v="' + k + '"><b style="color:' + (col || "var(--ink)") + '">' + v + "</b><span>" + l + " <i>ⓘ</i></span><small>" + esc(sub) + "</small></button>"; };
     var mo = function (iso) { var d = E.parseDate(iso); return MOIS[d.getMonth()]; };
     var best = X.G[0], pct = X.n ? Math.round(X.w * 100 / X.n) : 0, epct = X.n ? Math.round(X.exp * 100 / X.n) : 0;
@@ -7965,9 +7970,37 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return '<div class="card"><span class="eyebrow">Ta saison, mois par mois</span><div class="co-yr" style="height:' + Math.min(120, mx * 13 + 8) + 'px">' + M.map(function (x) { var o = ""; for (var j = 0; j < x.d; j++) o += '<i class="d"></i>'; for (var k = 0; k < x.v; k++) o += '<i class="v"></i>'; return "<div>" + o + "</div>"; }).join("") + '</div><div class="co-mo">' + M.map(function (x) { return "<span>" + "JFMAMJJASOND".charAt(x.m) + "</span>"; }).join("") + "</div>" +
       (best && worst && best !== worst ? '<span class="co-p">Ton meilleur mois : <b>' + esc(ML(best)) + "</b> (" + best.v + " V – " + best.d + " D). Ton creux : <b>" + esc(ML(worst)) + "</b> (" + worst.v + " V – " + worst.d + " D).</span>" : "") + "</div>";
   }
+
+  // 3.55 (Yann, maquette E) : écran Montée+ verrouillé = la valeur d'abord. Un 1er conseil offert, en clair, le reste flouté, puis l'essai.
+  function trialLine() {
+    var p = CONFIG.PRODUCTS.filter(function (x) { return x.id === "plus_saison"; })[0]; if (!p) return "";
+    var pr = (UI.supPrices && UI.supPrices[p.id]) || p.price, n = parseFloat(String(pr).replace(/[^\d,.]/g, "").replace(",", "."));
+    return "puis " + pr.replace(/\s/g, " ") + "/an" + (n ? " (" + (Math.round(n / 12 * 100) / 100).toFixed(2).replace(".", ",") + " €/mois)" : "") + " · résiliable à tout moment";
+  }
+  function plusCta(label) {
+    return '<button class="btn primary pw-cta" data-a="goSoutenirComp">' + (label || "Essayer 1 mois gratuit") + '</button><span class="small pw-price">' + esc(trialLine()) + "</span>";
+  }
+  function plusTeaser(o) {
+    return '<h1 class="pw-h1">' + o.h1 + "</h1>" +
+      (o.tip ? '<div class="card pw-tip"><span class="eyebrow">' + esc(o.tipEy || "Son 1er conseil · offert") + "</span><b>" + esc(o.tip) + "</b>" + (o.tipS ? '<span class="small">' + esc(o.tipS) + "</span>" : "") + "</div>" : "") +
+      '<div class="card pw-lock" aria-hidden="true"><div class="pw-blur">' + o.rows.map(function (r) { return '<span class="eyebrow">' + esc(r[0]) + "</span><b>" + esc(r[1]) + "</b>"; }).join("") + '</div><span class="pw-pill">' + I.lock + esc(o.pill) + "</span></div>" +
+      plusCta() + '<button class="linkbtn pw-all" data-a="goSoutenirComp">Voir toutes les formules ›</button>';
+  }
+  function coachTeaser() {
+    var d = null; try { d = coachData(); } catch (e) {}
+    var n = d ? d.ms.length : 0;
+    if (!d || n < 3) return plusTeaser({ h1: "Le bilan du coach", tip: "", rows: [["Le compétiteur que tu es", "Ton portrait"], ["Ce qui te coûte des points", "Tes fuites, en points"], ["Ce que le coach te demande", "3 priorités pour monter"]], pill: "Ton bilan dès tes premiers matchs" });
+    var p0 = d.plan[0], more = Math.max(0, d.plan.length - 1);
+    return plusTeaser({
+      h1: "Ton coach a lu<br>tes " + plural(n, "match", "matchs"),
+      tip: p0 ? p0.t + (p0.l && p0.l.s && !p0.l.fallback ? " : " + p0.l.s + "." : ".") : "", tipS: p0 ? p0.s : "",
+      rows: [["Le compétiteur que tu es", d.P.title || "Ton portrait"], ["Ce qui te coûte des points", (d.leaks[1] || d.leaks[0] || {}).t || "Tes fuites"], ["Ta meilleure version", "Quand tu gagnes le plus"], ["Le rapport de scouting sur toi", "Leur plan contre toi"]],
+      pill: (more ? "+ " + plural(more, "priorité") + " et ton scouting" : "Ton portrait et ton scouting")
+    });
+  }
   V.coach = function () {
     var s = '<div class="screen co-scr">' + topbar("", "Courbes", '<span class="cp-plus">Montée+</span>');
-    if (!isSup()) return s + '<h1>Le bilan du coach</h1><div class="card"><span>Le bilan du coach fait partie de Montée+ : ton portrait, ce qui te coûte des points et 3 priorités pour monter.</span><button class="btn primary" data-a="goSoutenirComp">Découvrir avec Montée+</button></div></div>';
+    if (!isSup()) return s + coachTeaser() + "</div>";
     var d = coachData(), P = d.P;
     if (d.ms.length < 6) return s + '<h1>Le bilan du coach</h1><div class="card"><span>Encore ' + plural(6 - d.ms.length, "match") + " sur 12 mois pour un vrai bilan.</span></div></div>";
     s += '<h1 class="co-h1">Le bilan du coach</h1><span class="small co-sub">Tes 12 derniers mois · ' + plural(d.ms.length, "match", "matchs") + " · à jour après chaque match</span>";
@@ -8035,7 +8068,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return cap1(x.what) + " : toi " + g.v + " sur " + g.n + ". Un joueur classé " + P.curL + ", face aux mêmes adversaires : " + Math.round(g.e) + " sur " + g.n + ".";
   }
   V.comp = function (k) {
-    if (!isSup()) { return '<div class="screen">' + topbar("", "Courbes") + '<h1>Ton profil</h1><div class="card"><span>Ton profil de compétiteur fait partie de Montée+.</span><button class="btn primary" data-a="goSoutenirComp">Découvrir avec Montée+</button></div></div>'; }
+    if (!isSup()) { // 3.55 (maquette E) : ta 1re force offerte, le reste flouté
+      var P0 = null; try { P0 = compSkills(); } catch (e) {}
+      var f0 = P0 && P0.forts && P0.forts[0], ln = ""; try { ln = f0 ? compLine(P0, f0) : ""; } catch (e) {}
+      return '<div class="screen">' + topbar("", "Courbes") + plusTeaser({ h1: "Ton profil de compétiteur", tipEy: "Ta 1re force · offerte", tip: f0 ? CP_LAB[f0] : "", tipS: ln,
+        rows: [["Ton portrait", (P0 && P0.title) || "Le compétiteur que tu es"], ["Ce qui te coûte des matchs", P0 && P0.faibs && P0.faibs[0] ? CP_LAB[P0.faibs[0]] : "Tes points faibles"], ["7 compétences", "Face à un joueur de ton classement"]],
+        pill: "Tes 7 compétences en détail" }) + "</div>"; }
     var P = compSkills();
     if (k && CP_KEYS.indexOf(k) >= 0) return compDetail(P, k);
     var s = '<div class="screen">' + topbar("", "Courbes") + '<div class="cp-top"><h1>Ton profil</h1><span class="cp-plus">Montée+</span></div><div class="cp-big">' + compFlower(P, 240, null, false, true) + "</div>" + '' + cpLegend(P) + '<div class="card cp-list">';
