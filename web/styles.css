@@ -4549,3 +4549,16 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .pal-t > span:last-child { font-size: 13px; color: var(--muted); line-height: 1.35; }
 .pal-go { flex: none; margin-left: auto; color: var(--muted); display: flex; }
 .pal-go svg { width: 18px; height: 18px; }
+/* 3.55 (Yann, maquette H) : légende du profil en pétales */
+.cp-lg2 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 4px 0 2px; }
+.cp-lg2 span { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11.5px; color: var(--ink); text-align: center; line-height: 1.2; }
+.cp-lg2 span.lock { color: var(--muted); }
+.cp-lg2 small { color: var(--muted); font-size: 11px; }
+.cp-lg2-n { font-size: 12.5px; color: var(--muted); text-align: center; margin: 2px 8px 0; line-height: 1.4; }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) :is(.cp-lg2 span, .cp-lg2-n, .cp-lg2 small) { color: var(--page-ink, var(--ink)); }
+/* 3.55 (Yann, maquette G) : états vides illustrés */
+.emp-c { align-items: center; text-align: center; gap: 8px; padding: 22px 18px; }
+.emp-c > svg { width: 160px; height: 96px; color: var(--ink); }
+.emp-c b { font-size: 18px; }
+.emp-c p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.45; }
+.emp-c .btn { align-self: stretch; margin-top: 6px; }

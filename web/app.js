@@ -2853,7 +2853,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         return '<button class="row fol2" data-a="folOpen" data-id="' + esc(f.id) + '"><span class="ini' + avc + (nw && !f.seen ? " unseen" : "") + '">' + esc(initials(nm)) + '</span><span class="grow"><span class="t">' + esc(nm) + (nw ? ' <span class="fol-news ' + nw.k + '">' + esc(nw.tag) + "</span>" : "") + "</span>" +
           (meta ? '<span class="s fol-meta">' + meta + "</span>" : "") + '<span class="s fol-what' + (nw ? " " + nw.k : "") + '">' + sub + "</span></span>" + I.next + "</button>";
       };
-      if (!fl.length) s += '<div class="blk"><span class="small" style="padding:10px 0">Suis tes adversaires réguliers et ceux que tu vas croiser : touche la cloche à côté d\'un nom, ou « Suivre » sur sa fiche. Tu verras ici quand il joue, monte ou bat un joueur de ton niveau, et tu seras prévenu s\'il monte ou bat un joueur de ton niveau. Il ne sait pas que tu le suis.</span></div>';
+      // 3.55 (Yann, maquette G) : un dessin, à quoi ça sert, et un bouton qui mène à l'action
+      if (!fl.length) { var nAdv = oppIndex().length; s += '<div class="card emp-c">' + PAL_ILL.suivis + "<b>Garde un œil sur tes rivaux</b><p>Suis les joueurs que tu croises souvent : tu sauras quand ils jouent, montent ou battent un joueur de ton niveau. Ils ne savent pas que tu les suis.</p>" + (nAdv ? '<button class="btn primary" data-a="fafTab" data-v="adv">Choisir parmi tes ' + plural(nAdv, "adversaire", "adversaires") + "</button>" : '<span class="small">Cherche un joueur ci-dessus, puis touche « Suivre » sur sa fiche.</span>') + "</div>"; }
       else {
         var isNew = function (f) { return f.news && Date.now() - (f.newsAt || 0) < 14 * 864e5; };
         var fn = fl.filter(isNew).sort(function (a, b) { return (b.newsAt || 0) - (a.newsAt || 0); }), fo = fl.filter(function (f) { return !isNew(f); }).sort(function (a, b) { return nameCase(a.name) < nameCase(b.name) ? -1 : 1; });
@@ -6709,7 +6710,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   V.tournois = function () {
     var s = '<div class="screen">' + topbar("", "Activité") + "<h1>Tes tournois</h1>";
     var X = tourStats(), nT = X.G.filter(function (x) { return !x.champ; }).length, nC = X.G.length - nT;
-    if (!X.G.length) return s + '<div class="card"><span>Pas encore de tournoi dans tes 12 derniers mois.</span></div></div>';
+    if (!X.G.length) return s + '<div class="card emp-c">' + PAL_ILL.tournois + "<b>Ton premier tableau t'attend</b><p>Dès que tu joues un tournoi, Montée le range ici : jusqu'où tu es allé, les points gagnés, tes tours passés par rapport à ton niveau.</p>" + // 3.55 (Yann, maquette G)
+      '<button class="btn primary" data-a="apMatch">Ajouter un match de tournoi</button><a class="linkbtn" href="#/tenup">Actualiser depuis Ten\'Up</a></div></div>';
     s += '<p class="lead" style="margin-top:-8px">12 derniers mois · ' + [nT ? plural(nT, "tournoi") : "", nC ? plural(nC, "épreuve") + " d'indivs" : ""].filter(Boolean).join(" · ") + "</p>";
     if (PLUS_LOCK()) return s + '<div class="card pt-lock"><b class="pt-lt">Où tu vas le plus loin, ton meilleur tournoi, tes tours passés.</b><span class="small">Tes tournois analysés et classés, comparés à ce qu\'on attendait vu tes adversaires.</span><button class="btn primary small" data-a="goSoutenirComp">Montée+ · 1 mois offert</button></div></div>';
     var tile = function (k, v, l, sub, col) { return '<button class="ts-t' + (UI.tsExp === k ? " on" : "") + '" data-a="tsExp" data-v="' + k + '"><b style="color:' + (col || "var(--ink)") + '">' + v + "</b><span>" + l + " <i>ⓘ</i></span><small>" + esc(sub) + "</small></button>"; };
@@ -7768,6 +7770,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     });
     return s + "</svg>";
   }
+  // 3.55 (Yann, maquette H) : la légende reprend la forme du pétale (plein, demi, contour, pointillé) et compte les compétences dans chaque état
+  function cpLegend(P) {
+    var pt = "M12 30 L4 8 Q16 2 28 8 Z", n = function (st) { return CP_KEYS.filter(function (k) { return P.R[k].st === st; }).length; };
+    var pet = function (st) { return '<svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">' + (st === "fort" ? '<path d="' + pt + '" fill="currentColor"/>' : st === "norme" ? '<path d="' + pt + '" fill="currentColor" fill-opacity=".38" stroke="currentColor" stroke-width="1.8" transform="translate(1.6 3.2) scale(.9)"/>' : st === "faible" ? '<path d="' + pt + '" fill="none" stroke="currentColor" stroke-width="2" transform="translate(3.2 6.4) scale(.8)"/>' : '<path d="' + pt + '" fill="none" stroke="currentColor" stroke-opacity=".7" stroke-width="1.8" stroke-dasharray="3 3"/>') + "</svg>"; };
+    return '<div class="cp-lg2">' + [["fort", "Point fort"], ["norme", "Dans la norme"], ["faible", "À travailler"], ["lock", "À débloquer"]].map(function (x) { return '<span class="' + x[0] + '">' + pet(x[0]) + x[1] + "<small>" + n(x[0]) + "</small></span>"; }).join("") + '</div><p class="cp-lg2-n">Plus le pétale est long et plein, plus c\'est ta force. Touche un pétale pour le détail.</p>';
+  }
   function cpPill(k, txt) { var c = cpCol(k); return '<span class="cp-pill" style="--c:' + c + '">' + esc(txt) + "</span>"; }
   function compCardHtml() {
     if (!PLUS) return "";
@@ -7970,7 +7978,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!isSup()) { return '<div class="screen">' + topbar("", "Courbes") + '<h1>Ton profil</h1><div class="card"><span>Ton profil de compétiteur fait partie de Montée+.</span><button class="btn primary" data-a="goSoutenirComp">Découvrir avec Montée+</button></div></div>'; }
     var P = compSkills();
     if (k && CP_KEYS.indexOf(k) >= 0) return compDetail(P, k);
-    var s = '<div class="screen">' + topbar("", "Courbes") + '<div class="cp-top"><h1>Ton profil</h1><span class="cp-plus">Montée+</span></div><div class="cp-big">' + compFlower(P, 240, null, false, true) + "</div>" + '<div class="cp-lg"><span><i class="f"></i>point fort</span><span><i class="n"></i>dans la norme</span><span><i class="w"></i>à travailler</span></div><div class="card cp-list">';
+    var s = '<div class="screen">' + topbar("", "Courbes") + '<div class="cp-top"><h1>Ton profil</h1><span class="cp-plus">Montée+</span></div><div class="cp-big">' + compFlower(P, 240, null, false, true) + "</div>" + '' + cpLegend(P) + '<div class="card cp-list">';
     CP_KEYS.forEach(function (k2) {
       var x = P.R[k2];
       s += '<a class="cp-li" href="#/competiteur/' + k2 + '"><span class="cp-ib ' + x.st + '" style="--c:' + cpCol(k2) + ";--on:" + cpOnFill(cpCol(k2)) + '">' + cpIc(k2, 17) + '</span><span class="grow"><span class="cp-lt"><b>' + CP_LAB[k2] + '</b><span class="cp-lr">' + (x.tr === "up" ? '<em class="cp-tn up">▲ en progrès</em>' : x.tr === "dn" ? '<em class="cp-tn dn">▼ en baisse</em>' : "") + '<small class="' + x.st + '" style="--c:' + cpCol(k2) + '">' + CP_STLAB[x.st] + '</small></span></span><span class="small">' + esc(compLine(P, k2)) + '</span></span><span class="cp-go" aria-hidden="true">' + I.next + "</span></a>";
