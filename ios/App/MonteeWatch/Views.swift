@@ -1238,7 +1238,7 @@ struct ScoreHeader: View {
             }
             Spacer(minLength: 0)
             Text(b > 0 ? "♥ \(b)" : "♥ --").font(.system(size: 13, weight: .heavy)).monospacedDigit()
-                .foregroundColor(b > 0 ? ZONE_COLORS[zoneOf(b, thresholds(w.maxHR))] : .secondary)
+                .foregroundColor(b > 0 ? ZONE_COLORS[zoneOf(b, userThr(w.maxHR))] : .secondary)
                 .frame(width: 58, alignment: .trailing)
         }
         .padding(.horizontal, 14)

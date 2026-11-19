@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.55.3",
+    VERSION: "3.55.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2558,8 +2558,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       fx: [["Ton classement d'abord", "L'accueil reste centré sur tes chances de monter et tes pistes"]] },
     mesurer: { t: "Me mesurer", s: "Perfs, revanches, défis", ic: '<path d="M5 19l6-6M14 4l6 6-9 9-6-6z"/>',
       fx: [["Tes défis sur l'accueil", "Battre un mieux classé, prendre ta revanche, gagner un tie-break…"]] },
-    copains: { t: "Les copains", s: "Ligue, doubles, équipe", ic: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M14.5 14.2c3 .2 6.5 2 6.5 5.8"/>',
-      fx: [["Ta ligue des copains sur l'accueil", "Remonte sous tes anneaux (dès que tu suis au moins un joueur)"]] },
+    copains: { t: "Les copains", s: "Course du mois, doubles, équipe", ic: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M14.5 14.2c3 .2 6.5 2 6.5 5.8"/>',
+      fx: [["La course du mois avec tes copains, sur l'accueil", "Remonte sous tes anneaux (dès que tu suis au moins un joueur)"]] },
     depasser: { t: "Me dépasser", s: "Progrès, défis, entraînement", ic: '<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z"/>',
       fx: [["Tes défaites qui progressent sur l'accueil", "Le progrès qui se voit avant les victoires"], ["Tes défis", "Juste en dessous, pour un but atteignable ce mois-ci"]] }
   };
@@ -5990,46 +5990,68 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }, 1000);
   }
   // ---------- Joueurs suivis : une étoile sur la fiche, des nouvelles à chaque synchro ----------
-  // 3.55 (Yann, nouveautés 19/11) : la ligue des copains. Chacun court vers SON prochain échelon :
-  // % = points au bilan ÷ norme de l'échelon au-dessus. Une montée dans la saison = 100 % jusqu'à la fin de la saison.
+  // 3.55.4 (Yann, 20/11, piste C) : la ligue devient une COURSE DU MOIS. Points gagnés dans le mois civil
+  // (barème FFT d'une victoire, vu depuis l'échelon visé de chacun), tout le monde repart de 0 le 1er.
   function seasonY(d) { d = d || today(); return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear(); }
-  function leagueRow(id, name, rows, rank, sex, me) {
-    var cur = E.idx(T.normRank(rank || "")); if (cur == null) return null;
-    var y = seasonY(), L = S.league && S.league.y === y ? S.league : (S.league = { y: y, start: {} });
-    if (L.start[id] == null) { L.start[id] = cur; save(); }
-    var up = cur > L.start[id];
-    var pr = me ? ctx().proj : E.project((rows || []).filter(function (m) { return m.date && (m.result === "V" || m.result === "D"); }).map(function (m) { return { id: m.id || m.date + m.oppRank, date: m.date, result: m.result, oppRank: m.oppRank, wo: m.wo, kind: m.kind || "tournoi", score: m.score }; }), cur, sex || S.profile.sex, { today: today() });
-    if (!pr || pr.status === "top") return null;
-    var nx = pr.next || {}, pc = up ? 100 : nx.norme ? Math.min(99, Math.round((nx.total || 0) * 100 / nx.norme)) : 0;
-    return { id: id, name: name, me: !!me, rank: lab(cur), next: lab(Math.min(cur + 1, E.MAX_CALC)), from: lab(L.start[id]), up: up, pc: pc, total: nx.total || 0, norme: nx.norme || 0, n: (rows || []).length };
+  function raceMonth(off) { var t = today(); return new Date(t.getFullYear(), t.getMonth() + (off || 0), 1); }
+  function raceRow(id, name, rows, rank, me, off) {
+    var cur = E.idx(T.normRank(rank || "")); if (cur == null || cur >= E.TOP) return null;
+    var m0 = raceMonth(off), a = E.iso(m0), z = E.iso(new Date(m0.getFullYear(), m0.getMonth() + 1, 1)), calc = Math.min(Math.max(cur, 0) + 1, E.MAX_CALC);
+    var W = [], D = 0;
+    playedOf(rows).forEach(function (m) {
+      if (!m.date || m.date < a || m.date >= z) return;
+      if (m.result === "D") { D++; return; }
+      var o = E.idx(m.oppRank); W.push({ m: m, pts: E.BAREME.win(o - calc), perf: o > cur, opp: o });
+    });
+    W.sort(function (x, y) { return x.m.date < y.m.date ? 1 : -1; });
+    return { id: id, name: name, me: !!me, cur: cur, rank: lab(cur), calc: calc, W: W, D: D, v: W.length,
+      perf: W.filter(function (w) { return w.perf; }).length, pts: W.reduce(function (s, w) { return s + w.pts; }, 0) };
   }
-  function leagueRows() {
-    var out = [], me = leagueRow("me", "Toi", null, effRank(), S.profile.sex, true); if (me) out.push(me);
+  function leagueRows(off) {
+    var out = [], me = raceRow("me", "Toi", allMatches(), effRank(), true, off); if (me) out.push(me);
     Object.keys(S.follow || {}).forEach(function (k) {
       var f = S.follow[k], sc = (S.scout || {})[k]; if (!sc || !(sc.rows || []).length) return;
       if ((S.league && S.league.out || []).indexOf(k) >= 0) return;
-      var r = leagueRow(k, nameCase(f.name), sc.rows, folSnap(sc).rank || f.rank, (sc.hit && sc.hit.sexe) || "", false); if (r) out.push(r);
+      var r = raceRow(k, nameCase(f.name), sc.rows, folSnap(sc).rank || f.rank, false, off); if (r) out.push(r);
     });
-    return out.sort(function (a, b) { return b.pc - a.pc || (b.up - a.up); });
+    return out.sort(function (a, b) { return b.pts - a.pts || b.v - a.v || b.perf - a.perf || (a.me ? -1 : b.me ? 1 : 0); });
+  }
+  // Ce qu'il faut pour passer devant : le plus petit classement d'adversaire dont la victoire suffit
+  function raceBeat(me, gap) {
+    for (var o = Math.max(0, me.calc - 3); o <= me.calc + 2; o++) if (E.BAREME.win(o - me.calc) > gap) return lab(Math.min(o, E.MAX_CALC));
+    return null;
+  }
+  function raceNews(r) {
+    if (!r.v) return r.D ? plural(r.D, "match", "matchs") + ", pas encore de victoire" : "pas encore joué ce mois-ci";
+    return plural(r.v, "victoire") + (r.perf ? " dont " + plural(r.perf, "perf") : "") ;
   }
   // 3.55.1 (Yann) : compacte (top 3, ou top 2 + toi), dépliable ; dans l'onglet Suivis
   function leagueHtml() {
     var R = leagueRows(); if (R.length < 2) return "";
-    var i = R.map(function (r) { return r.me; }).indexOf(true), me = R[i], open = !!UI.lgOpen;
-    var t = me ? (i === 0 ? "Tu mènes ta ligue." : "Tu es " + (i + 1) + "e.") + (me.up ? " Et tu es monté cette saison." : i > 0 && i < 3 && R[0].pc - me.pc <= 5 ? " " + R[0].name + " n'est qu'à " + (R[0].pc - me.pc) + " %." : me.norme > me.total ? " Encore " + (me.norme - me.total) + " pts et tu montes." : "") : "";
+    var i = R.map(function (r) { return r.me; }).indexOf(true), me = R[i], open = !!UI.lgOpen, t0 = today();
+    var mo = MOIS_L[t0.getMonth()], end = new Date(t0.getFullYear(), t0.getMonth() + 1, 1), left = Math.round((end - t0) / 864e5);
+    var t = "";
+    if (!R[0].pts) t = "La course de " + mo + " commence : la 1re victoire prend la tête.";
+    else if (me && i === 0) t = R[1].pts === me.pts ? "Tu es en tête, à égalité avec " + esc(R[1].name) + "." : "Tu mènes la course de " + mo + ". " + esc(R[1].name) + " est à " + (me.pts - R[1].pts) + " pts.";
+    else if (me) {
+      var gap = R[0].pts - me.pts, b = raceBeat(me, gap);
+      t = (gap === 0 ? "Tu es à égalité avec " + esc(R[0].name) + "." : "Tu es " + (i + 1) + "e, à " + gap + " pts de " + esc(R[0].name) + ".") +
+        (gap > 0 && b ? ' <span class="acc">Une victoire contre un ' + esc(b) + " ou mieux</span>" + (E.idx(b) > me.calc && E.BAREME.win(0) * 2 > gap ? ", ou 2 contre des " + esc(lab(me.calc)) + "," : "") + " te passe devant." : gap > 0 ? " Il te faut plusieurs victoires pour passer devant." : "");
+    }
     var row = function (r, k, first) {
       return '<div class="lgc' + (r.me ? " me" : "") + (first ? " f" : "") + '"><span class="lg-k">' + (k + 1) + '</span><span class="ini' + (r.me ? " me" : "") + '">' + esc(r.me ? initials(S.profile.name || "Toi") : initials(r.name)) + "</span>" +
-        '<span class="grow"><span class="lgc-n"><b>' + esc(r.name) + "</b>" + (r.up ? '<span class="lg-up">monté ↑</span>' : "<small>" + esc(r.rank) + " → " + esc(r.next) + "</small>") + '</span><span class="lgc-bar"><i style="width:' + r.pc + '%"></i></span></span><em>' + r.pc + " %</em></div>";
+        '<span class="grow"><span class="lgc-n"><b>' + esc(r.name) + "</b><small>" + esc(r.rank) + '</small></span><span class="lgc-nw">' + raceNews(r) + "</span></span><em>+" + r.pts + "<small>pts</small></em></div>";
     };
     var body;
     if (open || R.length <= 3) body = R.map(function (r, k) { return row(r, k, !k); }).join("");
     else if (i < 3) body = R.slice(0, 3).map(function (r, k) { return row(r, k, !k); }).join("");
     else body = row(R[0], 0, true) + row(R[1], 1) + (i > 2 ? '<div class="lgc-gap">' + plural(i - 2, "joueur") + "</div>" : "") + row(me, i, true);
+    var P = leagueRows(-1), win = P[0] && P[0].pts ? P[0] : null, pm = MOIS_L[raceMonth(-1).getMonth()];
     var tg = R.length > 3 ? '<button class="lgc-tg" data-a="leagueToggle">' + (open ? "Replier" : "Voir les " + R.length) + " " + svg(open ? '<path d="M6 15l6-6 6 6"/>' : '<path d="M6 9l6 6 6-6"/>', 2.6) + "</button>" : "";
-    return '<div class="card lg-card"><span class="lg-h"><span class="eyebrow">Ta ligue · ' + (seasonY() - 1) + "-" + String(seasonY()).slice(2) + '</span><span class="small">' + plural(R.length, "joueur") + "</span></span>" +
-      (t ? '<b class="m2-t lgc-t">' + esc(t) + "</b>" : "") + body +
-      (open || R.length <= 3 ? '<span class="small" style="margin-top:4px">% du chemin fait vers son prochain échelon : chacun court contre sa propre barre.</span>' +
-        '<div class="ls-foot"><button class="go-pill" data-a="leagueShare">Partager</button><button class="go-pill" data-a="sheet" data-k="league" data-v="1">Comment c\'est compté ' + I.next + "</button></div>" : "") + tg + "</div>";
+    return '<div class="card lg-card"><span class="lg-h"><span class="eyebrow">Course de ' + mo + '</span><span class="small">fin dans ' + plural(left, "jour") + "</span></span>" +
+      (t ? '<b class="m2-t lgc-t">' + t + "</b>" : "") + body +
+      '<span class="small" style="margin-top:4px">Points gagnés ce mois-ci, tout le monde repart de 0 le 1er.' + (win ? " " + pm.charAt(0).toUpperCase() + pm.slice(1) + " : gagné par " + (win.me ? "toi" : esc(win.name)) + " 🏆" : "") + "</span>" +
+      (open || R.length <= 3 ? '<div class="ls-foot"><button class="go-pill" data-a="leagueShare">Partager</button><button class="go-pill" data-a="sheet" data-k="league" data-v="1">Comment c\'est compté ' + I.next + "</button></div>" : "") + tg + "</div>";
   }
   function folSnap(sc) {
     var p = playedOf(sc.rows || []).filter(function (m) { return m.date; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
@@ -6721,7 +6743,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var t = (S.trainings || []).filter(function (x) { return x.src === "montre" && x.date >= l && x.curve; }).sort(function (a, b) { return (b.at || 0) - (a.at || 0); })[0];
     if (!t) return "";
     var it = trainIntensity(t);
-    return '<a class="wk-train" href="#/entrainement/' + esc(t.id) + '">' + hrCurveSvg(t.curve, t.thr, 120, 34, "w" + t.id.replace(/\W/g, "")) +
+    return '<a class="wk-train" href="#/entrainement/' + esc(t.id) + '">' + hrCurveSvg(hrFinePts(t) || t.curve, hrThr(), 120, 34, "w" + t.id.replace(/\W/g, "")) +
       "<span><b>Entraînement · " + esc(fmtDur(t.minutes)) + "</b><small>" + esc(dayLab(t.date)) + (it ? " · " + it.label + " · " + it.pct + " % zone 3+" : "") + (t.serve && (t.serve.ins + t.serve.outs) ? " · service " + Math.round(t.serve.ins * 100 / (t.serve.ins + t.serve.outs)) + " %" : "") + "</small></span></a>";
   }
   // ---------- Semaine type : créneaux fixes à confirmer d'un tap ----------
@@ -8561,36 +8583,31 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Le cap remplace « Ce que le coach te demande ». Il vise l'échelon au-dessus, à la 1re sortie à 45 jours ou plus,
   // et se garde (S.cap) jusqu'à son échéance pour que le compteur ne reparte pas de zéro à chaque match.
   function capData(c) {
-    var cur = c.cur < 0 ? 0 : c.cur, p = c.proj, t = today();
+    var cur = c.cur < 0 ? 0 : c.cur, p = c.proj, t = today(), MO = 30.4 * 864e5;
     if (p.status === "top" || p.status === "montee" || cur >= E.MAX_CALC || !p.next || !p.next.norme) return null;
     var sg = function (m) { return m.date && !m.dbl && !m.wo && (m.result === "V" || m.result === "D") && E.idx(m.oppRank) != null; };
-    var yOf = function (lv) { return playedOf(p.matches).filter(function (m) { return sg(m) && E.idx(m.oppRank) >= lv; }); };
-    // Chance de victoire lissée (3 matchs fictifs à 40 %) : 1 sur 4 ne fait pas croire qu'il faut 4 matchs par victoire
-    var rateOf = function (y) { var v = y.filter(function (m) { return m.result === "V"; }).length; return Math.max(0.25, (v + 1.2) / (y.length + 3)); };
-    // Ton rythme réel : matchs par mois contre ce niveau sur 12 mois (au moins 1 par mois : équipes, indivs, un tournoi), +25 % pour l'effort
-    var paceOf = function (y) { return Math.max(1, y.length / 12); };
     var tgt = Math.min(cur + 1, E.MAX_CALC), cp = S.cap;
-    if (!cp || cp.v !== 2 || cp.tgt !== tgt || E.parseDate(cp.by) < t) {
+    if (!cp || cp.v !== 3 || cp.tgt !== tgt || E.parseDate(cp.by) < t) {
       var w = winsFor(c, tgt), top = w.top != null && w.top <= 4 ? w.top : null, n = top || (w.n <= 6 ? w.n : null);
       if (!n) return null;
-      var lv0 = top ? tgt : w.lvl, y0 = yOf(lv0), need0 = Math.max(n, Math.ceil(n / rateOf(y0))), pm = paceOf(y0) * 1.25;
-      // Échéance : la 1re sortie à 45 jours ou plus où ce nombre de matchs tient dans ton rythme (12 mois au plus)
-      var rel = p.release; for (var i = 0; i < 12 && (rel - t) / 864e5 < 45; i++) rel = E.nextRelease(rel);
-      for (var j = 0; j < 12 && need0 > Math.floor(pm * (rel - t) / (30.4 * 864e5)); j++) { var nx = E.nextRelease(rel); if ((nx - t) / 864e5 > 366) break; rel = nx; }
+      // Yann (19/11) : on vise des victoires, jamais un nombre de matchs. Rythme : 1 victoire par mois,
+      // donc l'échéance est la 1re sortie de classement à n mois ou plus (45 jours au moins).
+      var rel = p.release; for (var i = 0; i < 24 && (rel - t) < Math.max(45 * 864e5, n * MO); i++) rel = E.nextRelease(rel);
       var by = new Date(rel.getTime() - 864e5);
-      cp = S.cap = { v: 2, tgt: tgt, lvl: lv0, n: n, at: E.iso(t), by: E.iso(by), rel: E.iso(rel) };
+      cp = S.cap = { v: 3, tgt: tgt, lvl: top ? tgt : w.lvl, n: n, at: E.iso(t), by: E.iso(by), rel: E.iso(rel) };
       save();
     }
-    var at = cp.at, lvl = cp.lvl;
+    var at = cp.at, lvl = cp.lvl, atD = E.parseDate(at), byD = E.parseDate(cp.by);
     var since = S.matches.filter(function (m) { return sg(m) && m.date >= at; });
     var won = since.filter(function (m) { return m.result === "V" && E.idx(m.oppRank) >= lvl; });
-    var played = since.filter(function (m) { return E.idx(m.oppRank) >= lvl; });
-    var y = yOf(lvl), yv = y.filter(function (m) { return m.result === "V"; }).length;
-    var rate = rateOf(y), left = Math.max(0, cp.n - won.length), byD = E.parseDate(cp.by);
+    var y = playedOf(p.matches).filter(function (m) { return sg(m) && E.idx(m.oppRank) >= lvl; }), yv = y.filter(function (m) { return m.result === "V"; }).length;
+    // Le mois en cours du cap : 1 victoire à aller chercher avant sa fin (le dernier mois va jusqu'à l'échéance)
+    var mi = Math.max(0, Math.min(cp.n - 1, Math.floor((t - atD) / MO))), mS = new Date(atD.getTime() + mi * MO), mE = mi === cp.n - 1 ? byD : new Date(atD.getTime() + (mi + 1) * MO - 864e5);
+    var mWon = won.filter(function (m) { return m.date >= E.iso(mS) && m.date <= E.iso(mE); }).length;
     var pts = 0; try { pts = E.BAREME.win(lvl - tgt); } catch (e) { pts = 0; }
-    var needM = Math.max(left, Math.ceil(left / rate)), mo = Math.max(1, (byD - t) / (30.4 * 864e5));
-    return { tgt: tgt, lvl: lvl, n: cp.n, at: at, by: byD, rel: E.parseDate(cp.rel), won: won, played: played, yv: yv, yn: y.length, ym: y,
-      needM: needM, perM: Math.max(1, Math.round(Math.max(0, needM - played.length) / mo)), pace: Math.round(y.length / 12 * 10) / 10, rate: Math.round(rate * 100),
+    var mon = function (d) { return d.toLocaleDateString("fr-FR", { month: "long" }); };
+    return { tgt: tgt, lvl: lvl, n: cp.n, at: at, by: byD, rel: E.parseDate(cp.rel), won: won, yv: yv, yn: y.length, ym: y,
+      mi: mi, mEnd: mE, mWon: mWon, mDays: Math.max(0, Math.round((mE - t) / 864e5)), m1: mon(atD), m2: mon(new Date(atD.getTime() + (cp.n - 1) * MO + 15 * 864e5)),
       days: Math.max(0, Math.round((byD - t) / 864e5)), gap: Math.max(0, p.next.norme - p.next.total), pts: pts, done: won.length >= cp.n };
   }
   function capDots(n, k) { if (n > 6) return '<span class="cap-bar" role="img" aria-label="' + k + " sur " + n + '"><i style="width:' + Math.round(100 * Math.min(k, n) / n) + '%"></i></span>'; var o = ""; for (var i = 0; i < n; i++) o += '<i class="' + (i < k ? "on" : "") + '"></i>'; return '<span class="cap-dots">' + o + "</span>"; }
@@ -8602,9 +8619,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<div class="cap-row">' + capDots(cp.n, cp.won.length) + '<small>' + cp.won.length + " sur " + cp.n + " · coché tout seul dès qu'un match entre</small></div>" +
       '<div class="cap-kv">' +
       (cp.gap ? "<span>Pourquoi " + cp.n + "</span><b>il te manque " + cp.gap + " pts" + (cp.pts ? ", un " + L(cp.lvl) + " battu en vaut " + cp.pts : "") + "</b>" : "") +
-      (cp.yn ? "<span>Faisable</span><b>cette saison, tu en as battu " + (cp.yn ? '<button class="num-l" data-a="sheet" data-k="capm" data-v="1">' + cp.yv + " sur " + cp.yn + "</button>" : "") + "</b>" : "") +
+      "<span>Le rythme</span><b>1 victoire par mois" + (cp.n > 1 ? (cp.m1 === cp.m2 ? "" : ", de " + cp.m1 + " à " + cp.m2) : "") + "</b>" +
+      (cp.yn ? '<span>Cette saison</span><b>tu en as battu <button class="num-l" data-a="sheet" data-k="capm" data-v="1">' + cp.yv + " sur " + cp.yn + "</button>" + (cp.yv / cp.yn < 0.34 ? " : c'est le vrai défi" : "") + "</b>" : "") +
       '<span>Ce que ça donne</span><b class="g">' + L(cp.tgt) + " à la sortie du " + esc(fdate(cp.rel).replace(/\.$/, "")) + "</b>" +
-      "<span>Il te faut</span><b>≈ " + plural(cp.needM, "match") + " contre des " + L(cp.lvl) + " ou mieux, ≈ " + cp.perM + " par mois" + (cp.played.length ? " (" + cp.played.length + " joué" + (cp.played.length > 1 ? "s" : "") + ")" : "") + "</b></div>" +
+      "</div>" +
       '<button class="go-pill right" data-a="sheet" data-k="capm" data-v="1">Les matchs ' + I.next + "</button></div>";
     return s;
   }
@@ -8613,7 +8631,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var P = d.P, out = [], at = cp ? cp.at : E.iso(today()), by = cp ? cp.by : null, due = by ? " d'ici le " + fdate(by).replace(/\.$/, "") : "";
     var sg = function (m) { return m.date >= at && !m.dbl && !m.wo && (m.result === "V" || m.result === "D"); }, since = S.matches.filter(sg).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     var s1 = function (m) { var x = setsOf(m.score); return x.length ? x[0][0] > x[0][1] : null; };
-    if (cp && !cp.done) out.push({ t: "Joue " + plural(cp.needM, "match") + " contre des " + lab(cp.lvl) + " ou mieux" + due + ".", s: "Tu gagnes ≈ " + cp.rate + " % de ces matchs : il en faut " + cp.needM + " pour " + plural(cp.n, "victoire") + ". Soit ≈ " + cp.perM + " par mois. Sur 12 mois, tu en as joué " + cp.yn + " : l'échéance en tient compte.", n: cp.needM, k: Math.min(cp.needM, cp.played.length) });
+    if (cp && !cp.done) { var nth = Math.min(cp.n, cp.won.length + 1), mok = cp.mWon >= 1; out.push({ t: "Ce mois-ci : bats 1 joueur classé " + lab(cp.lvl) + " ou mieux, avant le " + fdate(cp.mEnd).replace(/\.$/, "") + ".", s: (mok ? "Fait pour ce mois. " : "") + (cp.n > 1 ? "C'est la " + (nth === 1 ? "1re" : nth + "e") + " des " + cp.n + " victoires de ton cap. " : "C'est la victoire de ton cap. ") + "Choisis le match où tu as le plus de chances : ta chance est sur la fiche de chaque adversaire.", n: 1, k: mok ? 1 : 0, left: mok ? "" : plural(cp.mDays, "jour") + " restant" + (cp.mDays > 1 ? "s" : "") }); }
     var M = P.R.mental;
     if (M && M.g && M.g.n >= 4 && (M.st === "faible" || cpSurv(M))) {
       var l1 = since.filter(function (m) { return s1(m) === false; }).slice(0, 3);
@@ -8642,7 +8660,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var ok = o.dots ? o.dots.filter(function (x) { return x === "on"; }).length >= 1 : o.k >= o.n;
       var dots = o.dots ? '<span class="cap-dots">' + [0, 1, 2].map(function (j) { return '<i class="' + (o.dots[j] || "") + '"></i>'; }).join("") + "</span>" : capDots(o.n, o.k);
       var btn = o.num ? '<button class="go-pill" data-a="sheet" data-k="num" data-v="' + esc(o.num) + '">Le détail ' + I.next + "</button>" : o.go ? (o.go[1] === "defend" ? '<button class="go-pill" data-a="goDefend">' : '<a class="go-pill" href="#/' + o.go[1] + '">') + esc(o.go[0]) + " " + I.next + (o.go[1] === "defend" ? "</button>" : "</a>") : "";
-      return '<div class="cap-o' + (ok ? " ok" : "") + '"><span class="cap-n">' + (ok ? "✓" : i + 1) + '</span><span class="grow"><b>' + esc(o.t) + "</b><small>" + esc(o.s) + '</small><span class="cap-row">' + dots + '<small class="grow">' + (ok ? "fait" : o.dots ? o.dots.length + " sur 3 joués" : o.k + " sur " + o.n) + "</small>" + btn + "</span></span></div>";
+      return '<div class="cap-o' + (ok ? " ok" : "") + '"><span class="cap-n">' + (ok ? "✓" : i + 1) + '</span><span class="grow"><b>' + esc(o.t) + "</b><small>" + esc(o.s) + '</small><span class="cap-row">' + dots + '<small class="grow">' + (ok ? "fait" : o.dots ? o.dots.length + " sur 3 joués" : o.k + " sur " + o.n + (o.left ? " · " + o.left : "")) + "</small>" + btn + "</span></span></div>";
     }).join("") + '<span class="ch-how">Tout se coche d\'après tes matchs. Une consigne réussie laisse la place à la suivante.</span></div>';
   }
   V.coach = function () {
@@ -9485,17 +9503,22 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var P = profData(); if (!P) return null;
       var Q = profSecs(P);
       return { title: "Aperçu du message", sub: "À ton prof, par Messages, WhatsApp ou mail. Il n'a pas besoin de l'app.",
-        body: '<div class="pf-bub"><b class="pf-bt">' + esc(Q.t) + "</b>" + Q.X.map(function (x) { return "<h4>" + esc(x[0]) + "</h4><p>" + x[1].map(esc).join("<br>") + "</p>"; }).join("") + "</div>" +
-          '<p class="small pf-ed">Tu pourras le modifier avant de l\'envoyer.</p><div class="ls-foot df-foot"><button class="go-pill" data-a="profCopy">Copier</button><button class="btn primary small" data-a="profSend">Envoyer ' + I.next + "</button></div>" };
+        body: '<div class="pf-bub"><b class="pf-bt">' + esc(Q.t) + "</b>" + Q.h.map(function (x) { return "<p>" + esc(x) + "</p>"; }).join("") + Q.X.map(function (x) {
+          var li = x[1].filter(function (l) { return /^• /.test(l); }), pl = x[1].filter(function (l) { return !/^• /.test(l); });
+          var f = function (l) { return esc(l.replace(/^• /, "")).replace(/\n\s*/g, "<br>"); };
+          return "<h4>" + esc(x[0]) + "</h4>" + (pl.length ? "<p>" + pl.map(f).join("<br>") + "</p>" : "") + (li.length ? "<ul>" + li.map(function (l) { return "<li>" + f(l) + "</li>"; }).join("") + "</ul>" : "");
+        }).join("") + "</div>" +
+          '<p class="small pf-ed">Tu pourras le modifier avant de l\'envoyer.</p><div class="pf-send"><button class="go-pill" data-a="profSend" data-v="sms">Messages</button><button class="go-pill" data-a="profSend" data-v="wa">WhatsApp</button><button class="go-pill" data-a="profSend" data-v="mail">Mail</button><button class="go-pill" data-a="profCopy">Copier</button></div>' };
     },
-    // 3.55 : la ligue des copains, comment c'est compté
+    // 3.55.4 : la course du mois, comment c'est compté
     league: function () {
       var R = leagueRows(); if (R.length < 2) return null;
       var body = '<div class="list">' + R.map(function (r) {
-        return '<div class="row"><span class="grow"><span class="t">' + esc(r.name) + ' <span class="muted" style="font-weight:400">· ' + esc(r.rank) + '</span></span><span class="s">' + (r.up ? "Monté cette saison (" + esc(r.from) + " → " + esc(r.rank) + ") : 100 % jusqu'à la fin de la saison" : r.total + " / " + r.norme + " pts pour " + esc(r.next) + " = " + r.pc + " %") + "</span></span>" + (r.me ? "" : '<button class="go-pill" data-a="leagueOut" data-v="' + esc(r.id) + '">Retirer</button>') + "</div>";
+        var d = r.W.length ? r.W.map(function (w) { return "V contre un " + esc(w.m.oppRank) + " le " + E.parseDate(w.m.date).getDate() + " : +" + w.pts; }).join(" · ") : r.D ? "Pas encore de victoire ce mois-ci" : "Pas encore joué ce mois-ci";
+        return '<div class="row"><span class="grow"><span class="t">' + esc(r.name) + ' <span class="muted" style="font-weight:400">· ' + esc(r.rank) + " · +" + r.pts + ' pts</span></span><span class="s">' + d + "</span></span>" + (r.me ? "" : '<button class="go-pill" data-a="leagueOut" data-v="' + esc(r.id) + '">Retirer</button>') + "</div>";
       }).join("") + "</div>" +
-        '<p class="small" style="margin-top:12px">Mêmes calculs que ta projection, avec le palmarès Ten\'Up de chaque joueur suivi (lu à chaque synchro). Remise à zéro le 1er septembre. Rien n\'est publié : toi seul vois ta ligue, sauf si tu la partages. Retirer un joueur de la ligue ne l\'empêche pas d\'être suivi.</p>';
-      return { title: "Ta ligue", sub: "% = points au bilan ÷ points qu'il faut pour l'échelon au-dessus. Une montée fixe le joueur à 100 %.", body: body };
+        '<p class="small" style="margin-top:12px">Chaque victoire du mois rapporte les points du barème FFT, comptés depuis le classement que vise le joueur (l\'échelon au-dessus du sien) : 60 contre un joueur de ce classement, 90 contre un échelon au-dessus, 120 contre deux ou plus ; en dessous, 30, 20, 15, puis 0. Une perf, c\'est une victoire contre mieux classé que soi. Les WO et les doubles ne comptent pas. Les matchs des joueurs suivis sont lus dans Ten\'Up à chaque synchro. Remise à zéro le 1er de chaque mois. Rien n\'est publié : toi seul vois ta course, sauf si tu la partages. Retirer un joueur de la course ne l\'empêche pas d\'être suivi.</p>';
+      return { title: "Course de " + MOIS_L[today().getMonth()], sub: "Points gagnés ce mois-ci par chacun, victoire par victoire.", body: body };
     },
     // 3.55 : check-in d'avant-match
     ciDone: function () {
@@ -9550,7 +9573,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     capm: function () {
       var cp = null; try { cp = capData(ctx()); } catch (e) {} if (!cp) return null;
       var rows = cp.ym.slice().sort(byDateDesc).map(function (m) { var nw = m.date >= cp.at; return '<a class="num-r" href="#/match/' + esc(m.id) + '"><span class="vd ' + m.result + '">' + m.result + '</span><span class="grow"><b>' + esc(nameCase(m.opp || "") || "Adversaire") + "</b> <small>· " + esc(m.oppRank || "") + '</small><small class="d">' + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + "</small></span><em>" + (nw ? "pour ton cap" : "") + "</em></a>"; }).join("");
-      return { title: "Ton cap · les matchs", body: '<div class="card num-c"><div class="num-calc"><b>Le calcul.</b> Il te manque ' + cp.gap + " pts pour " + esc(lab(cp.tgt)) + ". Montée rejoue ton bilan avec des victoires en plus : il en faut " + cp.n + " contre des " + esc(lab(cp.lvl)) + " ou mieux. Tu gagnes ≈ " + cp.rate + " % de ces matchs (tes résultats sur 12 mois, lissés), donc ≈ " + plural(cp.needM, "match") + " à jouer. L'échéance est la 1re sortie de classement où ce nombre tient dans ton rythme (" + plural(cp.yn, "match") + " contre ce niveau sur 12 mois, au moins 1 par mois, un peu plus avec l'effort). Le compteur part du " + esc(fdate(cp.at)) + " ; chaque victoire en simple contre ce classement ou mieux, homologuée ou saisie, coche une case.</div>" +
+      return { title: "Ton cap · les matchs", body: '<div class="card num-c"><div class="num-calc"><b>Le calcul.</b> Il te manque ' + cp.gap + " pts pour " + esc(lab(cp.tgt)) + ". Montée rejoue ton bilan avec des victoires en plus : il en faut " + cp.n + " contre des " + esc(lab(cp.lvl)) + " ou mieux. Le rythme : 1 victoire par mois, d'où l'échéance (" + esc(fdate(cp.by).replace(/\.$/, "")) + ", veille de la sortie). Cette saison, tu en as battu " + cp.yv + " sur " + cp.yn + ". Le compteur part du " + esc(fdate(cp.at)) + " ; chaque victoire en simple contre ce classement ou mieux, homologuée ou saisie, coche une case.</div>" +
         '<span class="num-h">Tes matchs contre des ' + esc(lab(cp.lvl)) + " ou mieux" + " · 12 mois</span>" + (rows || '<span class="small">Aucun pour l\'instant.</span>') + "</div>" };
     },
     // 3.48.7 (Yann) : le palmarès d'une saison (passée : ton palmarès Ten'Up de la saison ; en cours : tes matchs)
@@ -11171,34 +11194,94 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var mins = TR.reduce(function (s, x) { return s + playMinutes(x); }, 0);
     return { a: a, mo: MOIS_L[a.getMonth()], M: M, V: V, D: D, TR: TR, mins: mins, sD: sD, sV: sV, tight: tight, TH: TH.slice(0, 2), work: work, good: good, fs: fs };
   }
-  // 3.55.1 (Yann) : le message en sections (titre, puis Matchs / À travailler / Entraînement / Ce qui a marché)
+  // 3.55.4 (Yann, maquette P4) : un message lisible par un prof qui n'a pas vu les matchs. Par match : type, classement adverse,
+  // chances au départ, score, 1res balles et doubles fautes (si notés), ressenti. Puis la tendance sur 3 mois, ce qui marche / coince.
   function profSecs(P) {
-    var nm = S.profile.name || "", y = P.a.getFullYear(), X = [];
-    if (P.M.length) X.push(["Matchs", [plural(P.V.length, "victoire") + ", " + plural(P.D.length, "défaite")].concat(P.M.map(function (m) { var f = P.fs(m); return m.result + " contre " + (isAnon(m.opp) ? "un joueur" : nameCase(m.opp)) + (m.oppRank ? " (" + m.oppRank + ")" : "") + (m.score ? " · " + m.score : "") + (f != null ? " · 1res balles " + f + " %" : ""); }))]);
-    if (P.TH.length) X.push(["À travailler", P.TH.map(function (x, i) { return (i + 1) + ". " + x[0] + " (" + x[1] + ")"; })]);
-    if (P.TR.length) X.push(["Entraînement", [plural(P.TR.length, "séance") + " · " + fmtDur(P.mins) + (P.work.length ? " · " + P.work.join(", ") : "")]]);
-    if (P.good.length) X.push(["Ce qui a marché", [P.good.slice(0, 2).join(", ")]]);
-    return { t: (nm ? "Le point de " + nm : "Mon point tennis") + " · " + P.mo + " " + y + (effRank() ? " · " + effRank() : ""), X: X };
+    var nm = S.profile.name || "", y = P.a.getFullYear(), X = [], cur = curIdx();
+    var KD = { tournoi: "tournoi", equipes: "équipe", champ: "championnat", amical: "amical" };
+    var df = function (m) { return numFilled(m) && numOf(m).df != null ? numOf(m).df : null; };
+    var fsW = function (m) { var st = setsOf(m.score); return st.length ? st[0][0] > st[0][1] : null; };
+    var head = [];
+    try {
+      var pr = ctx().proj, nx = pr && pr.next;
+      if (cur >= 0 && nx && nx.norme > (nx.total || 0) && pr.status !== "top") head.push(effRank() + ", objectif " + lab(Math.min(cur + 1, E.MAX_CALC)) + " (il me manque " + (nx.norme - (nx.total || 0)) + " pts).");
+    } catch (e) {}
+    // En bref
+    var br = [];
+    if (P.M.length) {
+      var lost3 = P.D.filter(function (m) { var st = setsOf(m.score); return st.length >= 3 && st[0][0] > st[0][1]; }).length;
+      var b1 = plural(P.M.length, "match", "matchs") + ", " + P.V.length + " V " + P.D.length + " D.";
+      if (lost3 >= 2) b1 += (lost3 === P.D.length ? " Mes " + lost3 + " défaites" : " " + lost3 + " de mes défaites") + " se sont jouées au 3e set, après avoir gagné le 1er.";
+      else if (P.tight >= 2) b1 += " " + plural(P.tight, "set perdu", "sets perdus") + " de 2 jeux ou au tie-break.";
+      br.push(b1);
+    }
+    if (br.length) X.push(["En bref", br]);
+    if (P.M.length) X.push(["Matchs", P.M.map(function (m) {
+      var o = E.idx(m.oppRank), d = E.parseDate(m.date), f = P.fs(m), n = df(m), ch = o != null && cur >= 0 ? Math.round(expWin(o, cur) * 100) : null;
+      var perf = m.result === "V" && o != null && o > cur, felt = (m.felt || []).map(function (k) { return feltLabel(m, k).toLowerCase(); });
+      var L = "• " + d.getDate() + " " + MOIS[d.getMonth()].replace(/\.$/, "") + (KD[m.kind] ? " · " + KD[m.kind] : "") + " · " + m.result + (m.oppRank ? " contre un " + m.oppRank : "") +
+        (ch != null ? " (" + (perf ? "perf, " : "") + "j'avais " + ch + " % de chances)" : "");
+      var st = [m.score || ""].concat(f != null ? ["1res balles " + f + " %"] : [], n != null ? [plural(n, "double faute", "doubles fautes")] : []).filter(Boolean).join(" · ");
+      if (st) L += "\n   " + st;
+      if (felt.length || m.note) L += "\n   Mon ressenti : " + felt.join(", ") + (m.note ? (felt.length ? ". " : "") + "« " + String(m.note).trim() + " »" : "");
+      return L;
+    })]);
+    // Sur 3 mois (le mois du point compris), et comparaison avec les 3 mois d'avant pour le service
+    var a3 = E.iso(new Date(P.a.getFullYear(), P.a.getMonth() - 2, 1)), a6 = E.iso(new Date(P.a.getFullYear(), P.a.getMonth() - 5, 1)), z = E.iso(new Date(P.a.getFullYear(), P.a.getMonth() + 1, 1));
+    var pl = S.matches.filter(function (m) { return m.date && !m.wo && !m.dbl && (m.result === "V" || m.result === "D"); });
+    var R3 = pl.filter(function (m) { return m.date >= a3 && m.date < z; }), R6 = pl.filter(function (m) { return m.date >= a6 && m.date < a3; });
+    var avgF = function (L, fn) { var v = L.map(fn).filter(function (x) { return x != null; }); return v.length >= 2 ? v.reduce(function (s, x) { return s + x; }, 0) / v.length : null; };
+    var T3 = [];
+    if (R3.length >= 3) {
+      var v3 = R3.filter(function (m) { return m.result === "V"; }).length, s3 = R3.filter(function (m) { return setsOf(m.score).length >= 3; }), s3w = s3.filter(function (m) { return m.result === "V"; }).length;
+      T3.push(v3 + " V, " + (R3.length - v3) + " D" + (s3.length ? " · 3e sets : " + s3w + " gagné" + (s3w > 1 ? "s" : "") + " sur " + s3.length : ""));
+      var f0 = avgF(R6, P.fs), f1 = avgF(R3, P.fs);
+      if (f1 != null) T3.push("1res balles : " + (f0 != null ? Math.round(f0) + " % → " : "") + Math.round(f1) + " %" + (f0 != null && f1 - f0 <= -3 ? " (en baisse)" : f0 != null && f1 - f0 >= 3 ? " (en hausse)" : ""));
+      var d0 = avgF(R6, df), d1 = avgF(R3, df);
+      if (d1 != null) T3.push("Doubles fautes : " + (d0 != null ? String(Math.round(d0 * 10) / 10).replace(".", ",") + " → " : "") + String(Math.round(d1 * 10) / 10).replace(".", ",") + " par match");
+      var w1 = R3.filter(function (m) { return setsOf(m.score).length; }), w1v = w1.filter(fsW).length;
+      var ok = [], ko = [];
+      if (w1.length >= 4 && w1v / w1.length >= 0.6) ok.push("1er set gagné " + w1v + " fois sur " + w1.length);
+      if (P.good.length) ok.push(P.good.slice(0, 2).join(", "));
+      var tg = 0; R3.forEach(function (m) { setsOf(m.score).forEach(function (st, i) { if (st[0] < st[1] && (isTb(st) || isSuperTb(st, i) || st[1] - st[0] <= 2)) tg++; }); });
+      if (tg >= 2) ko.push(plural(tg, "set perdu", "sets perdus") + " de 2 jeux ou au tie-break");
+      if (w1.length >= 4 && w1v / w1.length < 0.4) ko.push("1er set perdu " + (w1.length - w1v) + " fois sur " + w1.length);
+      if (T3.length) X.push(["Sur 3 mois", T3.map(function (x) { return "• " + x; })]);
+      if (ok.length || ko.length) X.push(["Ça marche / ça coince", ok.map(function (x) { return "+ " + x; }).concat(ko.map(function (x) { return "− " + x; }))]);
+    } else if (P.good.length) X.push(["Ce qui a marché", [P.good.slice(0, 2).join(", ")]]);
+    if (P.TR.length) X.push(["Entraînement", [plural(P.TR.length, "séance") + ", " + fmtDur(P.mins) + (P.work.length ? " : " + P.work.join(", ") : "")]]);
+    if (P.TH.length) X.push(["Ce que je voudrais travailler", P.TH.map(function (x, i) { return (P.TH.length > 1 ? (i + 1) + ". " : "") + x[0] + " (" + x[1] + ")"; })]);
+    return { t: (nm ? "Le point de " + nm : "Mon point tennis") + " · " + P.mo + " " + y, h: head, X: X };
   }
   function profText(P) {
     var Q = profSecs(P);
-    return [Q.t].concat(Q.X.map(function (x) { return "\n" + x[0].toUpperCase() + "\n" + x[1].join("\n"); })).join("\n");
+    return [Q.t].concat(Q.h, Q.X.map(function (x) { return "\n" + x[0].toUpperCase() + "\n" + x[1].join("\n"); })).join("\n");
   }
+  // 3.55.4 (Yann, option B) : une illustration en tête. Le carnet tant que le point du mois n'est pas parti, l'avion en papier ensuite.
+  function profIll(sent) {
+    var ball = function (x, y, r) { return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="url(#pfB)"/><path d="M' + (x - r * .75) + " " + (y - r * .35) + " Q" + x + " " + y + " " + (x + r * .75) + " " + (y - r * .35) + "M" + (x - r * .75) + " " + (y + r * .35) + " Q" + x + " " + y + " " + (x + r * .75) + " " + (y + r * .35) + '" stroke="#F4F7E1" stroke-width="' + (r * .14) + '" fill="none"/>'; };
+    var def = '<defs><linearGradient id="pfG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2E2B28"/><stop offset="1" stop-color="#1B1A19"/></linearGradient><linearGradient id="pfV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2B7350"/><stop offset="1" stop-color="#16432E"/></linearGradient><radialGradient id="pfB" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#EEF7A0"/><stop offset=".6" stop-color="#D4E64A"/><stop offset="1" stop-color="#AFC23A"/></radialGradient><pattern id="pfS" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M0 0h5M0 0v5" stroke="#F4F7E1" stroke-width=".8" opacity=".55"/></pattern></defs><rect width="330" height="118" fill="url(#pfG)"/>';
+    var body = sent ?
+      '<path d="M30 118 L300 118 L240 66 L90 66 Z" fill="url(#pfV)"/><path d="M50 116 L280 116 L232 72 L98 72 Z" fill="none" stroke="#E2EEDC" stroke-width="1.5" opacity=".75"/><path d="M76 96h178" stroke="#121212" stroke-width="3"/><path d="M165 72v44" stroke="#E2EEDC" stroke-width="1.2" opacity=".6"/>' +
+        '<g transform="translate(56 44) rotate(-20) scale(.82)"><rect x="-4" y="34" width="8" height="40" rx="3" fill="#121212"/><rect x="-4.5" y="58" width="9" height="18" rx="3" fill="#D4E64A"/><path d="M-4 36 L-10 22 M4 36 L10 22" stroke="#121212" stroke-width="4" stroke-linecap="round"/><ellipse cx="0" cy="0" rx="22" ry="27" fill="url(#pfS)" stroke="#121212" stroke-width="5"/></g>' +
+        '<path d="M78 40 C120 10 170 60 236 26" stroke="#F4F2EE" stroke-width="2" stroke-dasharray="3 6" fill="none" stroke-linecap="round" opacity=".85"/>' +
+        '<g transform="translate(240 24) rotate(-14)"><path d="M0 0 L46 -14 L18 14 Z" fill="#F4F2EE"/><path d="M18 14 L46 -14 L22 4 Z" fill="#D9D5CE"/><path d="M0 0 L22 4 L46 -14" stroke="#121212" stroke-width="1" fill="none" opacity=".35"/></g>' + ball(296, 86, 8) :
+      '<g transform="translate(40 12) rotate(-3 125 47)"><rect x="0" y="0" width="250" height="94" rx="8" fill="#F4F2EE"/><path d="M125 4v86" stroke="#121212" stroke-width="1.2" opacity=".25"/><circle cx="125" cy="18" r="2" fill="#121212" opacity=".3"/><circle cx="125" cy="47" r="2" fill="#121212" opacity=".3"/><circle cx="125" cy="76" r="2" fill="#121212" opacity=".3"/>' +
+        '<rect x="14" y="14" width="70" height="7" rx="3.5" fill="#121212"/><path d="M14 34h96M14 46h88M14 58h92M14 70h60" stroke="#121212" stroke-width="3" stroke-linecap="round" opacity=".3"/><path d="M14 82h40" stroke="#D4E64A" stroke-width="5" stroke-linecap="round"/>' +
+        '<g transform="translate(142 14)"><rect x="0" y="0" width="92" height="64" fill="none" stroke="#B04A22" stroke-width="2"/><path d="M46 -3v70" stroke="#121212" stroke-width="2.4"/><path d="M0 10h92M0 54h92M20 10v44M72 10v44M20 32h52" stroke="#B04A22" stroke-width="1.2" opacity=".75"/><path d="M8 50 Q30 6 82 18" stroke="#121212" stroke-width="1.8" stroke-dasharray="2 4" fill="none" stroke-linecap="round"/><path d="M77 14l6 4-5.5 4" stroke="#121212" stroke-width="1.8" fill="none" stroke-linecap="round"/>' + ball(8, 50, 6) + "</g></g>" +
+        '<g transform="translate(262 70) rotate(-38)"><rect x="0" y="-5" width="58" height="10" rx="2" fill="#D4E64A"/><rect x="-6" y="-5" width="8" height="10" rx="2" fill="#E08A5E"/><path d="M58 -5 L70 0 L58 5z" fill="#F0D9B8"/><path d="M66 -1.6 L70 0 L66 1.6z" fill="#121212"/></g>';
+    return '<div class="pf-ill"><svg viewBox="0 0 330 118" aria-hidden="true" focusable="false">' + def + body + "</svg></div>";
+  }
+  function profSentOf(P) { var x = S.profSent; return x && x.m === E.iso(P.a) ? E.parseDate(x.d) : null; }
   function profHtml() {
     var P = profData(); if (!P) return "";
-    var lock = PLUS_LOCK(), th = P.TH[0];
-    var t = th ? 'Ce qui coince ce mois-ci : <span class="hl-t">' + esc(th[0].toLowerCase()) + "</span>." : esc((P.M.length ? plural(P.M.length, "match", "matchs") + ", " : "") + plural(P.TR.length, "séance") + " ce mois-ci.");
-    var three = P.M.filter(function (m) { return setsOf(m.score).length >= 3; }).length;
-    var tile = function (k, v, sub) { return '<div class="pf-tile"><small>' + k + "</small><b>" + v + "</b><span>" + sub + "</span></div>"; };
-    var tiles = '<div class="pf-tiles">' + tile("Matchs", P.M.length ? P.V.length + " V · " + P.D.length + " D" : "0", P.M.length ? (three ? three + " au 3e set" : "aucun au 3e set") : "ce mois-ci") +
-      tile("Séances", String(P.TR.length), P.TR.length ? esc(fmtDur(P.mins)) : "ce mois-ci") +
-      (P.sD != null && P.sV != null && !P.tight ? tile("1res balles", P.sV + " %", "en victoire, " + P.sD + " % en défaite") : tile("Serrés", P.tight ? plural(P.tight, "set") : "0", P.tight ? "perdu" + (P.tight > 1 ? "s" : "") + " de 2 jeux ou au tie-break" : "set perdu de peu")) + "</div>";
-    var themes = P.TH.map(function (x, i) { return '<div class="pf-th"><span class="rb-n">' + (i + 1) + '</span><span><b>' + esc(x[0]) + '</b><span class="small">' + esc(x[1]) + "</span></span></div>"; }).join("");
-    return '<div class="card pf-card"><div class="ch-hd"><span class="eyebrow">Pour ton prof · ' + esc(P.mo) + '</span><span class="ch-plus">Montée+</span></div>' +
-      '<b class="m2-t">' + t + "</b>" +
-      '<div class="' + (lock ? "ch-blur" : "") + '">' + tiles + themes + "</div>" +
+    var lock = PLUS_LOCK(), th = P.TH[0], sent = !lock && profSentOf(P);
+    var t = sent ? "Envoyé le " + sent.getDate() + " " + MOIS_L[sent.getMonth()] + ". Ton prof a tout ce qu'il faut." : "Ton prof saura tout de ton mois, sans avoir vu un match.";
+    var sub = (P.M.length ? plural(P.M.length, "match détaillé", "matchs détaillés") + ", " : "") + (P.TR.length ? plural(P.TR.length, "séance") + ", " : "") + "tes tendances" + (th ? ", et ce que tu veux travailler : " + th[0].toLowerCase() + "." : ".");
+    return '<div class="card pf-card">' + profIll(!!sent) + '<div class="ch-hd"><span class="eyebrow">Pour ton prof · ' + esc(P.mo) + '</span><span class="ch-plus">Montée+</span></div>' +
+      '<b class="m2-t pf-t">' + esc(t) + '</b><span class="small' + (lock ? " ch-blur" : "") + '">' + esc(sub) + "</span>" +
       (lock ? '<button class="btn primary small ch-cta" data-a="goSoutenirComp">Envoyer le point du mois avec Montée+</button>' :
-        '<div class="pf-foot"><button class="linkbtn pf-lnk" data-a="sheet" data-k="prof" data-v="1">Aperçu</button><button class="btn primary small" data-a="profSend">Envoyer à ton prof ' + I.next + "</button></div>") + "</div>";
+        '<div class="pf-foot"><button class="linkbtn pf-lnk" data-a="sheet" data-k="prof" data-v="1">Aperçu</button><button class="btn primary small" data-a="profSend">' + (sent ? "Renvoyer " : "Envoyer ") + I.next + "</button></div>") + "</div>";
   }
   // texte seul, sans liens vers l'app (message pour le prof)
   function sharePlain(txt) {
@@ -11624,6 +11707,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function watchCtx() {
     var d = {}; try { d = widgetData(); } catch (e) {}
+    try { d.hrThr = hrThr(); } catch (e) {} // 3.55.3 (Yann) : la montre colore avec TES zones
     var o = [], seen = {};
     var add = function (x) { if (!x.name || seen[x.id]) return; seen[x.id] = 1; o.push(Object.assign(x, watchCoach(x.name))); };
     plans().filter(function (x) { return dGap(x.day) >= 0; }).forEach(function (pl) { add({ id: pl.id, name: pl.name, rank: pl.rank || "", p: pl.p, tag: "Prévu " + dayLab(pl.day), hom: pl.hom, fmt: pl.fmt }); });
@@ -11865,7 +11949,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var t = hrMatchOf(t0.id) || t0;
     if (!t.curve && !t.zones && !t.serve) return hrTrainAsk(t);
     var it = trainIntensity(t), ZF = hrZFor(t), s = '<div class="card tw-card"><span class="eyebrow">' + (IOS || t.hw || t.src === "montre" ? "Ta montre · cardio et zones" : "Ton cardio · zones") + "</span>";
-    if (t.curve && t.curve.length > 1) s += hrCurveSvg(t.curve, ZF.thr, 300, 90, t.id.replace(/\W/g, ""));
+    var FP = hrFinePts(t); if (FP && FP.length > 1) s += hrCurveSvg(FP, ZF.thr, 300, 90, t.id.replace(/\W/g, ""));
     if (ZF.z) {
       s += zoneBarHtml(ZF.z);
       s += '<div class="zleg">' + ZF.z.map(function (v, i) { return v ? '<span><i style="background:' + ZONE_C[i] + '"></i>' + ZONE_N[i] + " " + v + " %</span>" : ""; }).join("") + "</div>";
@@ -12276,6 +12360,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (m.wt0) { var last = (m.wevT || []).reduce(function (a, b) { return Math.max(a, b); }, 0); return { a: m.wt0, b: m.wt0 + Math.max(last + 60, (m.minutes || 0) * 60 + 300) * 1000 }; }
     if (m.hat) return { a: m.hat, b: m.hend || m.hat + Math.max(30, m.minutes || 90) * 60000 };
     if (m.hid && m.at && m.minutes && !m.curve) return { a: m.at, b: m.hend || m.at + m.minutes * 60000 }; // entraînement venu de Santé (3.53.1)
+    // 3.55.3 (Yann : « 100 % récup » avec un max à 157) : un entraînement de la montre relit aussi ses bpm fins dans Santé,
+    // sa courbe (48 moyennes de 2 min) ne suffit pas pour les zones. Heure exacte de la séance Santé si on l'a, sinon début + durée.
+    if (m.src === "montre" && m.at && m.minutes) {
+      var x = m.hid && HC_OK ? hcAll().filter(function (y) { return y.id === m.hid; })[0] : null;
+      return x && x.start && x.end ? { a: x.start, b: x.end } : { a: m.at, b: m.at + (m.minutes + 2) * 60000 };
+    }
     return null;
   }
   // 3.53.3 (Yann : « 220 − âge, ça suffit pas ») : tes zones cardio. FC max : saisie, sinon ton max mesuré (12 mois),
@@ -12284,7 +12374,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function hrAge() {
     if (S.hk && S.hk.year) return today().getFullYear() - S.hk.year;
     var w = S.matches.filter(function (x) { return x.wmax && x.wmax !== 190; })[0]; if (w) return 220 - w.wmax;
-    var t = (S.trainings || []).filter(function (x) { return x.src === "montre" && x.thr && x.thr.length === 4 && Math.round(x.thr[3] / 0.9) !== 190; })[0];
+    var t = (S.trainings || []).filter(function (x) { return x.src === "montre" && x.thr && x.thr.length === 4 && Math.round(x.thr[3] / 0.9) !== 190 && Math.abs(x.thr[0] - Math.round(0.6 * x.thr[3] / 0.9)) <= 1; })[0];
     return t ? 220 - Math.round(t.thr[3] / 0.9) : null;
   }
   function hrObsMax() {
@@ -12318,11 +12408,28 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function hrMax() { return hrZones().max; }
   function hrThr() { return hrZones().thr; }
+  // 3.55.3 : temps passé dans chaque zone, comme la montre : chaque mesure compte jusqu'à la suivante (30 s au plus, un trou n'est pas du temps en zone)
+  function hrZT(raw, thr) {
+    var z = [0, 0, 0, 0, 0], n = 0, gaps = [];
+    for (var i = 0; i + 1 < raw.length; i++) gaps.push(raw[i + 1][0] - raw[i][0]);
+    var med = gaps.length ? gaps.slice().sort(function (a, b) { return a - b; })[gaps.length >> 1] : 5;
+    raw.forEach(function (x, j) { if (x[1] == null) return; var w = j + 1 < raw.length ? raw[j + 1][0] - x[0] : med; w = Math.max(1, Math.min(30, w)); var k = 0; thr.forEach(function (q) { if (x[1] >= q) k++; }); z[k] += w; n += w; });
+    return n ? z.map(function (x) { return Math.round(x * 100 / n); }) : null;
+  }
+  // Une courbe plus fine que les 48 points de la montre : moyennes d'environ 20 s, prises dans les bpm de Santé
+  function hrFinePts(o) {
+    var raw = o.hrc && o.hrc.raw; if (!raw || raw.length < 20) return o.curve && o.curve.length > 1 ? o.curve : o.hrc && o.hrc.pts || null;
+    var dur = Math.max(60, raw[raw.length - 1][0]), N = Math.max(24, Math.min(300, Math.round(dur / 20), raw.length)), pts = [];
+    for (var k = 0; k < N; k++) { var a = dur * k / N, b = dur * (k + 1) / N, s0 = 0, n0 = 0; raw.forEach(function (x) { if (x[0] >= a && (x[0] < b || k === N - 1 && x[0] <= b)) { s0 += x[1]; n0++; } }); pts.push(n0 ? Math.round(s0 / n0) : null); }
+    for (k = 0; k < N; k++) if (pts[k] == null) pts[k] = k && pts[k - 1] != null ? pts[k - 1] : pts.filter(function (x) { return x != null; })[0];
+    return pts;
+  }
   function hrZ(vals, thr) { var z = [0, 0, 0, 0, 0], n = 0; (vals || []).forEach(function (v) { if (v == null) return; var i = 0; thr.forEach(function (q) { if (v >= q) i++; }); z[i]++; n++; }); return n ? z.map(function (x) { return Math.round(x * 100 / n); }) : null; }
   // Les zones d'une séance, toujours recalculées avec TES zones (les plus fines données d'abord)
   function hrZFor(o) {
     var thr = hrThr(), raw = o.hrc && o.hrc.raw;
-    var z = raw && raw.length ? hrZ(raw.map(function (x) { return x[1]; }), thr) : o.curve && o.curve.length > 4 ? hrZ(o.curve, thr) : o.hrc && o.hrc.pts ? hrZ(o.hrc.pts, thr) : null;
+    // 3.55.3 : les bpm fins d'abord ; la courbe de la montre (moyennes de 2 min) écrase les pics, elle ne sert qu'en dernier recours
+    var z = raw && raw.length >= 10 ? hrZT(raw, thr) : o.hrc && o.hrc.pts ? hrZ(o.hrc.pts, thr) : o.curve && o.curve.length > 4 ? hrZ(o.curve, thr) : null;
     if (!z && o.zones) { var tot = o.zones.reduce(function (a, b) { return a + (b || 0); }, 0); z = tot ? o.zones.map(function (v) { return Math.round((v || 0) * 100 / tot); }) : null; }
     return { z: z, thr: thr };
   }
@@ -12338,8 +12445,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var dur = Math.max(60, t[t.length - 1] || 60), N = Math.min(96, v.length), pts = [], sum = 0, mx = 0, pkT = 0, thr = hrThr(), z = [0, 0, 0, 0, 0];
       for (var k = 0; k < N; k++) { var a = dur * k / N, b = dur * (k + 1) / N, s0 = 0, n0 = 0; for (var j = 0; j < v.length; j++) if (t[j] >= a && (t[j] < b || k === N - 1 && t[j] <= b)) { s0 += v[j]; n0++; } pts.push(n0 ? Math.round(s0 / n0) : null); }
       for (k = 0; k < pts.length; k++) if (pts[k] == null) pts[k] = pts[k - 1] != null ? pts[k - 1] : pts.filter(function (x) { return x != null; })[0];
-      v.forEach(function (x, j) { sum += x; if (x > mx) { mx = x; pkT = t[j]; } var zi = 0; thr.forEach(function (q) { if (x >= q) zi++; }); z[zi]++; });
-      mm.hrc = { pts: pts, dur: dur, avg: Math.round(sum / v.length), max: mx, pkT: pkT, kcal: r.kcal ? Math.round(r.kcal) : null, z: z.map(function (x) { return Math.round(x * 100 / v.length); }), thr: thr, w: !!r.watch, at: Date.now() };
+      v.forEach(function (x, j) { sum += x; if (x > mx) { mx = x; pkT = t[j]; } });
+      z = hrZT(v.map(function (x, j) { return [t[j], x]; }), thr);
+      mm.hrc = { pts: pts, dur: dur, avg: Math.round(sum / v.length), max: mx, pkT: pkT, kcal: r.kcal ? Math.round(r.kcal) : null, z: z, thr: thr, w: !!r.watch, at: Date.now() };
       // pour les phrases : les bpm d'origine (secondes, bpm), allégés
       var step = Math.max(1, Math.floor(v.length / 400)); mm.hrc.raw = []; for (j = 0; j < v.length; j += step) mm.hrc.raw.push([t[j], v[j]]);
       // 3.53.1 : un entraînement reprend la carte « cardio et zones » de la montre (courbe, zones, moyenne, calories)
@@ -12352,7 +12460,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function hrBackfill() {
     if (!UI.hkAsked && UI.hc && UI.hc.st && UI.hc.st.hr) { UI.hkAsked = 1; hkProfile(); }
     if (hrBusy || !HC_OK || !Tenup || !Tenup.healthHR || !(UI.hc && UI.hc.st && UI.hc.st.hr)) return;
-    var want = function (m) { return hrWin(m) && (!m.hrc || (m.hrc.none && Date.now() - m.hrc.at > 3 * 864e5 && (Date.now() - hrWin(m).a) < 10 * 864e5)); };
+    // 3.55.3 : séance de moins de 2 jours sans bpm (Santé pas encore synchronisé) : on réessaie après 10 min, pas 3 jours
+    var want = function (m) { var W = hrWin(m); if (!W) return false; if (!m.hrc) return true; if (!m.hrc.none) return false; var age = Date.now() - W.a; return age < 10 * 864e5 && Date.now() - m.hrc.at > (age < 2 * 864e5 ? 6e5 : 3 * 864e5); };
     var L = S.matches.filter(function (m) { return !m.dbl && !m.wo && want(m); }).concat((S.trainings || []).filter(want)).sort(function (a, b) { return (b.date || "") < (a.date || "") ? -1 : 1; }).slice(0, 8);
     if (!L.length) return;
     hrBusy = true;
@@ -12597,7 +12706,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.53.3 : FC de repos / âge pas encore autorisés (autorisation demandée avant la 3.53.2) : on les demande une fois en ouvrant la page
     if (HC_OK && Tenup && Tenup.healthRequest && !(S.hk && S.hk.rest) && S.hkReq !== 2 && UI.hc && UI.hc.st && UI.hc.st.granted) { S.hkReq = 2; save(); setTimeout(function () { Promise.resolve(Tenup.healthRequest()).then(function () { setTimeout(hkProfile, 1200); }, function () {}); }, 400); }
     var s = '<div class="screen hz-scr">' + topbar("", "Réglages") + '<h1 class="nf-h">Tes zones cardio</h1>' +
-      '<p class="nf-sub">Elles colorent tes courbes et calculent ton intensité, sur tes matchs et tes entraînements, anciens compris.</p>';
+      '<p class="nf-sub">Elles colorent tes courbes et calculent ton intensité, sur tes matchs et tes entraînements, anciens compris. Ta montre les utilise aussi, en direct.</p>';
     s += '<div class="tabs hz-m">' + [["auto", "Automatique"], ["kar", "Karvonen"], ["man", "À la main"]].map(function (x) { return '<button class="' + (mode === x[0] ? "on" : "") + '" data-a="hrzMode" data-v="' + x[0] + '">' + x[1] + "</button>"; }).join("") + "</div>";
     var row = function (k, lab, val, sub, step) { return '<div class="field inline"><span class="lbl">' + lab + '<span class="small" style="display:block;font-weight:400">' + sub + '</span></span><span class="stepper"><button data-a="hrzStep" data-k="' + k + '" data-v="-' + step + '" aria-label="' + lab + ' : baisser">−</button><span>' + val + '</span><button data-a="hrzStep" data-k="' + k + '" data-v="' + step + '" aria-label="' + lab + ' : monter">+</button></span></div>'; };
     if (mode === "auto") {
@@ -13151,10 +13260,20 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     sheet: function (el) { UI.sheet = { k: el.dataset.k, v: el.dataset.v }; render(); },
     leagueShare: function () {
       var R = leagueRows(); if (R.length < 2) return;
-      shareText("Ma ligue tennis, saison " + (seasonY() - 1) + "-" + String(seasonY()).slice(2) + " (chemin vers le prochain classement) :\n" + R.map(function (r, k) { return (k + 1) + ". " + (r.me ? (S.profile.name || "Moi") : r.name) + " · " + r.rank + (r.up ? " (monté)" : "") + " · " + r.pc + " %"; }).join("\n"));
+      shareText("Course tennis de " + MOIS_L[today().getMonth()] + " (points gagnés ce mois-ci) :\n" + R.map(function (r, k) { return (k + 1) + ". " + (r.me ? (S.profile.name || "Moi") : r.name) + " · " + r.rank + " · +" + r.pts + " pts (" + plural(r.v, "victoire") + ")"; }).join("\n"));
     },
-    leagueOut: function (el) { S.league = S.league || { y: seasonY(), start: {} }; S.league.out = (S.league.out || []).concat([el.dataset.v]); save(); render(); toast("Retiré de ta ligue. Tu le suis toujours."); },
-    profSend: function () { var P = profData(); if (P) sharePlain(profText(P)); },
+    leagueOut: function (el) { S.league = S.league || { y: seasonY(), start: {} }; S.league.out = (S.league.out || []).concat([el.dataset.v]); save(); render(); toast("Retiré de ta course. Tu le suis toujours."); },
+    // 3.55.4 (Yann) : la feuille de partage proposait un fichier ; on ouvre directement l'appli choisie, message prérempli
+    profSend: function (el) {
+      var P = profData(); if (!P) return;
+      var t = profText(P), v = el && el.dataset.v, u = encodeURIComponent(t);
+      if (v === "sms" || v === "wa" || v === "mail") { S.profSent = { m: E.iso(P.a), d: E.iso(today()) }; save(); UI.sheet = null; }
+      if (v === "sms") window.open("sms:" + (IOS ? "&" : "?") + "body=" + u, "_system");
+      else if (v === "wa") window.open("https://wa.me/?text=" + u, "_system");
+      else if (v === "mail") window.open("mailto:?subject=" + encodeURIComponent(profSecs(P).t) + "&body=" + u, "_system");
+      else { UI.sheet = { k: "prof", v: 1 }; render(); return; }
+      render();
+    },
     profCopy: function () { var P = profData(); if (!P) return; var t = profText(P); if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { toast("Message copié : colle-le où tu veux."); }, function () { toast("Copie impossible sur ce téléphone."); }); else toast("Copie impossible sur ce téléphone."); },
     warmGo: function (el) {
       var id = el.dataset.id, pl = planOf(id); if (!pl) return;
