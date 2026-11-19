@@ -6891,7 +6891,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<button class="iconbtn" data-a="actPlus" aria-label="Ajouter" style="background:var(--solid);color:var(--on-solid)">' + I.plus + "</button></div>";
     s += dayStripHtml();
     s += '<div class="seg act-seg" role="tablist"><button data-a="actTab" data-v="m" class="' + (act === "m" ? "on" : "") + '" aria-pressed="' + (act === "m") + '">Matchs</button><button data-a="actTab" data-v="t" class="' + (act === "t" ? "on" : "") + '" aria-pressed="' + (act === "t") + '">Entraînements</button></div>';
-    if (act === "t") return s + trainMonthHtml() + trainListHtml() + "</div>" + tabbar("palmares");
+    if (act === "t") return s + profHtml() + trainMonthHtml() + trainListHtml() + "</div>" + tabbar("palmares"); // 3.55 : le point pour ton prof
     var nF = (fRes !== "all" ? 1 : 0) + (fType !== "all" ? 1 : 0);
     s = s.replace('<div class="seg act-seg"', '<div class="act-bar"><div class="seg act-seg"');
     s += (nTodo ? '<button class="act-ic' + (fTodo ? " todo" : "") + '" data-a="palBell" aria-label="' + plural(nTodo, "match à annoter", "matchs à annoter") + '">' + BELL + '<span class="act-badge">' + nTodo + "</span></button>" : "") +
@@ -8751,6 +8751,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return body;
   }
   var DET = {
+    // 3.55 : aperçu du point pour ton prof (le texte exact qui part)
+    prof: function () {
+      var P = profData(); if (!P) return null;
+      return { title: "Aperçu pour ton prof", sub: "Envoyé en message (Messages, WhatsApp, mail…). Ton prof n'a pas besoin de l'app.", body: '<div class="pf-prev">' + esc(profText(P)).replace(/\n/g, "<br>") + '</div><div class="ls-foot" style="margin-top:12px"><button class="go-pill" data-a="profSend">Envoyer ' + I.next + "</button></div>" };
+    },
     // 3.55 : la ligue des copains, comment c'est compté
     league: function () {
       var R = leagueRows(); if (R.length < 2) return null;
@@ -10323,6 +10328,69 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
   // Partage : texte + liens de téléchargement. Natif → feuille de partage du téléphone ; web → Web Share ou copie.
   var STORE_LINKS = { ios: "https://apps.apple.com/fr/app/id6826303003", android: "https://play.google.com/store/apps/details?id=fr.montennis.app" };
+  // 3.55 (Yann, nouveautés 19/11) : le point du mois pour ton prof (Montée+). Tout vient de ce que Montée a déjà :
+  // matchs du mois, ressenti, service (montre), chiffres du débrief, séances et leurs thèmes. Rien ne part sans toi.
+  function profData() {
+    var t = today(), a = new Date(t.getFullYear(), t.getMonth(), 1);
+    var inM = function (d, x) { var b = new Date(x.getFullYear(), x.getMonth() + 1, 1); return d >= E.iso(x) && d < E.iso(b); };
+    var ms = function (x) { return S.matches.filter(function (m) { return m.date && !m.wo && !m.dbl && (m.result === "V" || m.result === "D") && inM(m.date, x); }); };
+    // en début de mois, le mois d'avant tant que le nouveau a moins de 2 matchs
+    if (ms(a).length < 2 && t.getDate() <= 10) a = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+    var M = ms(a).sort(function (x, y) { return x.date < y.date ? 1 : -1; });
+    var TR = (S.trainings || []).filter(function (x) { return x.date && inM(x.date, a); });
+    if (M.length + TR.length < 2) return null;
+    var V = M.filter(function (m) { return m.result === "V"; }), D = M.filter(function (m) { return m.result === "D"; });
+    var fs = function (m) { var x = m.serve && m.serve.me; return x && x.pts >= 15 ? Math.round(x.firstIn * 100 / x.pts) : null; };
+    var avg = function (L) { var v = L.map(fs).filter(function (x) { return x != null; }); return v.length ? Math.round(v.reduce(function (s, x) { return s + x; }, 0) / v.length) : null; };
+    var sD = avg(D), sV = avg(V);
+    var tight = 0; M.forEach(function (m) { setsOf(m.score).forEach(function (st, i) { if (st[0] < st[1] && (isTb(st) || isSuperTb(st, i) || st[1] - st[0] <= 2)) tight++; }); });
+    var felt = {}; M.forEach(function (m) { (m.felt || []).forEach(function (k) { var key = (m.result === "V" ? "V:" : "D:") + k; felt[key] = (felt[key] || 0) + 1; }); });
+    var dfL = D.map(function (m) { return numFilled(m) ? numOf(m).df : null; }).filter(function (x) { return x != null; });
+    var dfA = dfL.length ? dfL.reduce(function (s, x) { return s + x; }, 0) / dfL.length : null;
+    var TH = [];
+    if (sD != null && sV != null && sV - sD >= 5) TH.push(["Servir sous pression", "1res balles à " + sD + " % dans tes défaites, " + sV + " % dans tes victoires"]);
+    if (tight >= 2) TH.push(["Conclure un set", plural(tight, "set perdu", "sets perdus") + " de 2 jeux ou au tie-break"]);
+    if (dfA != null && dfA >= 4) TH.push(["Deuxième balle", "≈ " + Math.round(dfA) + " doubles fautes par défaite"]);
+    if (felt["D:absent"]) TH.push(["Entrer dans le match", "« pas dans le match » sur " + plural(felt["D:absent"], "défaite")]);
+    if (felt["D:fort"] && TH.length < 2) TH.push(["Tenir l'échange contre plus fort", "« il était plus fort » sur " + plural(felt["D:fort"], "défaite")]);
+    var wk = {}; TR.forEach(function (x) { trThemes(x).forEach(function (k) { wk[k] = (wk[k] || 0) + 1; }); });
+    var WL = {}; TR_WORK.forEach(function (x) { WL[x[0]] = x[1]; });
+    var work = Object.keys(wk).sort(function (x, y) { return wk[y] - wk[x]; }).map(function (k) { return (WL[k] || k).toLowerCase() + (wk[k] > 1 ? " ×" + wk[k] : ""); });
+    var good = Object.keys(felt).filter(function (k) { return /^V:/.test(k); }).sort(function (x, y) { return felt[y] - felt[x]; }).map(function (k) { return feltLabel({ result: "V" }, k.slice(2)).toLowerCase(); });
+    var mins = TR.reduce(function (s, x) { return s + playMinutes(x); }, 0);
+    return { a: a, mo: MOIS_L[a.getMonth()], M: M, V: V, D: D, TR: TR, mins: mins, sD: sD, sV: sV, tight: tight, TH: TH.slice(0, 2), work: work, good: good, fs: fs };
+  }
+  function profText(P) {
+    var nm = S.profile.name || "", y = P.a.getFullYear();
+    var L = [(nm ? "Le point de " + nm : "Mon point tennis") + " · " + P.mo + " " + y + (effRank() ? " · " + effRank() : ""), ""];
+    if (P.M.length) { L.push("Matchs : " + P.V.length + " V · " + P.D.length + " D"); P.M.forEach(function (m) { var f = P.fs(m); L.push("• " + m.result + " " + (nameCase(m.opp) || "") + " (" + (m.oppRank || "") + ") " + (m.score || "") + (f != null ? " · 1res " + f + " %" : "")); }); L.push(""); }
+    if (P.good.length) L.push("Ce qui a marché : " + P.good.slice(0, 2).join(", "));
+    if (P.TH.length) { L.push("À travailler, d'après mes matchs :"); P.TH.forEach(function (x, i) { L.push((i + 1) + ". " + x[0] + " (" + x[1] + ")"); }); }
+    if (P.TR.length) L.push("Séances : " + P.TR.length + " · " + fmtDur(P.mins) + (P.work.length ? " · " + P.work.join(", ") : ""));
+    return L.join("\n");
+  }
+  function profHtml() {
+    var P = profData(); if (!P) return "";
+    var lock = PLUS_LOCK(), th = P.TH[0];
+    var t = (P.M.length ? plural(P.M.length, "match", "matchs") + ", " : "") + plural(P.TR.length, "séance") + "." + (th ? " Ce qui coince : " : "");
+    var kv = function (k, v) { return "<span>" + k + "</span><b>" + v + "</b>"; };
+    var body = '<div class="pf-kv">' + (P.M.length ? kv("Matchs", P.V.length + " V · " + P.D.length + " D") : "") + (P.TR.length ? kv("Séances", P.TR.length + " · " + esc(fmtDur(P.mins))) : "") +
+      (P.tight ? kv("Serré", plural(P.tight, "set perdu", "sets perdus") + " de 2 jeux ou au tie-break") : "") + (P.sD != null && P.sV != null ? kv("Service", "1res à " + P.sD + " % dans les défaites, " + P.sV + " % dans les victoires") : "") +
+      (P.good.length ? kv("Marché", esc(P.good.slice(0, 2).join(", "))) : "") + "</div>" +
+      (P.TH.length ? '<span class="eyebrow pf-sub">' + (P.TH.length > 1 ? "2 thèmes proposés" : "Un thème proposé") + "</span>" + P.TH.map(function (x, i) { return '<div class="rb-st"><span class="rb-n">' + (i + 1) + '</span><span><b>' + esc(x[0]) + '</b><span class="small">' + esc(x[1]) + "</span></span></div>"; }).join("") : "");
+    return '<div class="card pf-card"><div class="ch-hd"><span class="eyebrow">Le point pour ton prof · ' + esc(P.mo) + '</span><span class="ch-plus">Montée+</span></div>' +
+      '<b class="m2-t">' + esc(t) + (th ? '<span class="hl-t">' + esc(th[0].toLowerCase()) + "</span>." : "") + "</b>" +
+      '<div class="' + (lock ? "ch-blur" : "") + '">' + body + "</div>" +
+      (lock ? '<button class="btn primary small ch-cta" data-a="goSoutenirComp">Envoyer le point du mois avec Montée+</button>' :
+        '<span class="small">Tu relis avant d\'envoyer. Rien ne part sans toi.</span><div class="ls-foot"><button class="go-pill" data-a="sheet" data-k="prof" data-v="1">Aperçu ' + I.next + '</button><button class="go-pill" data-a="profSend">Envoyer à ton prof ' + I.next + "</button></div>") + "</div>";
+  }
+  // texte seul, sans liens vers l'app (message pour le prof)
+  function sharePlain(txt) {
+    var copy = function () { if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast("Message copié : colle-le où tu veux."); }, function () { toast("Partage impossible sur ce téléphone."); }); else toast("Partage impossible sur ce téléphone."); };
+    if (Tenup && typeof Tenup.shareText === "function") return Promise.resolve().then(function () { return Tenup.shareText({ title: "Montée", text: txt }); }).catch(copy);
+    if (navigator.share) return navigator.share({ text: txt }).catch(function () {});
+    copy();
+  }
   function shareText(msg) {
     var links = NATIVE ? "\n\niPhone : " + STORE_LINKS.ios + "\nAndroid : " + STORE_LINKS.android : "\n\n" + location.origin + location.pathname;
     var full = msg + links;
@@ -12267,6 +12335,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       shareText("Ma ligue tennis, saison " + (seasonY() - 1) + "-" + String(seasonY()).slice(2) + " (chemin vers le prochain classement) :\n" + R.map(function (r, k) { return (k + 1) + ". " + (r.me ? (S.profile.name || "Moi") : r.name) + " · " + r.rank + (r.up ? " (monté)" : "") + " · " + r.pc + " %"; }).join("\n"));
     },
     leagueOut: function (el) { S.league = S.league || { y: seasonY(), start: {} }; S.league.out = (S.league.out || []).concat([el.dataset.v]); save(); render(); toast("Retiré de ta ligue. Tu le suis toujours."); },
+    profSend: function () { var P = profData(); if (P) sharePlain(profText(P)); },
     rebondOpen: function () { UI.rebondOpen = !UI.rebondOpen; render(); },
     rebondHide: function (el) { S.rebond = S.rebond || {}; S.rebond.hid = el.dataset.v; save(); render(); toast("Masqué jusqu'à ta prochaine série."); },
     hideWatchCard: function () { S.prefs = S.prefs || {}; S.prefs.hideWatchCard = 1; UI.sheet = null; save(); render(); toast("Carte masquée. Tu la retrouves dans Réglages."); },
