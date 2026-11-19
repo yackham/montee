@@ -2198,7 +2198,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     B.carte = cardHomeHtml();
     B.plan = p.status === "top" ? tourHomeHtml() + planHomeHtml() : "";
     B.charge = chargeHtml();
-    var stale = !S.tenup.lastImport || (today() - E.parseDate(S.tenup.lastImport)) / 864e5 > 6;
+    var stale = !S.tenup.lastImport || (today() - E.parseDate(S.tenup.lastImport)) / 864e5 > 3 || (S.tenup.fails || 0) > 0; // 3.55 (Yann, maquette D) : synchro ratée ou de plus de 3 jours
     if (stale) B.sync = '<a class="row" href="#/tenup" style="background:var(--card);border-radius:20px;text-decoration:none"><span class="badge ok">' + I.link + '</span><span class="grow"><span class="t">Actualiser depuis Ten\'Up</span><span class="s">' + (S.tenup.lastImport ? "Dernier import le " + esc(fdate(S.tenup.lastImport)) : "Récupère tes matchs et la simulation officielle") + "</span></span>" + I.next + "</a>";
 
     B.rate = rateCardHtml();
@@ -2271,6 +2271,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (B.rate) B.slot = "";
     // 3.55 (Yann, maquette I) : première synchro : une seule chose à faire (le dernier match), le reste attend
     if (freshStart()) { ["cordage", "rate", "slot", "sync", "week", "semaine", "todo", "charge", "essayer", "goal", "carte"].forEach(function (k) { B[k] = ""; }); X.an = ""; B.annoter = qaHtml(true); }
+    // 3.55 (Yann, maquette D) : les petites choses à faire (annoter, ressenti, cordage, synchro) dans une seule carte « À faire »
+    if (!freshStart()) {
+      var tdK = ["annoter", "rate", "slot", "cordage", "sync"].filter(function (k) { return B[k]; });
+      if (tdK.length >= 2) {
+        var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
+        var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + tdK.map(function (k) { return '<div class="td3-i">' + B[k] + "</div>"; }).join("") + "</div>";
+        tdK.forEach(function (k) { B[k] = ""; }); B[tdK[0]] = tdH;
+      }
+    }
     var inv = ["carte", "sync", "goal", "essayer"], got = false; inv.forEach(function (k) { if (B[k]) { if (got) B[k] = ""; got = true; } });
     s += homeLayout(B, X);
     s += '<p class="small">Calcul indicatif d\'après le barème FFT. Seul le classement officiel fait foi.</p>';
@@ -6886,7 +6895,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }
       var pt = pts[m.id];
       var ptsHtml = !counts(m) ? '<span class="pts muted" style="font-weight:500;font-size:13px">ne compte pas</span>' : m.result === "V" ? (old ? "" : pt != null ? '<span class="pts pos">+' + pt + "</span>" : '<span class="pts muted" style="font-weight:500;font-size:13px">hors quota</span>') : "";
-      var tag = m.wo ? '<span class="tag">Forfait · non joué</span>' : annotated(m) ? (oneRk && !m.string && !m.tension ? "" : '<span class="tag">' + esc(setupLabel(m)) + "</span>") : needsNote(m) ? '<span class="tag todo">À annoter</span>' : "";
+      var tag = m.wo ? '<span class="tag">Forfait · non joué</span>' : annotated(m) ? "" /* 3.55 (audit, validé) : la raquette et le cordage restent dans la fiche du match */ : needsNote(m) ? '<span class="tag todo">À annoter</span>' : "";
       if (isManual(m)) tag = '<span class="tags"><span class="tag manual" title="Pas encore sur Ten\'Up">' + I.edit + " Saisi à la main</span>" + tag + "</span>";
       else if (m.manualOrigin && m.confirmedAt && dayDiff(m.confirmedAt, E.iso(today())) <= 14) tag = '<span class="tags"><span class="tag ok">' + I.check + " Confirmé par Ten'Up</span>" + tag + "</span>";
       s += '<a class="row' + (isManual(m) ? " manual" : "") + '" href="#/match/' + m.id + '" style="background:var(--card);border-radius:20px' + (old ? ";opacity:.65" : "") + '"><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(nameCase(m.opp) || "Adversaire") + ' <span class="muted" style="font-weight:400">· ' + esc(m.oppRank) + '</span></span><span class="s">' + (m.date ? esc(fdate(m.date)) : "") + (m.score ? (m.date ? " · " : "") + esc(m.score) : "") + (!m.date && !m.score ? "Ajoute date et score si tu veux" : "") + "</span>" + tag + "</span>" + ptsHtml + "</a>";

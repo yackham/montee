@@ -4562,3 +4562,12 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .emp-c b { font-size: 18px; }
 .emp-c p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.45; }
 .emp-c .btn { align-self: stretch; margin-top: 6px; }
+/* 3.55 (Yann, maquette D) : une seule carte « À faire » ; les cartes d'origine deviennent des lignes */
+.td3 { gap: 0; }
+.td3-h { display: flex; align-items: baseline; gap: 8px; padding-bottom: 4px; }
+.td3-h .eyebrow { flex: 1; }
+.td3-i { border-top: 1px solid var(--line); }
+.td3-h + .td3-i { border-top: 0; }
+.td3-i > .card, .td3-i > a.row, .td3-i > button.card { background: transparent !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; padding: 12px 0 !important; margin: 0 !important; width: 100%; }
+.td3-i > .card .eyebrow { font-size: 11.5px; }
+.td3 .qa1-r b { white-space: normal; overflow: visible; text-overflow: clip; }
