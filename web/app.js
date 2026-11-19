@@ -1319,9 +1319,49 @@
     };
     var R = c.renc || [], up = R.filter(function (r) { return r.st !== "T" && r.d >= td; }), done = R.filter(function (r) { return r.st === "T" || r.d < td; });
     if (up.length) s += '<h2 class="tm-gh">À venir</h2>' + groups(up, false);
-    if (done.length) s += '<h2 class="tm-gh">Résultats</h2>' + groups(done, true);
+    // 3.55 (Yann : « une timeline, plus visuel ») : les rencontres de TON équipe en frise, journée par journée (résultat, adversaire, domicile,
+    // tes matchs, la place de l'équipe après la journée) ; les rencontres des autres équipes de la poule repliées en dessous
+    var mineD = done.filter(function (r) { return r.a === me || r.b === me; }), othD = done.filter(function (r) { return r.a !== me && r.b !== me; });
+    if (mineD.length) s += teamFriseHtml(c, mineD);
+    if (othD.length) s += '<div class="card tm-oth"><button class="tm-oh" data-a="tmOth" aria-expanded="' + !!UI.tmOth + '"><b>Les autres rencontres de la poule</b><span class="small">' + othD.length + " " + (UI.tmOth ? "▴" : "›") + "</span></button></div>" + (UI.tmOth ? groups(othD, true) : "");
     return s + "</div>";
   };
+  // La place de chaque équipe après chaque journée, recalculée depuis les résultats : points du barème, puis matchs gagnés − perdus
+  function tmPlaces(c) {
+    var P = c.pts || {}, ids = (c.teams || []).map(function (t) { return t.id; }), pts = {}, md = {}, out = {};
+    ids.forEach(function (i) { pts[i] = 0; md[i] = 0; });
+    var R = (c.renc || []).filter(function (r) { return r.st === "T" && r.s1 != null && r.s2 != null; }).sort(function (a, b) { return (a.dt || a.d) < (b.dt || b.d) ? -1 : 1; });
+    var keys = []; R.forEach(function (r) { var k = r.dt || r.d; if (keys.indexOf(k) < 0) keys.push(k); });
+    keys.forEach(function (k) {
+      R.filter(function (r) { return (r.dt || r.d) === k; }).forEach(function (r) {
+        var a = +r.s1, b = +r.s2, add = function (id, x) { if (pts[id] != null) pts[id] += x || 0; };
+        if (r.f) { add(r.f === r.a ? r.b : r.a, P.v); } else if (a > b) { add(r.a, P.v); add(r.b, P.d); } else if (b > a) { add(r.b, P.v); add(r.a, P.d); } else { add(r.a, P.n); add(r.b, P.n); }
+        if (md[r.a] != null) md[r.a] += a - b; if (md[r.b] != null) md[r.b] += b - a;
+      });
+      var ord = ids.slice().sort(function (x, y) { return (pts[y] - pts[x]) || (md[y] - md[x]); }), pl = {};
+      ord.forEach(function (id, i) { pl[id] = i + 1; }); out[k] = pl;
+    });
+    // la dernière journée jouée : la place officielle de Ten'Up (pénalités, départages du règlement)
+    var last = keys[keys.length - 1]; if (last) (c.teams || []).forEach(function (t) { if (t.cl) out[last][t.id] = t.cl; });
+    return out;
+  }
+  function teamFriseHtml(c, L) {
+    var me = c.me.mine, cal = c.cal || [], PL = {}; try { PL = tmPlaces(c); } catch (e) {}
+    var mS = S.matches.filter(function (m) { return !m.dbl && (m.result === "V" || m.result === "D"); }), mD = (S.doubles || []).filter(function (m) { return m.result === "V" || m.result === "D"; });
+    var prev = null, nT = (c.teams || []).length;
+    var items = L.slice().sort(function (a, b) { return (a.dt || a.d) < (b.dt || b.d) ? -1 : 1; }).map(function (r) {
+      var k = r.dt || r.d, j = cal.filter(function (x) { return x.d === k; })[0], d = E.parseDate(r.d), home = r.dom === me;
+      var a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1, res = r.f ? (r.f === me ? "D" : "V") : a > b ? "V" : a < b ? "D" : "N";
+      var opp = tmNm(r.a === me ? r.bn : r.an), s1 = mS.filter(function (m) { return m.date === r.d; }), d1 = mD.filter(function (m) { return m.date === r.d; }), played = s1.length + d1.length > 0;
+      var pl = (PL[k] || {})[me], arrow = pl && prev ? (pl < prev ? ' <span class="up">↗</span>' : pl > prev ? ' <span class="dn">↘</span>' : "") : ""; if (pl) prev = pl;
+      var plT = pl ? (pl === 1 ? "1re" : pl + "e") : "";
+      var mine = played ? '<span class="tf-ml"><span class="tf-toi">TOI</span>' + s1.map(function (m) { return '<span class="tf-m"><i class="s ' + m.result + '"></i>Simple ' + m.result + "</span>"; }).join("") + d1.map(function (m) { return '<span class="tf-m"><i class="d ' + m.result + '"></i>Double ' + m.result + "</span>"; }).join("") + "</span>" : "";
+      return '<a class="tf-it" href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"><span class="tf-d">' + (j ? "J" + j.j : "") + "<small>" + d.getDate() + "/" + (d.getMonth() + 1) + '</small></span><span class="tf-rl"><span class="tf-dot ' + res + '">' + res + '</span></span><span class="tf-bx' + (played ? " me" : "") + '"><span class="tf-r1"><span>' + (home ? "contre " : "à ") + esc(opp) + (home ? ' <i class="tm-dom" title="reçoit">⌂</i>' : "") + '</span><b class="tf-sc ' + res + '">' + (r.f ? "forfait" : (a != null ? a : "") + "–" + (b != null ? b : "")) + "</b></span>" + mine +
+        (plT || !played ? '<small class="tf-pl">' + (played ? "Après la journée : " : "Tu n'as pas joué" + (plT ? " · " : "")) + (plT ? "<b>" + plT + "</b>" + arrow : "") + "</small>" : "") + "</span></a>";
+    }).join("");
+    return '<div class="card tf"><span class="eyebrow">Ta saison, journée par journée</span><div class="tf-l">' + items + "</div>" +
+      '<span class="small">Point de couleur : le résultat de la rencontre. Encadré : tu as joué ce jour-là (carré : simple, rond : double). Place de l\'équipe après la journée' + (nT ? " (sur " + nT + ")" : "") + ", recalculée depuis les résultats ; la dernière est celle de Ten'Up. Touche une journée : la feuille de match.</span></div>";
+  }
   // 3.50 : la feuille de match d'une rencontre. Ten'Up ne documente pas son format : on reconnaît les matchs à leurs joueurs
   // (objets avec nom / prénom) et leurs sets (petits tableaux de nombres), le côté de chaque joueur au nom de sa clé (…1 / …2, domicile / extérieur).
   // 3.50.2 : le format exact de Ten'Up (feuille de match vue le 17/11) : equipeRecevante / equipeInvitee, matchs[] avec
@@ -12773,6 +12813,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     skipImport: function () { UI.draft = null; if (!S.profile.rank) { UI.afterProfil = "match/new"; go("profil"); return; } S.onboarded = true; save(); go("match/new"); },
     palTab: function (el) { UI.palTab = el.dataset.v; render(); },
+    tmOth: function () { UI.tmOth = !UI.tmOth; render(); },
     teOpen: function (el) { UI.teOpen = UI.teOpen === el.dataset.v ? null : el.dataset.v; render(); },
     szTog: function (el) { UI.szOpen = UI.szOpen || {}; var y = el.dataset.v; UI.szOpen[y] = !UI.szOpen[y]; render(); },
     h2hAll: function () { UI.h2hAll = !UI.h2hAll; render(); },

@@ -4502,3 +4502,24 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .te2-r .grow { display: flex; flex-direction: column; } .te2-r b { font-size: 14px; font-weight: 650; } .te2-r small { font-size: 12px; color: var(--muted); }
 .te2-p { font-size: 12px; font-weight: 700; border-radius: 20px; padding: 3px 8px; background: var(--chip); white-space: nowrap; }
 .te2-note { font-size: 12.5px; color: var(--muted); background: var(--chip); border-radius: 12px; padding: 10px; line-height: 1.45; }
+/* 3.55 : fiche équipe, la frise des journées */
+.tf { gap: 12px; }
+.tf-l { display: flex; flex-direction: column; }
+.tf-it { display: grid; grid-template-columns: 38px 20px 1fr; gap: 0 8px; padding-bottom: 10px; text-decoration: none; color: inherit; position: relative; }
+.tf-d { font-size: 11px; font-weight: 800; color: var(--muted); text-align: right; padding-top: 2px; } .tf-d small { display: block; font-weight: 500; }
+.tf-rl { position: relative; display: flex; justify-content: center; }
+.tf-rl::before { content: ""; position: absolute; top: 20px; bottom: -10px; width: 2px; background: var(--line); }
+.tf-it:last-child .tf-rl::before { display: none; }
+.tf-dot { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #17181C; z-index: 1; }
+.tf-dot.V { background: var(--gazon); } .tf-dot.D { background: var(--terre); } .tf-dot.N { background: var(--muted); }
+.tf-bx { background: var(--chip); border-radius: 14px; padding: 9px 11px; display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; min-width: 0; }
+.tf-bx.me { box-shadow: inset 0 0 0 2px var(--balle, #D9E85A); }
+.tf-r1 { display: flex; justify-content: space-between; gap: 8px; } .tf-r1 > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tf-sc { font-weight: 800; white-space: nowrap; } .tf-sc.V { color: var(--gazon); } .tf-sc.D { color: var(--terre); }
+:root[data-theme="nuit"] .tf-sc.V { color: #7FC79A; } :root[data-theme="nuit"] .tf-dot.V { background: #7FC79A; }
+.tf-ml { display: flex; flex-wrap: wrap; gap: 5px; font-size: 11px; align-items: center; }
+.tf-toi { background: var(--balle, #D9E85A); color: #17181C; font-weight: 800; border-radius: 6px; padding: 1px 5px; }
+.tf-m { display: inline-flex; align-items: center; gap: 4px; background: var(--card); border-radius: 6px; padding: 1px 6px; font-weight: 650; }
+.tf-m i { width: 9px; height: 9px; display: inline-block; } .tf-m i.s { border-radius: 2px; } .tf-m i.d { border-radius: 50%; } .tf-m i.V { background: var(--gazon); } .tf-m i.D { background: var(--terre); }
+.tf-pl { font-size: 12px; color: var(--muted); } .tf-pl b { color: var(--ink); } .tf-pl .up { color: var(--gazon); } .tf-pl .dn { color: var(--terre); }
+.tm-oth { padding: 0; } .tm-oh { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 16px 18px; font-size: 15px; }
