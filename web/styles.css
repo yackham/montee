@@ -4571,3 +4571,28 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .td3-i > .card, .td3-i > a.row, .td3-i > button.card { background: transparent !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; padding: 12px 0 !important; margin: 0 !important; width: 100%; }
 .td3-i > .card .eyebrow { font-size: 11.5px; }
 .td3 .qa1-r b { white-space: normal; overflow: visible; text-overflow: clip; }
+/* 3.55 (Yann, maquettes B et C) : fiche victoire / défaite */
+.off-card.hx { overflow: hidden; }
+.hx-ill { margin: -16px -18px 2px; height: 110px; overflow: hidden; }
+.hx-ill svg { width: 100%; height: 110px; display: block; }
+.off-card.hx.d .hx-ill { filter: grayscale(.55) brightness(.92); }
+.off-card.hx .off-top { justify-content: flex-start; gap: 8px; }
+.hx-badge { font-size: 12px; font-weight: 800; letter-spacing: .02em; border-radius: 99px; padding: 4px 10px; background: var(--chip); color: var(--sub); }
+.off-card.hx.v .hx-badge { color: var(--balle); }
+.hx-meta { margin-top: -4px; }
+.hx-ok { color: var(--gazon); white-space: nowrap; } .hx-ok svg { width: 12px; height: 12px; vertical-align: -1px; }
+.hx-imp { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.hx-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.hx-row .small { text-align: right; } .hx-row .small b { color: var(--ink); }
+.hx-big { font-size: 30px; letter-spacing: -.02em; color: var(--sub); line-height: 1.1; } .hx-big.pos { color: var(--gazon); }
+.hx-bar { position: relative; height: 8px; border-radius: 4px; background: var(--chip); overflow: hidden; }
+.hx-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--gazon); opacity: .45; } .hx-bar i.a { opacity: 1; }
+.off-card.hx.d .hx-bar i { background: var(--muted); }
+.hx-say { font-size: 15px; font-weight: 700; line-height: 1.35; }
+.hx-next { flex-direction: row; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+.hx-next .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; } .hx-next b { font-size: 16px; }
+.hx-next .go-pill { margin-left: auto; flex: none; }
+.hx-tr { display: flex; align-items: center; gap: 12px; padding: 11px 0; border: 0; border-top: 1px solid var(--line); background: none; color: inherit; text-align: left; width: 100%; font: inherit; cursor: pointer; }
+.td3-h + .hx-tr { border-top: 0; }
+.hx-tr .grow { flex: 1; display: flex; flex-direction: column; gap: 2px; } .hx-tr b { font-size: 15.5px; }
+.hx-tr svg { flex: none; margin-left: auto; width: 18px; height: 18px; color: var(--muted); }
