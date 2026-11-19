@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.55.2",
+    VERSION: "3.55.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -267,9 +267,32 @@
   };
 
   // ---------- Calculs partagés ----------
+  // 3.55.3 (Yann) : règle FFT, on ne descend que d'un échelon par période de 12 mois. Si tu es descendu il y a moins
+  // de 12 mois (et pas remonté depuis), tu ne peux pas redescendre avant les 12 mois. Sources : ton historique de
+  // classement (S.rankLog) et le message de ta simulation Ten'Up (« n'évoluera pas… descente déjà survenue »).
+  var PROT_RE = /n.?[ée]voluera pas|ne (bougera|changera) pas|d[ée]j[àa] (survenue|descendu)|maintenu/i;
+  function relOnOrBefore(d) { var r = E.nextRelease(new Date(d.getFullYear(), d.getMonth(), 1)); return r <= d ? r : E.nextRelease(new Date(d.getFullYear(), d.getMonth() - 1, 1)); }
+  function myProtection() {
+    var out = null, lg = S.rankLog || [];
+    for (var i = lg.length - 1; i >= 0; i--) {
+      var a = E.idx(lg[i].from), b = E.idx(lg[i].to); if (a == null || b == null || a === b) continue;
+      if (b > a) break; // remonté depuis : le compteur repart de zéro
+      var dd = E.parseDate(lg[i].d); if (!dd) break;
+      var at = relOnOrBefore(dd), until = E.nextRelease(new Date(at.getFullYear() + 1, at.getMonth(), 1)); // la sortie du même mois, un an après : la descente redevient possible
+      if (until > today()) out = { from: at, until: until, src: "log", was: lg[i].from };
+      break;
+    }
+    var o = S.tenup && S.tenup.official;
+    if (!out && o && o.message && PROT_RE.test(String(o.message)) && o.at && (today() - new Date(o.at)) < 40 * 864e5) {
+      // Ten'Up ne simule que la prochaine sortie : on protège celle-là
+      var nx = E.nextRelease(today()); out = { from: null, until: new Date(nx.getTime() + 864e5), src: "tenup" };
+    }
+    return out;
+  }
   function ctx() {
     var cur = curIdx(), sex = S.profile.sex;
     var opts = { today: today() };
+    try { var prot = myProtection(); if (prot) opts.protectUntil = prot.until; } catch (e) {}
     if (S.ahead) { var t = E.parseDate(S.ahead.release); t.setDate(t.getDate() + 1); opts.release = E.nextRelease(t); }
     opts.extra = tenupExtra(opts.release || E.nextRelease(today()), cur);
     var proj = E.project(allMatches(), cur, sex, opts);
@@ -586,6 +609,7 @@
     if (UI.trRen && route() !== "tournoi/" + UI.trRen) UI.trRen = null; // 3.46.1 : on ne garde pas une épreuve en modification en la quittant
     var r = route(), parts = r.split("/"), html;
     UI.partyKey = null; UI.mmOv = null;
+    try { if (slotLinkTrainings()) save(); } catch (e) {}
     if (!S.scoreV2) {
       // scores importés écrits du point de vue du vainqueur : on les remet dans ton sens
       S.scoreV2 = 1;
@@ -610,6 +634,8 @@
     refreshAhead();
     if (S.ahead && S.onboarded) UI.partyKey = S.ahead.release + ">" + S.ahead.rank;
     if (!S.onboarded && (parts[0] === "" || parts[0] === "palmares" || parts[0] === "courbes")) { location.replace("#/bienvenue"); return; }
+    // 3.55.3 : une page qui plante ne bloque plus l'app (avant : « il ne se passe rien » au toucher)
+    try {
     switch (parts[0]) {
       case "bienvenue": html = V.welcome(); break;
       case "projection": html = V.projection(); break;
@@ -652,6 +678,11 @@
       case "zones": html = V.zones(); break;
       case "sante": html = V.sante(parts[1]); break;
       default: html = V.home();
+    }
+    } catch (err) {
+      try { console.error(err); } catch (e2) {}
+      UI.lastViewErr = { r: r, m: String((err && err.message) || err).slice(0, 160), at: Date.now() };
+      html = '<div class="screen">' + topbar("", "Retour") + '<div class="card empty"><b>Cette page n\'a pas pu s\'afficher</b><span class="small">Un détail dans les données l\'empêche de s\'ouvrir. Reviens en arrière ; si ça se reproduit, envoie-nous ce message : ' + esc(UI.lastViewErr.m) + "</span></div></div>";
     }
     // Onglet de la section courante, pour les pages en profondeur
     var TOPS = { "": "home", palmares: "palmares", courbes: "courbes", faf: "faf" };
@@ -1312,12 +1343,21 @@
     var cal = c.cal || [], jOf = function (r) { var k = r.dt || r.d, j = cal.filter(function (x) { return x.d === k; })[0]; return j ? "J" + j.j : (function (d) { return d.getDate() + "/" + (d.getMonth() + 1); })(E.parseDate(r.d)); };
     var fr = R.slice().sort(function (x, y) { return (x.dt || x.d) < (y.dt || y.d) ? -1 : 1; }).slice(-7).map(function (r) {
       var a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1, res = a > b ? "V" : a < b ? "D" : "N", w = mS.some(function (m) { return m.date === r.d; }) || mD.some(function (m) { return m.date === r.d; });
-      return '<a class="tim-c" href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"><span class="tim-tg' + (w ? "" : " no") + '">TOI</span><span class="tim-r ' + res + (w ? "" : " off") + '">' + a + "–" + b + "</span><small>" + jOf(r) + "</small></a>"; }).join("");
+      // 3.55.3 (Yann) : sous le score, tes matchs du jour (carré : simple, rond : double ; vert gagné, terre perdu)
+      var sq = mS.filter(function (m) { return m.date === r.d; }).map(function (m) { return '<i class="' + (m.result === "V" ? "" : "d") + '"></i>'; }).concat(mD.filter(function (m) { return m.date === r.d; }).map(function (m) { return '<i class="' + (m.result === "V" ? "" : "d") + ' db"></i>'; }));
+      return '<a class="tim-c" href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"><span class="tim-tg' + (w ? "" : " no") + '">TOI</span><span class="tim-r ' + res + (w ? "" : " off") + '">' + a + "–" + b + '</span><span class="tsx-me tim-me">' + sq.join("") + "</span><small>" + jOf(r) + "</small></a>"; }).join("");
     var say = Wo.k && W.k ? (W.v / W.k > Wo.v / Wo.k + 0.15 ? "L'équipe gagne plus souvent quand tu joues." : W.v / W.k < Wo.v / Wo.k - 0.15 ? "L'équipe gagne moins souvent quand tu joues : à creuser dans tes matchs." : "Avec ou sans toi, l'équipe a le même rendement.") : "";
+    // 3.55.3 (Yann) : rencontre par rencontre, ce que tu as gagné et perdu (« 26 avr. : simple gagné, double perdu »)
+    var byDay = R.slice().sort(function (x, y) { return x.d < y.d ? -1 : 1; }).map(function (r) {
+      var ms = mS.filter(function (m) { return m.date === r.d; }).map(function (m) { return "simple " + (m.result === "V" ? "gagné" : "perdu"); }).concat(mD.filter(function (m) { return m.date === r.d; }).map(function (m) { return "double " + (m.result === "V" ? "gagné" : "perdu"); }));
+      if (!ms.length) return ""; var d = E.parseDate(r.d);
+      return '<span class="tim-day"><b>' + d.getDate() + " " + MOIS[d.getMonth()] + "</b> " + ms.join(", ") + "</span>";
+    }).filter(Boolean);
     var C = 2 * Math.PI * 14, part = teamWon ? Math.min(1, myV / teamWon) : 0;
     var ring = '<svg class="tim-ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--chip)" stroke-width="6"/>' + (part ? '<circle cx="18" cy="18" r="14" fill="none" stroke="var(--balle)" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + (C * part).toFixed(1) + " " + C.toFixed(1) + '" transform="rotate(-90 18 18)"/>' : "") + '<text x="18" y="21.3" text-anchor="middle" font-size="' + (teamWon > 9 ? 7.5 : 9) + '" font-weight="800" fill="var(--ink)">' + myV + "/" + teamWon + "</text></svg>";
     return '<div class="card tm-imp"><span class="eyebrow">Ton impact</span><div class="tim-fr">' + fr + '</div><div class="tim-cmp">' + bar("Avec toi", W, true) + bar("Sans toi", Wo) + "</div>" +
-      '<div class="tim-dn">' + ring + "<p><b>" + myV + " des " + plural(teamWon, "match", "matchs") + "</b> gagnés par l'équipe, c'est toi." + (sN || dN ? " " + [sN ? "Simples " + sV + "/" + sN : "", dN ? "doubles " + dV + "/" + dN : ""].filter(Boolean).join(" · ") + "." : "") + (say ? '<br><span class="tim-say">' + say + "</span>" : "") + "</p></div></div>";
+      '<div class="tim-dn">' + ring + "<p><b>" + myV + " des " + plural(teamWon, "point", "points") + "</b> gagnés par l'équipe viennent de tes matchs" + (dV ? " (un double se gagne à deux)" : "") + "." + (sN || dN ? " " + cap1([sN ? plural(sV, "simple gagné", "simples gagnés") + " sur " + sN : "", dN ? plural(dV, "double gagné", "doubles gagnés") + " sur " + dN : ""].filter(Boolean).join(", ")) + "." : "") + (say ? '<br><span class="tim-say">' + say + "</span>" : "") + "</p></div>" +
+      (byDay.length && byDay.length <= 4 ? '<div class="tim-days">' + byDay.join("") + "</div>" : "") + "</div>";
   }
   // 3.50.4 : l'état vide d'une liste (« viduel ») : le picto de la liste dans un cercle en pointillés, un titre, une phrase
   function viduel(k, t, p, foot) {
@@ -2228,7 +2268,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var cr = function (cls, ic, html) { return '<span class="cd3-r ' + cls + '"><span class="cd3-i">' + ic + "</span><span>" + html + "</span></span>"; };
       B.conditions = '<span class="h3-cond">' + cr(winOk ? "ok" : "ko", winOk ? I.check : I.cross, "Victoire contre un " + lab(target) + " ou mieux : <b>" + (winOk ? "acquise" : "il en faut une") + "</b>") +
         (c.cur <= 0 ? cr("ok", I.check, "Pas de descente possible sous 40") :
-          p.status === "descente" ? "" : cr(p.margin >= 0 ? "ok" : "ko", p.margin >= 0 ? I.check : I.warn, "Maintien à " + esc(effRank()) + " : <b>" + (p.margin >= 0 ? "assuré" : "menacé") + "</b>, " + (p.margin >= 0 ? plural(p.margin, "pt") + " d'avance" : plural(-p.margin, "pt") + " de retard"))) +
+          p.status === "descente" ? "" : p.kept ? cr("ok", I.check, "Maintien à " + esc(effRank()) + " : <b>protégé</b>, déjà descendu il y a moins de 12 mois") : cr(p.margin >= 0 ? "ok" : "ko", p.margin >= 0 ? I.check : I.warn, "Maintien à " + esc(effRank()) + " : <b>" + (p.margin >= 0 ? "assuré" : "menacé") + "</b>, " + (p.margin >= 0 ? plural(p.margin, "pt") + " d'avance" : plural(-p.margin, "pt") + " de retard"))) +
         "</span>";
     }
     // victoires qui sortent
@@ -2969,22 +3009,30 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function defendThreat(c, until) {
     var p = c.proj; if (p.status === "top" || c.cur <= 0) return null;
     var calc = p.status === "montee" ? p.projected : c.cur, all = allMatches(), rel = E.nextRelease(p.release), limit = until || new Date(today().getTime() + 150 * 864e5);
-    var b0 = E.bilanAt(E.windowMatches(all, p.release, today()), calc, c.sex, c.cur, c.opts.extra);
-    if (!b0.reached) return null;
-    for (var k = 0; k < 6 && rel <= limit; k++) {
+    var b0 = E.bilanAt(E.windowMatches(all, p.release, today()), calc, c.sex, c.cur, c.opts.extra), pu = c.opts.protectUntil;
+    // 3.55.3 : déjà descendu il y a moins de 12 mois → protégé jusqu'à pu ; la menace, c'est la 1re sortie d'après
+    if (!b0.reached && !pu) return null;
+    if (pu && !b0.reached) rel = p.release;
+    for (var k = 0; k < 7 && rel <= limit; k++) {
       var b = E.bilanAt(E.windowMatches(all, rel, today()), calc, c.sex, c.cur, c.opts.extra);
-      if (!b.reached) {
+      if (!b.reached && !(pu && rel < pu)) {
         var gone = b0.counted.filter(function (w) { return w.m.date && E.plus12Months(E.parseDate(w.m.date)) <= rel; }).sort(function (a, b2) { return b2.pts - a.pts; });
         var fake = { id: "_d", date: E.iso(today()), result: "V", oppRank: lab(calc), kind: "tournoi" }, need = null;
         for (var L = Math.max(0, calc - 2); L <= calc + 1 && need == null; L++) { fake.oppRank = lab(L); if (E.bilanAt(E.windowMatches(all.concat([fake]), rel, today()), calc, c.sex, c.cur, c.opts.extra).reached) need = L; }
         var w0 = gone[0];
         var ids0 = b0.counted.map(function (w) { return w.m.id; }), cameIn = b.counted.filter(function (w) { return ids0.indexOf(w.m.id) < 0; }).sort(function (a, b2) { return b2.pts - a.pts; });
-        return { rel: rel, calc: calc, lost: b0.total - b.total, total: b.total, norme: b.norme, b0: b0.total, gone: gone, need: need, cameIn: cameIn, bonusLost: Math.max(0, (b0.bonusCh || 0) - (b.bonusCh || 0)),
+        return { rel: rel, calc: calc, prot: pu || null, lost: Math.max(0, b0.total - b.total), total: b.total, norme: b.norme, b0: b0.total, gone: gone, need: need, cameIn: cameIn, bonusLost: Math.max(0, (b0.bonusCh || 0) - (b.bonusCh || 0)),
           short: (w0 ? "Ta victoire contre " + (w0.m.opp && !isAnon(w0.m.opp) ? w0.m.opp : "un " + w0.m.oppRank) + " sort" : "Des victoires sortent") + (need != null ? " : une victoire contre un " + lab(need) + " la remplace." : ".") };
       }
       rel = E.nextRelease(rel);
     }
     return null;
+  }
+  // 3.55.3 : la phrase « protégé » (règle FFT : 1 échelon de descente au plus par période de 12 mois)
+  function protLine(pu) {
+    var pr = null; try { pr = myProtection(); } catch (e) {}
+    return pr && pr.src === "log" ? "Tu es descendu " + (pr.was ? "de " + esc(pr.was) + " " : "") + "le " + pr.from.getDate() + " " + MOIS_L[pr.from.getMonth()] + " " + pr.from.getFullYear() + " : la FFT ne fait pas descendre de plus d'un échelon en 12 mois. Pas de nouvelle descente avant la sortie du " + pu.getDate() + " " + MOIS_L[pu.getMonth()] + " " + pu.getFullYear() + "."
+      : "Ten'Up te protège à la prochaine sortie : déjà descendu il y a moins de 12 mois, tu ne peux pas redescendre tout de suite.";
   }
   function defendAlertHtml(c) {
     // 3.32 : le ticket : ce qui sort (bonus indiv compris), le total perdu, la solution
@@ -3005,6 +3053,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var gain = z.need != null ? E.BAREME.win(z.need - z.calc) : null;
     return '<div class="card d3 d4"><div class="d3-h"><span class="eyebrow">Points à défendre</span><span class="d3-when">dans ' + plural(days, "jour") + "</span></div>" +
       '<div class="d3-top"><span class="d3-date"><span>Avant le</span><b>' + z.rel.getDate() + "</b><span>" + mo + '</span></span><span class="d3-txt"><b>Il te manquera ' + short + " pts pour rester " + lab(z.calc) + "</b><span>si tu ne rejoues pas d'ici le " + z.rel.getDate() + " " + MOIS_L[z.rel.getMonth()] + "</span></span></div>" +
+      (z.prot ? '<span class="small d4-prot">' + protLine(z.prot) + "</span>" : "") +
       // 3.46.5 (Yann, maquette 449 A) : la solution vit dans le « Pourquoi ? », sous ce qui sort
       (UI.defOpen ? '<div class="d4-box">' + rows.join("") + '<div class="d4-t"><span>Tu perds</span><b>−' + z.lost + " pts</b></div>" +
         '<div class="d4-l d4-sl"><span><b><em>La solution :</em> ' + (z.need != null ? "1 victoire contre un " + lab(z.need) : "plusieurs victoires d'ici là") + "</b><small>d'ici le " + z.rel.getDate() + " " + mo + "</small></span>" + (gain ? '<b style="color:var(--gazon)">+' + gain + "</b>" : "") + "</div></div>" : "") +
@@ -4714,13 +4763,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     service: ["Attaque sa 2e balle", "Son service est fragile", ["retour"]], retour: ["Engage fort, 1re balle sur lui", "Son retour est fragile", ["service"]],
     cd: ["Joue sur son coup droit", "Son coup droit est fragile", ["cd", "revers"]], revers: ["Attaque son revers", "Son revers est fragile", ["cd", "revers"]],
     volee: ["Fais-le venir au filet", "Balles courtes, amorties : sa volée est fragile", ["cd", "revers"]], physique: ["Fais durer les échanges", "Son physique est fragile", ["physique", "regul"]],
-    mental: ["Reste collé au score", "Il craque quand c'est serré", ["mental"]], regul: ["Fais jouer une balle de plus", "Il fait des fautes", ["regul", "physique"]]
+    mental: ["Reste collé au score", "Il craque quand c'est serré", ["mental"]], regul: ["Fais jouer une balle de plus", "Il fait des fautes", ["regul", "physique"]],
+    // 3.55.3 : « Toucher de balle » n'avait pas de consigne : sa fiche plantait (le joueur ne s'ouvrait plus)
+    toucher: ["Fais-le jouer court et bas", "Il manque de toucher : amorties, balles basses", ["cd", "revers"]]
   };
   var LEV_PRO = {
     service: ["Retourne plus loin derrière", "Son service est une force", ["retour"]], retour: ["Assure ta 1re balle", "Son retour est une force", ["service"]],
     cd: ["Évite son coup droit", "Son coup droit est une arme", []], revers: ["Ne nourris pas son revers", "Son revers est solide", []],
     volee: ["Joue long et bas, passe-le", "Il est à l'aise au filet", ["cd", "revers"]], physique: ["Raccourcis les points", "Il tient la distance", ["physique"]],
-    mental: ["Fais le break tôt", "Il est solide quand c'est serré", ["mental"]], regul: ["Sois patient, choisis ta balle", "Il renvoie tout", ["regul"]]
+    mental: ["Fais le break tôt", "Il est solide quand c'est serré", ["mental"]], regul: ["Sois patient, choisis ta balle", "Il renvoie tout", ["regul"]],
+    toucher: ["Ne lui laisse pas de balles courtes", "Il a du toucher : amorties et lobs", []]
   };
   // Repères chiffrés (ses scores Ten'Up) → consigne courte. Thème pour arbitrer avec les traits.
   var REP_CONS = {
@@ -4747,6 +4799,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var mv = traitVal(me, k), sym = ["physique", "mental", "regul"].indexOf(k) >= 0;
       if (!hv) return;
       if (sym && mv === hv) return; // même force (ou même faiblesse) des deux côtés : pas de consigne
+      if (!(hv < 0 ? LEV_ATT : LEV_PRO)[k]) return; // trait sans consigne : on l'ignore plutôt que de planter la fiche
       if (hv < 0) {
         var L = LEV_ATT[k], pair = L[2].filter(function (x) { return traitVal(me, x) > 0; })[0], wk = L[2].length && L[2].every(function (x) { return traitVal(me, x) < 0; });
         if (wk) return; // tu n'as pas l'arme pour en profiter
@@ -6589,6 +6642,35 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // ---------- Semaine type : créneaux fixes à confirmer d'un tap ----------
   var DAYS_L = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
   var TLABELS = ["Collectif", "Cours", "Partenaire", "Autre"];
+  // 3.55.3 (Yann) : une séance de ta montre (ou de Santé) pendant un créneau de ta semaine type, c'est ce créneau :
+  // on les réunit (plus de « t'as joué ? » ni de doublon « Collectif 1 h 30 » à côté de la séance de la montre).
+  function slotHit(t, list) {
+    if (!t || !t.date) return null; var d = E.parseDate(t.date); if (!d) return null;
+    var dow = (d.getDay() + 6) % 7, c = (list || S.slots || []).filter(function (sl) { return sl.dow === dow && (!sl.since || t.date >= sl.since); });
+    if (!c.length) return null;
+    if (!t.at) return c.length === 1 ? c[0] : null;
+    var st = new Date(t.at), mn = st.getHours() * 60 + st.getMinutes();
+    return c.filter(function (sl) { var hm = String(sl.time || "00:00").split(":"), s0 = (+hm[0] || 0) * 60 + (+hm[1] || 0); return mn >= s0 - 90 && mn <= s0 + (sl.minutes || 90); })[0] || null;
+  }
+  function slotLinkTrainings() {
+    if (!(S.slots || []).length || !(S.trainings || []).length) return 0;
+    var lim = new Date(today().getTime() - 21 * 864e5), limI = E.iso(lim), n = 0;
+    S.trainings.filter(function (t) { return (t.src === "montre" || t.src === "sante") && t.date >= limI && !t.slotAuto; }).forEach(function (t) {
+      var sl = slotHit(t); if (!sl) return;
+      var k = sl.id + "|" + t.date;
+      // le « Oui, j'ai joué » déjà tapé pour ce créneau : on garde la séance de la montre, avec ce que tu avais noté
+      var tw = S.trainings.filter(function (x) { return x !== t && x.slot === sl.id && x.date === t.date && !x.src; })[0];
+      if (tw) {
+        ["racketId", "string", "tension", "tensionCross", "feel", "note"].forEach(function (f) { if ((t[f] == null || t[f] === "") && tw[f] != null && tw[f] !== "") t[f] = tw[f]; });
+        if (tw.newString) t.newString = true;
+        S.trainings = S.trainings.filter(function (x) { return x !== tw; });
+      }
+      t.slot = sl.id; t.slotAuto = 1; if (!t.label) t.label = sl.label;
+      S.slotLog = S.slotLog || {}; if (S.slotLog[k] !== "yes") S.slotLog[k] = "yes";
+      n++;
+    });
+    return n;
+  }
   function pendingSlots() {
     var out = [], now = new Date(), hhmm = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2), log = S.slotLog || {};
     (S.slots || []).forEach(function (sl) {
@@ -8974,6 +9056,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     else if (d.norme) { var gp = Math.max(0, d.norme - d.total), rel = E.parseDate(d.releaseIso), j = Math.round((rel - today()) / 864e5); mon = "Sortie du " + B(rel.getDate() + " " + MOIS[rel.getMonth()]) + " (J-" + Math.max(0, j) + ") : " + B(d.total + " / " + d.norme) + " au bilan " + esc(d.label || nextL) + "." + (gp ? " Il te manque " + B(gp + " pts") + "." : ""); }
     var mai = "", z = null; try { z = defendThreat(c); } catch (e) {}
     if (cur <= 0) mai = "À 40, pas de descente possible.";
+    else if (p.kept) mai = "Protégé à la prochaine sortie. " + protLine(p.protectUntil) + (z ? " Le " + B(z.rel.getDate() + " " + MOIS[z.rel.getMonth()]) + ", il te manquera " + B(Math.max(0, z.norme - z.total) + " pts") + " pour rester " + lab(z.calc) + "." : "");
     else if (p.margin != null) mai = (p.margin >= 0 ? "Assuré à la prochaine sortie (" + B("+" + p.margin + " pts") + " d'avance)." : "Menacé à la prochaine sortie : " + B(-p.margin + " pts") + " de retard.") +
       (z ? " Le " + B(z.rel.getDate() + " " + MOIS[z.rel.getMonth()]) + ", " + (z.gone.length > 1 ? "des victoires sortent" : "une victoire sort") + " : " + B("−" + z.lost + " pts") + (z.need != null ? ", une victoire contre un " + lab(z.need) + " compense." : ".") : "");
     var frm = F ? B(nv6 + " victoire" + (nv6 > 1 ? "s" : "") + " sur tes " + n6) + " derniers matchs" + (up ? ", au-dessus de ta saison (" + r.win + " %)." : dn ? ", en dessous de ta saison (" + r.win + " %)." : ", dans la ligne de ta saison (" + r.win + " %).") : "";
@@ -9896,15 +9979,24 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     });
     var drop = pts[0].total - pts[pts.length - 1].total;
     UI._defend = { pts: pts, label: b0.label };
-    if (drop <= 0) return '<div class="card" style="gap:6px">' + chead("defend", "Points à défendre", "") + '<span style="font-size:15px">Aucune victoire comptée ne sort d\'ici 6 mois : ton bilan à ' + esc(b0.label) + " tient.</span></div>";
+    if (drop <= 0) {
+      // 3.55.3 : sous la norme dès maintenant, « ton bilan tient » était faux ; protégé (déjà descendu), on le dit
+      var low0 = pts[0].total < pts[0].norme, pu0 = c.opts.protectUntil;
+      var msg0 = !low0 ? "Aucune victoire comptée ne sort d'ici 6 mois : ton bilan à " + esc(b0.label) + " tient."
+        : pu0 ? "Ton bilan à " + esc(b0.label) + " est sous la norme (" + pts[0].total + " / " + pts[0].norme + "), mais tu es protégé. " + protLine(pu0)
+        : "Aucune victoire comptée ne sort d'ici 6 mois, mais ton bilan à " + esc(b0.label) + " est déjà sous la norme : il te manque " + plural(pts[0].norme - pts[0].total, "pt") + ".";
+      return '<div class="card" style="gap:6px">' + chead("defend", "Points à défendre", "") + '<span style="font-size:15px">' + msg0 + "</span></div>";
+    }
     // 3.29 : mois par mois — barres avec la norme, puis les victoires qui sortent
     var mx = Math.max.apply(null, pts.map(function (x) { return Math.max(x.total, x.norme); })) || 1, BH = 96, nor = pts[0].norme;
-    var above = pts[0].total >= pts[0].norme, under = above ? pts.filter(function (x) { return x.total < x.norme; })[0] : null, z = null; try { z = defendThreat(c); } catch (e) {}
+    var pu = c.opts.protectUntil, isProt = function (x) { return pu && x.rel < pu; };
+    var above = pts[0].total >= pts[0].norme || isProt(pts[0]), under = above ? pts.filter(function (x) { return x.total < x.norme && !isProt(x); })[0] : null, z = null; try { z = defendThreat(c); } catch (e) {}
     var lastM = MOIS_L[pts[pts.length - 1].rel.getMonth()];
-    var title = under ? "Sans nouvelle victoire, tu repasses sous la norme en " + MOIS_L[under.rel.getMonth()] : above ? "Ton bilan perd " + drop + " pts d'ici " + lastM + ", sans passer sous la norme" : "Sans nouvelle victoire, ton bilan à " + b0.label + " perd " + drop + " pts d'ici " + lastM;
+    // 3.55.3 : protégé (déjà descendu il y a moins de 12 mois) et sous la norme : tu restes à ton classement jusqu'à la fin de la protection
+    var title = pu && pts[0].total < pts[0].norme && isProt(pts[0]) ? "Sous la norme, mais protégé : tu restes " + b0.label + (under ? " jusqu'en " + MOIS_L[under.rel.getMonth()] : " sur ces 6 sorties") : under ? "Sans nouvelle victoire, tu repasses sous la norme en " + MOIS_L[under.rel.getMonth()] : above ? "Ton bilan perd " + drop + " pts d'ici " + lastM + ", sans passer sous la norme" : "Sans nouvelle victoire, ton bilan à " + b0.label + " perd " + drop + " pts d'ici " + lastM;
     var bars = pts.map(function (x, i) {
       // 3.49 (Yann) : la couleur dit où tu es par rapport à la norme (vert au-dessus, terre en dessous) ; un mois où rien ne bouge est estompé
-      var lostHere = i === 0 || x.lost.length || x.total < pts[i - 1].total, low = x.total < x.norme, col = (low ? "var(--terre)" : "var(--gazon)") + (lostHere ? "" : ";opacity:.4");
+      var lostHere = i === 0 || x.lost.length || x.total < pts[i - 1].total, low = x.total < x.norme && !isProt(x), col = (low ? "var(--terre)" : "var(--gazon)") + (lostHere ? "" : ";opacity:.4");
       return '<button class="d3b" data-a="sheet" data-k="defend" data-v="' + i + '" aria-label="' + MOIS_L[x.rel.getMonth()] + " : " + x.total + ' pts"><b style="color:' + (low ? "var(--terre)" : "var(--ink)") + '">' + x.total + '</b><i style="height:' + Math.max(6, x.total / mx * BH).toFixed(0) + "px;background:" + col + '"></i><span>' + MOIS[x.rel.getMonth()].replace(/\.$/, "") + "</span></button>";
     }).join("");
     var line = '<i class="d3n" style="bottom:' + (nor / mx * BH + 20).toFixed(0) + 'px"></i><span class="d3nl" style="bottom:' + (nor / mx * BH + 23).toFixed(0) + 'px">bilan à ' + esc(b0.label) + " · norme " + nor + "</span>"; // 3.55 (audit R14) : dire de quel bilan on parle (≠ « Ton bilan pour » l'échelon visé)
@@ -9921,6 +10013,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }).join("");
     return '<div class="card d3 d3m-card">' + '<div class="d3-h"><span class="eyebrow">Points à défendre · ' + esc(b0.label) + '</span><span class="d3-when">si tu ne rejoues pas</span></div>' +
       '<b class="d3-title">' + esc(title) + "</b>" +
+      (pu ? '<span class="small d4-prot">' + protLine(pu) + "</span>" : "") +
       '<div class="d3bars">' + line + bars + "</div>" +
       (list ? '<div class="d3list">' + list + "</div>" : "") +
       '<div class="d3-foot"><span class="d3-pill">' + (z && z.need != null ? "1 victoire contre un " + lab(z.need) + " suffit" : "Une victoire hors quota peut prendre le relais") + '</span></div>' +
@@ -11237,7 +11330,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     UI.importError = null;
     // 3.47 : après un échec (maintenance, page bloquée), on repart d'une page Ten'Up neuve
     (S.tenup.fails || S.tenup.maintAt ? tenupRepair() : Promise.resolve()).then(function () { return Tenup.connect({ script: nativeScript() }); }).then(function (r) {
-      if (r && r.data) { S.tenup.linked = true; handleNativeResult(r.data, false); askNotif(); }
+      if (r && r.data) { S.tenup.linked = true; var okR = handleNativeResult(r.data, false); askNotif();
+        // 3.55.3 (Yann) : dès la 1re synchro, tes inscriptions (tournois, indivs) et tes équipes, sans attendre d'ouvrir Mes épreuves
+        if (okR !== false) setTimeout(function () { insRefresh(true).then(function () { try { teamsRefresh(true); } catch (e) {} }); }, 600); }
     }).catch(function (e) { UI.importError = "Connexion impossible (" + (e && e.message || e) + ")."; render(); });
   }
   function nativeRefresh(quiet, pull) {
@@ -13943,6 +14038,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     slotYes: function (el) {
       var sl = (S.slots || []).filter(function (x) { return x.id === el.dataset.id; })[0]; if (!sl) return;
+      // 3.55.3 : la séance de ta montre est déjà là pour ce créneau : on la rattache au lieu d'en créer une 2e
+      var tw = (S.trainings || []).filter(function (t) { return (t.src === "montre" || t.src === "sante") && t.date === el.dataset.d && slotHit(t, [sl]); })[0];
+      if (tw) { tw.slot = sl.id; tw.slotAuto = 1; if (!tw.label) tw.label = sl.label; S.slotLog = S.slotLog || {}; S.slotLog[sl.id + "|" + el.dataset.d] = "yes"; save(); toast("C'est ta séance de la montre : rattachée à ton créneau."); render(); return; }
       var main = racketFor("train");
       S.trainings = S.trainings || [];
       S.trainings.push({ id: uid(), date: el.dataset.d, minutes: sl.minutes, label: sl.label, slot: sl.id, racketId: main ? main.id : "", string: main ? main.string || "" : "", tension: main ? main.tension || null : null, tensionCross: main && main.tensionCross != null ? main.tensionCross : null, newString: false, feel: null, note: "" });

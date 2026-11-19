@@ -611,6 +611,24 @@
     }
     findId().then(function (id) {
       var b = base + id;
+      // 3.55.3 (Yann : 1re synchro lente) : les saisons passées partent tout de suite, en même temps que le palmarès, plus après
+      // Tes saisons passées (best effort : on ne sait pas jusqu'où Ten'Up remonte) — millésime N = sept. N-1 → août N
+      var now = new Date(), y0 = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+      var clOf = function (o) {
+        var out = ""; (function walk(x, d) { if (out || !x || typeof x !== "object" || d > 3) return; Object.keys(x).forEach(function (k) { if (out || /^matchs?$|matches|adversaire/i.test(k)) return; var v = x[k];
+          if (/classement/i.test(k) && v && typeof v === "object" && typeof v.libelle === "string" && !/meilleur/i.test(k)) out = v.libelle; else if (/classement/i.test(k) && typeof v === "string" && /^(NC|\d|-?\d+\/\d|[0-9]{1,2}\/[0-9])/.test(v) && v.length < 8) out = v; else if (v && typeof v === "object" && !Array.isArray(v)) walk(v, d + 1); }); })(o, 0);
+        return out;
+      };
+      var season = function (y) {
+        return Promise.race([j(b + "/palmares/tennis?millesime=" + y + "&mobile=false"), new Promise(function (_, rej) { setTimeout(function () { rej(new Error("t")); }, 12000); })]).then(function (pal) {
+          var ms = (pal && (pal.matchs || pal.matches)) || [], v = 0, wl = [];
+          ms.forEach(function (m) { if (m.victoireUtilisateur && !m.wo) { v++; var a = (m.adversaires || [])[0] || m.adversaire || {}; var cl = String(a.classementLibelle || (a.classement && (a.classement.libelle || a.classement)) || ""); if (cl && wl.length < 60 && !((m.adversaires || []).length >= 2 || m.partenaire || m.partenaires)) wl.push(cl); } });
+          var d0 = ms.map(function (m) { return String(m.date || m.dateMatch || ""); }).sort().pop() || "";
+          // 3.40 : les 2 dernières saisons gardent leurs matchs (pour la courbe du bilan sur 12 mois glissants)
+          return { y: y, d0: d0, n: ms.filter(function (m) { return !m.wo; }).length, v: v, cl: clOf(pal), wl: wl, keys: Object.keys(pal || {}).slice(0, 12), raw: ms };  // 3.47 : le détail de toutes les saisons (face-à-face sur plusieurs années, comparaison à date égale)
+        }).catch(function () { return null; });
+      };
+      var seasonsP = Promise.all([1, 2, 3, 4, 5, 6, 7, 8].map(function (k) { return season(y0 - k); }));
       return Promise.all([
         j(b + "/palmares/tennis?millesime&mobile=false"),
         j(b + "/profil-joueur").catch(function () { return null; }),
@@ -650,23 +668,7 @@
           };
         });
         var p = r[1] || {}, ct = p.classementTennis || {};
-        // Tes saisons passées (best effort : on ne sait pas jusqu'où Ten'Up remonte) — millésime N = sept. N-1 → août N
-        var now = new Date(), y0 = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
-        var clOf = function (o) {
-          var out = ""; (function walk(x, d) { if (out || !x || typeof x !== "object" || d > 3) return; Object.keys(x).forEach(function (k) { if (out || /^matchs?$|matches|adversaire/i.test(k)) return; var v = x[k];
-            if (/classement/i.test(k) && v && typeof v === "object" && typeof v.libelle === "string" && !/meilleur/i.test(k)) out = v.libelle; else if (/classement/i.test(k) && typeof v === "string" && /^(NC|\d|-?\d+\/\d|[0-9]{1,2}\/[0-9])/.test(v) && v.length < 8) out = v; else if (v && typeof v === "object" && !Array.isArray(v)) walk(v, d + 1); }); })(o, 0);
-          return out;
-        };
-        var season = function (y) {
-          return Promise.race([j(b + "/palmares/tennis?millesime=" + y + "&mobile=false"), new Promise(function (_, rej) { setTimeout(function () { rej(new Error("t")); }, 12000); })]).then(function (pal) {
-            var ms = (pal && (pal.matchs || pal.matches)) || [], v = 0, wl = [];
-            ms.forEach(function (m) { if (m.victoireUtilisateur && !m.wo) { v++; var a = (m.adversaires || [])[0] || m.adversaire || {}; var cl = String(a.classementLibelle || (a.classement && (a.classement.libelle || a.classement)) || ""); if (cl && wl.length < 60 && !((m.adversaires || []).length >= 2 || m.partenaire || m.partenaires)) wl.push(cl); } });
-            var d0 = ms.map(function (m) { return String(m.date || m.dateMatch || ""); }).sort().pop() || "";
-            // 3.40 : les 2 dernières saisons gardent leurs matchs (pour la courbe du bilan sur 12 mois glissants)
-            return { y: y, d0: d0, n: ms.filter(function (m) { return !m.wo; }).length, v: v, cl: clOf(pal), wl: wl, keys: Object.keys(pal || {}).slice(0, 12), raw: ms };  // 3.47 : le détail de toutes les saisons (face-à-face sur plusieurs années, comparaison à date égale)
-          }).catch(function () { return null; });
-        };
-        return Promise.all([1, 2, 3, 4, 5, 6, 7, 8].map(function (k) { return season(y0 - k); })).then(function (ss) {
+        return seasonsP.then(function (ss) {
         done({
           v: 1, sv: "__SV__", at: new Date().toISOString(), id: id, seasons: ss.filter(Boolean), palD0: ms.map(function (m) { return String(m.date || m.dateMatch || ""); }).sort().pop() || "", palKeys: Object.keys(pal || {}).slice(0, 15), palCl: clOf(pal),
           profil: { prenom: p.prenom, nom: p.nom, sexe: p.sexe, licence: p.numeroLicence, fiche: ficheOf(p), club: (r[4] && r[4].club) || "", photo: (r[4] && r[4].photo) || null,

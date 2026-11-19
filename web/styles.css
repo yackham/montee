@@ -4858,3 +4858,7 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .pf-ed { text-align: right; margin-top: 6px; }
 /* 3.55.2 · le bilan du coach ne se décale plus de côté, même si un élément dépasse */
 .co-scr { overflow-x: clip; } .co-scr .card { min-width: 0; max-width: 100%; }
+/* 3.55.3 : Ton impact, tes matchs sous chaque rencontre et le détail rencontre par rencontre */
+.tim-me { min-height: 11px; }
+.tim-days { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.tim-day { font-size: 13px; color: var(--muted); line-height: 1.4; } .tim-day b { color: var(--ink); font-weight: 700; }

@@ -234,6 +234,10 @@
     if (result > cur) status = "montee";
     else if (cur === 0 || (here.reached && !here.descente100)) status = "maintien";
     else status = "descente";
+    // 3.55.3 (Yann) : règle FFT, la descente est limitée à 1 échelon par période de 12 mois. Déjà descendu
+    // il y a moins de 12 mois (sans être remonté depuis) : pas de nouvelle descente à cette sortie.
+    var kept = false;
+    if (status === "descente" && opts.protectUntil && release < opts.protectUntil) { status = "maintien"; kept = true; }
     if (current < 0 && win.some(function (m) { return !m.dbl && (m.result === "V" || m.result === "D"); })) {
       // Non classé : il suffit d'un match homologué pour entrer à 40 ;
       // on garde le calcul pour la suite.
@@ -243,7 +247,7 @@
       status: status, release: release, current: current, projected: status === "descente" ? cur - 1 : result,
       here: here, next: next, steps: steps, matches: win.filter(function (m) { return !m.dbl; }),
       gap: Math.max(0, next.norme - next.total), needWin: !next.winAtLevel,
-      margin: here.total - here.norme
+      margin: here.total - here.norme, kept: kept, protectUntil: opts.protectUntil || null
     };
   }
 
