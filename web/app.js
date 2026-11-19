@@ -2484,9 +2484,23 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     for (var n = 1; n <= 12; n++) {
       var fake = []; for (var i = 0; i < n; i++) fake.push({ id: "_g" + i, date: t, result: "V", oppRank: lab(i % 2 === 0 ? target : lvl), kind: "tournoi" });
       var r = E.project(base.concat(fake), c.cur, c.sex, c.opts);
-      if (r.projected >= target) return { n: n, lvl: lvl };
+      if (r.projected >= target) return winsTop({ n: n, lvl: lvl }, c, target, base, t);
     }
-    return { n: 13, lvl: lvl };
+    return winsTop({ n: 13, lvl: lvl }, c, target, base, t);
+  }
+  // Montée+ (Yann, 19/11) : même réponse que l'accueil : « N victoires contre des 15/1 », puis le mélange 15/2-15/1
+  function winsTop(w, c, target, base, t) {
+    w.top = 13;
+    for (var n = 1; n <= Math.min(12, w.n); n++) {
+      var fake = []; for (var i = 0; i < n; i++) fake.push({ id: "_t" + i, date: t, result: "V", oppRank: lab(target), kind: "tournoi" });
+      if (E.project(base.concat(fake), c.cur, c.sex, c.opts).projected >= target) { w.top = n; break; }
+    }
+    return w;
+  }
+  function winsTxt(w, target) {
+    var top = w.top != null && w.top <= w.n ? w.top : null;
+    if (top == null) return (w.n > 12 ? "plus de 12 victoires" : plural(w.n, "victoire")) + " contre des " + lab(w.lvl) + " ou " + lab(target);
+    return plural(top, "victoire") + " contre des " + lab(target) + (w.n > top && w.n <= 12 ? " (ou " + w.n + " en mêlant des " + lab(w.lvl) + ")" : "");
   }
   function matchRate() { var ms = playedOf(ctx().proj.matches); return ms.length / 12; }
   function feasibility(c, target, by) {
@@ -2495,7 +2509,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var expected = months * rate * ch * 1.25; // on progresse en jouant
     var r = expected / Math.max(1, w.n), k = r >= 1.4 ? "easy" : r >= 0.7 ? "ok" : r >= 0.35 ? "hard" : "far";
     var head = { easy: "Dans tes cordes", ok: "Ambitieux mais réaliste", hard: "Très ambitieux", far: "Hors de portée à cette date" }[k];
-    var txt = "Il te faut environ <b>" + (w.n > 12 ? "plus de 12 victoires" : plural(w.n, "victoire")) + "</b> contre des " + lab(w.lvl) + " ou " + lab(target) + " d'ici " + MOIS_L[by.getMonth()] + ". " +
+    var txt = "Il te faut environ <b>" + esc(winsTxt(w, target)) + "</b> d'ici " + MOIS_L[by.getMonth()] + ". " +
       "À ton rythme (" + (rate >= 1 ? "environ " + Math.round(rate) + " match" + (Math.round(rate) > 1 ? "s" : "") + " par mois" : "moins d'un match par mois") + ") et vu tes résultats à ce niveau, " + { easy: "c'est jouable sans forcer.", ok: "c'est jouable.", hard: "il faudra jouer plus ou viser une date plus lointaine.", far: "vise plutôt un échelon de moins ou une date plus lointaine." }[k];
     return { k: k, head: head, txt: txt, wins: w };
   }
@@ -2520,8 +2534,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var when = rels[Math.max(0, Math.min(rels.length - 1, idx))], last = r === g.rank;
       var txt = i === 0 && p.status === "montee" ? "Tu y es si rien ne bouge d'ici la sortie." :
         i === 0 && one ? "Une victoire contre un " + lab(one.top) + " suffit. Tu as " + p.next.total + " / " + p.next.norme + " pts." :
-          last ? "Environ " + plural(winsFor(c, r).n, "victoire") + " contre des " + lab(r - 1) + " ou " + lab(r) + " d'ici là." :
-            "Environ " + plural(winsFor(c, r).n, "victoire") + " contre des " + lab(r - 1) + " ou " + lab(r) + ".";
+          "Environ " + winsTxt(winsFor(c, r), r) + (last ? " d'ici là." : ".");
       items.push({ kind: last ? "goal" : "next", when: when, rank: lab(r), txt: txt });
     });
     // victoires qui sortent : de quoi garder son échelon
@@ -2578,12 +2591,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var lock = PLUS_LOCK();
     var s = '<div class="card gp2"><div class="ch-hd"><span class="eyebrow">Ton plan de montée</span><span class="ch-plus">Montée+</span></div>';
     s += '<div class="gp2-tr"><i style="width:' + Math.round(prog * 100) + '%"></i><em style="left:' + Math.round(exp * 100) + '%"></em></div>' +
-      '<div class="gp2-l"><span><b>' + Math.round(prog * 100) + " %</b> du chemin</span><span>attendu à cette date : " + Math.round(exp * 100) + " %</span></div>";
+      // Montée+ (Yann, 19/11) : des points, pas un « % du chemin » opaque ; le repère = le temps écoulé
+      (p.status !== "montee" && p.next && p.next.norme ? '<div class="gp2-l"><span><b>' + p.next.total + "</b> / " + p.next.norme + " pts pour " + esc(lab(Math.min(cur + 1, E.MAX_CALC))) + "</span><span>il en manque " + Math.max(0, p.next.norme - p.next.total) + "</span></div>" : "") +
+      '<div class="gp2-l"><span>' + (g.rank > cur + 1 || p.status === "montee" ? "<b>" + Math.round(prog * 100) + " %</b> du chemin de " + esc(lab(g.from)) + " à " + esc(lab(g.rank)) : "Échéance : " + MOIS_L[by.getMonth()] + " " + by.getFullYear()) + "</span><span>" + Math.round(exp * 100) + " % du temps écoulé</span></div>";
     // Ce qu'il te faut encore
     var steps = [], wGoal = null;
-    try { var w1 = winsFor(c, Math.min(cur + 1, g.rank)); steps.push({ n: w1.n, r: Math.min(cur + 1, g.rank), lvl: w1.lvl }); if (g.rank > cur + 1) { wGoal = winsFor(c, g.rank); steps.push({ n: wGoal.n, r: g.rank, lvl: wGoal.lvl, total: true }); } } catch (e) {}
+    try { var w1 = winsFor(c, Math.min(cur + 1, g.rank)); steps.push({ n: w1.n, r: Math.min(cur + 1, g.rank), lvl: w1.lvl, w: w1 }); if (g.rank > cur + 1) { wGoal = winsFor(c, g.rank); steps.push({ n: wGoal.n, r: g.rank, lvl: wGoal.lvl, total: true, w: wGoal }); } } catch (e) {}
     if (steps.length) s += '<div class="ch-sep"></div><span class="ch-h">Il te faut encore</span><div class="gp2-need' + (lock ? " ch-blur" : "") + '">' + steps.map(function (x) {
-      return '<span><b>' + (x.n > 12 ? "12+" : x.n) + "</b>" + (x.n > 1 ? "victoires" : "victoire") + " contre des " + esc(lab(x.lvl)) + " ou " + esc(lab(x.r)) + (x.total ? " pour " + esc(lab(x.r)) : steps.length > 1 ? " pour " + esc(lab(x.r)) : "") + "</span>";
+      var tp = x.w && x.w.top != null && x.w.top <= x.n ? x.w.top : null, k = tp != null ? tp : x.n;
+      return '<span><b>' + (k > 12 ? "12+" : k) + "</b>" + (k > 1 ? "victoires" : "victoire") + " contre des " + (tp != null ? esc(lab(x.r)) + (x.n > tp && x.n <= 12 ? " (ou " + x.n + " en mêlant des " + esc(lab(x.lvl)) + ")" : "") : esc(lab(x.lvl)) + " ou " + esc(lab(x.r))) + (steps.length > 1 ? " pour " + esc(lab(x.r)) : "") + "</span>";
     }).join("") + "</div>";
     // Ton rythme : victoires par mois (faites) et ce qu'il faudrait d'ici l'échéance
     var need = (wGoal || (steps[0] || {})).n || 0, mo = [], d0 = new Date(t.getFullYear(), t.getMonth() - 3, 1);
@@ -7769,14 +7785,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!leaks.length) leaks.push({ k: "perf", t: "Les perfs", pts: null, s: "rien ne te coûte de points : pour monter, il faut battre des " + lab(cur + 1), link: "courbes?to=plafond", fallback: true });
     var plan = leaks.slice(0, 3).map(function (l) { var p = PL[l.k] ? PL[l.k](l) : null; return p ? { t: p[0], s: p[1], lt: p[2], link: l.link, l: l } : null; }).filter(Boolean);
     // Ta meilleure version
+    var vn = function (l) { return l.filter(function (m) { return m.result === "V"; }).length + " sur " + l.length; }; // Montée+ (Yann, 19/11) : chaque % avec ses matchs
     var best = [], pct = function (l) { return l.length ? Math.round(l.filter(function (m) { return m.result === "V"; }).length / l.length * 100) : null; };
     var split = function (lab0, f, lab1, lab2) { var A = ms.filter(f), B = ms.filter(function (m) { return !f(m); }); if (A.length >= 3 && B.length >= 3) { var a = pct(A), b = pct(B); if (Math.abs(a - b) >= 12) best.push(a > b ? { p: a, t: lab1, s: "contre " + b + " % " + lab2 } : { p: b, t: lab2.replace(/^sur |^en |^avec /, function (x) { return x; }), s: "contre " + a + " % " + lab1.toLowerCase(), alt: true }); } };
     var surfs = {}; ms.forEach(function (m) { if (m.surface) surfs[m.surface] = (surfs[m.surface] || 0) + 1; }); var topS = Object.keys(surfs).sort(function (a, b) { return surfs[b] - surfs[a]; })[0];
-    if (topS) { var SA = ms.filter(function (m) { return m.surface === topS; }), SB = ms.filter(function (m) { return m.surface && m.surface !== topS; }); if (SA.length >= 3 && SB.length >= 3) { var sa = pct(SA), sb = pct(SB); if (Math.abs(sa - sb) >= 12) best.push(sa > sb ? { p: sa, t: topS, s: "contre " + sb + " % ailleurs" } : { p: sb, t: "Hors " + topS.toLowerCase(), s: "contre " + sa + " % sur " + topS.toLowerCase() }); } }
+    if (topS) { var SA = ms.filter(function (m) { return m.surface === topS; }), SB = ms.filter(function (m) { return m.surface && m.surface !== topS; }); if (SA.length >= 3 && SB.length >= 3) { var sa = pct(SA), sb = pct(SB); if (Math.abs(sa - sb) >= 12) best.push(sa > sb ? { p: sa, t: topS, s: vn(SA) + " · contre " + sb + " % ailleurs (" + vn(SB) + ")" } : { p: sb, t: "Hors " + topS.toLowerCase(), s: vn(SB) + " · contre " + sa + " % sur " + topS.toLowerCase() + " (" + vn(SA) + ")" }); } }
     var we = function (m) { var d = E.parseDate(m.date).getDay(); return d === 0 || d === 6; };
-    var WA = ms.filter(we), WB = ms.filter(function (m) { return !we(m); }); if (WA.length >= 3 && WB.length >= 3) { var wa = pct(WA), wb = pct(WB); if (Math.abs(wa - wb) >= 12) best.push(wa > wb ? { p: wa, t: "Le week-end", s: "contre " + wb + " % en semaine" } : { p: wb, t: "En semaine", s: "contre " + wa + " % le week-end" }); }
+    var WA = ms.filter(we), WB = ms.filter(function (m) { return !we(m); }); if (WA.length >= 3 && WB.length >= 3) { var wa = pct(WA), wb = pct(WB); if (Math.abs(wa - wb) >= 12) best.push(wa > wb ? { p: wa, t: "Le week-end", s: vn(WA) + " · contre " + wb + " % en semaine (" + vn(WB) + ")" } : { p: wb, t: "En semaine", s: vn(WB) + " · contre " + wa + " % le week-end (" + vn(WA) + ")" }); }
     var rk = {}; ms.forEach(function (m) { if (m.racketId) rk[m.racketId] = (rk[m.racketId] || 0) + 1; }); var rks = Object.keys(rk).sort(function (a, b) { return rk[b] - rk[a]; });
-    if (rks.length >= 2) { var RA = ms.filter(function (m) { return m.racketId === rks[0]; }), RB = ms.filter(function (m) { return m.racketId && m.racketId !== rks[0]; }); if (RA.length >= 3 && RB.length >= 3) { var ra = pct(RA), rb = pct(RB), r0 = racket(rks[0]); if (Math.abs(ra - rb) >= 12 && r0) best.push(ra > rb ? { p: ra, t: r0.name, s: "contre " + rb + " % avec l'autre" } : { p: rb, t: "Ton autre raquette", s: "contre " + ra + " % avec " + r0.name }); } }
+    if (rks.length >= 2) { var RA = ms.filter(function (m) { return m.racketId === rks[0]; }), RB = ms.filter(function (m) { return m.racketId && m.racketId !== rks[0]; }); if (RA.length >= 3 && RB.length >= 3) { var ra = pct(RA), rb = pct(RB), r0 = racket(rks[0]); if (Math.abs(ra - rb) >= 12 && r0) best.push(ra > rb ? { p: ra, t: r0.name, s: vn(RA) + " · contre " + rb + " % avec l'autre (" + vn(RB) + ")" } : { p: rb, t: "Ton autre raquette", s: vn(RB) + " · contre " + ra + " % avec " + r0.name + " (" + vn(RA) + ")" }); } }
     try { var ef = trEffect(); if (ef && ef.T && ef.d >= 0.12) best.push({ p: Math.round(ef.hi.v / ef.hi.n * 100), t: fmtDur(ef.T) + " et +", s: "d'entraînement la semaine d'avant" }); } catch (e) {}
     // Ce que tes adversaires voient de toi
     var s1 = function (m) { var x = setsOf(m.score); return x.length ? x[0][0] > x[0][1] : null; };
