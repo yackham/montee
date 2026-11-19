@@ -4858,3 +4858,10 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .pf-ed { text-align: right; margin-top: 6px; }
 /* 3.55.2 · le bilan du coach ne se décale plus de côté, même si un élément dépasse */
 .co-scr { overflow-x: clip; } .co-scr .card { min-width: 0; max-width: 100%; }
+/* 3.55.4 : course du mois */
+.lgc-t .acc { color: var(--acc-ink); }
+.lgc-nw { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lgc em small { display: block; font-size: 11px; color: var(--muted); font-weight: 600; }
+.pf-bub ul { margin: 2px 0 0; padding-left: 16px; }
+.pf-bub li { margin: 3px 0; }
+.pf-send { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
