@@ -2809,7 +2809,7 @@ button.rr { border: 0; font: inherit; width: calc(100% + 40px); cursor: pointer;
 .rw-r b { font-size: inherit; font-weight: 800; }
 .rw-l.dn { stroke: var(--terre); }
 /* 3.39.1 : même bouton « Le détail → » partout (comme la carte Montée de l'accueil) */
-.go-pill { flex: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; background: var(--chip); color: var(--ink); border-radius: 99px; padding: 6px 11px; font-weight: 700; font-size: 13px; }
+.go-pill { border: 0; font-family: inherit; cursor: pointer; flex: none; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; background: var(--chip); color: var(--ink); border-radius: 99px; padding: 6px 11px; font-weight: 700; font-size: 13px; }
 .go-pill svg { width: 15px; height: 15px; }
 .bl2 .sel-panel { align-items: center; }
 .bl2 .sel-panel .grow b { font-size: 14.5px; }
@@ -4553,3 +4553,17 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .rb-n { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; box-shadow: inset 0 0 0 2px var(--hl); color: var(--ink); }
 .rb-q { border-top: 1px solid var(--line); padding-left: 0; padding-right: 0; background: transparent; }
 .ls-foot a.go-pill { text-decoration: none; }
+/* 3.55 : la ligue des copains (Joueurs) */
+.lg-card { display: flex; flex-direction: column; gap: 8px; }
+.lg-h { display: flex; justify-content: space-between; align-items: baseline; }
+.lg-r { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.lg-r:first-of-type { border-top: 0; }
+.lg-k { width: 16px; font-weight: 800; color: var(--muted); text-align: center; }
+.lg-r .ini { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; background: var(--chip); }
+.lg-r .ini.me { background: transparent; box-shadow: inset 0 0 0 2px var(--hl); }
+.lg-r .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.lg-r .grow b { font-size: 15px; font-weight: 700; }
+.lg-r em { font-style: normal; font-weight: 800; font-size: 15px; min-width: 46px; text-align: right; }
+.lg-bar { display: block; height: 5px; border-radius: 3px; background: var(--chip); margin-top: 5px; overflow: hidden; }
+.lg-bar i { display: block; height: 100%; border-radius: 3px; background: var(--hl); }
+.lg-up { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--gazon); box-shadow: inset 0 0 0 1.5px currentColor; border-radius: 99px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }

@@ -2911,6 +2911,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var rec = Object.keys(S.scout || {}).map(function (k) { return { id: k, sc: S.scout[k] }; }).filter(function (x) { return x.sc && x.sc.hit && !(S.follow || {})[x.id]; }).sort(function (a, b) { return (b.sc.ts || 0) - (a.sc.ts || 0); }).slice(0, 8);
     var ft = UI.fafTab || (fl.length ? "suivis" : "adv");
     if (searching) ft = "adv";
+    if (!searching) { try { s += leagueHtml(); } catch (e) {} } // 3.55 (Yann) : ta ligue
     if (!searching) s += '<div class="faf-tabs">' + [["suivis", "Suivis", fl.length], ["adv", "Tes adversaires", oppIndex().length], ["rec", "Récents", rec.length]].map(function (x) { return '<button class="' + (ft === x[0] ? "on" : "") + '" data-a="fafTab" data-v="' + x[0] + '">' + x[1] + (x[2] ? " · " + x[2] : "") + "</button>"; }).join("") + "</div>";
     if (ft === "suivis") {
       // 3.37 : « Du nouveau » en haut, « Les autres » dessous ; noms en minuscules ; pas de cloche (tout le monde est suivi ici)
@@ -5562,6 +5563,40 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }, 1000);
   }
   // ---------- Joueurs suivis : une étoile sur la fiche, des nouvelles à chaque synchro ----------
+  // 3.55 (Yann, nouveautés 19/11) : la ligue des copains. Chacun court vers SON prochain échelon :
+  // % = points au bilan ÷ norme de l'échelon au-dessus. Une montée dans la saison = 100 % jusqu'à la fin de la saison.
+  function seasonY(d) { d = d || today(); return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear(); }
+  function leagueRow(id, name, rows, rank, sex, me) {
+    var cur = E.idx(T.normRank(rank || "")); if (cur == null) return null;
+    var y = seasonY(), L = S.league && S.league.y === y ? S.league : (S.league = { y: y, start: {} });
+    if (L.start[id] == null) { L.start[id] = cur; save(); }
+    var up = cur > L.start[id];
+    var pr = me ? ctx().proj : E.project((rows || []).filter(function (m) { return m.date && (m.result === "V" || m.result === "D"); }).map(function (m) { return { id: m.id || m.date + m.oppRank, date: m.date, result: m.result, oppRank: m.oppRank, wo: m.wo, kind: m.kind || "tournoi", score: m.score }; }), cur, sex || S.profile.sex, { today: today() });
+    if (!pr || pr.status === "top") return null;
+    var nx = pr.next || {}, pc = up ? 100 : nx.norme ? Math.min(99, Math.round((nx.total || 0) * 100 / nx.norme)) : 0;
+    return { id: id, name: name, me: !!me, rank: lab(cur), next: lab(Math.min(cur + 1, E.MAX_CALC)), from: lab(L.start[id]), up: up, pc: pc, total: nx.total || 0, norme: nx.norme || 0, n: (rows || []).length };
+  }
+  function leagueRows() {
+    var out = [], me = leagueRow("me", "Toi", null, effRank(), S.profile.sex, true); if (me) out.push(me);
+    Object.keys(S.follow || {}).forEach(function (k) {
+      var f = S.follow[k], sc = (S.scout || {})[k]; if (!sc || !(sc.rows || []).length) return;
+      if ((S.league && S.league.out || []).indexOf(k) >= 0) return;
+      var r = leagueRow(k, nameCase(f.name), sc.rows, folSnap(sc).rank || f.rank, (sc.hit && sc.hit.sexe) || "", false); if (r) out.push(r);
+    });
+    return out.sort(function (a, b) { return b.pc - a.pc || (b.up - a.up); });
+  }
+  function leagueHtml() {
+    var R = leagueRows(); if (R.length < 2) return "";
+    var i = R.map(function (r) { return r.me; }).indexOf(true), me = R[i];
+    var t = me ? (i === 0 ? "Tu mènes ta ligue." : "Tu es " + (i + 1) + "e sur " + R.length + ".") + (me.up ? " Et tu es monté cette saison." : me.norme > me.total ? " Encore " + (me.norme - me.total) + " pts et tu montes." : "") : "";
+    return '<div class="card lg-card"><span class="lg-h"><span class="eyebrow">Ta ligue · saison ' + (seasonY() - 1) + "-" + String(seasonY()).slice(2) + '</span><span class="small">' + plural(R.length, "joueur") + "</span></span>" +
+      (t ? '<b class="m2-t">' + esc(t) + "</b>" : "") +
+      R.map(function (r, k) {
+        return '<div class="lg-r"><span class="lg-k">' + (k + 1) + '</span><span class="ini' + (r.me ? " me" : "") + '">' + esc(r.me ? initials(S.profile.name || "Toi") : initials(r.name)) + '</span><span class="grow"><b>' + esc(r.name) + (r.up ? '<span class="lg-up">monté ↑</span>' : "") + '</b><span class="small">' + (r.up ? esc(r.from) + " → " + esc(r.rank) : esc(r.rank) + " → " + esc(r.next)) + '</span><span class="lg-bar"><i style="width:' + r.pc + '%"></i></span></span><em>' + r.pc + " %</em></div>";
+      }).join("") +
+      '<span class="small">% du chemin fait vers son prochain échelon : chacun court contre sa propre barre.</span>' +
+      '<div class="ls-foot"><button class="go-pill" data-a="leagueShare">Partager ' + I.next + '</button><button class="go-pill" data-a="sheet" data-k="league" data-v="1">La ligue ' + I.next + "</button></div></div>";
+  }
   function folSnap(sc) {
     var p = playedOf(sc.rows || []).filter(function (m) { return m.date; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
     var r0 = p[0] ? p[0].result : null, n = 0; for (var i = 0; i < p.length && p[i].result === r0; i++) n++;
@@ -8716,6 +8751,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return body;
   }
   var DET = {
+    // 3.55 : la ligue des copains, comment c'est compté
+    league: function () {
+      var R = leagueRows(); if (R.length < 2) return null;
+      var body = '<div class="list">' + R.map(function (r) {
+        return '<div class="row"><span class="grow"><span class="t">' + esc(r.name) + ' <span class="muted" style="font-weight:400">· ' + esc(r.rank) + '</span></span><span class="s">' + (r.up ? "Monté cette saison (" + esc(r.from) + " → " + esc(r.rank) + ") : 100 % jusqu'à la fin de la saison" : r.total + " / " + r.norme + " pts pour " + esc(r.next) + " = " + r.pc + " %") + "</span></span>" + (r.me ? "" : '<button class="go-pill" data-a="leagueOut" data-v="' + esc(r.id) + '">Retirer</button>') + "</div>";
+      }).join("") + "</div>" +
+        '<p class="small" style="margin-top:12px">Mêmes calculs que ta projection, avec le palmarès Ten\'Up de chaque joueur suivi (lu à chaque synchro). Remise à zéro le 1er septembre. Rien n\'est publié : toi seul vois ta ligue, sauf si tu la partages. Retirer un joueur de la ligue ne l\'empêche pas d\'être suivi.</p>';
+      return { title: "Ta ligue", sub: "% = points au bilan ÷ points qu'il faut pour l'échelon au-dessus. Une montée fixe le joueur à 100 %.", body: body };
+    },
     // 3.55 : le détail de « Tes défaites »
     losses: function () {
       var c = ctx(), T = lossTrend(c.cur); if (!T) return null;
@@ -12218,6 +12262,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     rkMenu: function () { UI.rkMenu = !UI.rkMenu; render(); },
     bilanSel: function (el) { UI.bilanSel = +el.dataset.v; render(); },
     sheet: function (el) { UI.sheet = { k: el.dataset.k, v: el.dataset.v }; render(); },
+    leagueShare: function () {
+      var R = leagueRows(); if (R.length < 2) return;
+      shareText("Ma ligue tennis, saison " + (seasonY() - 1) + "-" + String(seasonY()).slice(2) + " (chemin vers le prochain classement) :\n" + R.map(function (r, k) { return (k + 1) + ". " + (r.me ? (S.profile.name || "Moi") : r.name) + " · " + r.rank + (r.up ? " (monté)" : "") + " · " + r.pc + " %"; }).join("\n"));
+    },
+    leagueOut: function (el) { S.league = S.league || { y: seasonY(), start: {} }; S.league.out = (S.league.out || []).concat([el.dataset.v]); save(); render(); toast("Retiré de ta ligue. Tu le suis toujours."); },
     rebondOpen: function () { UI.rebondOpen = !UI.rebondOpen; render(); },
     rebondHide: function (el) { S.rebond = S.rebond || {}; S.rebond.hid = el.dataset.v; save(); render(); toast("Masqué jusqu'à ta prochaine série."); },
     hideWatchCard: function () { S.prefs = S.prefs || {}; S.prefs.hideWatchCard = 1; UI.sheet = null; save(); render(); toast("Carte masquée. Tu la retrouves dans Réglages."); },
