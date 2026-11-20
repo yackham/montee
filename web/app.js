@@ -162,7 +162,9 @@
     return true;
   }
   function allMatches() { return S.matches.filter(counts).concat(S.doubles || []); }
-  function annotated(m) { return !!m.racketId || !!m.wo || !!m.noted; } // un WO ne s'est pas joué : rien à annoter
+  // 3.60.1 (testeur : « 7 matchs à annoter, je le fais et ça reste à annoter ») : sans raquette enregistrée, une annotation faite
+  // dans la fiche du match (ressenti, note, durée…) ne comptait pas. Tout ce que le joueur a noté compte, et l'enregistrer aussi.
+  function annotated(m) { return !!m.racketId || !!m.wo || !!m.noted || !!m.feel || !!(m.felt && m.felt.length) || !!String(m.note || "").trim() || !!m.minutes; } // un WO ne s'est pas joué : rien à annoter
   // 3.55 (Yann, maquette I) : première synchro = des matchs joués, aucun encore annoté. Accueil allégé, et seul le dernier mois est « à annoter ».
   function freshStart() { var n = 0, any = false; S.matches.forEach(function (m) { if (m.wo || !(m.result === "V" || m.result === "D")) return; n++; if (annotated(m)) any = true; }); return n >= 3 && !any; }
   // 3.55 (Yann, maquettes F et G) : petites illustrations des paliers et des états vides (terre battue, balle, même famille qu'illus.js)
@@ -1003,7 +1005,8 @@
       else if (z.rel && (m = st.match(/(\d+) \/ (\d+)/))) bot = '<span class="ft-bar"><i style="width:' + Math.min(100, Math.round(100 * m[1] / m[2])) + '%"></i></span><b>' + m[1] + "</b>/ " + m[2];
       else if (st) { var p = st.match(/(\d+) %/), g = st.match(/\+\d+ pts/);
         bot = p || g ? (p ? "<b>" + p[1] + " %</b> de chances" : "") + '<span class="grow"></span>' + (g ? "<b>" + g[0] + "</b> si tu gagnes" : "") : '<span class="grow">' + esc(st) + "</span>"; }
-      else if (z.todo) bot = '<span class="grow">Propose-leur une date</span><b>›</b>';
+      // 3.60.1 (Yann) : « Propose-leur une date » seulement pour des matchs de poule à programmer ; un tableau attend ton 1er tour
+      else if (z.todo) bot = '<span class="grow">' + (/à programmer$/.test(z.title || "") ? "Propose-leur une date" : /arrive$/.test(z.title || "") ? "Colle le mail du comité dès qu'il arrive" : "Note ton adversaire et l'heure") + "</span><b>›</b>";
       // 3.59 (Yann, piste B) : le type se lit au surtitre : son picto devant, et sa couleur (texte seulement)
       var ty = z.bd ? "bd" : z.team ? "eq" : z.rel ? "so" : z.t ? (/^Poule/.test(eye || "") || (z.t.fmt === "poule" && z.todo) ? "po" : "to") : "li";
       var tyIc = { eq: TEAM_IC, so: FR_REL, po: FT_IC.po, to: FT_IC.to, li: FT_IC.li, bd: FT_IC.bd }[ty];
@@ -15046,6 +15049,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (!m.oppRank) return toast("Indique le classement de l'adversaire.");
       if (!m.date && m.source !== "tenup-pdf") return toast("Indique la date du match.");
       var clean = Object.assign({}, m); delete clean._for; delete clean._tuName; delete clean._tuInfo; delete clean.sets; delete clean._auto; delete clean._wid;
+      if (S.matches.some(function (x) { return x.id === clean.id; })) clean.noted = true; // 3.60.1 : enregistrer un match déjà là = il est annoté
       if (m._wid) S.watchIn = (S.watchIn || []).filter(function (x) { return x.wid !== m._wid; });
       var i = S.matches.findIndex(function (x) { return x.id === clean.id; });
       // 3.57 (audit parcours P3) : un vrai match saisi pendant l'exemple efface l'exemple (avant : il se mélangeait aux matchs d'Alex)
