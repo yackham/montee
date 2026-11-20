@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.58.0",
+    VERSION: "3.59.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -733,7 +733,7 @@
     // 3.51.0 (Android, quelques clignotements restants) : rendu identique = on ne touche à rien ; même page = mise à jour sur place
     if (UI.lastRKey === rKey && app.firstChild && UI.lastHtml === html) { /* rien n'a changé */ }
     else if (UI.lastRKey === rKey && app.firstChild) morphInto(app, html);
-    else app.innerHTML = html;
+    else { app.innerHTML = html; countUp(app); } // 3.59 : les chiffres clés défilent jusqu'à leur valeur, à l'ouverture de la page
     UI.lastHtml = html;
     UI.lastRKey = rKey;
     Array.prototype.forEach.call(app.querySelectorAll("textarea"), growTa);
@@ -755,6 +755,23 @@
     syncWidgets(); watchSync(); schedulePlanNotif();
   }
 
+  // 3.59 (Yann, 20/11) : les scores et totaux mis en avant comptent jusqu'à leur valeur (0,6 s), une fois par page
+  var CU_SEL = ".h3h-s em, .h2s-h em, .opp-score, .lgc em, .ft-bot > b, .df-card em";
+  function countUp(root) {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var els = Array.prototype.slice.call(root.querySelectorAll(CU_SEL), 0, 40), list = [];
+    els.forEach(function (el) {
+      var tn = el.firstChild; if (!tn || tn.nodeType !== 3) return;
+      var m = /^([+\-−]?)(\d{1,4})(\D.*)?$/.exec(tn.nodeValue); if (!m || +m[2] < 2) return;
+      list.push({ tn: tn, pre: m[1], n: +m[2], post: m[3] || "", txt: tn.nodeValue }); tn.nodeValue = m[1] + "0" + (m[3] || "");
+    });
+    if (!list.length) return;
+    var t0 = 0, D = 600;
+    var step = function (t) { if (!t0) t0 = t; var k = Math.min(1, (t - t0) / D), e = 1 - Math.pow(1 - k, 3);
+      list.forEach(function (x) { if (!x.tn.parentNode) return; x.tn.nodeValue = k >= 1 ? x.txt : x.pre + Math.round(x.n * e) + x.post; });
+      if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
   // 3.49.1 : mise à jour sur place du DOM (même nœuds conservés quand ils sont du même type)
   function morphInto(root, html) {
     var tpl = document.createElement("div"); tpl.innerHTML = html;
@@ -10087,6 +10104,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         }).join("") + "</div>" +
           '<p class="small pf-ed">Tu pourras le modifier avant de l\'envoyer.</p><div class="pf-send"><button class="go-pill" data-a="profSend" data-v="sms">Messages</button><button class="go-pill" data-a="profSend" data-v="wa">WhatsApp</button><button class="go-pill" data-a="profSend" data-v="mail">Mail</button><button class="go-pill" data-a="profCopy">Copier</button></div>' };
     },
+    h2hm: function (k) { return h2hSheet(k); }, // 3.59 (Yann) : tous les matchs d'un face-à-face
     // 3.55.4 : la course du mois, comment c'est compté
     league: function () {
       var R = leagueRows(); if (R.length < 2) return null;
@@ -10790,6 +10808,39 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }).join("") + "</div>";
     return s + "</div>";
   };
+  // 3.59 (Yann, 20/11) : en haut ton meilleur client (le plus de victoires contre lui), puis ta bête noire (le plus de défaites),
+  // puis les autres par bilan (part de victoires, puis nombre de matchs). Un match nul en nombre ne fait ni client ni bête noire.
+  function h2hSort(list) {
+    var vd = function (x) { var v = x.ms.filter(function (m) { return m.result === "V"; }).length; return { v: v, d: x.ms.length - v, r: v / x.ms.length }; };
+    list.forEach(function (x) { x.vd = vd(x); x.tag = null; });
+    var byRatio = function (a, b) { return b.vd.r - a.vd.r || b.ms.length - a.ms.length || b.vd.v - a.vd.v; };
+    var cl = list.filter(function (x) { return x.vd.v > x.vd.d; }).sort(function (a, b) { return b.vd.v - a.vd.v || (b.vd.v - b.vd.d) - (a.vd.v - a.vd.d) || byRatio(a, b); })[0];
+    var bn = list.filter(function (x) { return x.vd.d > x.vd.v; }).sort(function (a, b) { return b.vd.d - a.vd.d || (b.vd.d - b.vd.v) - (a.vd.d - a.vd.v) || -byRatio(a, b); })[0];
+    if (cl) cl.tag = ["cl", "Ton meilleur client"];
+    if (bn) bn.tag = ["bn", "Ta bête noire"];
+    return [cl, bn].filter(Boolean).concat(list.filter(function (x) { return x !== cl && x !== bn; }).sort(byRatio));
+  }
+  // La feuille d'un face-à-face : tous vos matchs, du plus récent au plus ancien
+  function h2hSheet(key) {
+    var ms = knownMatches(false).filter(function (m) { return m.opp && !isAnon(m.opp) && nameKey(m.opp) === key; }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
+    if (!ms.length) return null;
+    var pl = ms.filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); }), v = pl.filter(function (m) { return m.result === "V"; }).length, d = pl.length - v, name = nameCase(ms[0].opp);
+    var sets = 0, setsW = 0, tbW = 0, tb = 0; pl.forEach(function (m) { setsOf(m.score).forEach(function (st) { sets++; if (st[0] > st[1]) setsW++; if ((st[0] === 7 && st[1] === 6) || (st[0] === 6 && st[1] === 7)) { tb++; if (st[0] > st[1]) tbW++; } }); });
+    var last = pl[0], run = 0; for (var i = 0; i < pl.length && pl[i].result === last.result; i++) run++;
+    var facts = [];
+    if (sets) facts.push(["Sets", setsW + " – " + (sets - setsW)]);
+    if (tb) facts.push(["Tie-breaks", tbW + " – " + (tb - tbW)]);
+    if (run >= 2) facts.push([last.result === "V" ? "Ta série" : "Sa série", run + " victoires"]);
+    var since = ms[ms.length - 1].date; if (since) facts.push(["Depuis", fdate(since).replace(/\.$/, "")]);
+    var body = '<div class="h2s-h"><span class="h3h-av">' + esc(initials(name)) + '</span><span class="h3h-s"><b><em class="V">' + v + '</em> – <em class="D">' + d + "</em></b><small>toi · lui</small></span></div>" +
+      (facts.length ? '<div class="h2s-f">' + facts.map(function (f) { return "<span><small>" + esc(f[0]) + "</small><b>" + esc(f[1]) + "</b></span>"; }).join("") + "</div>" : "") +
+      '<div class="list h2s-l">' + ms.map(function (m) {
+        var hist = !m.id, sub = [m.oppRank ? "il était " + m.oppRank : "", m.comp || "", m.wo ? "forfait" : ""].filter(Boolean).join(" · ");
+        return (hist ? '<div class="row"' : '<a class="row" href="#/match/' + m.id + '"') + '><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(sub) + "</span>" + (m.note ? '<span class="s rev">« ' + esc(m.note) + " »</span>" : "") + "</span>" + msbHtml(m) + (hist ? "</div>" : I.next + "</a>");
+      }).join("") + "</div>" +
+      '<a class="btn soft h2s-go" href="#/' + advPath(key) + '">Sa fiche et ton plan contre lui ' + I.next + "</a>";
+    return { title: name, sub: plural(pl.length, "match", "matchs") + " l'un contre l'autre, toutes saisons confondues.", body: body };
+  }
   function h2hHtml(inFaf) {
     var g = {};
     knownMatches(false).forEach(function (m) { // 3.48.8 : toutes les saisons connues
@@ -10798,10 +10849,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var k = nameKey(m.opp); if (k.length < 3) return;
       (g[k] = g[k] || { name: m.opp, ms: [] }).ms.push(m);
     });
-    var list = Object.keys(g).map(function (k) { return g[k]; }).filter(function (x) { return x.ms.length >= 2; })
-      .sort(function (a, b) { return b.ms.length - a.ms.length || ((b.ms[0] && b.ms[0].date) > (a.ms[0] && a.ms[0].date) ? 1 : -1); });
-    // 3.48.10 (Yann) : tous les face-à-face (2 rencontres et plus) ; les 6 premiers, puis « Voir les N autres »
-    var nAll = list.length; if (inFaf && !UI.h2hAll) list = list.slice(0, 6); else if (!inFaf) list = list.slice(0, 6);
+    var list = h2hSort(Object.keys(g).map(function (k) { return g[k]; }).filter(function (x) { return x.ms.length >= 2; }));
+    // 3.59 (Yann, 20/11) : 3 seulement (ton meilleur client, ta bête noire, puis le meilleur bilan), « Voir les N autres » pour le reste
+    var nAll = list.length; if (inFaf && !UI.h2hAll) list = list.slice(0, 3); else if (!inFaf) list = list.slice(0, 3);
     var findBtn = inFaf ? "" : '<a class="btn soft small faf-btn" href="#/faf">' + svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 2.2) + " Chercher un joueur</a>";
     if (inFaf && !list.length) return "";
     if (!list.length) return '<div class="card" style="gap:8px">' + chead("h2h", "Face-à-face", "Avant un match, regarde comment joue ton adversaire") + findBtn + "</div>";
@@ -10810,10 +10860,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var ms = x.ms.sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; }), v = ms.filter(function (m) { return m.result === "V"; }).length, d = ms.length - v;
         var nt = revNotes(x.name)[0];
         // 3.33 : initiales, bilan toi – lui en couleurs, une barre par match (du plus ancien au plus récent), la note en citation
-        var bars = ms.slice().reverse().map(function (m) { return '<i class="' + m.result + '"></i>'; }).join("");
-        return '<a class="h3h-r" href="#/' + advPath(nameKey(x.name)) + '"><span class="h3h-t"><span class="h3h-av">' + esc(initials(nameCase(x.name))) + '</span><span class="grow"><b>' + esc(nameCase(x.name)) + ' <span class="muted">· ' + esc(ms[0].oppRank || "") + '</span></b><small>Dernier : ' + (ms[0].result === "V" ? "victoire" : "défaite") + (ms[0].date ? " le " + esc(fdate(ms[0].date)) : "") + (ms[0].score ? " · " + esc(ms[0].score) : "") + '</small></span><span class="h3h-s"><b><em class="V">' + v + '</em> – <em class="D">' + d + "</em></b><small>toi · lui</small></span></span>" +
-          '<span class="h3h-b">' + bars + "</span>" + (nt && nt.text ? '<span class="h3h-n">' + esc(nt.text.length > 120 ? nt.text.slice(0, 118).replace(/\s+\S*$/, "") + "…" : nt.text) + "</span>" : "") + "</a>";
-      }).join("") + (inFaf && nAll > 6 ? '<button class="linkbtn h3h-more" data-a="h2hAll">' + (UI.h2hAll ? "Réduire" : "Voir les " + (nAll - 6) + " autres") + "</button>" : "") + findBtn + "</div>";
+        var bars = ms.slice().reverse().map(function (m, i) { return '<i class="' + m.result + '" style="--i:' + i + '"></i>'; }).join("");
+        return '<button class="h3h-r" data-a="sheet" data-k="h2hm" data-v="' + esc(nameKey(x.name)) + '"><span class="h3h-t"><span class="h3h-av">' + esc(initials(nameCase(x.name))) + '</span><span class="grow">' + (x.tag ? '<span class="h3h-tag ' + x.tag[0] + '">' + x.tag[1] + "</span>" : "") + '<b>' + esc(nameCase(x.name)) + ' <span class="muted">· ' + esc(ms[0].oppRank || "") + '</span></b><small>Dernier : ' + (ms[0].result === "V" ? "victoire" : "défaite") + (ms[0].date ? " le " + esc(fdate(ms[0].date)) : "") + (ms[0].score ? " · " + esc(ms[0].score) : "") + '</small></span><span class="h3h-s"><b><em class="V">' + v + '</em> – <em class="D">' + d + "</em></b><small>toi · lui</small></span></span>" +
+          '<span class="h3h-b">' + bars + "</span>" + (nt && nt.text ? '<span class="h3h-n">' + esc(nt.text.length > 120 ? nt.text.slice(0, 118).replace(/\s+\S*$/, "") + "…" : nt.text) + "</span>" : "") + "</button>";
+      }).join("") + (inFaf && nAll > 3 ? '<button class="linkbtn h3h-more" data-a="h2hAll">' + (UI.h2hAll ? "Réduire" : "Voir les " + (nAll - 3) + " autres") + "</button>" : "") + findBtn + "</div>";
     return '<div class="card" style="gap:4px">' + chead("h2h", "Face-à-face", "Les adversaires que tu as joués plusieurs fois") +
       list.map(function (x) {
         var ms = x.ms.sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; }), v = ms.filter(function (m) { return m.result === "V"; }).length, d = ms.length - v;
