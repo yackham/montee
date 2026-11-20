@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.56.2",
+    VERSION: "3.56.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -7165,7 +7165,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var V = m.result === "V", s = '<div class="card qa an">';
     if (done) s += '<span class="qa-done" role="status">' + I.check + " " + esc(done.label) + " : annoté</span>";
     s += '<div class="an-h"><span class="eyebrow">Annote ton match</span>' + (total > 1 ? '<span class="an-pos"><span class="small">' + pos + " sur " + total + '</span><span class="an-st">' + Array.apply(null, Array(Math.min(total, 8))).map(function (_, i) { return '<i class="' + (i < pos ? "on" : "") + '"></i>'; }).join("") + "</span></span>" : "") + "</div>";
-    s += '<div class="an-m"><span class="an-r ' + (V ? "V" : "D") + '">' + (V ? "V" : "D") + '</span><span class="grow"><b>' + (V ? "Victoire" : "Défaite") + " contre " + esc(m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "un " + m.oppRank) + ' <span class="an-rk0">' + esc(m.oppRank) + "</span></b><small>" + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + (m.comp ? " · " + esc(m.comp) : "") + "</small></span></div>" + revHint(m.opp, m.id, true);
+    s += '<div class="an-m"><span class="an-res ' + (V ? "V" : "D") + '">' + (V ? "V" : "D") + '</span><span class="grow"><b>' + (V ? "Victoire" : "Défaite") + " contre " + esc(m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "un " + m.oppRank) + ' <span class="an-rk0">' + esc(m.oppRank) + "</span></b><small>" + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + (m.comp ? " · " + esc(m.comp) : "") + "</small></span></div>" + revHint(m.opp, m.id, true);
     // raquette : celle retenue (touche pour changer) ; plusieurs dans le sac → la liste s'ouvre
     var B = bag(), rk = B.filter(function (r) { return r.id === q.racketId; })[0], rkRow;
     if (!B.length) rkRow = '<a class="an-add" href="#/raquette/new">+ Ajoute ta raquette</a>';
@@ -12513,7 +12513,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // ---------- Thèmes ----------
   var THEMES = [["auto", "Auto", "Lin le jour, Nuit le soir"], ["lin", "Lin", "Clair, le classique"], ["nuit", "Nuit", "Sombre"], ["terre", "Terre battue", "Fond d'argile ocre, vert profond", 1], ["dur", "Dur", "Bleu court sous les projecteurs", 1], ["gazon", "Gazon", "Blanc et gazon tondu", 1],
     ["indoor", "Indoor", "Bleu court couvert, lignes blanches", 1], ["nocturne", "Nocturne", "Ciel étoilé, lumière de projecteur", 1], ["retro", "Rétro", "Crème, bordeaux et vert sapin", 1]];
-  var THEME_SW = { lin: ["#F6F2EC", "#FFFFFF", "#1F5C3F", "#D4E64A"], nuit: ["#17181C", "#272930", "#6FC28F", "#D4E64A"], terre: ["#B5582D", "#FFFFFF", "#0B4D35", "#FFF4E8"], dur: ["#2F5584", "#FFFFFF", "#E3F25B", "#EAF1FB"], gazon: ["#F7F7F2", "#FFFFFF", "#006633", "#0F4A28"],
+  var THEME_SW = { lin: ["#F6F2EC", "#FFFFFF", "#1F5C3F", "#D4E64A"], nuit: ["#17181C", "#272930", "#6FC28F", "#D4E64A"], terre: ["#A34E27", "#FFFFFF", "#0B4D35", "#FFF4E8"], dur: ["#2F5584", "#FFFFFF", "#E3F25B", "#EAF1FB"], gazon: ["#F7F7F2", "#FFFFFF", "#006633", "#0F4A28"],
     indoor: ["#0B1A3F", "#13285C", "#D4E64A", "#1A3576"], nocturne: ["#070A1C", "#12173A", "#E9F06A", "#1A1F48"], retro: ["#F1E7D2", "#FBF5E7", "#7B1E2C", "#1F4D3A"] };
   // Thèmes Supporter : bâtis sur Nuit ou Lin, avec leurs propres couleurs (attribut data-skin)
   var SKIN_BASE = { indoor: "nuit", nocturne: "nuit", retro: "lin" };
