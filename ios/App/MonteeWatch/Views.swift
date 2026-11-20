@@ -639,7 +639,7 @@ struct OppCoach: View {
                 SectionLabel(t: nx.rv == true ? "TA REVANCHE" : "TON PLAN")
                 if link.canPlay {
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(Array(plan.prefix(3).enumerated()), id: \.offset) { i, st in
+                        ForEach(Array(plan.filter { ($0.th ?? "") != "obj" && ($0.th ?? "") != "planb" }.prefix(3).enumerated()), id: \.offset) { i, st in
                             HStack(alignment: .top, spacing: 8) {
                                 Text("\(i + 1)").font(.system(size: 12, weight: .heavy)).foregroundColor(.black)
                                     .frame(width: 20, height: 20).background(st.k == "pro" ? Color.terre : Color.balle).clipShape(Circle())
@@ -659,6 +659,18 @@ struct OppCoach: View {
                     }
                 }
             } else if !nx.tip.isEmpty { Quote(t: nx.tip + (nx.tipS.isEmpty ? "" : " " + nx.tipS)) }
+            // 3.56 : tes objectifs de jeu, avec la couleur de leur catégorie
+            if let obj = nx.plan?.filter({ ($0.th ?? "") == "obj" }), !obj.isEmpty {
+                SectionLabel(t: "TON MATCH DU JOUR")
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(obj.enumerated()), id: \.offset) { _, st in
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Circle().fill(goalColor(st.k)).frame(width: 8, height: 8)
+                            Text(st.t).font(.system(size: 14, weight: .heavy)).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
             if link.canPlay, (nx.forts?.isEmpty == false || nx.faibles?.isEmpty == false) {
                 SectionLabel(t: "SON JEU")
                 if let f = nx.forts, !f.isEmpty { Text("Fort · " + f.joined(separator: ", ")).font(.system(size: 12.5, weight: .bold)).foregroundColor(.gazon).fixedSize(horizontal: false, vertical: true) }
@@ -1230,6 +1242,13 @@ struct ScoreHeader: View {
             }
             .frame(width: 58, alignment: .leading)
             Spacer(minLength: 0)
+            if let imp = M.importance, !imp.mine, !(M.inTB && M.superTB) {
+                // 3.56 (maquette 9) : point important à sauver : le rappel tête et corps
+                Text("RESPIRE").font(.system(size: 10, weight: .heavy)).kerning(0.4).foregroundColor(goalColor("tet"))
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(Capsule().fill(goalColor("tet").opacity(0.16)))
+                    .fixedSize()
+            }
             if M.inTB && M.superTB {
                 Text("SUPER TB").font(.system(size: 10, weight: .heavy)).kerning(0.4).foregroundColor(.balle)
                     .padding(.horizontal, 8).padding(.vertical, 3)
@@ -1703,7 +1722,7 @@ struct ChangeView: View {
                 if let plan = vm.live?.plan, !plan.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("TON PLAN").font(.system(size: 10, weight: .heavy)).kerning(0.8).foregroundColor(.secondary)
-                        ForEach(Array(plan.prefix(3).enumerated()), id: \.offset) { i, st in
+                        ForEach(Array(plan.filter { ($0.th ?? "") != "obj" && ($0.th ?? "") != "planb" }.prefix(3).enumerated()), id: \.offset) { i, st in
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
                                 Text("\(i + 1)").font(.system(size: 11, weight: .heavy)).foregroundColor(.black)
                                     .frame(width: 18, height: 18).background(Circle().fill(Color.balle))
@@ -1882,5 +1901,16 @@ struct CopainsView: View {
                 }
             }
         }.navigationTitle("Tes copains")
+    }
+}
+
+
+/// 3.56 : couleur d'une catégorie d'objectif (les mêmes que le profil du compétiteur sur l'iPhone)
+func goalColor(_ k: String?) -> Color {
+    switch k ?? "" {
+    case "sol": return Color(red: 0.91, green: 0.54, blue: 0.37)   // solidité
+    case "cor": return Color(red: 0.30, green: 0.79, blue: 0.75)   // endurance
+    case "tet": return Color(red: 0.66, green: 0.55, blue: 1.0)    // mental
+    default: return Color(red: 0.95, green: 0.76, blue: 0.31)      // tactique
     }
 }

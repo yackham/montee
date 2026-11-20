@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.55.5",
+    VERSION: "3.56.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -4971,6 +4971,21 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (prev && prev.d === E.iso(today()) && JSON.stringify(prev.steps) === JSON.stringify(snap)) return;
     S.planShown[key] = { d: E.iso(today()), steps: snap }; save();
   }
+  // 3.56 : le plan de match (sections) est gardé avec le plan affiché : la montre le reçoit, la fiche du match le vérifie
+  function tacRemember(key, steps, T) {
+    if (!key || !steps || !steps.length) return;
+    S.planShown = S.planShown || {};
+    var ps = S.planShown[key] = S.planShown[key] || { d: E.iso(today()), steps: [] };
+    var snap = steps.map(function (x) { return { id: x.id, t: x.t, s: x.s || "", kind: x.kind, theme: x.theme || "" }; });
+    if (ps.d === E.iso(today()) && JSON.stringify(ps.tac) === JSON.stringify(snap)) return;
+    ps.d = E.iso(today()); ps.tac = snap; save();
+  }
+  function tacSnapOf(m) {
+    if (m.tacSnap) return m.tacSnap;
+    var k = m.opp && !isAnon(m.opp) ? nameKey(m.opp) : "", ps = k && (S.planShown || {})[k];
+    if (!ps || !ps.tac || !m.date || ps.d > m.date || dayDiff(ps.d, m.date) > 45) return null;
+    m.tacSnap = ps.tac; save(); return m.tacSnap;
+  }
   function planSnapOf(m) {
     if (m.planSnap) return m.planSnap;
     var k = m.opp && !isAnon(m.opp) ? nameKey(m.opp) : "", ps = k && (S.planShown || {})[k];
@@ -5067,13 +5082,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var me = key === "me";
     if (!UI.gw || UI.gw.key !== key) {
       var T = me ? myTraits() : hisTraits([key], null), name = me ? "" : ((oppIndex().filter(function (o) { return o.key === key; })[0] || {}).name || UI.gwName || "");
-      UI.gw = { key: key, step: 0, f: T.f, w: T.w, hand: T.hand || "", backhand: T.backhand || "", style: T.style || "", name: name };
+      UI.gw = { key: key, step: 0, f: T.f, w: T.w, hand: T.hand || "", backhand: T.backhand || "", style: T.style || "", name: name, pat: me ? ((S.profile.game || {}).pat || []).slice() : [] };
     }
     var g = UI.gw, acc = me ? "g" : "o", st = g.step;
-    var ttl = me ? ["Tes points forts ?", "Ce que tu veux protéger ?", "Et ton style ?"] : ["Qu'est-ce qui t'a gêné chez lui ?", "Et où tu peux l'attaquer ?", "Et son style ?"];
-    var sub = me ? ["Touche ce qui te fait gagner des points.", "Touche tes points faibles. Tes forces sont grisées.", "Facultatif."] : ["Touche ses forces. Rien n'est obligatoire.", "Touche ses faiblesses. Ses forces sont grisées.", "Facultatif."];
+    var ttl = me ? ["Tes points forts ?", "Ce que tu veux protéger ?", "Et ton style ?", "Ce que tu aimes jouer ?"] : ["Qu'est-ce qui t'a gêné chez lui ?", "Et où tu peux l'attaquer ?", "Et son style ?"];
+    var sub = me ? ["Touche ce qui te fait gagner des points.", "Touche tes points faibles. Tes forces sont grisées.", "Facultatif.", "Tes schémas de jeu préférés. Ton plan de match s'appuie dessus. Facultatif."] : ["Touche ses forces. Rien n'est obligatoire.", "Touche ses faiblesses. Ses forces sont grisées.", "Facultatif."];
     var s = '<div class="screen gw ' + acc + '">' + topbar("", me ? "Ton jeu" : (g.name ? nameCase(g.name) : "Son jeu")).replace('data-a="back" aria-label="Retour"', 'data-a="gwBack" aria-label="' + (st ? "Étape précédente" : "Retour") + '"');
-    s += '<div class="gw-p">' + [0, 1, 2].map(function (i) { return '<i class="' + (i <= st ? "on" : "") + '"></i>'; }).join("") + "</div>";
+    var LAST = me ? 3 : 2;
+    s += '<div class="gw-p">' + (me ? [0, 1, 2, 3] : [0, 1, 2]).map(function (i) { return '<i class="' + (i <= st ? "on" : "") + '"></i>'; }).join("") + "</div>";
     s += '<h1 class="gw-t">' + esc(ttl[st]) + '</h1><p class="small gw-s">' + esc(sub[st]) + "</p>";
     if (st < 2) {
       var mine = st === 0 ? g.f : g.w, other = st === 0 ? g.w : g.f;
@@ -5081,13 +5097,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var on = mine.indexOf(t[0]) >= 0, off = other.indexOf(t[0]) >= 0 && st === 1 ? true : false;
         return '<button class="gw-c' + (on ? " on " + (st === 0 ? "f" : "w") : "") + (off ? " off" : "") + '" data-a="gwT" data-v="' + t[0] + '"' + (off ? " disabled" : "") + ' aria-pressed="' + on + '">' + trIc(t[0], 18) + "<span>" + esc(t[1]) + "</span>" + (on ? '<i class="gw-k">✓</i>' : "") + "</button>";
       }).join("") + "</div>";
+    } else if (st === 3) {
+      // 3.56 : tes schémas préférés (le plan les cite comme source : « Ta fiche »)
+      s += '<div class="gw-g">' + PATTERNS.map(function (t) { var on = g.pat.indexOf(t[0]) >= 0; return '<button class="gw-c' + (on ? " on f" : "") + '" data-a="gwP" data-v="' + t[0] + '" aria-pressed="' + on + '"><span>' + esc(t[1]) + "</span>" + (on ? '<i class="gw-k">✓</i>' : "") + "</button>"; }).join("") + "</div>";
     } else {
       var seg = function (k, opts) { return '<div class="seg">' + opts.map(function (o) { return '<button data-a="gwS" data-k="' + k + '" data-v="' + o[0] + '" class="' + (g[k] === o[0] ? "on" : "") + '">' + esc(o[1]) + "</button>"; }).join("") + "</div>"; };
       s += '<span class="lbl">Main</span>' + seg("hand", GAME.hand.map(function (x) { return [x[0], x[0] === "D" ? "Droitier" : "Gaucher"]; })) + '<span class="lbl">Revers</span>' + seg("backhand", GAME.backhand) +
         '<span class="lbl">Style</span><div class="gw-st">' + [["fond", "Fond de court"], ["poly", "Tout terrain"], ["filet", "Attaquant au filet"], ["contre", "Contreur"], ["defense", "Défenseur"]].map(function (x) { return '<button class="gw-c' + (g.style === x[0] ? " on f" : "") + '" data-a="gwS" data-k="style" data-v="' + x[0] + '">' + styIc(x[0]) + "<span>" + esc(x[1]) + "</span></button>"; }).join("") + "</div>";
       if (!me) { var nt = ((S.oppNotes || {})[key] || {}).text || ""; s += '<label class="lbl" for="gw-n">Ta note <span class="muted" style="font-weight:400">· facultatif</span></label><textarea id="gw-n" class="gw-n" data-on="' + esc(key) + '" rows="3" placeholder="Ex. : monte au filet dès qu\'il peut, lobe-le">' + esc(nt) + "</textarea>"; }
     }
-    s += '<div class="gw-sp"></div><div class="gw-b"><button class="btn primary" data-a="gwNext">' + (st < 2 ? "Suivant" : "Terminer") + "</button>" + (st < 2 ? '<button class="linkbtn" data-a="gwNext">' + (st === 0 && !g.f.length || st === 1 && !g.w.length ? "Je ne sais pas" : "") + "</button>" : "") + "</div>";
+    s += '<div class="gw-sp"></div><div class="gw-b"><button class="btn primary" data-a="gwNext">' + (st < LAST ? "Suivant" : "Terminer") + "</button>" + (st < 2 ? '<button class="linkbtn" data-a="gwNext">' + (st === 0 && !g.f.length || st === 1 && !g.w.length ? "Je ne sais pas" : "") + "</button>" : "") + "</div>";
     return s + "</div>";
   };
   // Mini-court vu de dessus : filet en haut, sa position en point (fond, partout, au filet, loin derrière)
@@ -5100,7 +5119,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var g = UI.gw; if (!g) return;
     if (g.key === "me") {
       var pg = S.profile.game = S.profile.game || {};
-      pg.f = g.f.slice(); pg.w = g.w.filter(function (k) { return g.f.indexOf(k) < 0; }); pg.hand = g.hand; pg.backhand = g.backhand; pg.style = g.style;
+      pg.f = g.f.slice(); pg.w = g.w.filter(function (k) { return g.f.indexOf(k) < 0; }); pg.hand = g.hand; pg.backhand = g.backhand; pg.style = g.style; pg.pat = (g.pat || []).slice();
     } else {
       S.oppGame = S.oppGame || {};
       var o = S.oppGame[g.key] = S.oppGame[g.key] || {}, src = o.src || {};
@@ -5365,6 +5384,272 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (D.soon.length) s += '<div class="card">' + dfSoonHtml(D.soon) + '<span class="small">Il faut ' + DF_MIN + " matchs dans un cas pour en parler. Note le jeu de tes adversaires et suis tes matchs à la montre : la liste s'étoffe.</span></div>";
     return s + "</div>";
   };
+  // =====================================================================
+  // 3.56 (Yann, maquettes 1-10 validées le 20/11) : TON PLAN DE MATCH et TES OBJECTIFS DE JEU
+  // Le plan : une idée, 3 mots (aussi sur la montre), puis ton service, son service, l'échange,
+  // les moments, et un plan B à seuil. Chaque bloc dit d'où il vient ; quand ce n'est qu'une règle
+  // de coach, c'est écrit comme tel. Adversaire inconnu : le plan part de TON jeu.
+  // Les objectifs : 3 choses que tu fais (tactique, solidité, corps, tête), revues sur la montre,
+  // notées après le match avant le score.
+  // =====================================================================
+  var PATTERNS = [["dcd", "Décalage coup droit"], ["scd", "Service + coup droit"], ["court", "Monter sur la courte"], ["slf", "Slice puis filet"], ["amo", "Amorti"], ["ldl", "Long de ligne"], ["ctr", "Défendre, contrer"], ["long", "Échanges longs"], ["lift", "Lift lourd et haut"]];
+  var PAT_LAB = {}; PATTERNS.forEach(function (p) { PAT_LAB[p[0]] = p[1]; });
+  // Ce que chaque schéma devient dans l'échange : [consigne, mot pour la montre, plan B qui va avec]
+  var PAT_TXT = {
+    dcd: ["Tourne autour de ton revers et joue un maximum de coups droits : croisé long, puis attaque la balle courte.", "Décale-toi coup droit", "long"],
+    scd: ["Sers large ou au corps, et prends la balle suivante en coup droit : le point se joue en 2 frappes.", "Service + coup droit", "long"],
+    court: ["Avance sur chaque balle courte et finis devant : approche long, puis la volée dans l'ouverture.", "Monte sur la courte", "long"],
+    slf: ["Approche en slice bas et long, puis monte : il doit te passer avec une balle basse.", "Slice, puis filet", "long"],
+    amo: ["Construis du fond, puis l'amorti quand il est loin derrière sa ligne.", "Amorti au bon moment", "long"],
+    ldl: ["Fixe-le en croisé 2 ou 3 balles, puis change en long de ligne.", "Croisé, puis ligne", "long"],
+    ctr: ["Remets tout long au centre et contre sur ses balles faibles : c'est lui qui doit prendre les risques.", "Remets long", "court"],
+    long: ["Une balle de plus : profondeur au centre, pas de risque avant le 5e coup.", "Une balle de plus", "court"],
+    lift: ["Lifte haut et lourd sur son revers : à hauteur d'épaule, il ne peut que bloquer.", "Haut et lourd", "long"]
+  };
+  // Plan B : si tu es mené de 3 jeux dans un set, on change de rythme (la montre le propose)
+  var PLAN_B = {
+    long: "Change le rythme : slice bas et lent au centre, et monte derrière.",
+    court: "Prends-lui le temps : un pas dans le court, et finis sur la 1re balle courte."
+  };
+  // Couleurs (Yann, 20/11) : celles du profil du compétiteur quand la catégorie y correspond (Solidité, Mental, Endurance)
+  var GOAL_CAT = { tac: ["Tactique", null, "tac"], sol: ["Solidité", null, "solid"], cor: ["Corps", null, "endu"], tet: ["Tête", null, "mental"] };
+  function gcol(k) { var c = GOAL_CAT[k] || GOAL_CAT.tac; return c[2] === "tac" ? (cpDark() ? "#F2C14E" : "#B98A12") : cpCol(c[2]); }
+  var GOALS = [
+    ["court", "tac", "Monter sur la balle courte", "Sur chaque balle courte, avance et finis devant. Vise 5 montées.", "Monte sur la courte"],
+    ["dcd", "tac", "Décaler pour jouer coup droit", "Tourne autour de ton revers dès que tu peux.", "Décale coup droit"],
+    ["att2", "tac", "Attaquer sa 2e balle", "Un pas dans le court en retour sur ses 2es balles.", "Attaque sa 2e"],
+    ["vsrv", "tac", "Varier mon service", "Corps, T, extérieur : jamais deux fois la même zone.", "Varie ton service"],
+    ["slice", "tac", "Utiliser le slice", "Casse son rythme avec une balle basse et lente.", "Le slice"],
+    ["long", "sol", "Jouer long", "Vise 1 m derrière le carré de service.", "Joue long"],
+    ["plus1", "sol", "Une balle de plus", "Pas de coup gagnant avant le 5e coup.", "Une balle de plus"],
+    ["first", "sol", "1re balle à 65 %", "Ralentis un peu, place-la. Ta montre la compte.", "1re balle à 65 %"],
+    ["marge", "sol", "Marge au-dessus du filet", "Un mètre au-dessus du filet, même en attaque.", "De la marge"],
+    ["bras", "cor", "Relâcher le bras", "Expire en frappant, mâchoire relâchée.", "Relâche le bras"],
+    ["jambes", "cor", "Les jambes : petits pas", "Replace-toi après chaque frappe, sois sur tes appuis avant sa frappe.", "Petits pas"],
+    ["geste", "cor", "Finir mon geste", "Finis la raquette au-dessus de l'épaule.", "Finis ton geste"],
+    ["balle", "cor", "Regarder la balle", "Jusqu'à l'impact, la tête reste fixe.", "Regarde la balle"],
+    ["ppp", "tet", "Point par point", "Le point d'avant est fini. Seul le prochain compte.", "Point par point"],
+    ["tete", "tet", "Tête haute après une faute", "Une faute, une respiration, et tu passes.", "Tête haute"],
+    ["rout", "tet", "Ma routine entre les points", "Raquette dans l'autre main, une respiration, une intention.", "Ta routine"],
+    ["score", "tet", "Oublier le score", "Joue le point, pas le tableau d'affichage.", "Oublie le score"]
+  ];
+  function goalOf(id) {
+    var g = GOALS.filter(function (x) { return x[0] === id; })[0];
+    if (g) return { id: g[0], cat: g[1], t: g[2], s: g[3], w: g[4] };
+    var c = ((S.goals || {}).custom || []).filter(function (x) { return x.id === id; })[0];
+    return c ? { id: c.id, cat: c.cat || "tac", t: c.t, s: "Ton objectif.", w: c.t.slice(0, 24), own: 1 } : null;
+  }
+  function catDot(k) { return '<i class="gcat-d" style="background:' + gcol(k) + '"></i>'; }
+  function catLab(k, extra) { var c = GOAL_CAT[k] || GOAL_CAT.tac; return '<span class="gcat" style="color:' + gcol(k) + '">' + catDot(k) + esc(c[0] + (extra ? " · " + extra : "")) + "</span>"; }
+  // Les suggestions : ta fiche « Ton jeu » d'abord, puis tes débriefs (« Raconte-le »), puis ta montre
+  function goalSuggest() {
+    var out = [], why = {}, T = myTraits(), pat = (S.profile.game || {}).pat || [];
+    var add = function (id, w) { if (out.indexOf(id) < 0) { out.push(id); why[id] = w; } };
+    var last = sortedMatches().filter(function (m) { return m.date && !m.wo && (m.result === "V" || m.result === "D"); }).slice(0, 5);
+    var felt = function (k) { return last.filter(function (m) { return (m.felt || []).indexOf(k) >= 0; }).length; };
+    if (traitVal(T, "volee") < 0) add("court", "Ta fiche · volée à protéger");
+    if (felt("fautes") >= 2) add("bras", "Tes débriefs · « Trop de fautes » " + felt("fautes") + " fois sur " + last.length);
+    if (felt("tendu") >= 2) add("rout", "Tes débriefs · « Tendu sur les points clés » " + felt("tendu") + " fois sur " + last.length);
+    if (felt("fatigue") >= 2) add("jambes", "Tes débriefs · « Coup de fatigue » " + felt("fatigue") + " fois sur " + last.length);
+    var sv = last.filter(function (m) { return m.serve && m.serve.me && m.serve.me.pts >= 20; });
+    if (sv.length >= 2) { var fi = sv.reduce(function (s, m) { return s + m.serve.me.firstIn; }, 0), pt = sv.reduce(function (s, m) { return s + m.serve.me.pts; }, 0); if (fi / pt < 0.6) add("first", "Ta montre · " + Math.round(fi * 100 / pt) + " % de 1res sur tes derniers matchs"); }
+    if (pat.indexOf("dcd") >= 0) add("dcd", "Ta fiche · ton schéma préféré");
+    if (traitVal(T, "mental") < 0) add("tete", "Ta fiche · mental à protéger");
+    if (traitVal(T, "regul") < 0) add("plus1", "Ta fiche · régularité à protéger");
+    return { ids: out, why: why };
+  }
+  function goalsCur() { var g = S.goals; return g && g.ids && g.ids.length ? g.ids.map(goalOf).filter(Boolean) : []; }
+  // « Ton match du jour » (gratuit) : au-dessus du plan
+  function goalsCard(D, matchDay) {
+    var cur = goalsCur(), sg = goalSuggest(), whyOf = function (id) { return ((S.goals || {}).why || {})[id] || sg.why[id] || "Ton choix"; };
+    var ey = matchDay ? "Ton match du jour" : "Tes objectifs de jeu";
+    if (!cur.length) {
+      var pre = (sg.ids.length ? sg.ids : ["court", "bras", "rout"]).slice(0, 3).map(goalOf);
+      return '<div class="card gl-card"><div class="gl-h"><span class="eyebrow">' + ey + '</span></div><b class="gl-idea">3 objectifs de jeu. Ton match se juge là-dessus, pas sur le score.</b>' +
+        '<span class="small">' + (sg.ids.length ? "Suggérés pour toi : " : "Par exemple : ") + pre.map(function (g) { return esc(g.t.toLowerCase()); }).join(", ") + ".</span>" +
+        '<button class="go-pill right" data-a="sheet" data-k="goals">Choisir mes objectifs ›</button></div>';
+    }
+    var ic = { tac: '<path d="M12 19V5M6 11l6-6 6 6"/>', sol: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', cor: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>', tet: '<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>' };
+    var s = '<div class="card gl-card"><div class="gl-h"><span class="eyebrow">' + ey + '</span><button class="go-pill" data-a="sheet" data-k="goals">Changer ›</button></div>' +
+      '<b class="gl-idea">' + plural(cur.length, "objectif", "objectifs") + " de jeu. Ton match se juge là-dessus, pas sur le score.</b>" +
+      '<div class="gl-lg">' + Object.keys(GOAL_CAT).map(function (k) { return catLab(k); }).join("") + "</div>";
+    s += cur.map(function (g) {
+      var col = gcol(g.cat);
+      return '<div class="gl-r"><span class="gl-ic" style="color:' + col + ";box-shadow:inset 0 0 0 1.5px " + col + '66">' + svg(ic[g.cat] || ic.tac, 2) + '</span><div class="grow"><div class="gl-rh">' + catLab(g.cat) + '<span class="gl-src">' + esc(whyOf(g.id).split(" · ")[0]) + "</span></div><b>" + esc(g.t) + '</b><span class="small">' + esc(g.s) + (whyOf(g.id).indexOf(" · ") > 0 ? " " + esc(cap1(whyOf(g.id).split(" · ").slice(1).join(" · "))) + "." : "") + "</span></div></div>";
+    }).join("");
+    s += '<div class="gl-r"><span class="gl-ic" style="color:' + gcol("tet") + ";box-shadow:inset 0 0 0 1.5px " + gcol("tet") + '66">' + svg('<path d="M3 9h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3"/>', 2) + '</span><div class="grow"><div class="gl-rh">' + catLab("tet", "entre les points") + '</div><b>Raquette dans l\'autre main, une respiration, une seule intention.</b><span class="small">Le score, le classement, les points : après le match.</span></div></div>';
+    if (IOS) s += '<span class="gl-w">' + I.check + " Sur ta montre, avec ton plan</span>";
+    return s + "</div>";
+  }
+  var DET_GOALS = function () {
+    var g = UI.goalPick || (UI.goalPick = (goalsCur().map(function (x) { return x.id; }))), sg = goalSuggest();
+    var chip = function (id) { var x = goalOf(id); if (!x) return ""; var on = g.indexOf(id) >= 0, col = gcol(x.cat); return '<button class="gp-c' + (on ? " on" : "") + '" data-a="goalT" data-v="' + esc(id) + '" aria-pressed="' + on + '"' + (on ? ' style="box-shadow:inset 0 0 0 1.5px ' + col + '"' : "") + ">" + catDot(x.cat) + esc(x.t) + "</button>"; };
+    var body = "";
+    if (sg.ids.length) body += '<h3>Suggérés pour toi</h3><div class="gp-l">' + sg.ids.slice(0, 4).map(chip).join("") + "</div>";
+    Object.keys(GOAL_CAT).forEach(function (k) { body += '<h3 class="gp-h">' + catDot(k) + esc(GOAL_CAT[k][0]) + '</h3><div class="gp-l">' + GOALS.filter(function (x) { return x[1] === k && sg.ids.slice(0, 4).indexOf(x[0]) < 0; }).map(function (x) { return chip(x[0]); }).join("") + "</div>"; });
+    var own = ((S.goals || {}).custom || []);
+    body += '<h3>Le tien</h3><div class="gp-l">' + own.map(function (x) { return chip(x.id); }).join("") + '</div><div class="gp-own"><input id="gp-t" class="input" maxlength="40" placeholder="Ex. : rester bas sur les jambes"><div class="seg" role="group" aria-label="Catégorie">' + Object.keys(GOAL_CAT).map(function (k) { return '<button data-a="goalCat" data-v="' + k + '" class="' + ((UI.goalCat || "tac") === k ? "on" : "") + '">' + esc(GOAL_CAT[k][0]) + "</button>"; }).join("") + '</div><button class="btn soft small" data-a="goalAdd">Ajouter</button></div>';
+    body += '<div class="gp-f"><span class="small">' + g.length + ' sur 3</span><button class="btn primary" data-a="goalSave">C\'est bon</button></div>';
+    return { title: "Tes objectifs de jeu", sub: "Choisis-en 3 au plus. Des choses que tu fais, pas un score.", body: body };
+  };
+  // Le détail d'un chiffre du plan (feuille), rempli au rendu
+  var TP_DET = {};
+  var DET_TP = function (v) { return TP_DET[v] || null; };
+  function tpNum(id, txt, det) { TP_DET[id] = det; return '<button class="tp-n" data-a="sheet" data-k="tp" data-v="' + esc(id) + '">' + esc(txt) + "</button>"; }
+  function tpMatchRows(ms, val) {
+    return '<div class="list">' + ms.map(function (m) { return '<div class="row"><div class="grow"><b>' + esc(fdate(m.date).replace(/\.$/, "")) + " · " + esc(m.opp ? nameCase(m.opp) : m.oppRank || "") + '</b><small>' + (m.result === "V" ? "Victoire " : "Défaite ") + esc(m.score || "") + '</small></div><span class="r">' + esc(val(m)) + "</span></div>"; }).join("") + "</div>";
+  }
+  // Ta 1re balle : au-dessus de 65 %, combien de matchs gagnés (ta montre)
+  function tpFirst() {
+    var sv = playedOf(S.matches).filter(function (m) { return !m.dbl && m.serve && m.serve.me && m.serve.me.pts >= 20 && !(m.serve.me.firstIn === m.serve.me.pts && !m.serve.me.df); });
+    var hi = sv.filter(function (m) { return m.serve.me.firstIn / m.serve.me.pts >= 0.65; }), lo = sv.filter(function (m) { return m.serve.me.firstIn / m.serve.me.pts < 0.65; });
+    var v = function (l) { return l.filter(function (m) { return m.result === "V"; }).length; };
+    return { n: sv.length, hi: hi, lo: lo, vh: v(hi), vl: v(lo) };
+  }
+  // Le plan lui-même
+  function tacPlan(D, P, hisT) {
+    var me = myTraitsEff(), my = myGame(), pat = (S.profile.game || {}).pat || [], his = { hand: hisT.hand, backhand: hisT.backhand, style: hisT.style };
+    var known = !!(hisT.f.length || hisT.w.length || hisT.hand || hisT.backhand || hisT.style || (D.noteDer || []).length);
+    var w = watchOn(D.mine || []), hs = { secPts: 0, secWon: 0, firstIn: 0, firstWon: 0, pts: 0, n: 0 };
+    (D.mine || []).forEach(function (m) { var h = m.serve && m.serve.him; if (!h || !h.pts) return; hs.n++; hs.secPts += h.secPts || 0; hs.secWon += h.secWon || 0; hs.firstIn += h.firstIn || 0; hs.firstWon += h.firstWon || 0; hs.pts += h.pts || 0; });
+    var P0 = { sec: [], foot: [] }, id = String(D.gkey || "x");
+    // --- Dans l'échange
+    var rally = null, nd = (D.noteDer || []).filter(function (x) { return x.p && !x.own && ["srv+", "srv-", "ret", "tri", "men", "phy", "phy+", "dsl", "fst", "age"].indexOf(x.k) < 0; })[0];
+    if (nd) rally = { src: "Tes notes", t: nd.p.t + ". " + nd.p.s, kw: nd.p.t, why: "Tu avais noté : « " + nd.q + " »" + (nd.d ? " · " + fdate(nd.d).replace(/\.$/, "") : ""), b: /mur|tmp|net-|mob|age|phy\b/.test(nd.k) ? "long" : "court" };
+    if (!rally && (his.style || his.backhand || his.hand)) {
+      var lib = []; try { lib = coachLib(his, my).sort(function (a, b) { return b.sc - a.sc; }); } catch (e) {}
+      if (lib[0]) rally = { src: "Sa fiche", t: lib[0].plan.t + ". " + lib[0].plan.s, kw: lib[0].fais ? lib[0].fais.t : lib[0].plan.t, why: [his.hand ? gameLabel("hand", his.hand) : "", his.backhand ? "revers " + gameLabel("backhand", his.backhand).toLowerCase() : "", his.style ? (STY_HIS[his.style] || "").toLowerCase() : ""].filter(Boolean).join(", "), b: his.style === "defense" ? "long" : his.style === "fond" || his.style === "contre" ? "court" : "long" };
+    }
+    var myPat = pat.filter(function (k) { return PAT_TXT[k]; })[0];
+    if (!rally && myPat) rally = { src: "Ta fiche", t: PAT_TXT[myPat][0], kw: PAT_TXT[myPat][1], why: "Ton schéma préféré : " + PAT_LAB[myPat].toLowerCase(), b: PAT_TXT[myPat][2], mine: 1 };
+    if (!rally && traitVal(me, "cd") > 0) rally = { src: "Règle de coach", t: PAT_TXT.dcd[0], kw: PAT_TXT.dcd[1], why: "Ton coup droit est un point fort (ta fiche « Ton jeu »)", b: "long", mine: 1 };
+    if (!rally && traitVal(me, "regul") > 0) rally = { src: "Règle de coach", t: PAT_TXT.long[0], kw: PAT_TXT.long[1], why: "Ta régularité est un point fort (ta fiche « Ton jeu »)", b: "court", mine: 1 };
+    if (!rally) rally = { src: "Règle de coach", t: "Joue long au centre, et attaque la première balle courte.", kw: "Long, puis la courte", why: "Remplis « Ton jeu » pour un plan bâti sur tes armes", b: "long", mine: 1 };
+    if (known && myPat && rally.src !== "Ta fiche") rally.mineAlso = "Et ton schéma : " + PAT_LAB[myPat].toLowerCase() + ".";
+    // --- Ton service
+    var srv, F = tpFirst(), aim = "Vise 65 % de 1res";
+    if (traitVal(hisT, "retour") < 0) srv = { src: "Sa fiche", t: "Sers fort et cherche le point gratuit : son retour est fragile.", kw: "1re appuyée" };
+    else if (hisT.backhand === "1") srv = { src: "Sa fiche", t: "1re au corps, 2e liftée haute sur son revers à une main.", kw: "2e liftée revers" };
+    else if (traitVal(hisT, "revers") < 0) srv = { src: "Sa fiche", t: "Sers sur son revers, 1re comme 2e.", kw: "Service revers" };
+    else if (traitVal(me, "service") > 0) srv = { src: "Ta fiche", t: "Appuie-toi sur ta 1re : au corps et au T.", kw: "1re au corps" };
+    else srv = { src: "Règle de coach", t: "1re au corps, sans forcer. 2e avec effet, au centre du carré.", kw: "1re au corps" };
+    if (F.n >= 3 && F.hi.length >= 2) { srv.src = srv.src === "Règle de coach" ? "Ta montre" : srv.src + " · ta montre"; srv.why = aim + " : au-dessus, tu gagnes " + tpNum(id + "-f", F.vh + " matchs sur " + F.hi.length, { title: "Ta 1re balle, à 65 % et plus", sub: "Tes matchs suivis à la montre (au moins 20 points de service).", body: tpMatchRows(F.hi, function (m) { return Math.round(m.serve.me.firstIn * 100 / m.serve.me.pts) + " %"; }) + (F.lo.length ? '<h3>En dessous de 65 %</h3><span class="small">' + F.vl + " victoire" + (F.vl > 1 ? "s" : "") + " sur " + F.lo.length + " match" + (F.lo.length > 1 ? "s" : "") + ".</span>" + tpMatchRows(F.lo, function (m) { return Math.round(m.serve.me.firstIn * 100 / m.serve.me.pts) + " %"; }) : "") + '<span class="small">Fiabilité ' + (F.n >= 8 ? "bonne" : F.n >= 4 ? "moyenne" : "faible") + " : " + plural(F.n, "match suivi", "matchs suivis") + ".</span>" }) + "."; }
+    else srv.why = aim + " : ta montre le comptera.";
+    // --- Son service
+    var ret;
+    if (hs.n && hs.secPts >= 8 && hs.secWon / hs.secPts < 0.5) {
+      var pc = Math.round(hs.secWon * 100 / hs.secPts);
+      ret = { src: "Ta montre", t: "Un pas dans le court sur sa 2e, retour long au centre.", kw: "Sa 2e : un pas devant", auto: "att2",
+        why: "Il ne gagne que " + tpNum(id + "-s2", pc + " % derrière sa 2e", { title: "Il gagne " + pc + " % derrière sa 2e", sub: "Points joués sur sa 2e balle, comptés par ta montre.", body: tpMatchRows((D.mine || []).filter(function (m) { return m.serve && m.serve.him && m.serve.him.secPts; }), function (m) { return m.serve.him.secWon + " sur " + m.serve.him.secPts; }) + '<span class="small">Total : ' + hs.secWon + " points gagnés sur " + hs.secPts + ". Fiabilité " + (hs.n >= 3 ? "bonne" : "moyenne") + " : " + plural(hs.n, "match", "matchs") + ".</span>" }) + " (tes " + plural(hs.n, "match", "matchs") + " contre lui)." };
+    } else if (hs.n && hs.firstIn >= 15 && hs.firstWon / hs.firstIn >= 0.72) {
+      ret = { src: "Ta montre", t: "Recule d'un mètre sur sa 1re, bloque le retour long au centre.", kw: "Recule sur sa 1re", why: "Il gagne " + Math.round(hs.firstWon * 100 / hs.firstIn) + " % derrière sa 1re (tes " + plural(hs.n, "match", "matchs") + " contre lui)." };
+    } else if (traitVal(hisT, "service") > 0) ret = { src: "Sa fiche", t: "Recule en retour et bloque : remettre la balle d'abord, le point se gagne après.", kw: "Recule et bloque", why: "Son service est une force (sa fiche)." };
+    else if (traitVal(hisT, "service") < 0) ret = { src: "Sa fiche", t: "Avance d'un pas en retour et prends l'initiative sur sa 2e.", kw: "Attaque sa 2e", why: "Son service est une faiblesse (sa fiche).", auto: "att2" };
+    else ret = { src: "Règle de coach", t: "Retour long au centre, puis ton jeu.", kw: "Retour long au centre", why: known ? "Rien de net sur son service : remettre la balle d'abord." : "Tu ne connais pas son service : remettre la balle d'abord, le point se gagne après." };
+    // --- Les moments (ses scores Ten'Up et les tiens)
+    var MLAB = { start: "Début", mental: "Set serré", physique: "3e set" }, mo = [], seenTh = {};
+    (D.reperes || []).forEach(function (x) { var c = REP_CONS[x.id]; if (!c || seenTh[c[1]] || mo.length >= 3) return; seenTh[c[1]] = 1; mo.push({ id: "t-" + x.id, th: c[1], lab: x.id === "back" ? "1er set gagné" : MLAB[c[1]] || "Moment", t: c[0], s: (HOW["r-" + x.id] || "").replace(/\.$/, ""), why: x.st || x.t || "" }); });
+    try { var CP = compSkills(today()).R; if (!seenTh.mental && CP.mental && CP.mental.st === "faible") mo.push({ id: "t-c-mental", th: "mental", lab: "Set perdu", t: "Repars de zéro", s: "après un set perdu, change une chose : cible, rythme ou 1re balle", why: "Ton profil de compétiteur" }); } catch (e) {}
+    // --- Plan B
+    var bk = rally.b === "court" ? "court" : "long";
+    var B = { t: PLAN_B[bk], trig: "Si tu es mené de 3 jeux dans un set" };
+    // --- L'idée et les 3 mots
+    var idea = known ? rally.kw + (ret.auto === "att2" ? ", et la pression sur sa 2e." : ". " + srv.kw + ".") : "Tu ne le connais pas : joue ton match. " + rally.kw + ", " + srv.kw.toLowerCase() + ".";
+    var kw = [rally.kw, ret.auto === "att2" ? ret.kw : srv.kw, mo[0] ? mo[0].t : ret.kw].filter(function (x, i, a) { return x && a.indexOf(x) === i; }).slice(0, 3);
+    return { known: known, idea: idea, kw: kw, srv: srv, ret: ret, rally: rally, mo: mo, B: B, hs: hs, F: F };
+  }
+  var TP_IC = { srv: '<path d="M4 20C8 14 11 11 15 9"/><circle cx="18" cy="6.5" r="3"/>', ret: '<path d="M20 12H6M11 7l-5 5 5 5"/>', rally: '<path d="M4 18c4-10 12-10 16 0"/><circle cx="20" cy="18" r="1.5"/>', time: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', b: '<path d="M4 12a8 8 0 1 0 2.3-5.7L4 8"/><path d="M4 3v5h5"/>' };
+  function tpSec(ic, h, src, body) { return '<div class="tp-sec"><span class="tp-ic">' + svg(TP_IC[ic], 2) + '</span><div class="grow"><div class="tp-h"><small>' + esc(h) + '</small><span class="tp-src">' + esc(src) + "</span></div>" + body + "</div></div>"; }
+  function tacPlanCard(D, T, tug, reps) {
+    var lock = PLUS_LOCK(), key = D.gkey || "";
+    var s = '<div class="card tp-card"><div class="tp-top"><span class="eyebrow">Ton plan de match</span><span class="ch-plus">Montée+</span></div>' + (tug || "") +
+      '<b class="tp-idea">' + esc(T.idea) + '</b><div class="tp-kw">' + T.kw.map(function (k) { return "<span>" + esc(k) + "</span>"; }).join("") + "</div>";
+    var body = tpSec("srv", "Ton service", T.srv.src, '<b class="tp-do">' + esc(T.srv.t) + '</b><span class="tp-why">' + T.srv.why + "</span>") +
+      tpSec("ret", "Son service", T.ret.src, '<b class="tp-do">' + esc(T.ret.t) + '</b><span class="tp-why">' + (T.ret.why.indexOf("<button") >= 0 ? T.ret.why : esc(T.ret.why)) + "</span>") +
+      tpSec("rally", "Dans l'échange", T.rally.src, '<b class="tp-do">' + esc(T.rally.t) + '</b><span class="tp-why">' + esc(T.rally.why) + (T.rally.mineAlso ? " " + esc(T.rally.mineAlso) : "") + (T.rally.src === "Règle de coach" || T.rally.mine ? ' <a class="lnk" href="#/jeu/me">Ton jeu ›</a>' : "") + "</span>") +
+      (T.mo.length ? tpSec("time", "Les moments", T.known ? "Ses scores Ten'Up" : "Tes scores · ses scores", '<div class="tp-mo">' + T.mo.map(function (m) { return "<span>" + esc(m.lab) + "</span><div><b>" + esc(m.t) + "</b>" + (m.s ? " : " + esc(m.s) + "." : ".") + (m.why ? '<small>' + esc(m.why) + "</small>" : "") + "</div>"; }).join("") + "</div>") : "") +
+      tpSec("b", "Plan B", IOS ? "Ta montre te prévient" : "Règle de coach", '<div class="tp-b"><small>' + esc(T.B.trig) + "</small><b>" + esc(T.B.t) + "</b></div>");
+    if (lock) s += '<div class="tp-lock"><div class="pw-blur" aria-hidden="true">' + body + '</div><div class="tp-lockc"><b>Le plan complet est dans Montée+</b><span class="small">Ton service, son service, l\'échange, les moments et le plan B, chacun avec sa preuve.</span>' + plusCta() + "</div></div>";
+    else s += body;
+    var src = [];
+    if ((D.notes || []).length) src.push(D.notes.length + " de tes notes");
+    if (T.hs.n) src.push(plural(T.hs.n, "match montre", "matchs montre") + " contre lui");
+    if ((D.hp || []).length) src.push("ses " + plural(D.hp.length, "match", "matchs") + " Ten'Up");
+    if (T.F.n) src.push("tes " + plural(T.F.n, "match suivi", "matchs suivis"));
+    s += '<div class="tp-foot">' + (src.length ? "D'après " + esc(src.join(", ").replace(/, ([^,]*)$/, " et $1")) + ". " : "") + '<a class="lnk" href="#/jeu/' + encodeURIComponent(key) + '">' + (T.known ? "Son jeu" : "Noter son jeu") + " ›</a>" + (IOS && !lock ? '<span class="gl-w">' + I.check + " Sur ta montre au début du match</span>" : "") + "</div>";
+    if (reps && reps.length && !lock) s += '<details class="ff-bdd ff-rps"><summary>Ses repères chiffrés · ' + reps.length + "</summary>" + reps.map(repCard).join("") + "</details>";
+    return s + "</div>";
+  }
+  // Ce que le plan devient pour la montre et pour « Ton plan, vérifié »
+  function tacSteps(T) {
+    var st = [];
+    T.kw.forEach(function (k, i) { var src = i === 0 ? T.rally : k === T.ret.kw ? T.ret : T.srv; st.push({ id: i === 0 ? "t-rally" : k === T.ret.kw ? "t-ret" : k === T.srv.kw ? "t-srv" : "t-k" + i, t: k, s: src && src.t ? src.t : "", kind: "att", theme: i === 0 ? "" : k === T.ret.kw ? "retour" : "service", auto: src && src.auto }); });
+    if (!st.some(function (x) { return x.id === "t-srv"; })) st.push({ id: "t-srv", t: T.srv.kw, s: T.srv.t, kind: "att", theme: "service" });
+    T.mo.forEach(function (m) { st.push({ id: m.id, t: m.t, s: m.s, kind: "pro", theme: m.th }); });
+    st.push({ id: "t-b", t: "Plan B", s: T.B.t, kind: "pro", theme: "planb" });
+    return st;
+  }
+  // Après le match : ce que la montre et le score prouvent
+  function tacAuto(m, snap) {
+    var out = {}, sets = setsOf(m.score), sv = m.serve, won = m.result === "V";
+    if (!sets.length || m.wo) return out;
+    var s1 = sets[0][0] > sets[0][1];
+    snap.forEach(function (st) {
+      if (st.id === "t-srv" && sv && sv.me && sv.me.pts >= 20) out[st.id] = { r: sv.me.firstIn / sv.me.pts >= 0.65 ? 1 : 0, why: Math.round(sv.me.firstIn * 100 / sv.me.pts) + " % de 1res (tu visais 65 %)" };
+      else if (st.id === "t-ret" && sv && sv.him && sv.him.secPts >= 8) { var p = Math.round(sv.him.secWon * 100 / sv.him.secPts); out[st.id] = { r: p <= 50 ? 1 : 0, why: "Il a gagné " + sv.him.secWon + " points sur " + sv.him.secPts + " derrière sa 2e (" + p + " %)" }; }
+      else if (st.theme === "start") out[st.id] = { r: s1 ? 1 : 0, why: "1er set " + sets[0].join("-") };
+      else if (st.theme === "physique" && sets.length === 3 && !isSuperTb(sets[2], 2)) out[st.id] = { r: sets[2][0] > sets[2][1] ? 1 : 0, why: "3e set " + sets[2].join("-") };
+      else if (st.theme === "mental" && sets.length) { var tl = sets.some(function (x, i) { return (isTb(x) || isSuperTb(x, i)) && x[0] < x[1]; }); if (tl) out[st.id] = { r: 0, why: "Jeu décisif perdu" }; else if (won) out[st.id] = { r: 1, why: "Pas de set serré perdu" }; }
+      else if (st.theme === "planb") { var lag = sets.some(function (x, i) { return i < 2 && x[1] - x[0] >= 3; }); if (!lag && won) out[st.id] = { r: null, why: "Pas utilisé : jamais mené de 3 jeux" }; }
+    });
+    return out;
+  }
+  function tacCheckHtml(m) {
+    var snap = tacSnapOf(m); if (!snap || !snap.length || m.wo) return "";
+    var res = m.tacRes || {}, auto = tacAuto(m, snap);
+    return '<div class="card pc2"><span class="eyebrow">Ton plan, vérifié</span><span class="small">Ta montre et le score cochent ce qu\'ils prouvent. Le reste, une touche.</span>' +
+      snap.map(function (st) {
+        var a = auto[st.id], r = res[st.id] != null ? res[st.id] : a ? a.r : undefined, by = res[st.id] == null && a, c = r === 1 ? "ok" : r === 0 ? "ko" : "q";
+        var sub = by ? a.why : r === 1 ? "Ça a marché" : r === 0 ? "Raté" : st.theme === "planb" ? "Tu l'as utilisé ? Touche si ça a marché" : "Ta montre ne voit pas les coups. Ça a marché ? Touche";
+        return '<button class="pc2-r" data-a="tacT" data-id="' + esc(m.id) + '" data-v="' + esc(st.id) + '"><span class="pc2-i ' + c + '">' + (r === 1 ? "✓" : r === 0 ? "✕" : by && r === null ? "–" : "·") + '</span><div class="grow"><b>' + esc(st.theme === "planb" ? "Plan B · " + st.s : st.t) + '</b><span class="small">' + esc(sub) + "</span></div></button>";
+      }).join("") + (function () {
+        var ok = snap.filter(function (st) { var r = res[st.id] != null ? res[st.id] : (auto[st.id] || {}).r; return r === 1; }), ko = snap.filter(function (st) { var r = res[st.id] != null ? res[st.id] : (auto[st.id] || {}).r; return r === 0; });
+        if (!ok.length && !ko.length) return "";
+        return '<div class="pc2-next"><b>Pour la prochaine fois contre lui</b><span class="small">' + (ok.length ? "On garde : " + esc(ok.map(function (x) { return x.theme === "planb" ? "le plan B" : x.t.toLowerCase(); }).join(", ")) + ". " : "") + (ko.length ? "On change : " + esc(ko.map(function (x) { return x.theme === "planb" ? "le plan B" : x.t.toLowerCase(); }).join(", ")) + "." : "") + "</span></div>";
+      })() + "</div>";
+  }
+  // Les objectifs du match : gardés avec le match (ceux en cours le jour du match)
+  function goalSnapOf(m) {
+    if (m.goalSnap) return m.goalSnap;
+    var g = S.goals; if (!g || !g.ids || !g.ids.length || !m.date || m.wo || m.dbl) return null;
+    if (g.since && m.date < g.since) return null;
+    if (dayDiff(m.date, E.iso(today())) > 21) return null;
+    m.goalSnap = g.ids.slice(); save(); return m.goalSnap;
+  }
+  function goalAuto(m, id) { var sv = m.serve; if (id === "first" && sv && sv.me && sv.me.pts >= 20) return { r: sv.me.firstIn / sv.me.pts >= 0.65 ? 2 : sv.me.firstIn / sv.me.pts >= 0.58 ? 1 : 0, why: "Ta montre : " + Math.round(sv.me.firstIn * 100 / sv.me.pts) + " % de 1res" }; return null; }
+  function goalsCheckHtml(m) {
+    var snap = goalSnapOf(m); if (!snap || !snap.length) return "";
+    var res = m.goalRes || {}, gs = snap.map(goalOf).filter(Boolean);
+    var val = function (g) { var a = goalAuto(m, g.id); return res[g.id] != null ? res[g.id] : a ? a.r : null; };
+    var held = gs.filter(function (g) { return val(g) === 2; }).length, done = gs.filter(function (g) { return val(g) != null; }).length;
+    var s = '<div class="card gl-card gc-card"><span class="eyebrow">Ton match, sur tes objectifs</span><b class="gl-idea">' + (done ? held + " objectif" + (held > 1 ? "s" : "") + " sur " + gs.length + " tenu" + (held > 1 ? "s" : "") + "." : "Avant le score : tes objectifs, tenus ?") + "</b>";
+    s += gs.map(function (g) {
+      var v = val(g), a = goalAuto(m, g.id), opts = g.id === "court" ? [[0, "0-2"], [1, "3-4"], [2, "5 ou +"]] : [[2, "Oui"], [1, "À moitié"], [0, "Non"]];
+      return '<div class="gc-r">' + catLab(g.cat) + "<b>" + esc(g.t) + "</b>" + (g.id === "court" ? '<span class="small">Tu visais 5 montées. Combien ?</span>' : "") + '<div class="gc-o">' + opts.map(function (o) { return '<button class="gc-b' + (v === o[0] ? (o[0] === 2 ? " on" : o[0] === 1 ? " half" : " no") : "") + '" data-a="goalR" data-id="' + esc(m.id) + '" data-k="' + esc(g.id) + '" data-v="' + o[0] + '" aria-pressed="' + (v === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" + (a && res[g.id] == null ? '<span class="small">' + esc(a.why) + "</span>" : "") + "</div>";
+    }).join("");
+    // Sur la durée (Montée+) : ce que tu tiens, et ce que ça change
+    if (!PLUS_LOCK()) {
+      var rows = gs.map(function (g) {
+        var ms = S.matches.filter(function (x) { return x.goalRes && x.goalRes[g.id] != null && !x.wo; }), ok = ms.filter(function (x) { return x.goalRes[g.id] === 2; }), ko = ms.filter(function (x) { return x.goalRes[g.id] !== 2; });
+        if (ms.length < 3) return "";
+        var v1 = ok.filter(function (x) { return x.result === "V"; }).length, v0 = ko.filter(function (x) { return x.result === "V"; }).length;
+        TP_DET["g-" + g.id] = { title: g.t, sub: "Tes matchs avec cet objectif.", body: tpMatchRows(ms.sort(function (a, b) { return a.date < b.date ? 1 : -1; }), function (x) { return x.goalRes[g.id] === 2 ? "Tenu" : x.goalRes[g.id] === 1 ? "À moitié" : "Non"; }) };
+        return '<div class="gc-t"><div class="grow"><b>' + esc(g.t) + "</b><small>" + (ok.length >= 2 && ko.length >= 2 ? "Tenu : " + v1 + " V sur " + ok.length + " · sinon " + v0 + " V sur " + ko.length : "Objectif depuis " + plural(ms.length, "match", "matchs")) + '</small></div><button class="tp-n" data-a="sheet" data-k="tp" data-v="g-' + esc(g.id) + '">' + ok.length + " sur " + ms.length + "</button></div>";
+      }).join("");
+      if (rows) s += '<div class="gc-dur"><span class="eyebrow">Sur la durée</span>' + rows + "</div>";
+    }
+    return s + "</div>";
+  }
   function ffPlanTab(D, extra) {
     var od = D.od, R = reperesOf(D); D.reperes = R.list; D.sitH = R.H; D.sitM = R.M;
     var pl0 = planOf(route().split("/")[1]);
@@ -5412,7 +5697,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // Widget « Prochain adversaire » et montre : la consigne n°1 du plan
     var lsx = S.lastScout; if (lsx && P.steps[0] && String(lsx.id) === String(route().split("/")[1]) && lsx.tip !== P.steps[0].t) { lsx.tip = P.steps[0].t; lsx.tipS = P.steps[0].why; save(); }
     // 3.55 (maquette A) : Le match › Ce qui se joue pour toi › Comment le battre › Lui en ce moment
-    s += (od ? ffMyStake(D) : "") + lastTimeCard(D.mine[0], P) + beatCard(D, P, hisT, plain ? tg : "", R.list) + luiCard(D, hisT);
+    // 3.56 (maquettes 1-10) : Ton match du jour (objectifs), puis Ton plan de match ; le jour du match, l'enjeu se replie
+    var mDay = pl0 && dGap(pl0.day) === 0, T3 = tacPlan(D, P, hisT), stk = od ? ffMyStake(D) : "";
+    D.tacSteps = tacSteps(T3); tacRemember(D.gkey, D.tacSteps, T3);
+    if (stk && mDay && !UI.stakeOpen) stk = '<div class="card stk-fold"><div class="grow"><span class="eyebrow">Ce qui se joue pour toi</span><span class="small">Replié le jour du match. Les points attendront.</span></div><button class="go-pill" data-a="stakeOpen">Voir ›</button></div>';
+    s += stk + lastTimeCard(D.mine[0], P) + goalsCard(D, mDay) + tacPlanCard(D, T3, plain ? tg : "", R.list);
     return s + extra;
   }
 
@@ -8229,7 +8518,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var hv = hm.filter(function (x) { return x.result === "V"; }).length;
       s += '<a class="h2h2" href="#/' + advPath(hk) + '"><span class="ini">' + esc(initials(m.opp)) + '</span><span class="grow"><b>Face-à-face avec ' + esc((function (n) { var f = n.split(" ")[0]; return /\.$/.test(f) || f.length < 3 ? n : f; })(nameCase(m.opp))) + "</b><small>" + (hm.length > 1 ? '<span class="h2h-dots">' + hm.slice(-8).map(function (x) { return '<i class="' + x.result + (x.id === m.id ? " me" : "") + '"></i>'; }).join("") + "</span>" + hv + " – " + (hm.length - hv) : "1er match contre lui · sa fiche ›") + "</small></span>" + I.next + "</a>";
     }
-    if (!isNew) { var m0 = mA; s += planCheckHtml(m0) + watchFicheHtml(m0) + (m0.serve ? myPropsHtml() : ""); }
+    if (!isNew) { var m0 = mA; s += goalsCheckHtml(m0) + (tacSnapOf(m0) ? tacCheckHtml(m0) : planCheckHtml(m0)) + watchFicheHtml(m0) + (m0.serve ? myPropsHtml() : ""); }
     if (!isNew && m.serve) s += serveHtml(m) + dfHtml(m);
     if (!isNew && isManual(m) && !UI.mEdit) s += '<p class="small m-man">' + I.edit + (m.kind === "amical" ? " Match d'entraînement : dans tes stats, pas pour le classement." : " " + (m._wid || m.watch || m.serve ? "Compté à la montre" : "Saisi à la main") + " : Ten'Up le remplacera une fois homologué, tes annotations restent.") + "</p>";
     else if (!isNew && m.manualOrigin && m.confirmedAt) s += '<div class="card menthe" style="flex-direction:row;gap:10px;align-items:flex-start;padding:12px 14px">' + I.check + '<span style="font-size:14px;line-height:1.45"><b>Confirmé par Ten\'Up le ' + esc(fdate(m.confirmedAt).replace(/\.$/, "")) + '.</b> Tu l\'avais saisi à la main : les infos officielles ont remplacé ta saisie, tes annotations sont gardées.</span></div>';
@@ -10020,6 +10309,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return s + "</div>";
   }
   function sheetHtml() {
+    DET.goals = DET_GOALS; DET.tp = DET_TP; // 3.56 (déclarés avant DET)
     var d = DET[UI.sheet.k] && DET[UI.sheet.k](UI.sheet.v);
     if (!d) { UI.sheet = null; return ""; }
     return '<div class="sheet-bg" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + '</b><button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
@@ -11689,7 +11979,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function watchCoach(name) {
     var k = nameKey(name || ""), out = {}; if (k.length < 3) return out;
     var ps = (S.planShown || {})[k];
-    if (ps && ps.steps && ps.steps.length) out.plan = ps.steps.slice(0, 3).map(function (x) { return { id: x.id, t: x.t, s: x.s || "", k: x.kind || "att", th: x.theme || "" }; });
+    if (ps && ps.tac && ps.tac.length) out.plan = ps.tac.map(function (x) { return { id: x.id, t: x.t, s: x.s || "", k: x.kind || "att", th: x.theme || "" }; });
+    else if (ps && ps.steps && ps.steps.length) out.plan = ps.steps.slice(0, 3).map(function (x) { return { id: x.id, t: x.t, s: x.s || "", k: x.kind || "att", th: x.theme || "" }; });
+    // 3.56 : tes objectifs de jeu (th « obj », k = catégorie) : avant le 1er point, puis un par changement de côté
+    var gls = goalsCur(); if (gls.length) out.plan = (out.plan || []).concat(gls.map(function (g) { return { id: "o-" + g.id, t: g.w, s: g.s, k: g.cat, th: "obj" }; }));
     var T = hisTraits([k], null);
     if (T.f.length) out.forts = T.f.map(function (x) { return TR_LAB[x]; });
     if (T.w.length) out.faibles = T.w.map(function (x) { return TR_LAB[x]; });
@@ -14075,11 +14368,20 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var g = UI.gw; if (!g) return; var L = g.step === 0 ? g.f : g.w, k = el.dataset.v, i = L.indexOf(k);
       if (i >= 0) L.splice(i, 1); else L.push(k); haptic("light"); render();
     },
+    gwP: function (el) { var g = UI.gw; if (!g) return; var i = g.pat.indexOf(el.dataset.v); if (i >= 0) g.pat.splice(i, 1); else g.pat.push(el.dataset.v); haptic("light"); render(); },
+    // 3.56 : objectifs de jeu, plan vérifié, enjeu replié
+    goalT: function (el) { var g = UI.goalPick || (UI.goalPick = goalsCur().map(function (x) { return x.id; })), i = g.indexOf(el.dataset.v); if (i >= 0) g.splice(i, 1); else if (g.length < 3) g.push(el.dataset.v); else { toast("3 objectifs au plus : retires-en un d'abord."); return; } haptic("light"); render(); },
+    goalCat: function (el) { UI.goalCat = el.dataset.v; render(); },
+    goalAdd: function () { var inp = document.getElementById("gp-t"), t = inp && inp.value.trim(); if (!t) return; S.goals = S.goals || { ids: [] }; var c = S.goals.custom = S.goals.custom || [], id = "c" + Date.now().toString(36); c.push({ id: id, t: t.slice(0, 40), cat: UI.goalCat || "tac" }); var g = UI.goalPick || (UI.goalPick = goalsCur().map(function (x) { return x.id; })); if (g.length < 3) g.push(id); save(); render(); },
+    goalSave: function () { var g = UI.goalPick || [], sg = goalSuggest(); S.goals = S.goals || {}; S.goals.ids = g.slice(0, 3); S.goals.since = E.iso(today()); S.goals.why = {}; g.forEach(function (id) { if (sg.why[id]) S.goals.why[id] = sg.why[id]; }); UI.goalPick = null; UI.sheet = null; save(); toast(g.length ? "Tes objectifs sont prêts" + (IOS ? ", aussi sur ta montre." : ".") : "Objectifs retirés."); try { watchSync(); } catch (e) {} render(); },
+    goalR: function (el) { var m = S.matches.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!m) return; m.goalRes = m.goalRes || {}; var v = +el.dataset.v; if (m.goalRes[el.dataset.k] === v) delete m.goalRes[el.dataset.k]; else m.goalRes[el.dataset.k] = v; haptic("light"); save(); render(); },
+    tacT: function (el) { var m = S.matches.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!m) return; m.tacRes = m.tacRes || {}; var k = el.dataset.v, cur = m.tacRes[k]; m.tacRes[k] = cur === 1 ? 0 : cur === 0 ? null : 1; if (m.tacRes[k] == null) delete m.tacRes[k]; haptic("light"); save(); render(); },
+    stakeOpen: function () { UI.stakeOpen = true; render(); },
     gwS: function (el) { var g = UI.gw; if (!g) return; g[el.dataset.k] = g[el.dataset.k] === el.dataset.v ? "" : el.dataset.v; render(); },
     gwBack: function () { var g = UI.gw; if (g && g.step > 0) { g.step--; render(); window.scrollTo(0, 0); } else { UI.gw = null; back(); } },
     gwNext: function () {
       var g = UI.gw; if (!g) return;
-      if (g.step < 2) { g.step++; render(); window.scrollTo(0, 0); return; }
+      if (g.step < (g.key === "me" ? 3 : 2)) { g.step++; render(); window.scrollTo(0, 0); return; }
       gwSave(); var me = g.key === "me"; UI.gw = null; toast(me ? "Ton jeu est enregistré : tes plans en tiennent compte." : "Son jeu est enregistré : ton plan est à jour."); back();
     },
     pfT: function (el) { var q = UI.pf; if (!q) return; var i = q.on.indexOf(el.dataset.v); if (i >= 0) q.on.splice(i, 1); else q.on.push(el.dataset.v); render(); },
