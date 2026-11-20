@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.57.3",
+    VERSION: "3.58.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -951,7 +951,7 @@
     try { var c = ctx(), pr = c.proj; if (pr && pr.release && E.iso(pr.release) >= td && pr.status !== "top" && S.matches.length) out.push({ d: E.iso(pr.release), rel: 1, href: "#/projection", title: "Sortie du classement", sub: (tuStale() ? "projection au " + fdate(S.tenup.lastImport) : pr.status === "descente" ? "risque : " + lab(pr.projected) : S.ahead ? "tu passes " + S.ahead.rank : "projection : " + lab(pr.projected)), st: (function () { var hb = pr.status === "descente" ? pr.here : pr.status === "montee" ? (pr.steps.filter(function (x) { return x.calc === pr.projected; })[0] || pr.next) : pr.next; return hb ? hb.total + " / " + hb.norme + " pts" : ""; })() }); } catch (e) {} // 3.57 (audit parcours P1) : le même bilan que la carte de la sortie (avant : 44 / 360 ici, 74 / 335 dessous)
     return out.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : (a.time || "99") < (b.time || "99") ? -1 : 1; }).slice(0, 12);
   }
-  var FR_TICKETS = false; // 3.57 : « Ce qui arrive » en billets de convocation, prêt mais en attente de l'avis de Yann (true pour l'activer)
+  var FR_TICKETS = true; // 3.57 : « Ce qui arrive » en billets de convocation, prêt mais en attente de l'avis de Yann (true pour l'activer)
   function friseHtml() {
     var L = friseItems(); if (!L.length) return "";
     var td = E.iso(today());
@@ -2361,7 +2361,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var jm = null; try { var tdj = E.iso(today()); jm = friseItems().filter(function (z) { return z.d === tdj && !z.todo && !z.rel && !z.dim && !z.team; })[0]; } catch (e) {}
     var dLine = flong(d).replace(/^./, function (x) { return x.toUpperCase(); });
     if (jm) dLine = (jm.time ? jm.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h") + " · " : "") + "contre " + String(jm.title || "").replace(/ · .*/, "");
-    s += '<div class="topbar"><div class="title">' + (S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small">' + esc(dLine) + "</span>") + '<span style="font-size:28px;font-weight:600;letter-spacing:-.03em">' + (jm ? '<span style="white-space:nowrap;font-size:26px">Jour de match</span>' : S.profile.name ? "Salut " + esc(S.profile.name) : "Salut") + "</span></div>" +
+    // 3.58 (Yann) : le lendemain d'un match, le salut en parle
+    var hier = null, gt = null; if (!jm) try { var yd = E.iso(new Date(today().getTime() - 864e5)); hier = knownMatches(false).filter(function (m) { return m.date === yd && !m.wo && (m.result === "V" || m.result === "D"); })[0]; } catch (e) {}
+    if (hier) { gt = hier.result === "V" ? "Bien joué !" : "On repart"; dLine = (hier.result === "V" ? "Victoire hier" : "Défaite hier") + (hier.score ? " · " + hier.score : ""); }
+    s += '<div class="topbar"><div class="title">' + (S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small">' + esc(dLine) + "</span>") + '<span style="font-size:28px;font-weight:600;letter-spacing:-.03em">' + (jm ? '<span style="white-space:nowrap;font-size:26px">Jour de match</span>' : gt ? esc(gt) : S.profile.name ? "Salut " + esc(S.profile.name) : "Salut") + "</span></div>" +
       '<span class="top-actions"><button class="mechip' + (S.ahead ? " up" : "") + '" data-a="goProfil" aria-label="Mon profil, classement ' + esc(effRank() || "?") + '">' + (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })() + '<span class="rk">' + esc(effRank() || "?") + (S.ahead && S.ahead.release ? '<small class="rk-d">' + aheadDay() + "</small>" : "") + "</span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + '</button><button class="iconbtn gearbtn" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></span></div>";
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
@@ -8312,7 +8315,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (offline()) return "Pas de réseau : " + (search ? "la recherche" : "la fiche") + " Ten'Up reviendra avec la connexion.";
     if (!S.tenup.linked) return "Connecte ton compte Ten'Up (Réglages › Ten'Up) pour " + (search ? "chercher un joueur." : "lire sa fiche.");
     if (/connecte/.test((r && r.error) || "")) return "Ta session Ten'Up a expiré : reconnecte-toi depuis Réglages › Ten'Up.";
-    return "Ten'Up n'a pas répondu. Réessaie dans un instant.";
+    return "Ten'Up ne renvoie pas la balle. Réessaie dans un instant.";
   }
   function tuStale() { return !!(S.tenup && S.tenup.linked && S.tenup.expired && S.tenup.lastImport); }
   function offline() { try { return navigator.onLine === false; } catch (e) { return false; } }
@@ -9672,8 +9675,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function ring3(pct, col, size, w, txt, sub) {
     var r = (size - w) / 2, C = 2 * Math.PI * r, f = Math.max(0, Math.min(1, pct));
-    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" aria-hidden="true"><circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" stroke="var(--chip)" stroke-width="' + w + '" fill="none"/>' +
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" overflow="visible" style="overflow:visible" aria-hidden="true"><circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" stroke="var(--chip)" stroke-width="' + w + '" fill="none"/>' +
       '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" stroke="' + col + '" stroke-width="' + w + '" fill="none" stroke-linecap="round" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + (C * (1 - f)).toFixed(1) + '" transform="rotate(-90 ' + size / 2 + " " + size / 2 + ')"/>' +
+      // 3.58 (Yann) : une balle au bout de l'anneau, qui tourne avec lui au remplissage (svg en overflow visible : elle n'est jamais coupée)
+      (f > 0.02 ? '<g class="cr3-ball" style="transform-origin:' + size / 2 + "px " + size / 2 + "px;transform:rotate(" + (f * 360).toFixed(1) + 'deg)"><g transform="translate(' + (size / 2 - 8) + " " + (w / 2 - 8) + ') scale(.7273)"><circle cx="11" cy="11" r="12" fill="var(--card)"/><circle cx="11" cy="11" r="10" fill="' + col + '"/><path d="M3.2 5.5C7.5 8.5 7.5 13.5 3.2 16.5M18.8 5.5C14.5 8.5 14.5 13.5 18.8 16.5" stroke="var(--card)" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></g>' : "") +
       '<text x="' + size / 2 + '" y="' + (size / 2 + 1) + '" text-anchor="middle" dominant-baseline="middle" font-weight="800" font-size="' + (size > 85 ? 20 : 19) + '" fill="var(--ink)">' + txt + (sub ? '<tspan font-size="11" fill="var(--muted)">' + sub + "</tspan>" : "") + "</text></svg>";
   }
   // 3.31 : la forme (6 derniers matchs), sa courbe glissante sur 12 mois, tes séries
@@ -11592,7 +11597,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (confirmedN) parts.push(plural(confirmedN, "match saisi à la main confirmé", "matchs saisis à la main confirmés") + " par Ten'Up");
       if (msg.length) parts.push(msg.join(", "));
       if (parts.length) toast(parts.join(" · ").replace(/^./, function (x) { return x.toUpperCase(); }) + ".");
-      else if (opts.pull) toast("Tout est à jour : rien de nouveau sur Ten'Up.");
+      else if (opts.pull) toast("Rien de neuf sur Ten'Up : le tableau n'a pas bougé.");
       render();
       return;
     }
@@ -12079,8 +12084,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       S.tenup.expired = true; save();
       if (!quiet) { UI.importError = null; toast("Ta session Ten'Up a expiré : reconnecte-toi sur la page qui s'ouvre."); render(); setTimeout(nativeConnect, 600); }
     }
-    else if (pull) toast("Ten'Up n'a pas répondu. Réessaie dans un instant.");
-    else if (!quiet) { UI.importError = (pl && pl.error) || "Ten'Up n'a pas répondu. Réessaie dans un instant."; render(); }
+    else if (pull) toast("Ten'Up ne renvoie pas la balle. Réessaie dans un instant.");
+    else if (!quiet) { UI.importError = (pl && pl.error) || "Ten'Up ne renvoie pas la balle. Réessaie dans un instant."; render(); }
     return false;
   }
   function nativeConnect() {
@@ -12100,7 +12105,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       UI.loading = false; S.tenup.lastAuto = Date.now(); save();
       if (!handleNativeResult(r && r.data, quiet, pull) && (quiet || pull)) render();
       setTimeout(function () { insRefresh(!!pull); }, 400);
-    }).catch(function () { UI.loading = false; tenupFail(""); if (pull) toast("Ten'Up n'a pas répondu. Réessaie dans un instant."); else if (!quiet) { UI.importError = "Ten'Up n'a pas répondu."; render(); } });
+    }).catch(function () { UI.loading = false; tenupFail(""); if (pull) toast("Ten'Up ne renvoie pas la balle. Réessaie dans un instant."); else if (!quiet) { UI.importError = "Ten'Up n'a pas répondu."; render(); } });
   }
   function askNotif() {
     if (!NATIVE) return;
