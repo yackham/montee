@@ -1592,7 +1592,7 @@ html.ios .screen.has-tabs { padding-bottom: calc(90px + max(8px, env(safe-area-i
 .pal-big { gap: 24px; } .pal-big .pc { margin-left: auto; text-align: right; align-items: flex-end; } .pal-big .pc b { font-size: 22px; }
 
 /* Accent lisible en premier plan (icônes, cloches) : sur les thèmes clairs à accent jaune balle, on fonce */
-:root { --acc-ink: #687A00; }
+:root { --acc-ink: #5A6900; } /* 3.58.1 : un cran plus foncé (4,2 → 5,5 sur fond jaune pâle) */
 :root[data-theme="nuit"] { --acc-ink: var(--balle); }
 :root[data-theme="terre"] { --acc-ink: var(--balle); }
 :root[data-theme="gazon"] { --acc-ink: var(--balle); }
@@ -3179,9 +3179,11 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .pl-k { color: var(--muted); } .pl-k.q { color: var(--gazon); } .pl-vd { text-align: right; } .pl-vd .pl-pt { display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
 .pl-d { display: flex; gap: 4px; } .pl-d i { width: 10px; height: 10px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 25%, transparent); }
 .pl-d i.v { background: var(--gazon); box-shadow: none; } .pl-d i.d { background: var(--terre); box-shadow: none; }
-.pl-g { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; padding: 9px 10px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 4%, transparent); margin-top: 4px; font-size: 13px; }
-.pl-g.me { background: color-mix(in srgb, var(--balle) 9%, transparent); }
-.pl-g b { color: var(--muted); } .pl-g b.w { color: var(--ink); } .pl-g b:first-child { text-align: right; }
+.pl-g { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); margin-top: 6px; font-size: 13.5px; text-decoration: none; color: inherit; }
+.pl-nm { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; line-height: 1.15; }
+.pl-nm b { color: var(--muted); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .pl-nm b.w { color: var(--ink); font-weight: 800; }
+.pl-sc0 { font-weight: 800; white-space: nowrap; }
+.pl-g .pl-add-sc { font-size: 12px; font-weight: 800; color: var(--ink); white-space: nowrap; }
 .pl-sc { font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 8px; background: color-mix(in srgb, var(--ink) 7%, transparent); white-space: nowrap; }
 .pl-h { margin-top: 10px; }
 .pl-u { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; margin-top: 4px; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--balle) 45%, transparent); }
@@ -4330,9 +4332,9 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .tm-fdm .eyebrow + .mm { border-top: 0; }
 .tm-fdm .mm .lb { display: block; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
 .tm-fdm .mm .sc { font-weight: 700; white-space: nowrap; }
-.tm-fdm .vd { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: 12px; color: #121212; background: var(--chip); }
-.tm-fdm .vd.V { background: var(--chart-v); }
-.tm-fdm .vd.D { background: color-mix(in srgb, var(--terre) 60%, transparent); }
+.tm-fdm .vd { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: 12px; color: var(--ink); background: var(--chip); }
+.tm-fdm .vd.V { background: var(--gazon); color: var(--on-acc-g, #fff); } /* 3.58.1 : « V » noir sur bleu foncé illisible en Dur */
+.tm-fdm .vd.D { background: var(--terre); color: var(--on-acc-t, #fff); }
 .tm-fdm .vd.nd { color: var(--muted); }
 .tm-vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin: 8px 4px 0; }
 .tm-vs b { font-size: 17px; line-height: 1.2; }
@@ -4953,7 +4955,7 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .bz-ch { display: flex; flex-direction: column; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); line-height: 1.25; padding: 0 2px 4px; border-bottom: 1px solid var(--line); min-width: 0; }
 .bz-ch b { font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--ink); }
 .bz-ch em { font-style: normal; font-size: 10px; color: var(--acc-ink); margin-top: 3px; }
-.bz-tk { display: flex; align-items: center; gap: 4px; font-size: 9.5px; color: var(--muted); margin-top: 3px; text-transform: none; letter-spacing: 0; font-weight: 700; }
+.bz-tk { display: flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 9.5px; color: var(--muted); margin-top: 3px; text-transform: none; letter-spacing: 0; font-weight: 700; }
 .bz-tk i { flex: none; width: 7px; height: 7px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px var(--muted); }
 .bz-n { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; }
 .bz-n .tq-av, .bz-r .tq-av { width: 30px; height: 30px; font-size: 11px; }
@@ -4972,7 +4974,7 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .bz-tg, .bz-mt { position: absolute; top: -7px; font-size: 8.5px; font-weight: 800; letter-spacing: .04em; background: var(--card); padding: 0 3px; line-height: 13px; white-space: nowrap; }
 .bz-tg { right: 6px; color: var(--gazon); }
 .bz-mt { left: 6px; display: flex; align-items: center; gap: 2px; color: var(--acc-ink); } .bz-mt svg { width: 9px; height: 9px; }
-.bz-lg { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 11.5px; color: var(--muted); font-weight: 700; }
+.bz-lg { display: flex; flex-wrap: nowrap; white-space: nowrap; gap: 12px; font-size: 11.5px; color: var(--muted); font-weight: 700; }
 .bz-lg span { display: flex; align-items: center; gap: 5px; }
 .bz-lg i { width: 14px; height: 10px; border-radius: 3px; box-sizing: border-box; }
 .bz-lg i.ok { box-shadow: inset 0 0 0 1.5px var(--gazon); } .bz-lg i.lo { border: 1.5px dashed var(--muted); } .bz-lg i.no { border: 1.5px dashed var(--terre); }
@@ -5226,3 +5228,42 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 @keyframes cr3Ball { from { transform: rotate(0deg); } }
 .cr3-c svg { overflow: visible; }
 .cr3-ball { display: none; } .cr3 .cr3-ball { display: inline; }
+/* 3.58.1 : les points d'une victoire sur la ligne de la date, le score en tableau d'arbitre à droite */
+.pts-in { color: var(--gazon); font-weight: 800; white-space: nowrap; }
+
+/* ---- 3.58.1 : contraste et lisibilité (retour testeur en 3.58.0, scan de tous les thèmes) ---- */
+/* Thèmes à fond sombre (Terre, Dur) : ce qui est posé sur le fond, pas dans une carte, passe en clair */
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .tm-vs, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .tm-vs .sc,
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .tm-sub, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .linkbtn,
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .demo-line > span, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .topbar .demo-pill,
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .tm-gh, :root[data-theme="terre"] .screen > h2, :root[data-theme="terre"] .screen > .stack > h2 { color: var(--page-ink); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .tm-vs b.me { color: var(--hl); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .tm-vs .sc.lv { color: var(--hl); }
+.tm-fdm .mm .pb .muted { opacity: 1; }
+/* Scores des rencontres : cadre et texte en couleur, plus d'aplat pâle sous un texte noir */
+.tsx-r, .tim-r { background: transparent !important; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+.tsx-r.V, .tim-r.V { color: var(--gazon); box-shadow: inset 0 0 0 1.5px var(--gazon); }
+.tsx-r.D, .tim-r.D { color: var(--terre-dark); box-shadow: inset 0 0 0 1.5px var(--terre); }
+.tim-r.off { opacity: 1; box-shadow: inset 0 0 0 1.5px var(--line); border: 0; }
+.tim-r.off.V { color: var(--gazon); } .tim-r.off.D { color: var(--terre-dark); } .tim-r.off.N { color: var(--muted); }
+:root[data-theme="nuit"] .tsx-r.V, :root[data-theme="nuit"] .tim-r.V { color: #7FC79A; }
+.tsx-me i { background: var(--gazon); } .tsx-me i.d { background: var(--terre); }
+.tf-dot.V { color: var(--on-acc-g); } .tf-dot.D { color: var(--on-acc-t); } .tf-dot.N { background: var(--chip); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--muted); }
+.tf-toi, .tim-tg { color: var(--on-balle); }
+.tf-sc.D, .tf-it .dn { color: var(--terre-dark); }
+.d3m { color: var(--terre-dark); }
+:root[data-theme="terre"] .av-me:not(.ghost) { color: var(--ink); }
+.tr-del { color: var(--terre-dark); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .tr-del { color: var(--page-ink); text-decoration: underline; text-underline-offset: 3px; }
+/* Terre : le fond d'argile a des zones claires ; une ombre légère tient le texte posé dessus */
+:root[data-theme="terre"] :is(.screen > h2, .screen > .stack > h2, .tm-gh, .screen > .small, .screen > p, .screen > .stack > .small, .cb-perso, .tm-sub, .tm-vs, .demo-line > span, .tr-del, .topbar .title) { text-shadow: 0 1px 2px rgba(60, 20, 5, .45); }
+/* Ligne « toi » surlignée en thème sombre : le gris secondaire remonte un peu pour rester lisible sur le surlignage */
+:root[data-theme="nuit"] :is(.pl-r.me, .pl-g.me, .fc-r.me, .pf2-r.me, .rc2-best, .pj-p.best) { --muted: color-mix(in srgb, var(--ink) 74%, transparent); }
+/* Pastilles « en forme / dans ta moyenne / petit creux » : le texte prend la teinte foncée de sa couleur */
+:root { --bleu3-ink: #2F4FA8; } :root[data-theme="nuit"] { --bleu3-ink: #AFC0FF; }
+.tj3-pill[style*="bleu3"] { color: var(--bleu3-ink) !important; } .tj3-pill[style*="gazon"] { color: var(--gazon-dark) !important; } .tj3-pill[style*="terre"] { color: var(--terre-dark) !important; }
+.rc2-li > i { color: color-mix(in srgb, var(--c) 68%, var(--ink)); }
+.rp.o .rp-tag { background: color-mix(in srgb, var(--terre) 12%, transparent); } .rp.g .rp-tag { background: color-mix(in srgb, var(--gazon) 12%, transparent); }
+.bz-pr { font-style: normal; display: inline-flex; align-items: center; gap: 2px; color: var(--gazon); font-size: 0; }
+.bz-pr svg { width: 12px; height: 12px; }
+:root[data-theme="nuit"] .bz-pr { color: #7FC79A; }
