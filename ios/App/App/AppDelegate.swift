@@ -597,7 +597,9 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         Task {
             if restore { try? await AppStore.sync() }
             let ids = await MonteeStoreKit.owned()
-            call.resolve(["ids": ids])
+            // 3.57 : l'essai en cours (offre d'introduction), pour le rappel J-3 et « Ton mois Montée+ »
+            let tr = await MonteeStoreKit.trial()
+            call.resolve(["ids": ids, "trial": tr ?? NSNull()])
         }
     }
     /// Gérer / résilier l'abonnement (feuille Apple)
@@ -1284,6 +1286,21 @@ enum MonteeStoreKit {
             }
         }
         return ids
+    }
+    /// 3.57 : l'essai gratuit en cours (offre d'introduction d'un abonnement), sinon nil
+    static func trial() async -> [String: Any]? {
+        for await r in Transaction.currentEntitlements {
+            guard case .verified(let t) = r, t.revocationDate == nil, t.productType == .autoRenewable,
+                  t.offerType == .introductory, let exp = t.expirationDate, exp > Date() else { continue }
+            var o: [String: Any] = ["id": t.productID,
+                                    "start": t.purchaseDate.timeIntervalSince1970 * 1000,
+                                    "end": exp.timeIntervalSince1970 * 1000]
+            if #available(iOS 17.0, *) {
+                if let st = await t.subscriptionStatus, case .verified(let ri) = st.renewalInfo { o["renew"] = ri.willAutoRenew }
+            }
+            return o
+        }
+        return nil
     }
 }
 
