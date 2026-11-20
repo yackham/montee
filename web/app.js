@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.56.3",
+    VERSION: "3.57.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -122,6 +122,8 @@
   function plural(n, s, p) { return n + " " + (n > 1 ? (p || s + "s") : s); }
   // Classement « effectif » : dès qu'une montée est acquise pour la prochaine sortie, Montée te passe
   // au nouveau classement (S.ahead) et calcule la suite depuis là. Le classement officiel reste dans S.profile.rank.
+  // 3.57 (audit parcours M4) : le classement anticipé dit sa date tant que la sortie n'a pas eu lieu (« 15/2 le 1er déc. »)
+  function aheadDay() { var d = E.parseDate(S.ahead.release); return (d.getDate() === 1 ? "1er" : d.getDate()) + " " + d.toLocaleDateString("fr-FR", { month: "short" }); }
   function effRank() { return S.ahead && S.ahead.rank ? S.ahead.rank : S.profile.rank; }
   function curIdx() { var i = E.idx(effRank()); return i == null ? -1 : i; }
   function refreshAhead() {
@@ -930,7 +932,7 @@
     plans().filter(function (x) { return dGap(x.day) >= 0 && !(x.tour && tourOf(x.tour)); }).forEach(function (pl) {
       out.push({ d: pl.day, time: pl.time, pl: pl, href: "#/joueur/" + encodeURIComponent(pl.id), title: (pl.name || "Ton adversaire") + (pl.rank ? " · " + pl.rank : ""), sub: pl.hom ? "match homologué" : "match libre", st: pl.p != null ? pl.p + " %" : "" });
     });
-    try { var c = ctx(), pr = c.proj; if (pr && pr.release && E.iso(pr.release) >= td && pr.status !== "top" && S.matches.length) out.push({ d: E.iso(pr.release), rel: 1, href: "#/projection", title: "Sortie du classement", sub: pr.status === "descente" ? "risque : " + lab(pr.projected) : S.ahead ? "tu passes " + S.ahead.rank : "projection : " + lab(pr.projected), st: pr.next ? pr.next.total + " / " + pr.next.norme + " pts" : "" }); } catch (e) {}
+    try { var c = ctx(), pr = c.proj; if (pr && pr.release && E.iso(pr.release) >= td && pr.status !== "top" && S.matches.length) out.push({ d: E.iso(pr.release), rel: 1, href: "#/projection", title: "Sortie du classement", sub: (tuStale() ? "projection au " + fdate(S.tenup.lastImport) : pr.status === "descente" ? "risque : " + lab(pr.projected) : S.ahead ? "tu passes " + S.ahead.rank : "projection : " + lab(pr.projected)), st: (function () { var hb = pr.status === "descente" ? pr.here : pr.status === "montee" ? (pr.steps.filter(function (x) { return x.calc === pr.projected; })[0] || pr.next) : pr.next; return hb ? hb.total + " / " + hb.norme + " pts" : ""; })() }); } catch (e) {} // 3.57 (audit parcours P1) : le même bilan que la carte de la sortie (avant : 44 / 360 ici, 74 / 335 dessous)
     return out.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : (a.time || "99") < (b.time || "99") ? -1 : 1; }).slice(0, 12);
   }
   function friseHtml() {
@@ -2304,9 +2306,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var d = today();
     var ML = S.mmLive;
     if (ML && ML.t0 && Date.now() - ML.t0 < 12 * 3600e3) { var MR = mmReplay(ML), msc = mmScore(MR) + (MR.cur[0] + MR.cur[1] ? (MR.sets.length ? " " : "") + MR.cur[0] + "-" + MR.cur[1] : ""); UI.mmBanner = '<button class="card mm-banner" data-a="mmResume"><span class="eyebrow">Match en cours</span><b>' + esc(ML.name || "Ton match") + (msc ? " · " + esc(msc) : "") + '</b><span class="small">' + (MR.done ? "Terminé : enregistre-le" : "Reprendre le suivi") + " ›</span></button>"; } else UI.mmBanner = "";
-    s += '<div class="topbar"><div class="title"><span class="small">' + esc(flong(d).replace(/^./, function (x) { return x.toUpperCase(); })) + '</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">' + (S.profile.name ? "Salut " + esc(S.profile.name) : "Salut") + "</span></div>" +
-      '<span class="top-actions"><button class="mechip' + (S.ahead ? " up" : "") + '" data-a="goProfil" aria-label="Mon profil, classement ' + esc(effRank() || "?") + '">' + (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })() + '<span class="rk">' + esc(effRank() || "?") + "</span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + '</button><button class="iconbtn gearbtn" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></span></div>";
+    s += '<div class="topbar"><div class="title">' + (S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small">' + esc(flong(d).replace(/^./, function (x) { return x.toUpperCase(); })) + "</span>") + '<span style="font-size:28px;font-weight:600;letter-spacing:-.03em">' + (S.profile.name ? "Salut " + esc(S.profile.name) : "Salut") + "</span></div>" +
+      '<span class="top-actions"><button class="mechip' + (S.ahead ? " up" : "") + '" data-a="goProfil" aria-label="Mon profil, classement ' + esc(effRank() || "?") + '">' + (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })() + '<span class="rk">' + esc(effRank() || "?") + (S.ahead && S.ahead.release ? '<small class="rk-d">' + aheadDay() + "</small>" : "") + "</span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + '</button><button class="iconbtn gearbtn" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></span></div>";
 
+    if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
     if (!S.matches.length) {
       s += '<div class="card balle"><span class="eyebrow">Pour commencer</span><span style="font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.2">Récupère tes matchs des 12 derniers mois.</span><span style="font-size:15px">Sans eux, impossible de savoir si tu montes.</span></div>' +
         '<div class="stack"><a class="btn primary" href="#/tenup">' + I.link + " Récupérer depuis Ten'Up</a>" +
@@ -2327,8 +2330,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     B.plan = p.status === "top" ? tourHomeHtml() + planHomeHtml() : "";
     B.charge = chargeHtml();
     var stale = !S.tenup.lastImport || (today() - E.parseDate(S.tenup.lastImport)) / 864e5 > 3 || (S.tenup.fails || 0) > 0; // 3.55 (Yann, maquette D) : synchro ratée ou de plus de 3 jours
-    if (stale) B.sync = '<a class="row" href="#/tenup" style="background:var(--card);border-radius:20px;text-decoration:none"><span class="badge ok">' + I.link + '</span><span class="grow"><span class="t">Actualiser depuis Ten\'Up</span><span class="s">' + (S.tenup.lastImport ? "Dernier import le " + esc(fdate(S.tenup.lastImport)) : "Récupère tes matchs et la simulation officielle") + "</span></span>" + I.next + "</a>";
-
+    // 3.57 (audit parcours, maquette 2 validée) : une session expirée ne passe plus inaperçue : elle prend la tête de « À faire »
+    var tuOut = tuStale() || (S.tenup.linked && S.tenup.expired);
+    if (tuOut) B.sync = '<div class="tu-out"><span class="eyebrow">Ten\'Up · déconnecté</span><b>' + (S.tenup.lastImport ? "Tes matchs ne sont plus lus depuis le " + esc(fdate(S.tenup.lastImport).replace(/\.$/, "")) + "." : "Tes matchs ne sont plus lus.") + '</b><span class="small">Ta session Ten\'Up a expiré. ' + (S.tenup.lastImport ? "Tes chiffres restent ceux du " + esc(fdate(S.tenup.lastImport)) + " jusqu'à ce que tu te reconnectes." : "Reconnecte-toi pour retrouver tes matchs.") + '</span><button class="btn primary small" data-a="nativeConnect">Me reconnecter · 20 s</button></div>';
+    else if (S.tenup.linked && offline()) B.sync = '<div class="row" style="background:var(--card);border-radius:20px"><span class="badge">' + I.link + '</span><span class="grow"><span class="t">Pas de réseau</span><span class="s">' + (S.tenup.lastImport ? "Tes chiffres datent du " + esc(fdate(S.tenup.lastImport).replace(/\.$/, "")) + ". Ils se mettent à jour au retour du réseau." : "Montée lira Ten'Up au retour du réseau.") + "</span></span></div>";
+    else if (stale) {
+      // 3.57 (audit parcours T2) : on dit pourquoi ça n'est pas à jour, pas seulement « Actualiser »
+      var maint = S.tenup.maintAt && Date.now() - S.tenup.maintAt < 6 * 3600e3, fl = S.tenup.fails || 0;
+      var stT = maint ? "Ten'Up est en maintenance" : fl ? "Ten'Up n'a pas répondu" + (fl > 1 ? " (" + fl + " fois)" : "") : "Actualiser depuis Ten'Up";
+      var stS = (maint || fl ? (fl >= 2 && !maint ? "Touche pour réparer la connexion. " : "Montée réessaie toute seule. ") : "") + (S.tenup.lastImport ? "Dernier import le " + esc(fdate(S.tenup.lastImport)) : "Récupère tes matchs et la simulation officielle");
+      B.sync = '<a class="row" href="#/tenup" style="background:var(--card);border-radius:20px;text-decoration:none"><span class="badge ' + (maint || fl ? "ko" : "ok") + '">' + (maint || fl ? I.warn : I.link) + '</span><span class="grow"><span class="t">' + stT + '</span><span class="s">' + stS + "</span></span>" + I.next + "</a>";
+    }
     B.rate = rateCardHtml();
     B.slot = slotCardHtml();
     B.cordage = "";
@@ -2380,7 +2392,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       B.tiles += '<a class="tile" href="#/raquette/new"><span class="k">Ton matériel</span><span class="v">Ajoute ta raquette</span><span>Pour savoir avec quoi tu gagnes</span></a>';
     }
     B.tiles += "</div>";
-    B.week = tempsHtml() ? '<h2 class="h3sec">Temps de jeu <small>8 semaines</small></h2>' + tempsHtml() : "";
+    B.week = playWeeks() >= 3 && tempsHtml() ? '<h2 class="h3sec">Temps de jeu <small>8 semaines</small></h2>' + tempsHtml() : "";
     var cl3 = classementHtml(c);
     // 3.32 : « Ton classement » = tuiles + victoire au classement visé / maintien + simulation officielle Ten'Up
     // 3.46.5 (Yann) : « victoire acquise / maintien » remonte sous la carte Montée ; les tuiles qui doublonnaient (à défendre, cordage, forme) disparaissent
@@ -2398,20 +2410,23 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (B.annoter) B.todo = "";
     if (B.rate) B.slot = "";
     // 3.55 (Yann, maquette I) : première synchro : une seule chose à faire (le dernier match), le reste attend
-    if (freshStart()) { ["cordage", "rate", "slot", "sync", "week", "semaine", "todo", "charge", "essayer", "goal", "carte"].forEach(function (k) { B[k] = ""; }); X.an = ""; B.annoter = qaHtml(true); }
+    if (freshStart()) { ["cordage", "rate", "slot"].concat(tuOut ? [] : ["sync"]).concat(["week", "semaine", "todo", "charge", "essayer", "goal", "carte"]).forEach(function (k) { B[k] = ""; }); X.an = ""; B.annoter = qaHtml(true); }
     // 3.55 (Yann, maquette D) : les petites choses à faire (annoter, ressenti, cordage, synchro) dans une seule carte « À faire »
     if (!freshStart()) {
       var tdK = ["annoter", "rate", "slot", "cordage", "sync"].filter(function (k) { return B[k]; });
-      if (tdK.length >= 2) {
+      if (tdK.length >= 2 || tuOut) {
         var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
-        var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + tdK.map(function (k) { return '<div class="td3-i">' + B[k] + "</div>"; }).join("") + "</div>";
+        var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + (tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK).map(function (k) { return '<div class="td3-i">' + B[k] + "</div>"; }).join("") + "</div>";
         tdK.forEach(function (k) { B[k] = ""; }); B[tdK[0]] = tdH;
       }
     }
-    var inv = ["carte", "sync", "goal", "essayer"], got = false; inv.forEach(function (k) { if (B[k]) { if (got) B[k] = ""; got = true; } });
     X.rebond = rebondHtml(c); // 3.55 (Yann) : mode rebond
+    // 3.57 (audit parcours M1, M2) : une seule invitation à la fois, « Tu joues pour quoi ? » compris ; aucune pendant un passage à vide
+    var invOn = !(X.rebond && rebondData(c));
+    X.why = invOn && !B.goal ? whyAsk() : "";
+    var inv = ["carte"].concat(tuOut ? [] : ["sync"]).concat(["goal", "essayer"]), got = !!X.why; inv.forEach(function (k) { if (B[k] && (k !== "sync" || !tuOut)) { if (got || (!invOn && k !== "sync")) B[k] = ""; got = true; } });
     X.checkin = ciAsk(); // 3.55 (Yann) : check-in d'avant-match
-    X.why = whyAsk(); whyHome(X, c); // 3.55 (Yann) : pourquoi tu joues
+    whyHome(X, c); // 3.55 (Yann) : pourquoi tu joues
     if (X.rebond && S.rebond && S.rebond.quiet >= E.iso(today())) { B.defendAl = ""; B.drops = ""; }
     s += homeLayout(B, X);
     s += '<p class="small">Calcul indicatif d\'après le barème FFT. Seul le classement officiel fait foi.</p>';
@@ -2514,7 +2529,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var fam = {}, famM = null;
     ms.forEach(function (m) { var f = SURF_FAM[m.surface]; if (f && !fam[f]) { fam[f] = 1; if (Object.keys(fam).length === 3) famM = m; } });
     var fk = Object.keys(fam);
-    R.surf = famM ? { done: famM } : { n: fk.length, of: 3, s: fk.length ? fk.map(function (f) { return SURF_FAM_L[f]; }).join(", ").replace(/^./, function (x) { return x.toUpperCase(); }) + (fk.length < 3 ? ". Annote la surface de tes matchs" : "") : "Annote la surface de tes matchs pour le suivre" };
+    R.surf = famM ? { done: famM } : { n: fk.length, of: 3, s: fk.length ? "Déjà : " + fk.map(function (f) { return SURF_FAM_L[f]; }).join(", ") + (fk.length < 3 ? ". Annote la surface de tes autres matchs" : "") : "Annote la surface de tes matchs pour le suivre" };
     var first = function (fn) { for (var i = 0; i < sg.length; i++) if (fn(sg[i], i)) return sg[i]; return null; };
     var sets = function (m) { return setsOf(m.score); };
     var c = first(function (m) { var s = sets(m); return m.result === "V" && s.length >= 2 && s[0][0] < s[0][1]; });
@@ -2545,7 +2560,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var open = D.list.filter(function (r) { return !r.done; }).sort(function (a, b) { return b.p - a.p; });
     var done = D.list.filter(function (r) { return r.done; }).sort(function (a, b) { return a.done.date < b.done.date ? 1 : -1; });
     var near = open.filter(function (r) { return r.p >= 0.5; })[0], left = near ? near.of - near.n : 0;
-    var head = near ? "Plus que " + (left === 1 ? '<span class="pos">' + (near.d.k === "vol" ? "un match" : near.d.k === "surf" ? "une surface" : "une victoire") + "</span>" : left) + " pour « " + esc(near.d.t) + " »." :
+    var head = near ? (left === 1 ? "Plus qu'" : "Plus que ") + (left === 1 ? '<span class="pos">' + (near.d.k === "vol" ? "un match" : near.d.k === "surf" ? "une surface" : "une victoire") + "</span>" : left) + " pour « " + esc(near.d.t) + " »." :
       done.length ? 'Déjà <span class="pos">' + plural(done.length, "défi réussi", "défis réussis") + "</span> cette saison." : "8 défis à relever d'ici le 31 août.";
     var rows = open.filter(function (r) { return r.p > 0; }).slice(0, 2).concat(done.slice(0, 2), open.filter(function (r) { return !r.p; }).slice(0, 1)).slice(0, 5);
     return '<div class="card df-card"><div class="lg-h"><span class="eyebrow">Tes défis · ' + MOIS_L[today().getMonth()] + '</span><span class="small">' + D.done + " sur " + D.list.length + " cette saison</span></div>" +
@@ -3290,6 +3305,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }
     } else if (ft === "rec") {
       s += '<div class="blk">' + (rec.length ? rec.map(function (x) { var pr = x.sc.profil || {}, nm = [pr.prenom, pr.nom].filter(Boolean).join(" "); return '<button class="row" data-a="recOpen" data-id="' + esc(x.id) + '"><span class="ini">' + esc(initials(nm)) + '</span><span class="grow"><span class="t">' + esc(nm) + ' <span class="muted" style="font-weight:400">· ' + esc(pr.classement || "") + '</span></span><span class="s">' + esc(pr.club || "") + "</span></span>" + I.next + "</button>"; }).join("") : '<span class="small" style="padding:10px 0">Les fiches que tu ouvres apparaîtront ici.</span>') + "</div>";
+    } else if (!searching && !oppIndex().length) {
+      // 3.57 (audit parcours P5, validé) : l'onglet vide dit à quoi il sert et comment le remplir
+      s += '<div class="card emp-c"><b>Ici, tous ceux que tu as joués, et ce qu\'ils deviennent</b><p>Ton bilan contre chacun, leur classement qui bouge, ta revanche. La liste se remplit avec tes matchs.</p>' +
+        (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button>' +
+        (S.tenup.linked ? "" : '<span class="small">Pour chercher un joueur par son nom, Montée lit Ten\'Up avec ta session : connecte ton compte d\'abord.</span>') + "</div>";
     } else s += (searching ? "" : h2hHtml(true)) + '<div class="blk" id="faf-known">' + knownRows(done ? "" : q.q) + "</div>"; // 3.48.8 (Yann) : les face-à-face quittent les Courbes pour « Tes adversaires »
     s += '<p class="small">Montée lit son palmarès sur Ten\'Up avec ta session, comme le site. Rien n\'est publié.</p>';
     return s + "</div>" + tabbar("faf");
@@ -4786,6 +4806,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function traitVal(T, k) { return T.f.indexOf(k) >= 0 ? 1 : T.w.indexOf(k) >= 0 ? -1 : 0; }
   // Ce que les matchs suivis à la montre disent de lui (son service, son retour, ses balles de break)
+  function hasWatch() { var w = S.watchSt || {}; return !!(IOS && w.paired); }
   function watchOn(ms) {
     var a = { him: { games: 0, held: 0, df: 0, bpF: 0, bpS: 0, ace: 0, n: 0 }, me: { games: 0, held: 0, pts: 0, fin: 0, sp: 0, sw: 0, n: 0 } };
     (ms || []).forEach(function (m) {
@@ -5534,7 +5555,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     else if (traitVal(me, "service") > 0) srv = { src: "Ta fiche", t: "Appuie-toi sur ta 1re : au corps et au T.", kw: "1re au corps" };
     else srv = { src: "Règle de coach", t: "1re au corps, sans forcer. 2e avec effet, au centre du carré.", kw: "1re au corps" };
     if (F.n >= 3 && F.hi.length >= 2) { srv.src = srv.src === "Règle de coach" ? "Ta montre" : srv.src + " · ta montre"; srv.why = aim + " : au-dessus, tu gagnes " + tpNum(id + "-f", F.vh + " matchs sur " + F.hi.length, { title: "Ta 1re balle, à 65 % et plus", sub: "Tes matchs suivis à la montre (au moins 20 points de service).", body: tpMatchRows(F.hi, function (m) { return Math.round(m.serve.me.firstIn * 100 / m.serve.me.pts) + " %"; }) + (F.lo.length ? '<h3>En dessous de 65 %</h3><span class="small">' + F.vl + " victoire" + (F.vl > 1 ? "s" : "") + " sur " + F.lo.length + " match" + (F.lo.length > 1 ? "s" : "") + ".</span>" + tpMatchRows(F.lo, function (m) { return Math.round(m.serve.me.firstIn * 100 / m.serve.me.pts) + " %"; }) : "") + '<span class="small">Fiabilité ' + (F.n >= 8 ? "bonne" : F.n >= 4 ? "moyenne" : "faible") + " : " + plural(F.n, "match suivi", "matchs suivis") + ".</span>" }) + "."; }
-    else srv.why = aim + " : ta montre le comptera.";
+    else srv.why = aim + (hasWatch() ? " : ta montre le comptera." : " : note-le à la fin du match en 10 s."); // 3.57 (audit parcours W1) : pas de montre, pas de promesse de montre
     // --- Son service
     var ret;
     if (hs.n && hs.secPts >= 8 && hs.secWon / hs.secPts < 0.5) {
@@ -5568,7 +5589,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       tpSec("ret", "Son service", T.ret.src, '<b class="tp-do">' + esc(T.ret.t) + '</b><span class="tp-why">' + (T.ret.why.indexOf("<button") >= 0 ? T.ret.why : esc(T.ret.why)) + "</span>") +
       tpSec("rally", "Dans l'échange", T.rally.src, '<b class="tp-do">' + esc(T.rally.t) + '</b><span class="tp-why">' + esc(T.rally.why) + (T.rally.mineAlso ? " " + esc(T.rally.mineAlso) : "") + (T.rally.src === "Règle de coach" || T.rally.mine ? ' <a class="lnk" href="#/jeu/me">Ton jeu ›</a>' : "") + "</span>") +
       (T.mo.length ? tpSec("time", "Les moments", T.known ? "Ses scores Ten'Up" : "Tes scores · ses scores", '<div class="tp-mo">' + T.mo.map(function (m) { return "<span>" + esc(m.lab) + "</span><div><b>" + esc(m.t) + "</b>" + (m.s ? " : " + esc(m.s) + "." : ".") + (m.why ? '<small>' + esc(m.why) + "</small>" : "") + "</div>"; }).join("") + "</div>") : "") +
-      tpSec("b", "Plan B", IOS ? "Ta montre te prévient" : "Règle de coach", '<div class="tp-b"><small>' + esc(T.B.trig) + "</small><b>" + esc(T.B.t) + "</b></div>");
+      tpSec("b", "Plan B", hasWatch() ? "Ta montre te prévient" : "Règle de coach", '<div class="tp-b"><small>' + esc(T.B.trig) + "</small><b>" + esc(T.B.t) + "</b></div>");
     if (lock) s += '<div class="tp-lock"><div class="pw-blur" aria-hidden="true">' + body + '</div><div class="tp-lockc"><b>Le plan complet est dans Montée+</b><span class="small">Ton service, son service, l\'échange, les moments et le plan B, chacun avec sa preuve.</span>' + plusCta() + "</div></div>";
     else s += body;
     var src = [];
@@ -6419,7 +6440,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     go("joueur/" + id);
     tenupQuery("player", hit).then(function (r) {
       UI.scoutBusy = null;
-      if (!r || r.error) { UI.scoutErr = tuMaint(r) ? TU_MAINT : r && r.error === "web" ? "Disponible dans l'appli Android ou iPhone." : /connecte/.test((r && r.error) || "") ? "Ta session Ten'Up a expiré : reconnecte-toi depuis Réglages › Ten'Up." : "Ten'Up n'a pas répondu (" + ((r && r.error) || "?") + "). Réessaie dans un instant."; render(); return; }
+      if (!r || r.error) { UI.scoutErr = tuErrMsg(r); render(); return; }
       scoutStore(id, hit, r); var fol = S.follow || {};
       if (fol[id]) folUpdate(id, false);
       save(); if (route().indexOf("joueur/") === 0) render();
@@ -6442,7 +6463,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (lic) known.licTried = true;
     tenupQuery("search", { nom: nom, prenom: pre, cfg: S.tenup.searchCfg || null, check: check, lic: lic }).then(function (r) {
       UI.fafBusy = false;
-      if (!r || r.error) { UI.fafHits = null; UI.fafErr = tuMaint(r) ? TU_MAINT : /connecte/.test((r && r.error) || "") ? "Ta session Ten'Up a expiré : reconnecte-toi depuis Réglages › Ten'Up." : "La recherche Ten'Up n'a pas répondu (" + ((r && r.error) || "?") + ")."; show(); return; }
+      if (!r || r.error) { UI.fafHits = null; UI.fafErr = tuErrMsg(r, true); show(); return; }
       if (r.cfg) { S.tenup.searchCfg = r.cfg; save(); }
       UI.fafHits = r.hits || [];
       // Recherche par licence vide : on repasse par le nom
@@ -7707,7 +7728,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!chips.length && act !== "t") s += actStatsHtml();
     if (!list.length && !dbl.length) {
       s += '<div class="card empty"><b>' + (all.length ? "Rien ici" : "Pas encore de match") + '</b><span class="small">' + (all.length ? "Aucun match pour ce filtre." : "Récupère ton palmarès Ten'Up ou ajoute un match.") + "</span>" +
-        (all.length ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + "</div>";
+        (all.length ? "" : (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button>') + "</div>"; // 3.57 (audit parcours P5)
     }
     // Doubles mêlés aux simples, par date
     var gotD = {}; ((c.proj.next || {}).doubles || []).forEach(function (x) { gotD[x.m.id] = x; });
@@ -8103,6 +8124,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // 3.46.6 (Yann) : en saisissant un match, chercher l'adversaire sur Ten'Up (nom, classement, club, sa fiche)
   function mTuOn() { return NATIVE && S.tenup.linked && !S.tenup.expired; }
+  // 3.57 (audit parcours T1-T3) : Ten'Up lié mais plus lu (session expirée) ; hors ligne
+  // 3.57 (audit parcours T3, T4) : un message par cause, sans code d'erreur brut
+  function tuErrMsg(r, search) {
+    if (tuMaint(r)) return TU_MAINT;
+    if (r && r.error === "web") return "Disponible dans l'appli Android ou iPhone.";
+    if (offline()) return "Pas de réseau : " + (search ? "la recherche" : "la fiche") + " Ten'Up reviendra avec la connexion.";
+    if (!S.tenup.linked) return "Connecte ton compte Ten'Up (Réglages › Ten'Up) pour " + (search ? "chercher un joueur." : "lire sa fiche.");
+    if (/connecte/.test((r && r.error) || "")) return "Ta session Ten'Up a expiré : reconnecte-toi depuis Réglages › Ten'Up.";
+    return "Ten'Up n'a pas répondu. Réessaie dans un instant.";
+  }
+  function tuStale() { return !!(S.tenup && S.tenup.linked && S.tenup.expired && S.tenup.lastImport); }
+  function offline() { try { return navigator.onLine === false; } catch (e) { return false; } }
   function mTuHtml(m) {
     if (!mTuOn()) return '<span class="small">Prénom et nom complets : Montée retrouve sa fiche Ten\'Up.</span>';
     if (m.oid && m._tuName && nameKey(m._tuName) === nameKey(m.opp || "")) return '<div class="mtu-ok">' + I.check + '<span class="grow">Trouvé sur Ten\'Up' + (m._tuInfo ? " · " + esc(m._tuInfo) : "") + '</span><button class="linkbtn" data-a="plOpen" data-v="' + esc(m.oid) + '">Sa fiche ›</button></div>';
@@ -8233,6 +8266,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Va chercher son palmarès sur Ten'Up : par son identifiant (match Ten'Up), sinon par son nom (match saisi à la main)
   function anFetch(m, quiet) {
     if (!NATIVE || !m || anPal(m) || isAnon(m.opp) || m.wo || !(m.result === "V" || m.result === "D")) return Promise.resolve();
+    if (!S.tenup.linked || S.tenup.expired) { UI.anErr = UI.anErr || {}; UI.anErr[m.id] = "NOTU"; if (!quiet && route() === "match/" + m.id) render(); return Promise.resolve(); } // 3.57 (audit parcours P7) : jamais cherché, pas « introuvable »
     UI.anBusy = UI.anBusy || {}; if (UI.anBusy[m.id]) return Promise.resolve(); UI.anBusy[m.id] = true;
     var done = function (msg) { UI.anBusy[m.id] = false; if (msg) { UI.anErr = UI.anErr || {}; UI.anErr[m.id] = msg; } if (!quiet && route() === "match/" + m.id) render(); };
     var player = function (hit) { return tenupQuery("player", hit).then(function (r) { if (!r || r.error) return done(r && r.error === "web" ? "" : tuMaint(r) ? TU_MAINT : "Ten'Up n'a pas répondu."); anStore(m, r, hit); done(); }); };
@@ -8424,7 +8458,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!a.items.length && !a.anon && a.pal) s += '<span class="an-note">Ses résultats et le score ne montrent rien d\'inhabituel : un match conforme aux classements.</span>';
     if (a.imp.length && !heroImp) s += '<span class="an-k">Pour ton classement</span><div class="an-imp">' + a.imp.map(function (x) { return "<div><b" + (x.v ? ' style="color:var(--gazon)"' : "") + ">" + esc(x.b) + "</b><span>" + esc(x.t) + "</span></div>"; }).join("") + "</div>";
     // 3.55 (audit R9) : la note Ten'Up (lecture en cours, joueur introuvable) passe en pied de carte, discrète, au lieu d'ouvrir l'analyse
-    if (!a.anon && !a.pal) { var nt = busy ? '<span class="spin"></span> Lecture de son palmarès sur Ten\'Up…' : err ? esc(err) : NATIVE ? "" : "Son palmarès se lit depuis l'appli Android ou iPhone : ici, l'analyse se limite au score et à ton classement."; if (nt) s += '<span class="an-note an-foot">' + nt + (err && isManual(m) && !UI.mEdit ? ' <button class="linkbtn" data-a="mEdit" style="padding:0;min-height:0;font-size:inherit">Corriger le nom</button>' : "") + "</span>"; }
+    if (!a.anon && !a.pal) { var nt = busy ? '<span class="spin"></span> Lecture de son palmarès sur Ten\'Up…' : err === "NOTU" ? "<b>" + esc(nameCase(m.opp)) + " n'a pas encore été cherché sur Ten'Up.</b> " + (S.tenup.expired ? "Reconnecte" : "Connecte") + ' ton compte pour lire son palmarès et son vrai niveau. <a class="linkbtn" href="#/tenup" style="padding:0;min-height:0;font-size:inherit">' + (S.tenup.expired ? "Me reconnecter" : "Connecter Ten\'Up") + " ›</a>" : err ? esc(err) : NATIVE ? "" : "Son palmarès se lit depuis l'appli Android ou iPhone : ici, l'analyse se limite au score et à ton classement."; if (nt) s += '<span class="an-note an-foot">' + nt + (err && err !== "NOTU" && isManual(m) && !UI.mEdit ? ' <button class="linkbtn" data-a="mEdit" style="padding:0;min-height:0;font-size:inherit">Corriger le nom</button>' : "") + "</span>"; }
     return s + "</div>";
   }
   // Match officiel Ten'Up : une fiche en lecture seule (les données viennent de Ten'Up), puis les annotations
@@ -8516,11 +8550,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!isNew && m.opp && !isAnon(m.opp) && nameKey(m.opp).length >= 3) {
       var hk = nameKey(m.opp), hm = knownMatches(false).filter(function (x) { return x.opp && nameKey(x.opp) === hk && !x.wo && (x.result === "V" || x.result === "D"); }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
       var hv = hm.filter(function (x) { return x.result === "V"; }).length;
-      s += '<a class="h2h2" href="#/' + advPath(hk) + '"><span class="ini">' + esc(initials(m.opp)) + '</span><span class="grow"><b>Face-à-face avec ' + esc((function (n) { var f = n.split(" ")[0]; return /\.$/.test(f) || f.length < 3 ? n : f; })(nameCase(m.opp))) + "</b><small>" + (hm.length > 1 ? '<span class="h2h-dots">' + hm.slice(-8).map(function (x) { return '<i class="' + x.result + (x.id === m.id ? " me" : "") + '"></i>'; }).join("") + "</span>" + hv + " – " + (hm.length - hv) : "1er match contre lui · sa fiche ›") + "</small></span>" + I.next + "</a>";
+      s += '<a class="h2h2" href="#/' + advPath(hk) + '"><span class="ini">' + esc(initials(m.opp)) + '</span><span class="grow"><b>Face-à-face avec ' + esc(nameCase(m.opp)) + "</b><small>" + (hm.length > 1 ? '<span class="h2h-dots">' + hm.slice(-8).map(function (x) { return '<i class="' + x.result + (x.id === m.id ? " me" : "") + '"></i>'; }).join("") + "</span>" + hv + " – " + (hm.length - hv) : "1er match contre lui · sa fiche ›") + "</small></span>" + I.next + "</a>";
     }
     if (!isNew) { var m0 = mA; s += goalsCheckHtml(m0) + (tacSnapOf(m0) ? tacCheckHtml(m0) : planCheckHtml(m0)) + watchFicheHtml(m0) + (m0.serve ? myPropsHtml() : ""); }
     if (!isNew && m.serve) s += serveHtml(m) + dfHtml(m);
-    if (!isNew && isManual(m) && !UI.mEdit) s += '<p class="small m-man">' + I.edit + (m.kind === "amical" ? " Match d'entraînement : dans tes stats, pas pour le classement." : " " + (m._wid || m.watch || m.serve ? "Compté à la montre" : "Saisi à la main") + " : Ten'Up le remplacera une fois homologué, tes annotations restent.") + "</p>";
+    if (!isNew && isManual(m) && !UI.mEdit) s += '<p class="small m-man">' + I.edit + (m.kind === "amical" ? " Match d'entraînement : dans tes stats, pas pour le classement." : " " + (m._wid || m.watch || m.serve ? "Compté à la montre" : "Saisi à la main") + (S.tenup.linked ? " : Ten'Up le remplacera une fois homologué, tes annotations restent." : ".")) + "</p>";
     else if (!isNew && m.manualOrigin && m.confirmedAt) s += '<div class="card menthe" style="flex-direction:row;gap:10px;align-items:flex-start;padding:12px 14px">' + I.check + '<span style="font-size:14px;line-height:1.45"><b>Confirmé par Ten\'Up le ' + esc(fdate(m.confirmedAt).replace(/\.$/, "")) + '.</b> Tu l\'avais saisi à la main : les infos officielles ont remplacé ta saisie, tes annotations sont gardées.</span></div>';
     if (official && (isAnon(m.opp) || m.oppTenup != null)) s += '<h2>Tes annotations · l\'adversaire</h2><div class="form"><div class="field"><label for="m-opp">Son nom</label><input id="m-opp" type="text" data-d="opp" value="' + esc(isAnon(m.opp) ? "" : m.opp) + '" placeholder="Masqué sur Ten\'Up : qui était-ce ?" autocomplete="off"><span class="small">Ten\'Up affiche « Anonyme ». Le nom que tu mets ici sert à tes stats et à tes notes pour la revanche.</span></div></div>';
     if (official) s += revHint(m.opp, m.id);
@@ -9293,7 +9327,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   V.courbes = function () {
     var c = ctx(), cur = c.cur < 0 ? 0 : c.cur, target = Math.min(cur + 1, E.MAX_CALC);
     var s = '<div class="screen has-tabs">' + (S.matches.length ? realHero(c) : '<div class="topbar"><div class="title"><span class="small">12 derniers mois</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">Courbes</span></div></div>');
-    if (!S.matches.length) return s + '<div class="card empty">' + (window.MonteeIll ? window.MonteeIll.vide() : "") + '<b>Pas encore de données</b><span class="small">Ajoute des matchs pour voir tes courbes.</span></div></div>' + tabbar("courbes");
+    if (!S.matches.length) {
+      // 3.57 (audit parcours P5, maquette 4 validée) : ce qui t'attend ici, dès combien de matchs, et les boutons pour commencer
+      var cvL = function (a, b) { return '<div class="cv-li"><i></i><span><b>' + a + '</b><span class="small">' + b + "</span></span></div>"; };
+      return s + '<div class="card cv-empty"><span class="eyebrow">Ce qui t\'attend ici</span><b class="m2-t">Tes courbes s\'allument dès 3 matchs</b>' +
+        cvL("Ton classement réel", "à quel niveau tu joues vraiment · dès 3 matchs") + cvL("Ton bilan et la prochaine sortie", "combien de points il te manque · dès 1 match") +
+        cvL("Face à chaque classement", "contre qui tu gagnes plus que prévu · dès 3 matchs") + cvL("Tes records et ta forme", "plus belle victoire, séries · dès 1 match") +
+        '<div class="cv-btns">' + (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button></div>' +
+        '<button class="linkbtn" data-a="demo">ou voir avec un exemple</button></div></div>' + tabbar("courbes");
+    }
     var B = {};
     if (c.proj.status !== "top") {
       // 3.40 : la courbe utilise aussi les matchs des saisons passées ; un point dont les 12 mois ne sont pas tous connus est marqué
@@ -9388,6 +9430,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return s + "</div>" + tabbar("courbes");
   };
   // ---------- 3.29 : en tête de Courbes — anneaux, tes forces en 3 anneaux, ton service à la montre ----------
+  // 3.57 (audit parcours P2) : nombre de semaines avec du jeu (match ou entraînement) sur les 8 dernières ; « Temps de jeu » attend d'en avoir 3
+  function playWeeks() {
+    var from = E.iso(new Date(today().getTime() - 56 * 864e5)), wk = {};
+    (S.matches || []).concat(S.trainings || []).forEach(function (x) { if (x && x.date && x.date >= from) wk[Math.floor((E.parseDate(x.date) - today()) / (7 * 864e5))] = 1; });
+    return Object.keys(wk).length;
+  }
+  function ringsWait(n) {
+    var sz = 92, w = 7, r = (sz - w) / 2;
+    var one = function (k) { return '<a class="cr3-c" href="#/victoires"><svg width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + " " + sz + '" aria-hidden="true"><circle cx="' + sz / 2 + '" cy="' + sz / 2 + '" r="' + r + '" stroke="var(--line)" stroke-width="' + w + '" fill="none" stroke-dasharray="4 6"/><text x="' + sz / 2 + '" y="' + (sz / 2 + 1) + '" text-anchor="middle" dominant-baseline="middle" font-weight="800" font-size="18" fill="var(--muted)">' + n + '<tspan font-size="12">/3</tspan></text></svg><b>' + k + "</b></a>"; };
+    return '<div class="card cr3 cr3-wait"><div class="cr3-row">' + one("Victoires") + one("Forme") + one("Classement réel") + '</div><div class="cr3-say"><b>' + (3 - n === 1 ? "Encore 1 match" : "Encore " + (3 - n) + " matchs") + ' et tes anneaux s\'allument</b><span class="small">Victoires, forme et classement réel se calculent à partir de 3 matchs sur 12 mois.</span></div></div>';
+  }
   function ring3(pct, col, size, w, txt, sub) {
     var r = (size - w) / 2, C = 2 * Math.PI * r, f = Math.max(0, Math.min(1, pct));
     return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" aria-hidden="true"><circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" stroke="var(--chip)" stroke-width="' + w + '" fill="none"/>' +
@@ -9448,7 +9501,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var crans = function (k) { return ["", "un cran", "deux crans", "trois crans"][Math.min(3, k)] || k + " crans"; };
     var B = function (x) { return "<b>" + x + "</b>"; };
     var ic = "=", col = "var(--bleu3)", title;
-    if (F && F.streak.n >= 3) { ic = F.streak.r === "V" ? "🔥" : "↓"; col = F.streak.r === "V" ? "var(--balle)" : "var(--terre)"; title = F.streak.r === "V" ? plural(F.streak.n, "victoire") + " d'affilée" + (F.streak.n >= F.best ? " : ta meilleure série" : "") : plural(F.streak.n, "défaite") + " d'affilée : ça arrive"; }
+    if (F && F.streak.n >= 3) { ic = F.streak.r === "V" ? "🔥" : "↓"; col = F.streak.r === "V" ? "var(--balle)" : "var(--terre)"; title = F.streak.r === "V" ? plural(F.streak.n, "victoire") + " d'affilée" + (F.streak.n >= F.best ? " : ta meilleure série" : "") : plural(F.streak.n, "défaite") + " d'affilée" + (lvl != null ? " · tu joues " + lab(lvl) + " en ce moment" : ""); } // 3.57 (audit parcours M1) : le réconfort est dans la carte « Passage à vide », ici on reste factuel
     else if (lvl != null && lvl > cur) { ic = "↑"; col = "var(--gazon)"; title = up ? "En forme, la montée approche" : "Tu joues au-dessus de ton " + lab(cur); }
     else if (lvl != null && lvl < cur) { ic = "↓"; col = "var(--terre)"; title = (cur - lvl === 1 ? "Un cran" : crans(cur - lvl).replace(/^./, function (x) { return x.toUpperCase(); })) + " sous ton " + lab(cur) + " : vigilance"; }
     else if (lvl != null) { ic = up ? "↑" : dn ? "↓" : "="; col = up ? "var(--gazon)" : dn ? "var(--terre)" : "var(--bleu3)"; title = up ? "En forme : c'est le moment de viser " + nextL : dn ? "Stable à " + lab(cur) + ", mais la forme baisse" : "Stable à " + lab(cur) + ", une perf pour viser " + nextL; }
@@ -9476,7 +9529,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function courbesRings(c) {
     var w12 = (c.proj.matches || []).filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); });
-    if (w12.length < 3) return "";
+    if (w12.length < 3) return w12.length ? ringsWait(w12.length) : ""; // 3.57 (audit parcours P1) : les anneaux attendent en pointillé au lieu de disparaître
     var nv = w12.filter(function (m) { return m.result === "V"; }).length, pv = nv / w12.length;
     var rec = sortedMatches().filter(function (m) { return m.date && !m.wo && (m.result === "V" || m.result === "D"); }).slice(0, FORM_N), pf = rec.length ? rec.filter(function (m) { return m.result === "V"; }).length / rec.length : 0;
     var f = null; try { f = levelNow(c); } catch (e) {}
@@ -14491,6 +14544,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var clean = Object.assign({}, m); delete clean._for; delete clean._tuName; delete clean._tuInfo; delete clean.sets; delete clean._auto; delete clean._wid;
       if (m._wid) S.watchIn = (S.watchIn || []).filter(function (x) { return x.wid !== m._wid; });
       var i = S.matches.findIndex(function (x) { return x.id === clean.id; });
+      // 3.57 (audit parcours P3) : un vrai match saisi pendant l'exemple efface l'exemple (avant : il se mélangeait aux matchs d'Alex)
+      var wasDemo = false;
+      if (S.demo && i < 0) { wasDemo = demoPurge(); if (/^r[12]$/.test(clean.racketId || "")) { clean.racketId = ""; clean.string = ""; clean.tension = null; } }
       // 3.47 (retour testeur : doublons) : un nouveau match qui ressemble à un match déjà là (même adversaire, à un jour près)
       if (i < 0 && clean.opp && !isAnon(clean.opp) && clean.date) {
         var tw = S.matches.filter(function (x) { return x.date && Math.abs(E.parseDate(x.date) - E.parseDate(clean.date)) <= 864e5 && x.opp && samePerson(x.opp, clean.opp); })[0];
@@ -14516,8 +14572,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (i >= 0) { UI.mEdit = false; UI.annEdit = false; UI.draft = null; render(); window.scrollTo(0, 0); return; } // 3.42.1 : on reste sur la fiche
       // La fiche du match remplace le formulaire : le retour ramène là d'où tu venais, pas au formulaire vide
       if (stack[stack.length - 1] === "match/new") stack.pop();
+      if (wasDemo && !S.profile.rank) { toast("L'exemple est effacé. Indique ton classement pour calculer ton bilan."); go("profil"); window.scrollTo(0, 0); return; }
       go("match/" + clean.id); window.scrollTo(0, 0);
     },
+    demoExit: function () { demoPurge(); save(); go("tenup"); window.scrollTo(0, 0); },
     verifySame: function (el) {
       var v = (S.verify || []).filter(function (x) { return x.id === el.dataset.id; })[0]; if (!v) return;
       var a = mById(v.id), b = mById(v.tid);
