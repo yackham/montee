@@ -5121,3 +5121,91 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .tr-best b { font-size: 15px; }
 .tr-pay { font-size: 14.5px; line-height: 1.45; }
 .tr-btns { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+/* 3.57 : « Ce qui arrive » en billets de convocation */
+.fr-c.ft-c { width: 252px; }
+.ft { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 18px; color: var(--ink); }
+.ft-top { display: flex; align-items: center; gap: 12px; padding: 13px 14px 12px; min-height: 78px; }
+.ft-d { flex: none; width: 44px; display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.ft-d small, .ft-d span { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.ft-d b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; margin: 3px 0 2px; }
+.ft-v { width: 1px; align-self: stretch; background: var(--line); }
+.ft-m { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ft-m em { font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--gazon); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ft-m b { font-size: 15px; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ft-m small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ft-perf { position: relative; height: 0; border-top: 1.5px dashed var(--line); margin: 0 12px; }
+.ft-perf::before, .ft-perf::after { content: ""; position: absolute; top: -8px; width: 14px; height: 14px; border-radius: 50%; background: var(--page-end, var(--bg)); }
+.ft-perf::before { left: -20px; } .ft-perf::after { right: -20px; }
+.ft-bot { display: flex; align-items: center; gap: 6px; padding: 10px 14px 12px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.ft-bot b { color: var(--ink); font-size: 13px; }
+.ft-bot .grow { flex: 1; }
+.ft-bar { flex: 1; height: 5px; border-radius: 3px; background: var(--chip); position: relative; margin-right: 6px; }
+.ft-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--gazon); }
+.fr-c.ft-c.dim .ft { opacity: .55; }
+:root[data-theme="nuit"] .ft-m em { color: var(--balle); }
+:root[data-theme="nuit"] .ft-bar i { background: var(--balle); }
+
+/* 3.57 : tableau d'arbitre (fiche du match) */
+.sb-w { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+.sb-h { display: flex; justify-content: space-between; align-items: baseline; }
+.sb-h small { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--gazon); }
+:root[data-theme="nuit"] .sb-h small { color: var(--balle); }
+.sb-h span { font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.sb { display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--n), 32px); align-items: center; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); background: linear-gradient(var(--line), var(--line)) 0 50% / 100% 1px no-repeat; font-variant-numeric: tabular-nums; }
+.sb > span { padding: 9px 0; text-align: center; font-size: 21px; font-weight: 600; color: var(--muted); position: relative; }
+.sb > span.w { color: var(--ink); font-weight: 800; }
+.sb > span sup { font-size: 10px; font-weight: 700; position: absolute; top: 6px; right: 1px; }
+.sb .sb-nm { text-align: left; padding-left: 12px; font-size: 15px; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb .sb-ball { flex: none; color: var(--balle); }
+:root:not([data-theme="nuit"]) .sb .sb-ball { color: var(--gazon); }
+.sb .sb-sp { flex: none; width: 12px; }
+.hx.d .sb .sb-ball { color: var(--muted); }
+/* mini-tableau des listes */
+.msb { display: grid; grid-auto-flow: column; grid-template-rows: auto auto; gap: 1px 10px; font-variant-numeric: tabular-nums; font-size: 13.5px; line-height: 1.15; margin-right: 6px; padding-left: 10px; border-left: 1px solid var(--line); flex: none; }
+.msb span { color: var(--muted); font-weight: 600; text-align: center; position: relative; }
+.msb span.w { color: var(--ink); font-weight: 800; }
+.msb sup { font-size: 8px; position: absolute; top: -2px; right: -6px; font-weight: 700; }
+/* « Jeu, set et match » : les sets tombent un par un, une fois */
+@media (prefers-reduced-motion: no-preference) {
+  .sb-go .sb > span:not(.sb-nm) { animation: sbFlip .45s cubic-bezier(.3,1.3,.5,1) both; animation-delay: calc(var(--i) * .2s + .15s); }
+  .sb-go .sb-h small { animation: sbFade .5s both; animation-delay: calc(var(--n, 3) * .4s + .2s); }
+}
+@keyframes sbFlip { from { transform: rotateX(90deg); opacity: 0; } }
+@keyframes sbFade { from { opacity: 0; transform: translateY(4px); } }
+.toast.sm-cel { width: min(360px, calc(100% - 32px)); background: var(--card); color: var(--ink); padding: 14px 16px 16px; border-radius: 22px; text-align: left; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 18px 50px rgba(0,0,0,.35), 0 0 0 1px var(--line); }
+.toast.sm-cel .sm-imp { font-size: 14px; font-weight: 700; line-height: 1.35; }
+/* 3.57 : les 3 anneaux se remplissent à l'ouverture (une fois), l'un après l'autre */
+@media (prefers-reduced-motion: no-preference) {
+  .cr3-go .cr3-c svg circle[stroke-dashoffset] { animation: cr3Fill 1.2s cubic-bezier(.22,.8,.3,1) both; }
+  .cr3-go .cr3-c:nth-child(2) svg circle[stroke-dashoffset] { animation-delay: .15s; }
+  .cr3-go .cr3-c:nth-child(3) svg circle[stroke-dashoffset] { animation-delay: .3s; }
+}
+@keyframes cr3Fill { from { stroke-dashoffset: 260.8; } }
+/* 3.57 (Yann) : pendant une lecture Ten'Up, une balle fait l'échange au-dessus d'un petit filet */
+.rally-l { display: inline-block; position: relative; width: 34px; height: 16px; vertical-align: middle; margin-right: 4px; }
+.rally-l::before { content: ""; position: absolute; left: 50%; bottom: 0; width: 2px; height: 7px; margin-left: -1px; border-radius: 1px; background: currentColor; opacity: .45; }
+.rally-l::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1.5px; border-radius: 1px; background: currentColor; opacity: .25; }
+.rally-l i { position: absolute; left: 0; bottom: 1px; width: 6px; height: 6px; border-radius: 50%; background: var(--balle); box-shadow: 0 0 0 1px rgba(0,0,0,.12); animation: rlX 1.1s ease-in-out infinite alternate; }
+.rally-l i::after { content: none; }
+@keyframes rlX { 0% { transform: translate(0, 0); } 50% { transform: translate(14px, -10px); } 100% { transform: translate(28px, 0); } }
+@media (prefers-reduced-motion: reduce) { .rally-l i { animation: none; left: 14px; } }
+/* 3.57 (audit parcours T1, maquette 2) : session Ten'Up expirée en tête de « À faire » */
+.tu-out { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; }
+.tu-out .eyebrow { color: var(--terre); }
+.tu-out b { font-size: 17px; line-height: 1.3; }
+.tu-out .btn { align-self: flex-start; width: auto; padding-left: 20px; padding-right: 20px; margin-top: 4px; }
+.cr3-wait .cr3-say { display: flex; flex-direction: column; gap: 3px; }
+.cr3-wait .cr3-say .small { font-weight: 400; }
+/* 3.57 (audit parcours P3, maquette 3 v2) : on voit qu'on est dans l'exemple, sans carte ni liseré */
+.demo-pill { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: 12.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--gazon); box-shadow: inset 0 0 0 1.5px currentColor; border-radius: 99px; padding: 3px 10px; }
+.demo-line { display: flex; align-items: center; gap: 12px; }
+.demo-line > span { flex: 1; min-width: 0; font-size: 14px; color: var(--muted); line-height: 1.35; }
+.demo-line .go-pill { flex: none; }
+.mechip .rk:has(.rk-d) { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+.mechip .rk-d { display: block; font-size: 10.5px; font-weight: 600; opacity: .75; letter-spacing: 0; white-space: nowrap; }
+/* 3.57 (audit parcours P5) : Courbes vide */
+.cv-empty { gap: 12px; }
+.cv-li { display: flex; gap: 10px; align-items: flex-start; }
+.cv-li i { flex: none; width: 8px; height: 8px; border-radius: 4px; margin-top: 7px; background: var(--gazon); }
+.cv-li > span { display: flex; flex-direction: column; gap: 2px; }
+.cv-btns { display: flex; flex-wrap: wrap; gap: 8px; }
