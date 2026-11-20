@@ -5349,3 +5349,113 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .nf-tips { display: flex; flex-direction: column; gap: 6px; padding: 0 0 12px; }
 .nf-tips .small { color: var(--muted); line-height: 1.4; }
 .sj-lnk { align-self: flex-start; margin: 0; }
+/* 3.59 (Yann, 20/11) : face-à-face trié, 3 en vue, chaque ligne ouvre la feuille de vos matchs */
+button.h3h-r { width: 100%; background: none; border: 0; border-top: 1px solid var(--line); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button.h3h-r:active { opacity: .7; }
+.h3h-tag { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 1px; }
+.h3h-tag.cl { color: var(--gazon); } .h3h-tag.bn { color: var(--terre); }
+.h2s-h { display: flex; align-items: center; gap: 12px; margin: 4px 0 10px; }
+.h2s-h .h3h-av { width: 46px; height: 46px; border-radius: 23px; font-size: 15px; }
+.h2s-h .h3h-s b { font-size: 28px; }
+.h2s-f { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 0 12px; border-top: 1px solid var(--line); }
+.h2s-f span { display: flex; flex-direction: column; gap: 1px; }
+.h2s-f small { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.h2s-f b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.h2s-l .row { padding: 10px 0; }
+.h2s-go { margin-top: 14px; width: 100%; justify-content: center; gap: 6px; display: inline-flex; align-items: center; }
+.h2s-go svg { width: 16px; height: 16px; }
+/* 3.59 (Yann, 20/11 : « les animations apportent un vrai + ») : du mouvement partout, court (< 0,6 s), une fois à l'ouverture
+   de la page, coupé avec Réduire les animations. Les blocs arrivent l'un après l'autre, les barres se remplissent,
+   les lignes des listes glissent, ce qui se touche s'enfonce un peu. */
+@media (prefers-reduced-motion: no-preference) {
+  .screen > :is(.card, h2, .fr, .list, .blk, .home-grp, .faf-tabs, .lg-card) { animation: mvUp .42s cubic-bezier(.2,.8,.3,1) both; animation-delay: .3s; }
+  .screen > :nth-child(1) { animation-delay: 0s; } .screen > :nth-child(2) { animation-delay: .03s; } .screen > :nth-child(3) { animation-delay: .06s; }
+  .screen > :nth-child(4) { animation-delay: .09s; } .screen > :nth-child(5) { animation-delay: .12s; } .screen > :nth-child(6) { animation-delay: .15s; }
+  .screen > :nth-child(7) { animation-delay: .18s; } .screen > :nth-child(8) { animation-delay: .21s; } .screen > :nth-child(9) { animation-delay: .24s; }
+  .screen > :nth-child(10) { animation-delay: .27s; }
+  /* lignes de listes */
+  :is(.list > .row, .h3h-r, .lgc, .df-r, .fr-c, .h2s-l > .row) { animation: mvSide .38s cubic-bezier(.2,.8,.3,1) both; animation-delay: .12s; }
+  :is(.list > .row, .h3h-r, .lgc, .df-r, .fr-c, .h2s-l > .row):nth-child(2) { animation-delay: .16s; }
+  :is(.list > .row, .h3h-r, .lgc, .df-r, .fr-c, .h2s-l > .row):nth-child(3) { animation-delay: .2s; }
+  :is(.list > .row, .h3h-r, .lgc, .df-r, .fr-c, .h2s-l > .row):nth-child(4) { animation-delay: .24s; }
+  :is(.list > .row, .h3h-r, .lgc, .df-r, .fr-c, .h2s-l > .row):nth-child(5) { animation-delay: .28s; }
+  :is(.list > .row, .h3h-r, .lgc, .df-r, .fr-c, .h2s-l > .row):nth-child(n+6) { animation-delay: .32s; }
+  /* barres de progression et barres de face-à-face */
+  :is(.ft-bar, .df-bar) i { transform-origin: left center; animation: mvBar .9s cubic-bezier(.22,.8,.3,1) .25s both; }
+  .h3h-b i { transform-origin: left center; animation: mvBar .5s cubic-bezier(.22,.8,.3,1) both; animation-delay: calc(.2s + var(--i, 0) * .05s); }
+  /* ce qui se touche s'enfonce un peu */
+  :is(a.card, button.card, a.row, button.row, .go-pill, .btn, .h3h-r, .ft-c, .df-r, .fol2) { transition: transform .12s ease; }
+  :is(a.card, button.card, a.row, button.row, .go-pill, .btn, .h3h-r, .ft-c, .df-r, .fol2):active { transform: scale(.98); }
+  /* feuilles du bas : le contenu suit la feuille */
+  .sheet .sh-body > * { animation: mvUp .34s cubic-bezier(.2,.8,.3,1) .08s both; }
+}
+@keyframes mvUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes mvSide { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes mvBar { from { transform: scaleX(0); } to { transform: none; } }
+/* 3.59 (Yann, piste B) : le type du billet se lit au surtitre : picto devant, couleur selon le type (texte seulement, pas d'aplat) */
+.ft { --ft-po: #6E7A00; --ft-to: #2F5BB7; --ft-eq: #B5651D; --ft-so: var(--gazon); --ft-li: var(--muted); }
+:root[data-theme="nuit"] .ft { --ft-po: var(--balle); --ft-to: #8FB2FF; --ft-eq: #F0A35E; --ft-so: #6FC28F; --ft-li: var(--muted); }
+.ft-m em { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.ft-ic { flex: none; display: inline-flex; }
+.ft-ic svg { width: 12px; height: 12px; }
+.ft-et { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ft-po .ft-m em { color: var(--ft-po); } .ft-to .ft-m em { color: var(--ft-to); } .ft-eq .ft-m em { color: var(--ft-eq); }
+.ft-so .ft-m em { color: var(--ft-so); } .ft-li .ft-m em { color: var(--ft-li); }
+:root[data-theme="nuit"] .ft-po .ft-m em { color: var(--ft-po); } :root[data-theme="nuit"] .ft-to .ft-m em { color: var(--ft-to); } :root[data-theme="nuit"] .ft-eq .ft-m em { color: var(--ft-eq); }
+:root[data-theme="nuit"] .ft-so .ft-m em { color: var(--ft-so); } :root[data-theme="nuit"] .ft-li .ft-m em { color: var(--ft-li); }
+/* 3.59 (Yann, maquettes L5 et L7) : la course illustrée (podium terre battue), ta photo, « Qui court ? » */
+.lg-card { position: relative; }
+.lg-ill { position: absolute; right: 16px; top: 14px; width: 78px; height: 53px; color: var(--ink); pointer-events: none; }
+.lg-card .lg-h { flex-direction: column; align-items: flex-start; gap: 2px; padding-right: 88px; }
+.lg-card .lgc-t { padding-right: 88px; }
+.lg-empty { gap: 8px; } .lg-empty .eyebrow { padding-right: 88px; }
+.ini.ph { background-size: cover; background-position: center; color: transparent; }
+.rc-sec { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 14px 0 2px; }
+.rc-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.rc-row .ini { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; background: var(--chip); flex: none; }
+.rc-row .grow { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rc-row .grow b { font-size: 15px; } .rc-row .grow small { font-size: 12.5px; color: var(--muted); }
+.rc-sug { color: var(--gazon); font-weight: 700; }
+:root[data-theme="nuit"] .rc-sug { color: #6FC28F; }
+.rc-info { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); line-height: 1.4; padding: 12px 0 0; border-top: 1px solid var(--line); margin-top: 8px; }
+.rc-info svg { flex: none; width: 16px; height: 16px; margin-top: 1px; color: var(--ink); }
+.rc-info b { color: var(--ink); font-size: inherit; font-weight: 700; }
+.lg-card .ls-foot { flex-wrap: wrap; justify-content: flex-end; }
+/* 3.59 (Yann, maquettes B1-B3 v2) : les badges, médailles en couleur par famille (mois gazon, saison terre battue, records dur) */
+.bd-card { display: flex; flex-direction: column; gap: 8px; color: var(--ink); text-decoration: none; }
+.bd-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.bd-h .eyebrow { white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.bd-h .eyebrow i { width: 8px; height: 8px; border-radius: 50%; }
+.bd-card .m2-t { font-size: 16px; }
+.bd-strip { display: flex; gap: 10px; overflow: hidden; margin: 0 -2px; padding-top: 8px; }
+.bd-strip .bd { width: 72px; flex: none; }
+.bd-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 8px; margin-top: 4px; padding-top: 6px; }
+.bd { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; position: relative; background: none; border: 0; padding: 0; font: inherit; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.bd-m { width: 62px; height: 62px; display: flex; }
+.bd b { font-size: 11.5px; line-height: 1.2; font-weight: 700; }
+.bd small { font-size: 10.5px; color: var(--muted); line-height: 1.2; margin-top: -3px; }
+.bd-x { position: absolute; top: -6px; right: 0; font-size: 10.5px; font-weight: 900; background: var(--card); box-shadow: inset 0 0 0 1.3px currentColor; border-radius: 99px; padding: 1px 6px; line-height: 1.35; }
+.bd-x-mois { color: #2E8A57; } .bd-x-saison { color: #B85A2E; } .bd-x-rec { color: #2F5BB7; }
+:root[data-theme="nuit"] .bd-x-mois { color: #6FC28F; } :root[data-theme="nuit"] .bd-x-saison { color: #E89A70; } :root[data-theme="nuit"] .bd-x-rec { color: #8FB2FF; }
+.bd-intro { margin-top: -8px; }
+.bd-sec { gap: 6px; }
+.bd-big { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0 0 12px; }
+.bd-big .bd-m { width: 96px; height: 96px; }
+.bd-big b { font-size: 20px; }
+.bd-x2 { font-size: 13px; font-weight: 800; }
+.bd-hist { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+.bd-hist .grow { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bd-hist .grow b { font-size: 15px; }
+.bd-hist em { font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); width: 62px; flex: none; }
+.bd-hist svg { width: 16px; height: 16px; flex: none; color: var(--muted); }
+.bd-how { margin-top: 10px; }
+@media (prefers-reduced-motion: no-preference) {
+  .bd .bd-md { animation: bdPop .45s cubic-bezier(.3,1.4,.5,1) both; animation-delay: .15s; }
+  .bd .bd-pr { animation: bdRing 1s cubic-bezier(.22,.8,.3,1) .2s both; }
+}
+@keyframes bdPop { from { transform: scale(.6); opacity: 0; } }
+@keyframes bdRing { from { stroke-dashoffset: 191.6; } }
+/* billet « badge » dans Ce qui arrive (piste B) */
+.ft { --ft-bd: #A77C12; }
+:root[data-theme="nuit"] .ft { --ft-bd: #E9C46A; }
+.ft-bd .ft-m em, :root[data-theme="nuit"] .ft-bd .ft-m em { color: var(--ft-bd); }
