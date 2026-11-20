@@ -5217,3 +5217,12 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .cv-li i { flex: none; width: 8px; height: 8px; border-radius: 4px; margin-top: 7px; background: var(--gazon); }
 .cv-li > span { display: flex; flex-direction: column; gap: 2px; }
 .cv-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+/* 3.58 : la balle de l'anneau suit le remplissage */
+@media (prefers-reduced-motion: no-preference) {
+  .cr3-go .cr3-c .cr3-ball { animation: cr3Ball 1.2s cubic-bezier(.22,.8,.3,1) both; }
+  .cr3-go .cr3-c:nth-child(2) .cr3-ball { animation-delay: .15s; }
+  .cr3-go .cr3-c:nth-child(3) .cr3-ball { animation-delay: .3s; }
+}
+@keyframes cr3Ball { from { transform: rotate(0deg); } }
+.cr3-c svg { overflow: visible; }
+.cr3-ball { display: none; } .cr3 .cr3-ball { display: inline; }
