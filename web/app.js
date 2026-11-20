@@ -2440,7 +2440,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var ML = S.mmLive;
     if (ML && ML.t0 && Date.now() - ML.t0 < 12 * 3600e3) { var MR = mmReplay(ML), msc = mmScore(MR) + (MR.cur[0] + MR.cur[1] ? (MR.sets.length ? " " : "") + MR.cur[0] + "-" + MR.cur[1] : ""); UI.mmBanner = '<button class="card mm-banner" data-a="mmResume"><span class="eyebrow">Match en cours</span><b>' + esc(ML.name || "Ton match") + (msc ? " · " + esc(msc) : "") + '</b><span class="small">' + (MR.done ? "Terminé : enregistre-le" : "Reprendre le suivi") + " ›</span></button>"; } else UI.mmBanner = "";
     // 3.57 (Yann) : le jour d'un match prévu, l'accueil le dit
-    var jm = null; try { var tdj = E.iso(today()); jm = friseItems().filter(function (z) { return z.d === tdj && !z.todo && !z.rel && !z.dim && !z.team; })[0]; } catch (e) {}
+    var jm = null; try { var tdj = E.iso(today()); jm = friseItems().filter(function (z) { return z.d === tdj && !z.todo && !z.rel && !z.dim && !z.team && !z.bd; })[0]; } catch (e) {}
     var dLine = flong(d).replace(/^./, function (x) { return x.toUpperCase(); });
     if (jm) dLine = (jm.time ? jm.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h") + " · " : "") + "contre " + String(jm.title || "").replace(/ · .*/, "");
     // 3.58 (Yann) : le lendemain d'un match, le salut en parle
@@ -10930,7 +10930,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function sjDayOk() {
     var td = E.iso(today());
     if (plans().some(function (x) { return dGap(x.day) === 0; })) return false;
-    try { if (friseItems().some(function (z) { return z.d === td && !z.todo && !z.rel && !z.dim; })) return false; } catch (e) {}
+    try { if (friseItems().some(function (z) { return z.d === td && !z.todo && !z.rel && !z.dim && !z.bd; })) return false; } catch (e) {} // 3.61.2 : le badge « presque » est daté du jour, ce n'est pas un match
     if (S.matches.some(function (m) { return m.date === td; })) return false;
     if ((S.seances || []).some(function (x) { return x.date === td; })) return false;
     if (S.sjHide === td) return false;
