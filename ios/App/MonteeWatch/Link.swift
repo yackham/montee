@@ -71,6 +71,9 @@ struct WCtx: Codable {
     var chances: WChances? = nil
     /// 3.55.3 : tes zones cardio réglées sur l'iPhone (seuils des zones 2 à 5, en bpm : automatique, Karvonen ou à la main)
     var hrThr: [Int]? = nil
+    /// 3.61 : la séance du jour, prête à lancer depuis la montre (JSON du plan), et si elle est permise (Montée+ ou séance offerte du mois)
+    var seance: String? = nil
+    var sjOk: Bool? = nil
 }
 
 /// 3.49 : un face-à-face : prénom, quand (« Sam. »), victoires, défaites, carrés du plus ancien au plus récent
@@ -208,6 +211,14 @@ final class PhoneLink: NSObject, ObservableObject, WCSessionDelegate {
     }
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         warm(userInfo)
+    }
+
+    /// 3.61 : la séance du jour reçue de l'iPhone, si elle est bien d'aujourd'hui
+    var todayPlan: SPlan? {
+        guard let j = ctx.seance, let d = j.data(using: .utf8), let p = try? JSONDecoder().decode(SPlan.self, from: d), !p.steps.isEmpty else { return nil }
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"
+        if let day = p.day, day != f.string(from: Date()) { return nil }
+        return p
     }
 
     /// L'adversaire du match : parmi ceux envoyés par l'iPhone, sinon le prochain match

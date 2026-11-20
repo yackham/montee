@@ -5459,3 +5459,51 @@ button.h3h-r:active { opacity: .7; }
 .ft { --ft-bd: #A77C12; }
 :root[data-theme="nuit"] .ft { --ft-bd: #E9C46A; }
 .ft-bd .ft-m em, :root[data-theme="nuit"] .ft-bd .ft-m em { color: var(--ft-bd); }
+
+/* 3.61 · défis et gages de la séance du jour */
+.sj-df { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); padding-top: 9px; margin-top: 2px; }
+.sj-df .l { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.38; }
+.t.df, .t.gg { flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; border-radius: 99px; padding: 2px 8px; margin-top: 1px; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--balle); }
+.t.gg { color: var(--terre); box-shadow: inset 0 0 0 1.5px currentColor; }
+.sj-dfl { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -2px 0 2px; }
+.sj-dfl .linkbtn { min-height: 0; padding: 0; }
+.sj-duel { gap: 10px; }
+.sj-duel .hd { display: flex; align-items: center; gap: 8px; }
+.sj-duel .hd .small { flex: 1; min-width: 0; line-height: 1.35; }
+.du-w { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.du-w button { border: 0; font: inherit; color: var(--ink); background: var(--chip); border-radius: 20px; padding: 12px 6px 14px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; min-height: 96px; justify-content: center; }
+.du-w button.me { background: transparent; box-shadow: inset 0 0 0 2px var(--balle); }
+.du-w small { font-size: 12.5px; font-weight: 700; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.du-w b { font-size: 40px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.du-f { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.du-f .small { flex: 1; min-width: 140px; }
+.du-f .linkbtn { min-height: 0; padding: 0; font-size: 13px; }
+.du-res { font-size: 22px; font-weight: 800; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.sj-gage { display: flex; flex-direction: column; gap: 2px; border-radius: 16px; padding: 10px 12px; box-shadow: inset 0 0 0 1.5px var(--terre); }
+.sj-gage .k { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--terre); }
+.sj-gage b { font-size: 16px; line-height: 1.25; }
+.sj-prog { height: 6px; border-radius: 3px; background: var(--chip); overflow: hidden; }
+.sj-prog i { display: block; height: 100%; background: var(--balle); border-radius: 3px; }
+.sj-dfnext { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--muted); line-height: 1.38; }
+.mt-c { display: flex; flex-direction: column; gap: 5px; }
+.mt-c .k { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.mt-p { display: flex; flex-wrap: wrap; gap: 6px; }
+.mt-p button { border: 0; font: inherit; font-weight: 700; font-size: 14px; color: var(--ink); background: var(--chip); border-radius: 99px; padding: 8px 13px; cursor: pointer; }
+.mt-p button.on { background: transparent; box-shadow: inset 0 0 0 2px var(--gazon); color: var(--ink); }
+.mt-p button.on:after { content: " ✓"; color: var(--gazon); }
+.sj-rk { display: flex; flex-direction: column; }
+.sj-rk > div { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14.5px; }
+.sj-rk > div:first-child { border-top: 0; }
+.sj-rk b { width: 18px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sj-rk span { flex: 1; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sj-rk em { font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; }
+.sj-gl { display: flex; flex-direction: column; }
+.sj-gl > div { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.sj-gl > div:first-child { border-top: 0; }
+.sj-gl span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.sj-gl b { font-size: 14px; }
+.sj-gl small { font-size: 12px; color: var(--muted); }
+.sj-gl em { font-style: normal; font-size: 11px; font-weight: 800; color: var(--muted); }
+.sj-duel { text-align: left; }
+.mt-c { align-items: flex-start; }
+.mt-p { justify-content: flex-start; }
