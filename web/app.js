@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.56.1",
+    VERSION: "3.56.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -575,6 +575,9 @@
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
     var r = route(); UI.sheet = null;
+    // 3.56.2 (testeur) : la feuille « Programmer le match » restait ouverte en quittant la poule et se rouvrait au retour
+    UI.plSched = null; UI.plHost = null;
+    if (!/^tournoi\//.test(r)) { UI.trR = null; UI.trHits = null; }
     var hq = /[?&]to=([\w-]+)/.exec(location.hash); if (hq) UI.cbTo = hq[1]; // lien vers une courbe précise
     if (r.split("/")[0] !== "objectif") { UI.goalEdit = false; UI.goalDraft = null; }
     UI.gEdit = null;
@@ -14896,7 +14899,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (dy > 110 || fast) {
         t.style.transition = "transform .18s ease-in"; t.style.transform = "translateY(100%)"; haptic("light");
         // 3.44.3 : la feuille d'un tour (UI.trR) se fermait à l'écran mais restait ouverte (fond flou bloqué)
-        setTimeout(function () { if (UI.menu) { UI.menu = false; render(); } else if (UI.sheet) { UI.sheet = null; render(); } else if (UI.trR) { UI.trR = null; UI.trHits = null; render(); } else { t.style.transition = ""; t.style.transform = ""; } }, 170);
+        setTimeout(function () { if (UI.menu) { UI.menu = false; render(); } else if (UI.sheet) { UI.sheet = null; render(); } else if (UI.trR) { UI.trR = null; UI.trHits = null; render(); } else if (UI.plSched != null) { UI.plSched = null; UI.plHost = null; render(); } else { t.style.transition = ""; t.style.transform = ""; } }, 170);
       } else { t.style.transition = "transform .2s ease"; t.style.transform = ""; }
       dy = 0;
     }, { passive: true });
@@ -14908,7 +14911,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     document.addEventListener("touchstart", function (e) {
       x0 = null; on = false;
       if (e.touches.length !== 1 || e.touches[0].clientX > 22) return;
-      if (["", "bienvenue", "palmares", "courbes", "faf"].indexOf(route()) >= 0 || UI.notesOpen || UI.sheet || UI.menu || UI.leaveAsk) return;
+      if (["", "bienvenue", "palmares", "courbes", "faf"].indexOf(route()) >= 0 || UI.notesOpen || UI.sheet || UI.menu || UI.leaveAsk || UI.plSched != null || UI.trR) return;
       x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0;
     }, { passive: true });
     document.addEventListener("touchmove", function (e) {
@@ -14982,6 +14985,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var bl = AppP && AppP.addListener("backButton", function () {
         if (UI.leaveAsk) { UI.leaveAsk = false; render(); return; }
         if (UI.sheet) { UI.sheet = null; render(); return; }
+        if (UI.plSched != null) { UI.plSched = null; UI.plHost = null; render(); return; } // 3.56.2 : feuilles de l'épreuve : le retour les ferme d'abord
+        if (UI.trR) { UI.trR = null; UI.trHits = null; render(); return; }
         if (UI.rkMenu || UI.menu) { UI.rkMenu = false; UI.menu = false; render(); return; }
         if (document.querySelector(".confetti")) { var cf = document.querySelector(".confetti"); cf.remove(); return; }
         var r = route();
