@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.61.2",
+    VERSION: "3.61.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -5758,7 +5758,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (sg.ids.length) body += '<h3>Suggérés pour toi</h3><div class="gp-l">' + sg.ids.slice(0, 4).map(chip).join("") + "</div>";
     Object.keys(GOAL_CAT).forEach(function (k) { body += '<h3 class="gp-h">' + catDot(k) + esc(GOAL_CAT[k][0]) + '</h3><div class="gp-l">' + GOALS.filter(function (x) { return x[1] === k && sg.ids.slice(0, 4).indexOf(x[0]) < 0; }).map(function (x) { return chip(x[0]); }).join("") + "</div>"; });
     var own = ((S.goals || {}).custom || []);
-    body += '<h3>Le tien</h3><div class="gp-l">' + own.map(function (x) { return chip(x.id); }).join("") + '</div><div class="gp-own"><input id="gp-t" class="input" maxlength="40" placeholder="Ex. : rester bas sur les jambes"><div class="seg" role="group" aria-label="Catégorie">' + Object.keys(GOAL_CAT).map(function (k) { return '<button data-a="goalCat" data-v="' + k + '" class="' + ((UI.goalCat || "tac") === k ? "on" : "") + '">' + esc(GOAL_CAT[k][0]) + "</button>"; }).join("") + '</div><button class="btn soft small" data-a="goalAdd">Ajouter</button></div>';
+    body += '<h3>Le tien</h3><div class="gp-l">' + own.map(function (x) { return chip(x.id); }).join("") + '</div><div class="gp-own"><input id="gp-t" class="gp-in" maxlength="40" placeholder="Ex. : rester bas sur les jambes" autocomplete="off" value="' + esc(UI.gpT || "") + '"><div class="gp-l gp-cats" role="group" aria-label="Catégorie">' + Object.keys(GOAL_CAT).map(function (k) { var on = (UI.goalCat || "tac") === k; return '<button data-a="goalCat" data-v="' + k + '" class="gp-c' + (on ? " on" : "") + '" aria-pressed="' + on + '"' + (on ? ' style="box-shadow:inset 0 0 0 1.5px ' + gcol(k) + '"' : "") + ">" + catDot(k) + esc(GOAL_CAT[k][0]) + "</button>"; }).join("") + '</div><button class="btn soft small" data-a="goalAdd">Ajouter</button></div>';
     body += '<div class="gp-f"><span class="small">' + g.length + ' sur 3</span><button class="btn primary" data-a="goalSave">C\'est bon</button></div>';
     return { title: "Tes objectifs de jeu", sub: "Choisis-en 3 au plus. Des choses que tu fais, pas un score.", body: body };
   };
@@ -6617,12 +6617,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var i = R.map(function (r) { return r.me; }).indexOf(true), me = R[i], open = !!UI.lgOpen, t0 = today();
     var mo = MOIS_L[t0.getMonth()], end = new Date(t0.getFullYear(), t0.getMonth() + 1, 1), left = Math.round((end - t0) / 864e5);
     var t = "";
-    if (!R[0].pts) t = "La course de " + mo + " commence : la 1re victoire prend la tête.";
-    else if (me && i === 0) t = R[1].pts === me.pts ? "Tu es en tête, à égalité avec " + esc(R[1].name) + "." : "Tu mènes la course de " + mo + ". " + esc(R[1].name) + " est à " + (me.pts - R[1].pts) + " pts.";
+    if (!R[0].pts) t = "La 1re victoire du mois prend la tête.";
+    else if (me && i === 0) t = R[1].pts === me.pts ? "En tête, à égalité avec " + esc(R[1].name) + "." : "Tu mènes, " + esc(R[1].name) + " est à " + (me.pts - R[1].pts) + " pts.";
     else if (me) {
       var gap = R[0].pts - me.pts, b = raceBeat(me, gap);
-      t = (gap === 0 ? "Tu es à égalité avec " + esc(R[0].name) + "." : "Tu es " + (i + 1) + "e, à " + gap + " pts de " + esc(R[0].name) + ".") +
-        (gap > 0 && b ? ' <span class="acc">Une victoire contre un ' + esc(b) + " ou mieux</span>" + (E.idx(b) > me.calc && E.BAREME.win(0) * 2 > gap ? ", ou 2 contre des " + esc(lab(me.calc)) + "," : "") + " te passe devant." : gap > 0 ? " Il te faut plusieurs victoires pour passer devant." : "");
+      t = (gap === 0 ? "À égalité avec " + esc(R[0].name) + "." : (i + 1) + "e, à " + gap + " pts de " + esc(R[0].name) + ".") + // 3.61.3 (Yann) : accroche plus courte
+        (gap > 0 && b ? ' <span class="acc">Bats un ' + esc(b) + " ou mieux</span>" + (E.idx(b) > me.calc && E.BAREME.win(0) * 2 > gap ? " (ou 2 " + esc(lab(me.calc)) + ")" : "") + " pour passer devant." : gap > 0 ? " Il te faut plusieurs victoires." : "");
     }
     var row = function (r, k, first) {
       var ph = r.me ? myPhoto() : ""; // 3.59 (Yann) : ta photo à la place de ton initiale
@@ -6638,7 +6638,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return '<div class="card lg-card">' + RACE_ILL + '<span class="lg-h"><span class="eyebrow">Course de ' + mo + '</span><span class="small">' + plural(R.length, "coureur") + " · fin dans " + plural(left, "jour") + "</span></span>" +
       (t ? '<b class="m2-t lgc-t">' + t + "</b>" : "") + body +
       '<span class="small" style="margin-top:4px">Points gagnés ce mois-ci, tout le monde repart de 0 le 1er.' + (win ? " " + pm.charAt(0).toUpperCase() + pm.slice(1) + " : gagné par " + (win.me ? "toi" : esc(win.name)) + " 🏆" : "") + "</span>" +
-      (open || R.length <= 3 ? '<div class="ls-foot"><button class="go-pill" data-a="leagueShare">Partager</button><button class="go-pill" data-a="sheet" data-k="race" data-v="1">Qui court ? ' + I.next + '</button><button class="go-pill" data-a="sheet" data-k="league" data-v="1">Comment c\'est compté ' + I.next + "</button></div>" : "") + tg + "</div>";
+      (open || R.length <= 3 ? '<div class="ls-foot lg-foot"><button class="lg-how" data-a="sheet" data-k="league" data-v="1">Comment c\'est compté ' + I.next + '</button><button class="go-pill lg-sh" data-a="leagueShare" aria-label="Partager la course">' + I.share + '</button><button class="go-pill" data-a="sheet" data-k="race" data-v="1">Qui court ? ' + I.next + "</button></div>" : "") + tg + "</div>";
   }
   function folSnap(sc) {
     var p = playedOf(sc.rows || []).filter(function (m) { return m.date; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
@@ -8877,7 +8877,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var L = String(n || "").split(/\s*\/\s*/).filter(Boolean); if (L.length < 2) return n;
     return L.map(function (x) { var w = x.trim().split(/\s+/); if (w.length < 2 || /^[A-ZÀ-Ý]\.(-[A-ZÀ-Ý]\.)?$/.test(w[0])) return x.trim(); return w[0].split("-").map(function (y) { return y.charAt(0).toUpperCase() + "."; }).join("-") + " " + w.slice(1).join(" "); }).join(" / ");
   }
-  function msbHtml(m) { var sets = m.wo ? [] : setsTb(m.score); if (!sets.length) return ""; return '<span class="msb">' + sets.map(function (x) { return '<span class="' + (x[0] > x[1] ? "w" : "") + '">' + x[0] + sbTb(x, true) + '</span><span class="' + (x[1] > x[0] ? "w" : "") + '">' + x[1] + sbTb(x, false) + "</span>"; }).join("") + "</span>"; }
+  function msbHtml(m) { var sets = m.wo ? [] : setsTb(m.score); if (!sets.length) return ""; return '<span class="mscr">' + sets.map(function (x) { return '<span class="' + (x[0] > x[1] ? "w" : "") + '">' + x[0] + sbTb(x, true) + '</span><span class="' + (x[1] > x[0] ? "w" : "") + '">' + x[1] + sbTb(x, false) + "</span>"; }).join("") + "</span>"; }
   // 3.57 (Yann) : l'illustration de victoire prend la surface du match (terre battue si inconnue)
   var SURF_ILL = { dur: { "#C9673D": "#3F78B5", "#B04A22": "#2F5F98", "#BD5C33": "#3C7A5E", "#A2441F": "#2D624A", "#E08A5E": "#6E9BD0" },
     gazon: { "#C9673D": "#5E9B4A", "#B04A22": "#4C8A3C", "#BD5C33": "#4F8A3E", "#A2441F": "#3F7532", "#E08A5E": "#86BC6E" },
@@ -11570,8 +11570,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var body = '<div class="h2s-h"><span class="h3h-av">' + esc(initials(name)) + '</span><span class="h3h-s"><b><em class="V">' + v + '</em> – <em class="D">' + d + "</em></b><small>toi · lui</small></span></div>" +
       (facts.length ? '<div class="h2s-f">' + facts.map(function (f) { return "<span><small>" + esc(f[0]) + "</small><b>" + esc(f[1]) + "</b></span>"; }).join("") + "</div>" : "") +
       '<div class="list h2s-l">' + ms.map(function (m) {
-        var hist = !m.id, sub = [m.oppRank ? "il était " + m.oppRank : "", m.comp || "", m.wo ? "forfait" : ""].filter(Boolean).join(" · ");
-        return (hist ? '<div class="row"' : '<a class="row" href="#/match/' + m.id + '"') + '><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(sub) + "</span>" + (m.note ? '<span class="s rev">« ' + esc(m.note) + " »</span>" : "") + "</span>" + msbHtml(m) + (hist ? "</div>" : I.next + "</a>");
+        var hist = !m.id, sub = esc([m.comp ? insName(m.comp) : "", m.wo ? "forfait" : ""].filter(Boolean).join(" · ")), rk = m.oppRank ? ' <span class="h2s-k">·</span> <span class="rk-tag" title="Son classement ce jour-là">' + esc(m.oppRank) + "</span>" : ""; // 3.61.3 (Yann) : classement en pastille comme dans l'Activité, nom d'épreuve lisible sur une ligne
+        return (hist ? '<div class="row"' : '<a class="row" href="#/match/' + m.id + '"') + '><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + rk + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + "</span>" + (sub ? '<span class="s h2s-s">' + sub + "</span>" : "") + (m.note ? '<span class="s rev">« ' + esc(m.note) + " »</span>" : "") + "</span>" + msbHtml(m) + (hist ? "</div>" : I.next + "</a>");
       }).join("") + "</div>" +
       '<a class="btn soft h2s-go" href="#/' + advPath(key) + '">Sa fiche et ton plan contre lui ' + I.next + "</a>";
     return { title: name, sub: plural(pl.length, "match", "matchs") + " l'un contre l'autre, toutes saisons confondues.", body: body };
@@ -15547,8 +15547,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     gwP: function (el) { var g = UI.gw; if (!g) return; var i = g.pat.indexOf(el.dataset.v); if (i >= 0) g.pat.splice(i, 1); else g.pat.push(el.dataset.v); haptic("light"); render(); },
     // 3.56 : objectifs de jeu, plan vérifié, enjeu replié
     goalT: function (el) { var g = UI.goalPick || (UI.goalPick = goalsCur().map(function (x) { return x.id; })), i = g.indexOf(el.dataset.v); if (i >= 0) g.splice(i, 1); else if (g.length < 3) g.push(el.dataset.v); else { toast("3 objectifs au plus : retires-en un d'abord."); return; } haptic("light"); render(); },
-    goalCat: function (el) { UI.goalCat = el.dataset.v; render(); },
-    goalAdd: function () { var inp = document.getElementById("gp-t"), t = inp && inp.value.trim(); if (!t) return; S.goals = S.goals || { ids: [] }; var c = S.goals.custom = S.goals.custom || [], id = "c" + Date.now().toString(36); c.push({ id: id, t: t.slice(0, 40), cat: UI.goalCat || "tac" }); var g = UI.goalPick || (UI.goalPick = goalsCur().map(function (x) { return x.id; })); if (g.length < 3) g.push(id); save(); render(); },
+    goalCat: function (el) { var inp = document.getElementById("gp-t"); if (inp) UI.gpT = inp.value; UI.goalCat = el.dataset.v; render(); }, // 3.61.3 : le texte tapé reste
+    goalAdd: function () { var inp = document.getElementById("gp-t"), t = inp && inp.value.trim(); if (!t) return; UI.gpT = ""; S.goals = S.goals || { ids: [] }; var c = S.goals.custom = S.goals.custom || [], id = "c" + Date.now().toString(36); c.push({ id: id, t: t.slice(0, 40), cat: UI.goalCat || "tac" }); var g = UI.goalPick || (UI.goalPick = goalsCur().map(function (x) { return x.id; })); if (g.length < 3) g.push(id); save(); render(); },
     goalSave: function () { var g = UI.goalPick || [], sg = goalSuggest(); S.goals = S.goals || {}; S.goals.ids = g.slice(0, 3); S.goals.since = E.iso(today()); S.goals.why = {}; g.forEach(function (id) { if (sg.why[id]) S.goals.why[id] = sg.why[id]; }); UI.goalPick = null; UI.sheet = null; save(); toast(g.length ? "Tes objectifs sont prêts" + (IOS ? ", aussi sur ta montre." : ".") : "Objectifs retirés."); try { watchSync(); } catch (e) {} render(); },
     goalR: function (el) { var m = S.matches.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!m) return; m.goalRes = m.goalRes || {}; var v = +el.dataset.v; if (m.goalRes[el.dataset.k] === v) delete m.goalRes[el.dataset.k]; else m.goalRes[el.dataset.k] = v; haptic("light"); save(); render(); },
     tacT: function (el) { var m = S.matches.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!m) return; m.tacRes = m.tacRes || {}; var k = el.dataset.v, cur = m.tacRes[k]; m.tacRes[k] = cur === 1 ? 0 : cur === 0 ? null : 1; if (m.tacRes[k] == null) delete m.tacRes[k]; haptic("light"); save(); render(); },
