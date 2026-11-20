@@ -5280,3 +5280,21 @@ button.h3h-r:active { opacity: .7; }
 .ft-so .ft-m em { color: var(--ft-so); } .ft-li .ft-m em { color: var(--ft-li); }
 :root[data-theme="nuit"] .ft-po .ft-m em { color: var(--ft-po); } :root[data-theme="nuit"] .ft-to .ft-m em { color: var(--ft-to); } :root[data-theme="nuit"] .ft-eq .ft-m em { color: var(--ft-eq); }
 :root[data-theme="nuit"] .ft-so .ft-m em { color: var(--ft-so); } :root[data-theme="nuit"] .ft-li .ft-m em { color: var(--ft-li); }
+/* 3.59 (Yann, maquettes L5 et L7) : la course illustrée (podium terre battue), ta photo, « Qui court ? » */
+.lg-card { position: relative; }
+.lg-ill { position: absolute; right: 16px; top: 14px; width: 78px; height: 53px; color: var(--ink); pointer-events: none; }
+.lg-card .lg-h { flex-direction: column; align-items: flex-start; gap: 2px; padding-right: 88px; }
+.lg-card .lgc-t { padding-right: 88px; }
+.lg-empty { gap: 8px; } .lg-empty .eyebrow { padding-right: 88px; }
+.ini.ph { background-size: cover; background-position: center; color: transparent; }
+.rc-sec { font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 14px 0 2px; }
+.rc-row { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.rc-row .ini { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; background: var(--chip); flex: none; }
+.rc-row .grow { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rc-row .grow b { font-size: 15px; } .rc-row .grow small { font-size: 12.5px; color: var(--muted); }
+.rc-sug { color: var(--gazon); font-weight: 700; }
+:root[data-theme="nuit"] .rc-sug { color: #6FC28F; }
+.rc-info { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted); line-height: 1.4; padding: 12px 0 0; border-top: 1px solid var(--line); margin-top: 8px; }
+.rc-info svg { flex: none; width: 16px; height: 16px; margin-top: 1px; color: var(--ink); }
+.rc-info b { color: var(--ink); font-size: inherit; font-weight: 700; }
+.lg-card .ls-foot { flex-wrap: wrap; justify-content: flex-end; }

@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.59.0",
+    VERSION: "3.59.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -6408,11 +6408,26 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return { id: id, name: name, me: !!me, cur: cur, rank: lab(cur), calc: calc, W: W, D: D, v: W.length,
       perf: W.filter(function (w) { return w.perf; }).length, pts: W.reduce(function (s, w) { return s + w.pts; }, 0) };
   }
+  // 3.59 (Yann, maquette L5) : la course se joue entre les joueurs que TU choisis (8 au plus), plus tous tes suivis d'office.
+  // Les ligues d'avant (tous les suivis sauf les retirés) gardent leurs coureurs : on fige la liste la 1re fois.
+  var RACE_MAX = 8;
+  function raceIn() {
+    S.league = S.league || { y: seasonY(), start: {} };
+    if (!S.league.in) { var out = S.league.out || []; S.league.in = Object.keys(S.follow || {}).filter(function (k) { return out.indexOf(k) < 0; }).slice(0, RACE_MAX); }
+    S.league.in = S.league.in.filter(function (k) { return (S.follow || {})[k]; }); // ne plus suivre = quitter la course
+    return S.league.in;
+  }
+  function inRace(k) { return raceIn().indexOf(k) >= 0; }
+  var RACE_ILL = '<svg class="lg-ill" viewBox="0 0 86 58" aria-hidden="true"><defs><linearGradient id="rcC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D97A4E"/><stop offset="1" stop-color="#A2441F"/></linearGradient><radialGradient id="rcB" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#EEF7A0"/><stop offset=".6" stop-color="#D4E64A"/><stop offset="1" stop-color="#AFC23A"/></radialGradient></defs>' +
+    '<rect x="30" y="22" width="26" height="36" rx="4" fill="url(#rcC)"/><rect x="4" y="34" width="26" height="24" rx="4" fill="url(#rcC)" opacity=".8"/><rect x="56" y="42" width="26" height="16" rx="4" fill="url(#rcC)" opacity=".65"/>' +
+    '<text x="43" y="44" text-anchor="middle" font-size="15" font-weight="800" fill="#FFF4E8">1</text><text x="17" y="51" text-anchor="middle" font-size="12" font-weight="800" fill="#FFF4E8">2</text><text x="69" y="54" text-anchor="middle" font-size="10" font-weight="800" fill="#FFF4E8">3</text>' +
+    '<circle cx="43" cy="12" r="8" fill="url(#rcB)"/><path d="M36.4 9.6c4 1.6 5.6 6 4.2 8.6M45.6 4.6c-1.4 3.6.4 7.6 4.6 9" stroke="#F4F7E1" stroke-width="1.1" fill="none" stroke-linecap="round"/>' +
+    '<path d="M68 42V24" stroke="currentColor" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round"/><path d="M68 24h12l-3 4 3 4H68" fill="#6FC28F"/></svg>';
   function leagueRows(off) {
     var out = [], me = raceRow("me", "Toi", allMatches(), effRank(), true, off); if (me) out.push(me);
     Object.keys(S.follow || {}).forEach(function (k) {
       var f = S.follow[k], sc = (S.scout || {})[k]; if (!sc || !(sc.rows || []).length) return;
-      if ((S.league && S.league.out || []).indexOf(k) >= 0) return;
+      if (!inRace(k)) return;
       var r = raceRow(k, nameCase(f.name), sc.rows, folSnap(sc).rank || f.rank, false, off); if (r) out.push(r);
     });
     return out.sort(function (a, b) { return b.pts - a.pts || b.v - a.v || b.perf - a.perf || (a.me ? -1 : b.me ? 1 : 0); });
@@ -6428,7 +6443,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // 3.55.1 (Yann) : compacte (top 3, ou top 2 + toi), dépliable ; dans l'onglet Suivis
   function leagueHtml() {
-    var R = leagueRows(); if (R.length < 2) return "";
+    var R = leagueRows();
+    if (R.length < 2) { // 3.59 : personne dans ta course, mais des joueurs suivis : on propose de la lancer
+      if (!Object.keys(S.follow || {}).length) return "";
+      return '<div class="card lg-card lg-empty">' + RACE_ILL + '<span class="eyebrow">Course de ' + MOIS_L[today().getMonth()] + '</span><b class="m2-t lgc-t">Lance ta course du mois</b><span class="small">Choisis qui court avec toi parmi les joueurs que tu suis. Chaque victoire du mois rapporte des points, tout le monde repart de 0 le 1er.</span>' +
+        '<div class="ls-foot"><button class="go-pill" data-a="sheet" data-k="race" data-v="1">Qui court ? ' + I.next + "</button></div></div>";
+    }
     var i = R.map(function (r) { return r.me; }).indexOf(true), me = R[i], open = !!UI.lgOpen, t0 = today();
     var mo = MOIS_L[t0.getMonth()], end = new Date(t0.getFullYear(), t0.getMonth() + 1, 1), left = Math.round((end - t0) / 864e5);
     var t = "";
@@ -6440,7 +6460,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         (gap > 0 && b ? ' <span class="acc">Une victoire contre un ' + esc(b) + " ou mieux</span>" + (E.idx(b) > me.calc && E.BAREME.win(0) * 2 > gap ? ", ou 2 contre des " + esc(lab(me.calc)) + "," : "") + " te passe devant." : gap > 0 ? " Il te faut plusieurs victoires pour passer devant." : "");
     }
     var row = function (r, k, first) {
-      return '<div class="lgc' + (r.me ? " me" : "") + (first ? " f" : "") + '"><span class="lg-k">' + (k + 1) + '</span><span class="ini' + (r.me ? " me" : "") + '">' + esc(r.me ? initials(S.profile.name || "Toi") : initials(r.name)) + "</span>" +
+      var ph = r.me ? myPhoto() : ""; // 3.59 (Yann) : ta photo à la place de ton initiale
+      return '<div class="lgc' + (r.me ? " me" : "") + (first ? " f" : "") + '"><span class="lg-k">' + (k + 1) + '</span><span class="ini' + (r.me ? " me" : "") + (ph ? " ph" : "") + '"' + (ph ? ' style="background-image:url(\'' + esc(ph) + '\')"' : "") + ">" + (ph ? "" : esc(r.me ? initials(S.profile.name || "Toi") : initials(r.name))) + "</span>" +
         '<span class="grow"><span class="lgc-n"><b>' + esc(r.name) + "</b><small>" + esc(r.rank) + '</small></span><span class="lgc-nw">' + raceNews(r) + "</span></span><em>+" + r.pts + "<small>pts</small></em></div>";
     };
     var body;
@@ -6449,10 +6470,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     else body = row(R[0], 0, true) + row(R[1], 1) + (i > 2 ? '<div class="lgc-gap">' + plural(i - 2, "joueur") + "</div>" : "") + row(me, i, true);
     var P = leagueRows(-1), win = P[0] && P[0].pts ? P[0] : null, pm = MOIS_L[raceMonth(-1).getMonth()];
     var tg = R.length > 3 ? '<button class="lgc-tg" data-a="leagueToggle">' + (open ? "Replier" : "Voir les " + R.length) + " " + svg(open ? '<path d="M6 15l6-6 6 6"/>' : '<path d="M6 9l6 6 6-6"/>', 2.6) + "</button>" : "";
-    return '<div class="card lg-card"><span class="lg-h"><span class="eyebrow">Course de ' + mo + '</span><span class="small">fin dans ' + plural(left, "jour") + "</span></span>" +
+    return '<div class="card lg-card">' + RACE_ILL + '<span class="lg-h"><span class="eyebrow">Course de ' + mo + '</span><span class="small">' + plural(R.length, "coureur") + " · fin dans " + plural(left, "jour") + "</span></span>" +
       (t ? '<b class="m2-t lgc-t">' + t + "</b>" : "") + body +
       '<span class="small" style="margin-top:4px">Points gagnés ce mois-ci, tout le monde repart de 0 le 1er.' + (win ? " " + pm.charAt(0).toUpperCase() + pm.slice(1) + " : gagné par " + (win.me ? "toi" : esc(win.name)) + " 🏆" : "") + "</span>" +
-      (open || R.length <= 3 ? '<div class="ls-foot"><button class="go-pill" data-a="leagueShare">Partager</button><button class="go-pill" data-a="sheet" data-k="league" data-v="1">Comment c\'est compté ' + I.next + "</button></div>" : "") + tg + "</div>";
+      (open || R.length <= 3 ? '<div class="ls-foot"><button class="go-pill" data-a="leagueShare">Partager</button><button class="go-pill" data-a="sheet" data-k="race" data-v="1">Qui court ? ' + I.next + '</button><button class="go-pill" data-a="sheet" data-k="league" data-v="1">Comment c\'est compté ' + I.next + "</button></div>" : "") + tg + "</div>";
   }
   function folSnap(sc) {
     var p = playedOf(sc.rows || []).filter(function (m) { return m.date; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
@@ -10113,12 +10134,31 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
           '<p class="small pf-ed">Tu pourras le modifier avant de l\'envoyer.</p><div class="pf-send"><button class="go-pill" data-a="profSend" data-v="sms">Messages</button><button class="go-pill" data-a="profSend" data-v="wa">WhatsApp</button><button class="go-pill" data-a="profSend" data-v="mail">Mail</button><button class="go-pill" data-a="profCopy">Copier</button></div>' };
     },
     h2hm: function (k) { return h2hSheet(k); }, // 3.59 (Yann) : tous les matchs d'un face-à-face
+    // 3.59 (Yann, maquette L5) : qui court avec toi. Sortir de la course ne retire pas des suivis.
+    race: function () {
+      var ins = raceIn(), me = curIdx(), all = Object.keys(S.follow || {}).map(function (k) { var f = S.follow[k], sc = (S.scout || {})[k]; return { id: k, name: nameCase(f.name), rank: (sc && folSnap(sc).rank) || f.rank || "" }; });
+      var R = {}; try { leagueRows().forEach(function (r) { R[r.id] = r; }); } catch (e) {}
+      var sub = function (f) { var o = E.idx(T.normRank(f.rank || "")), r = R[f.id], g = o == null || me < 0 ? null : o - me;
+        if (r) return esc(f.rank) + " · " + (r.v ? "+" + r.pts + " pts ce mois-ci" : "pas encore de victoire ce mois-ci");
+        return esc(f.rank || "classement inconnu") + (g === 0 || g === 1 || g === -1 ? ' · <span class="rc-sug">' + (g === 0 ? "ton niveau" : g > 0 ? "un cran au-dessus" : "un cran en dessous") + ", bon rival</span>" : g != null && g > 1 ? " · " + (g === 2 ? "deux échelons" : g + " échelons") + " au-dessus" : ""); };
+      var row = function (f, on) { return '<label class="rc-row"><span class="ini">' + esc(initials(f.name)) + '</span><span class="grow"><b>' + esc(f.name) + "</b><small>" + sub(f) + '</small></span><input type="checkbox" role="switch" data-a="raceTog" data-v="' + esc(f.id) + '"' + (on ? " checked" : "") + (!on && ins.length >= RACE_MAX ? " disabled" : "") + ' aria-label="' + esc(f.name) + ' dans ta course"></label>'; };
+      var a = all.filter(function (f) { return ins.indexOf(f.id) >= 0; }), b = all.filter(function (f) { return ins.indexOf(f.id) < 0; });
+      var lvl = function (f) { var o = E.idx(T.normRank(f.rank || "")); return o == null || me < 0 ? 99 : Math.abs(o - me); };
+      b.sort(function (x, y) { return lvl(x) - lvl(y); });
+      var star = svg('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.5 2.9 1-6.1L3.1 9.5l6.1-.9z"/>', 2), flag = svg('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>', 2);
+      var body = (all.length ? (a.length ? '<div class="rc-sec">Dans ta course · ' + a.length + "</div>" + a.map(function (f) { return row(f, true); }).join("") : "") +
+        (b.length ? '<div class="rc-sec">Tu les suis, hors course · ' + b.length + "</div>" + b.map(function (f) { return row(f, false); }).join("") : "") :
+        '<p class="small">Suis d\'abord des joueurs (l\'étoile sur leur fiche), puis choisis ici qui court avec toi.</p>') +
+        '<div class="rc-info">' + star + "<span><b>Sortir de la course ne retire pas des suivis.</b> Tu continues à recevoir ses nouvelles. Pour ne plus le suivre, c'est l'étoile sur sa fiche.</span></div>" +
+        '<div class="rc-info">' + flag + "<span>Les changements comptent tout de suite ; les points du mois déjà gagnés restent. Personne n'est prévenu : la course est à toi.</span></div>";
+      return { title: "Qui court avec toi ?", sub: "La course de " + MOIS_L[today().getMonth()] + " se joue entre les joueurs que tu choisis, " + RACE_MAX + " au plus.", body: body };
+    },
     // 3.55.4 : la course du mois, comment c'est compté
     league: function () {
       var R = leagueRows(); if (R.length < 2) return null;
       var body = '<div class="list">' + R.map(function (r) {
         var d = r.W.length ? r.W.map(function (w) { return "V contre un " + esc(w.m.oppRank) + " le " + E.parseDate(w.m.date).getDate() + " : +" + w.pts; }).join(" · ") : r.D ? "Pas encore de victoire ce mois-ci" : "Pas encore joué ce mois-ci";
-        return '<div class="row"><span class="grow"><span class="t">' + esc(r.name) + ' <span class="muted" style="font-weight:400">· ' + esc(r.rank) + " · +" + r.pts + ' pts</span></span><span class="s">' + d + "</span></span>" + (r.me ? "" : '<button class="go-pill" data-a="leagueOut" data-v="' + esc(r.id) + '">Retirer</button>') + "</div>";
+        return '<div class="row"><span class="grow"><span class="t">' + esc(r.name) + ' <span class="muted" style="font-weight:400">· ' + esc(r.rank) + " · +" + r.pts + ' pts</span></span><span class="s">' + d + "</span></span>" + "</div>";
       }).join("") + "</div>" +
         '<p class="small" style="margin-top:12px">Chaque victoire du mois rapporte les points du barème FFT, comptés depuis le classement que vise le joueur (l\'échelon au-dessus du sien) : 60 contre un joueur de ce classement, 90 contre un échelon au-dessus, 120 contre deux ou plus ; en dessous, 30, 20, 15, puis 0. Une perf, c\'est une victoire contre mieux classé que soi. Les WO et les doubles ne comptent pas. Les matchs des joueurs suivis sont lus dans Ten\'Up à chaque synchro. Remise à zéro le 1er de chaque mois. Rien n\'est publié : toi seul vois ta course, sauf si tu la partages. Retirer un joueur de la course ne l\'empêche pas d\'être suivi.</p>';
       return { title: "Course de " + MOIS_L[today().getMonth()], sub: "Points gagnés ce mois-ci par chacun, victoire par victoire.", body: body };
@@ -15165,6 +15205,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var r = UI.importRows[+el.dataset.ir], k = el.dataset.k;
       r[k] = el.type === "checkbox" ? el.checked : el.value;
       if (k !== "keep") { r.ok = !!(r.oppRank && r.result && r.date); if (r.ok && !r.dup) r.keep = true; render(); }
+    } else if (el.dataset.a === "raceTog") { // 3.59 : entrer / sortir de la course (toujours suivi)
+      var ri = raceIn(), rk = el.dataset.v; S.league.in = ri.filter(function (x) { return x !== rk; }); if (el.checked && S.league.in.length < RACE_MAX) S.league.in.push(rk);
+      save(); render(); toast(el.checked ? "Dans ta course." : "Sorti de ta course. Tu le suis toujours.");
     } else if (el.dataset.a === "persoToggle") {
       var pg = el.dataset.p, pr = prefsOf(pg), k = el.dataset.k;
       pr.hidden = pr.hidden.filter(function (x) { return x !== k; }); if (!el.checked) pr.hidden.push(k);
