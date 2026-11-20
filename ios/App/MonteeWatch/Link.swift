@@ -123,6 +123,7 @@ final class PhoneLink: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = PhoneLink()
     @Published var ctx = WCtx()
     @Published var ownsPlus = false
+    @Published var openPlay = false // 3.61.2 : la complication Entraînement ouvre le choix séance / libre
     /// Mois du dernier match offert (« 2026-11 ») : sans Montée+, 1 match compté par mois
     @Published var freeMonth = UserDefaults.standard.string(forKey: "montee.freeMonth") ?? ""
     static func monthKey(_ d: Date = Date()) -> String {

@@ -184,7 +184,7 @@ struct RootView: View {
             NavigationStack { HomeView() }
                 .onOpenURL { u in
                     if u.host == "start" { Draft.shared.openSetup = true }
-                    if u.host == "train" { startTraining() }
+                    if u.host == "train" { if PhoneLink.shared.todayPlan != nil { PhoneLink.shared.openPlay = true } else { startTraining() } } // 3.61.2 : la complication passe aussi par le choix
                 }
         }
     }
@@ -309,6 +309,8 @@ struct HomeView: View {
             }
         }
         .task { await link.checkStore() }
+        .onAppear { if link.openPlay { link.openPlay = false; play = true } }
+        .onChange(of: link.openPlay) { _, v in if v { link.openPlay = false; play = true } }
     }
 }
 
