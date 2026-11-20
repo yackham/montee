@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.58.0",
+    VERSION: "3.59.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -666,6 +666,7 @@
       case "jeu": html = V.jeu(parts.slice(1).join("/")); break;
       case "entrainement": html = V.entrainement(parts[1]); break;
       case "creneau": html = V.creneau(parts[1]); break;
+      case "seance": html = V.seance(parts[1]); break;
       case "courbes": html = V.courbes(); break;
       case "perso": html = V.perso(parts[1]); break;
       case "materiel": html = V.materiel(); break;
@@ -752,7 +753,7 @@
     var f = app.querySelector("[data-autofocus]"); if (f) f.focus();
     if (UI.fafFocus && parts[0] === "faf") { UI.fafFocus = false; var fq = document.getElementById("ff-q"); if (fq) setTimeout(function () { fq.focus(); }, 120); }
     if (UI.partyKey && S.celebrated !== UI.partyKey) { S.celebrated = UI.partyKey; save(); setTimeout(party, 350); }
-    syncWidgets(); watchSync(); schedulePlanNotif();
+    syncWidgets(); watchSync(); schedulePlanNotif(); try { scheduleSjNotif(); } catch (e) {}
   }
 
   // 3.49.1 : mise à jour sur place du DOM (même nœuds conservés quand ils sont du même type)
@@ -2377,7 +2378,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     if (p.status === "top") {
       s += '<div class="card ink"><span class="eyebrow" style="color:var(--hl)">Joueur numéroté</span><span style="font-size:20px;font-weight:600">Ton classement se joue au concours des meilleurs bilans : Montée ne peut pas le simuler.</span><span style="font-size:14px;color:#E6E0D8">Tes stats, tes courbes et ton matériel restent disponibles.</span></div>';
-    } else s += watchInHtml() + plusMomentHtml(c) + freshHtml(c) + courbesRings(c) + trialCardHtml() + tourHomeHtml() + planHomeHtml() + heroHtml(c); // 3.44.2 (Yann) : ton prochain match et tes épreuves juste sous les anneaux ; 3.40 : un match de la montre à enregistrer passe avant tout
+    } else s += watchInHtml() + plusMomentHtml(c) + freshHtml(c) + courbesRings(c) + trialCardHtml() + tourHomeHtml() + planHomeHtml() + sjHomeHtml() + heroHtml(c); // 3.44.2 (Yann) : ton prochain match et tes épreuves juste sous les anneaux ; 3.40 : un match de la montre à enregistrer passe avant tout
     var X = { verify: verifyHtml(), hc: hcHomeCard(), an: anHomeCard() };
     if (S.syncRecap && S.syncRecap.length && !UI.sheet && !UI.notesOpen) UI.sheet = { k: "recap" }; // récapitulatif après une synchro
     var trI = trialInfo(); if (trI && trI.left <= 3 && !trI.T.recapSeen && !UI.sheet && !UI.notesOpen) { trI.T.recapSeen = 1; save(); UI.sheet = { k: "trialEnd" }; } // 3.57 (P4) : J-3, ton mois Montée+
@@ -10491,6 +10492,350 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         '<button class="btn primary jj1-go" data-a="planGo" data-id="' + esc(pl.id) + '">' + svg('<path d="M8 5v14l11-7z"/>', 2) + " Lancer</button>" + (IOS || !NATIVE ? warmRow(pl) : "") + "</div>"; // 3.55 : échauffement guidé
     }).join("");
   }
+  // =====================================================================
+  // 3.59 (Yann, maquettes validées le 20/11) : la séance du jour
+  // Un jour sans match : une séance taillée sur tes axes (seul, à deux ou en groupe sans prof),
+  // à suivre sur l'iPhone ou sur la montre. Des règles de coach, rien n'est envoyé ailleurs.
+  // =====================================================================
+  // Exercices par axe (identifiants de GOALS) : seul (panier, mur), à deux, à 3 et à 4 sur un terrain.
+  // obj = objectif chiffré ; cnt = ce que le compteur compte (facultatif) ; game = la règle du jeu à thème.
+  var SJ_EX = {
+    first: { t: "Service : 3 zones", s: "Panier de 30 balles. 10 au T, 10 au corps, 10 à l'extérieur. Ralentis un peu, place-la.", d: "Panier de 30 balles. 10 au T, 10 au corps, 10 à l'extérieur. Ralentis un peu, place-la. Ton partenaire retourne une balle sur deux.", g3: "1 serveur, 2 relanceurs. 1re balle seulement, on joue le point. Le serveur change tous les 10 services.", g4: "2 serveurs, 2 relanceurs, en diagonale. 1re balle seulement, on joue le point.", obj: "20 sur 30 dedans (65 %)", cnt: "Services dedans", n: 30, game: "Jeux normaux, une seule balle de service : la 1re doit passer." },
+    vsrv: { t: "Service : varie les zones", s: "Panier : enchaîne corps, T, extérieur, jamais deux fois la même zone. Annonce ta zone avant de servir.", d: "Tu annonces ta zone (corps, T, extérieur), ton partenaire retourne. Jamais deux fois la même zone de suite.", g3: "1 serveur annonce sa zone, 2 relanceurs. Point gagné sur la zone annoncée : il compte double.", g4: "2 serveurs, 2 relanceurs. Le serveur annonce sa zone ; on joue le point.", obj: "20 sur 30 dans la zone annoncée", cnt: "Dans la zone", n: 30, game: "Jeux normaux : le serveur annonce sa zone, un point gagné dessus compte double." },
+    att2: { t: "Retour : attaque la 2e", s: "Contre le mur ou au panier lancé par toi : un pas dans le court, frappe tôt et long au centre.", d: "Ton partenaire sert des 2es balles. Tu avances d'un pas et tu attaques le retour, long au centre ou dans un coin.", g3: "1 serveur (2es balles seulement), 2 relanceurs qui attaquent. On joue le point.", g4: "2 serveurs en 2es balles, 2 relanceurs. Retour gagnant ou point gagné en 3 frappes : 2 points.", obj: "6 retours sur 10 attaqués et dedans", cnt: "Retours attaqués dedans", n: 10, game: "Jeux normaux, le serveur n'a qu'une 2e balle." },
+    court: { t: "Balle courte : approche, volée", s: "Au panier : lance-toi une balle courte, avance, approche long dans le coin, puis une volée. 3 séries de 8.", d: "Ton partenaire joue court une balle sur trois. Tu avances, approche long dans le coin, et tu finis la volée dans l'ouverture. 3 séries de 8, on change de côté.", g3: "2 contre 1 : la paire joue court, le seul approche et monte. On tourne toutes les 8 balles.", g4: "En double : une balle courte, toute la paire monte. Le point gagné au filet compte double.", obj: "5 points sur 8 finis au filet", cnt: "Points finis au filet", n: 8, game: "Jeux normaux : un point gagné au filet compte double." },
+    dcd: { t: "Décale-toi coup droit", s: "Contre le mur : balle au centre, tu tournes autour du revers et frappes coup droit croisé. Petits pas.", d: "Ton partenaire joue au centre. Tu tournes autour de ton revers et tu frappes coup droit, croisé puis long de ligne.", g3: "1 contre 2 : le seul n'a droit qu'au coup droit (décalé si besoin), la paire joue au centre.", g4: "En double, fond de court : point gagné sur un coup droit décalé, il compte double.", obj: "7 coups droits décalés sur 10 dedans", cnt: "Décalés dedans", n: 10, game: "Jeux normaux : point gagné en coup droit décalé, il compte double." },
+    slice: { t: "Le slice, bas et lent", s: "Contre le mur : slice de revers bas, la balle doit rebondir sous le genou. 3 séries de 15.", d: "Échanges en croisé de revers, slice seulement. La balle passe bas au-dessus du filet et rebondit sous le genou.", g3: "1 contre 2 : le seul ne joue que des slices, la paire attaque les balles hautes.", g4: "Croisé de revers à 2 contre 2, slice seulement ; un slice qui fait faute directe à l'autre : 2 points.", obj: "10 slices d'affilée sans faute", cnt: "Slices dedans", n: 20, game: "Jeux normaux : au moins un slice par point." },
+    long: { t: "Joue long", s: "Contre le mur, vise haut : la balle doit revenir derrière ta ligne de service.", d: "Échanges du fond. Toute balle qui tombe devant la ligne de service est perdue. Vise 1 m derrière le carré.", g3: "1 contre 2 en fond de court : une balle courte (devant le carré) donne le point à l'autre.", g4: "2 contre 2 au fond : une balle courte donne le point à l'autre.", obj: "8 balles d'affilée derrière le carré", cnt: "Séries réussies", n: 5, game: "Jeux normaux : une balle courte perd le point." },
+    plus1: { t: "Une balle de plus", s: "Contre le mur : séries de 20 sans faute, au centre, avec de la marge.", d: "Échanges du fond au centre. Pas de coup gagnant avant le 5e coup : on compte les échanges de 10.", g3: "1 contre 2, au centre. Le point ne compte qu'après le 5e coup.", g4: "2 contre 2, au centre. Le point ne compte qu'après le 5e coup.", obj: "5 échanges de 10 balles", cnt: "Échanges de 10", n: 5, game: "Jeux normaux : pas de coup gagnant avant le 5e coup." },
+    marge: { t: "De la marge au-dessus du filet", s: "Contre le mur, vise 1 m au-dessus de la ligne du filet. Séries de 15.", d: "Échanges du fond, la balle passe à au moins 1 m au-dessus du filet. Une balle qui frôle le filet : on recommence.", g3: "1 contre 2 : toute balle basse au-dessus du filet donne le point à l'autre.", g4: "2 contre 2 : toute balle basse au-dessus du filet donne le point à l'autre.", obj: "15 balles d'affilée avec de la marge", cnt: "Séries réussies", n: 5, game: "Jeux normaux : une faute dans le filet, elle compte double." },
+    bras: { t: "Relâche le bras", s: "Contre le mur, à 60 % : expire en frappant, mâchoire relâchée. Séries de 20.", d: "Échanges à 60 % de ta vitesse, du milieu puis du fond. Expire à chaque frappe, épaules basses.", g3: "Échanges à 3 en triangle, à 60 %. Expire à chaque frappe.", g4: "Échanges croisés à 2 contre 2, à 60 %. Expire à chaque frappe.", obj: "Ta respiration sur chaque frappe", cnt: "", n: 0, game: "Jeux normaux, à 80 % de ta vitesse : le relâchement d'abord." },
+    jambes: { t: "Petits pas", s: "Panier : balles lancées à droite et à gauche. Replace-toi au centre entre chaque frappe.", d: "Ton partenaire joue une balle à droite, une à gauche. Tu te replaces au centre, sur tes appuis avant sa frappe.", g3: "Le seul court d'un coin à l'autre, les deux autres jouent à droite puis à gauche. Séries de 10, on tourne.", g4: "2 contre 2 au fond, chacun se replace au centre de sa moitié entre chaque frappe.", obj: "Replacé avant chaque frappe", cnt: "", n: 0, game: "Jeux normaux : on se replace avant chaque frappe adverse." },
+    geste: { t: "Finis ton geste", s: "Contre le mur : la raquette finit au-dessus de l'épaule, à chaque frappe.", d: "Échanges du fond : la raquette finit au-dessus de l'épaule. Ton partenaire te le dit quand tu oublies.", g3: "Échanges à 3 : celui qui ne frappe pas regarde la fin du geste des deux autres.", g4: "2 contre 2 : chacun surveille la fin du geste de son partenaire.", obj: "Geste fini sur chaque frappe", cnt: "", n: 0, game: "Jeux normaux, en finissant ton geste." },
+    balle: { t: "Regarde la balle", s: "Contre le mur : la tête reste fixe à l'impact. Dis « tac » au moment où la balle touche le cordage.", d: "Échanges du fond : dis « tac » à l'impact, la tête reste fixe jusqu'à la fin.", g3: "Échanges à 3 : chacun dit « tac » à l'impact.", g4: "2 contre 2 : chacun dit « tac » à l'impact.", obj: "Tête fixe à l'impact", cnt: "", n: 0, game: "Jeux normaux, en regardant la balle jusqu'au cordage." },
+    ppp: { t: "Point par point", s: "Services : après chaque balle, une respiration, et tu oublies la précédente.", d: "Jeux décisifs à 7. Après chaque point, une respiration, raquette dans l'autre main : le point d'avant est fini.", g3: "Jeux décisifs à 3 (le 3e arbitre et tourne). Une respiration entre chaque point.", g4: "Jeux décisifs en double. Une respiration entre chaque point.", obj: "Ta routine sur chaque point", cnt: "", n: 0, game: "Jeux décisifs : une respiration entre chaque point." },
+    tete: { t: "Tête haute après une faute", s: "Services : après une faute, une respiration et tu sers la suivante sans regarder le sol.", d: "Jeux décisifs : après une faute, tête haute, une respiration, et tu passes. Ton partenaire compte les fois où tu râles.", g3: "Jeux décisifs à 3 : celui qui râle donne un point.", g4: "Jeux décisifs en double : celui qui râle donne un point à l'autre paire.", obj: "Zéro râlerie", cnt: "", n: 0, game: "Jeux décisifs : celui qui râle donne un point." },
+    rout: { t: "Ta routine entre les points", s: "Services : avant chaque balle, raquette dans l'autre main, une respiration, une intention.", d: "Jeux normaux, toi au service. Entre les points : raquette dans l'autre main, une respiration, une intention.", g3: "Jeux décisifs à 3 : la routine avant chaque point, le 3e la vérifie.", g4: "Jeux décisifs en double : la routine avant chaque point.", obj: "Ta routine sur chaque point", cnt: "", n: 0, game: "Jeux normaux : ta routine avant chaque point." },
+    score: { t: "Oublie le score", s: "Services : sers sans compter, une intention par balle.", d: "On joue des points sans annoncer le score pendant 10 min : une intention par point.", g3: "Points à 3 sans annoncer le score : une intention par point.", g4: "Double sans annoncer le score : une intention par point.", obj: "Une intention par point", cnt: "", n: 0, game: "Jeux décisifs, le score annoncé seulement à la fin." }
+  };
+  // Les axes de « À travailler » (ton jeu, tes matchs) rangés sur un objectif
+  var SJ_TR = { service: "first", retour: "att2", cd: "dcd", revers: "slice", volee: "court", physique: "jambes", mental: "tete", regul: "plus1", toucher: "court" };
+  var SJ_D2 = { first: 1, vsrv: 1, long: 1, plus1: 1, marge: 1 }; // séance de service ou de régularité : la vignette « cibles »
+  function sjAxes() {
+    var out = [], why = {};
+    var add = function (id, w) { if (id && SJ_EX[id] && out.indexOf(id) < 0) { out.push(id); why[id] = w; } };
+    try { trTodo([]).forEach(function (x) { add(SJ_TR[x.k], x.why.replace(/^./, function (c) { return c.toUpperCase(); })); }); } catch (e) {}
+    try { var g = goalSuggest(); g.ids.forEach(function (id) { add(id, g.why[id]); }); } catch (e) {}
+    if (out.length < 2) { add("plus1", "Les fondamentaux : la régularité d'abord"); add("court", "Les fondamentaux : finir devant"); }
+    // un axe bossé 3 séances de suite sans match entre-temps laisse la place au suivant
+    var L = (S.seances || []).slice(-3), lastM = (sortedMatches().filter(function (m) { return m.date; }).slice(-1)[0] || {}).date || "";
+    if (L.length === 3 && L.every(function (x) { return x.date > lastM && (x.ax || [])[0] === out[0]; }) && out.length > 2) out.push(out.shift());
+    return { ids: out, why: why };
+  }
+  // Les joueurs du groupe : 2 à 4 par terrain ; au-delà, un joueur « en appui » (arbitre, ramasseur) qui tourne
+  function sjCourts(n, c) {
+    c = Math.max(1, Math.min(c, Math.floor(n / 2) || 1));
+    var sizes = [], left = n; for (var i = 0; i < c; i++) { var k = Math.round(left / (c - i)); sizes.push(Math.min(4, k)); left -= Math.min(4, k); }
+    return { sizes: sizes.sort(function (a, b) { return b - a; }), bench: Math.max(0, left) };
+  }
+  function sjNames(n) {
+    var L = (S.sjGrp && S.sjGrp.names || []).filter(Boolean), out = ["Toi"];
+    for (var i = 0; out.length < n; i++) out.push(L[i] || "Joueur " + String.fromCharCode(66 + out.length - 1));
+    return out.slice(0, n);
+  }
+  // Rotations : à chaque changement, un joueur par terrain passe au terrain suivant (et l'appui reprend une place)
+  function sjRot(n, c, rounds) {
+    var C = sjCourts(n, c), nm = sjNames(n), k = 0, courts = C.sizes.map(function (z) { var a = nm.slice(k, k + z); k += z; return a; }), bench = nm.slice(k), out = [];
+    for (var r = 0; r < rounds; r++) {
+      out.push({ courts: courts.map(function (x) { return x.slice(); }), bench: bench.slice(), mv: r ? out[r - 1].mvNext : [] });
+      var movers = courts.map(function (x) { return x.shift(); });
+      if (bench.length) { bench.push(movers[0]); movers[0] = bench.shift(); }
+      courts.forEach(function (x, i) { x.push(movers[(i - 1 + movers.length) % movers.length]); });
+      out[r].mvNext = movers;
+    }
+    return { sizes: C.sizes, bench: C.bench, rounds: out };
+  }
+  function sjEx(id, mode, size) {
+    var x = SJ_EX[id]; if (!x) return "";
+    if (mode === "solo") return x.s; if (mode === "duo" || size === 2) return x.d;
+    return size >= 4 ? x.g4 : x.g3;
+  }
+  // La séance : échauffement, un bloc par axe, un jeu à thème (sauf seul ou très court), retour au calme
+  function sjBuild(o) {
+    var min = Math.max(20, Math.min(180, o.min || 60)), mode = o.mode || "duo", ax = (o.ax || []).filter(function (id) { return SJ_EX[id]; }).slice(0, 3);
+    if (!ax.length) ax = ["plus1"];
+    if (min <= 30) ax = ax.slice(0, 1);
+    var warm = min >= 45 ? 10 : 5, cool = min >= 45 ? 5 : 3, game = mode !== "solo" && min >= 45 ? Math.max(10, Math.round((min - warm - cool) * 0.25 / 5) * 5) : 0;
+    var rest = min - warm - cool - game; while (ax.length > 1 && rest / ax.length < 10) ax.pop();
+    var per = Math.floor(rest / ax.length / 5) * 5, extra = rest - per * ax.length, B = [], G = null;
+    if (mode === "grp") G = { n: o.n || 6, c: o.c || 2, cs: sjCourts(o.n || 6, o.c || 2) };
+    var gTxt = function (f) { return G ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + " · " + z, x: f(z) }; }) : null; };
+    B.push({ k: "warm", cat: "cor", t: "Échauffement", min: warm, x: mode === "solo" ? "Footing, pas chassés, puis contre le mur : près, puis de plus en plus loin. Petits pas entre chaque frappe." : "Mini-tennis 4 min, puis milieu de court, puis fond. Petits pas entre chaque frappe.", obj: "Replacé avant chaque frappe", ct: gTxt(function (z) { return z >= 4 ? "Mini-tennis croisé, puis fond de court" : z === 3 ? "Mini-tennis à 3, le 3e tourne toutes les 2 min" : "Mini-tennis, puis fond de court"; }) });
+    ax.forEach(function (id, i) {
+      var g = goalOf(id), x = SJ_EX[id], m = per + (i === 0 ? extra : 0);
+      B.push({ k: "ax", g: id, cat: g ? g.cat : "tac", t: x.t, min: m, x: sjEx(id, mode, 2), obj: x.obj, cnt: x.cnt, n: x.n, ct: gTxt(function (z) { return sjEx(id, "grp", z); }) });
+      var bb = B[B.length - 1]; if (G && G.cs.sizes.length > 1 && m >= 16) { bb.rounds = Math.max(2, Math.round(m / 8)); bb.rot = m / bb.rounds; }
+    });
+    if (game) { var g0 = goalOf(ax[0]); B.push({ k: "game", g: ax[0], cat: ax.length > 1 ? "tet" : (g0 ? g0.cat : "tet"), t: G ? "Montante-descendante" : "Jeu à thème", min: game, x: SJ_EX[ax[0]].game + (G ? " Matchs de 6 min : les gagnants montent d'un terrain, les perdants descendent." : ""), obj: G ? "Le thème jusqu'au bout" : SJ_EX[ax[0]].obj, ct: G ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + (i === 0 ? " · le haut" : i === G.cs.sizes.length - 1 ? " · le bas" : ""), x: z >= 4 ? "Jeux décisifs en double" : z === 3 ? "Jeux décisifs à 3, le 3e arbitre" : "Jeux décisifs en simple" }; }) : null }); }
+    B.push({ k: "cool", cat: "cor", t: "Retour au calme", min: cool, x: "Échanges lents au centre, puis étirements des épaules et des mollets." + (G ? " Qui a gagné la montante ?" : ""), obj: "" });
+    var t = 0; B.forEach(function (b) { b.at = t; t += b.min; });
+    var tt = (ax.length > 1 ? sjShort(ax[0]) + " et " + sjShort(ax[1]).replace(/^./, function (c) { return c.toLowerCase(); }) : sjShort(ax[0])) + (G ? " pour le groupe" : "");
+    return { id: "sj" + E.iso(today()).replace(/-/g, "") + "-" + ax.join("-") + "-" + min + mode, date: E.iso(today()), min: min, mode: mode, ax: ax, blocks: B, title: tt, grp: G };
+  }
+  function sjShort(id) {
+    var L = { first: "Ton service", vsrv: "Ton service", att2: "Ton retour", court: "La balle courte", dcd: "Ton coup droit", slice: "Le slice", long: "La longueur", plus1: "Ta régularité", marge: "La marge", bras: "Le relâchement", jambes: "Tes jambes", geste: "Ton geste", balle: "Regarder la balle", ppp: "Point par point", tete: "Ta tête", rout: "Ta routine", score: "Oublier le score" };
+    return L[id] || ((goalOf(id) || {}).t || "Ta séance");
+  }
+  // Les réglages du jour : ceux que tu as choisis, sinon ton créneau d'aujourd'hui, sinon 1 h à deux
+  function sjSlotToday() {
+    var d = today(), dow = (d.getDay() + 6) % 7, now = new Date(), mn = now.getHours() * 60 + now.getMinutes();
+    return (S.slots || []).filter(function (sl) { if (sl.dow !== dow || sl.label === "Cours" || (sl.since && E.iso(d) < sl.since)) return false; var hm = String(sl.time || "00:00").split(":"), s0 = (+hm[0] || 0) * 60 + (+hm[1] || 0); return mn <= s0 + (sl.minutes || 90); })[0] || null;
+  }
+  function sjCfg() {
+    var P = S.sjPref || {}, td = E.iso(today()), sl = sjSlotToday(), A = sjAxes();
+    var c = P.d === td ? JSON.parse(JSON.stringify(P)) : { d: td, min: (S.sjGrp && S.sjGrp.min0) || 60, mode: "duo" };
+    if (P.d !== td && sl) { c.min = sl.minutes || 90; c.mode = sl.label === "Collectif" ? "grp" : "duo"; c.slot = sl.id; }
+    if (!c.ax || !c.ax.length) c.ax = A.ids.slice(0, c.mode === "grp" && c.min < 75 ? 1 : 2);
+    if (c.mode === "grp") { c.n = c.n || (S.sjGrp && S.sjGrp.n) || 6; c.c = c.c || (S.sjGrp && S.sjGrp.c) || 2; }
+    c.why = A.why; c.sl = sl;
+    return c;
+  }
+  function sjPlan() { var c = sjCfg(); return sjBuild(c); }
+  // Le jour s'y prête : pas de match ni de match d'épreuve aujourd'hui, et pas déjà faite
+  function sjDayOk() {
+    var td = E.iso(today());
+    if (plans().some(function (x) { return dGap(x.day) === 0; })) return false;
+    try { if (friseItems().some(function (z) { return z.d === td && !z.todo && !z.rel && !z.dim; })) return false; } catch (e) {}
+    if (S.matches.some(function (m) { return m.date === td; })) return false;
+    if ((S.seances || []).some(function (x) { return x.date === td; })) return false;
+    if (S.sjHide === td) return false;
+    return true;
+  }
+  // Vignettes « tableau du coach » (Yann : D1 et D2 en alternance selon la séance)
+  function sjVig(P) {
+    var bl = '<svg viewBox="0 0 84 84" aria-hidden="true" focusable="false"><defs><linearGradient id="sjG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2E2B28"/><stop offset="1" stop-color="#1B1A19"/></linearGradient><radialGradient id="sjB" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#EEF7A0"/><stop offset=".6" stop-color="#D4E64A"/><stop offset="1" stop-color="#AFC23A"/></radialGradient></defs><rect width="84" height="84" rx="18" fill="url(#sjG)"/>' +
+      '<g stroke="#E2EEDC" fill="none" stroke-width="1.1" opacity=".75"><path d="M12 76V20H72V76"/><path d="M19 20V76M65 20V76"/><path d="M19 50H65M42 50V20"/></g><path d="M6 76H78" stroke="#F4F2EE" stroke-width="2.6"/>';
+    var ball = function (x, y, r) { return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="url(#sjB)"/><path d="M' + (x - r * .75) + " " + (y - r * .35) + "Q" + x + " " + y + " " + (x + r * .75) + " " + (y - r * .35) + "M" + (x - r * .75) + " " + (y + r * .35) + "Q" + x + " " + y + " " + (x + r * .75) + " " + (y + r * .35) + '" stroke="#F4F7E1" stroke-width="' + (r * .14).toFixed(2) + '" fill="none"/>'; };
+    var cone = function (x, y) { return '<g transform="translate(' + x + " " + y + ') scale(.55)"><path d="M-6 0L0-14L6 0Z" fill="#F0A35A"/><path d="M-3.3-6H3.3" stroke="#F4F2EE" stroke-width="1.6"/><ellipse cx="0" cy=".5" rx="8" ry="2.4" fill="#F0A35A" opacity=".85"/></g>'; };
+    if (SJ_D2[P.ax[0]]) return bl + cone(24, 56) + cone(42, 56) + cone(60, 56) + '<path d="M66 12Q50 6 44 44" stroke="#F4F2EE" stroke-width="1.3" stroke-dasharray="2 3.5" fill="none" stroke-linecap="round" opacity=".75"/><ellipse cx="44" cy="48" rx="6" ry="1.8" fill="#000" opacity=".35"/>' + ball(44, 43, 4.8) + "</svg>";
+    var steps = P.blocks.filter(function (b) { return b.k === "ax" || b.k === "game"; }).slice(0, 3), pos = [[24, 66], [56, 40], [38, 28]];
+    var cols = steps.map(function (b) { return gcol(b.cat === "cor" ? "cor" : b.cat); });
+    return bl + '<path d="M24 66C30 40 50 58 56 40S46 22 38 28" stroke="#F4F2EE" stroke-width="1.3" stroke-dasharray="2 3.5" fill="none" stroke-linecap="round" opacity=".7"/>' +
+      steps.map(function (b, i) { var p = pos[i]; return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="6.2" fill="#1B1A19" stroke="' + cols[i] + '" stroke-width="2"/><text x="' + p[0] + '" y="' + (p[1] + 3) + '" text-anchor="middle" font-family="Figtree,system-ui,sans-serif" font-size="8" font-weight="800" fill="' + cols[i] + '">' + (i + 1) + "</text>"; }).join("") + ball(66, 66, 4.6) + "</svg>";
+  }
+  var SJ_WATCH = '<rect x="6" y="6" width="12" height="12" rx="3"/><path d="M9 6l1-3h4l1 3M9 18l1 3h4l1-3M12 10v2l1.5 1"/>';
+  function sjWatchOk() { return IOS && Tenup && typeof Tenup.watchSeance === "function" && (S.watchSt || {}).installed; }
+  function sjHomeHtml() {
+    if (!S.matches.length || !sjDayOk()) return "";
+    var c = sjCfg(), P = sjBuild(c), grp = c.mode === "grp", sl = c.sl, when = "";
+    if (sl) { var hh = String(sl.time || "").replace(/^0/, "").replace(":", " h ").replace(" h 00", " h"), h0 = +String(sl.time || "0").split(":")[0]; when = (h0 >= 17 ? "Ce soir " : h0 >= 12 ? "Cet après-midi " : "Ce matin ") + hh + " · " + (sl.label === "Collectif" ? "ton collectif" : sl.label === "Partenaire" ? "avec ton partenaire" : "ton créneau"); }
+    var eb = sl ? when : "Séance du jour";
+    var axs = P.ax.map(function (id) { var g = goalOf(id); return '<div class="sj-a">' + catLab(g ? g.cat : "tac") + "<b>" + esc(g ? g.t : SJ_EX[id].t) + "</b>" + (c.why[id] ? "<small>" + esc(c.why[id]) + "</small>" : "") + "</div>"; }).join("");
+    var durs = grp ? [60, 90, 120] : [45, 60, 90];
+    if (durs.indexOf(P.min) < 0) durs = durs.concat([P.min]).sort(function (a, b) { return a - b; });
+    var chips = durs.map(function (m) { return '<button class="sj-chip' + (m === P.min ? " on" : "") + '" data-a="sjMin" data-v="' + m + '" aria-pressed="' + (m === P.min) + '">' + esc(fmtDur(m)) + "</button>"; }).join("") +
+      (grp ? '<button class="sj-chip" data-a="sheet" data-k="sjSet" data-v="1">' + P.grp.n + " joueurs · " + plural(P.grp.cs.sizes.length, "terrain") + "</button>" : '<button class="sj-chip" data-a="sheet" data-k="sjSet" data-v="1">Régler</button>');
+    var nb = P.blocks.length, w = sjWatchOk() && !grp;
+    var foot = "<b>" + nb + " étapes · " + (grp ? (P.blocks.filter(function (b) { return b.rot; }).map(function (b) { return "rotations toutes les " + fmtDur(Math.round(b.rot)); })[0] || "sans attente") : c.mode === "solo" ? "seul" : "avec un partenaire") + "</b><small>" + (sl ? "Réglée d'après ta semaine type." : grp ? "Pose le téléphone sur le banc : il sonne à chaque rotation." : w ? "Lance-la sur ta montre, elle te guide." : "Ton iPhone sonne et vibre à chaque étape.") + "</small>";
+    return '<div class="card sj"><div class="sj-top"><a class="grow sj-top-a" href="#/seance"><span class="eyebrow">' + esc(eb) + '</span><span class="sj-t">' + esc(P.title) + '</span></a><a class="sj-vig" href="#/seance" aria-hidden="true" tabindex="-1">' + sjVig(P) + "</a></div>" +
+      '<div class="sj-ax">' + axs + '</div><div class="sj-dur" role="group" aria-label="Durée de la séance">' + chips + "</div>" +
+      '<div class="sj-foot"><span class="grow">' + foot + '<a class="linkbtn sj-lnk" href="#/seance">Voir la séance ' + I.next + "</a></span>" +
+      '<button class="wu-go" data-a="sjGo" aria-label="' + (w ? "Lancer la séance sur la montre" : grp ? "Lancer le minuteur du groupe" : "Lancer la séance") + '">' + svg(w ? SJ_WATCH : '<path d="M8 5v14l11-7z"/>', 2.2) + "</button></div></div>";
+  }
+  // ----- La séance (plan) -----
+  function sjBlockHtml(b, i, live) {
+    var st = live == null ? "" : i < live ? " ok" : i === live ? " on" : "";
+    return '<div class="sq-b' + st + '"><span class="sq-m">' + Math.floor(b.at / 60) + ":" + ("0" + (b.at % 60)).slice(-2) + '</span><div class="sq-c"><div class="hd">' + catLab(b.cat) + '<span class="du">' + esc(fmtDur(b.min)) + "</span></div><b>" + esc(b.t) + "</b>" +
+      (b.ct ? '<div class="ct2">' + b.ct.map(function (x) { return '<div><span class="k">' + esc(x.k) + '</span><span class="y">' + esc(x.x) + "</span></div>"; }).join("") + "</div>" : "<p>" + esc(b.x) + "</p>") +
+      (b.rot ? '<span class="ob">Toutes les <b>' + fmtDur(Math.round(b.rot)) + "</b> : 1 joueur par terrain change de terrain.</span>" : "") +
+      (b.obj ? '<span class="ob">Objectif : <b>' + esc(b.obj) + "</b></span>" : "") + "</div></div>";
+  }
+  function sjRotHtml(P) {
+    var G = P.grp; if (!G || G.cs.sizes.length < 2) return "";
+    var b = P.blocks.filter(function (x) { return x.rot; })[0]; if (!b) return "";
+    var R = sjRot(G.n, G.c, b.rounds);
+    var hd = '<span class="h"></span>' + R.sizes.map(function (z, i) { return '<span class="h">Terrain ' + (i + 1) + " · " + z + "</span>"; }).join("");
+    var rows = R.rounds.map(function (r, k) {
+      var t = Math.round(b.at + k * b.rot), mv = r.mv || [];
+      return '<span class="r">' + Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2) + "</span>" + r.courts.map(function (cl) { return "<span>" + cl.map(function (n) { return mv.indexOf(n) >= 0 ? '<span class="mv">' + esc(n) + "</span>" : esc(n); }).join(", ") + "</span>"; }).join("");
+    }).join("");
+    return '<div class="card sj-rotc"><span class="eyebrow">Qui joue où · ' + esc(b.t.toLowerCase()) + '</span><div class="rot-w"><div class="rot" style="grid-template-columns:auto repeat(' + R.sizes.length + ',1fr)">' + hd + rows + "</div></div>" +
+      '<span class="small">Le souligné change de terrain.' + (R.bench ? " " + plural(R.bench, "joueur") + " en appui (arbitre, ramasseur), à tour de rôle." : " Personne n'attend.") + "</span></div>";
+  }
+  V.seance = function (sub) {
+    if (sub === "live") return sjLiveView();
+    if (sub === "fin") return sjEndView();
+    var c = sjCfg(), P = sjBuild(c), grp = c.mode === "grp";
+    var s = '<div class="screen sj-scr">' + topbar("", (grp ? "Séance de groupe · " : "Séance du jour · ") + fmtDur(P.min));
+    s += '<h1 class="sj-h1">' + esc(P.title) + '</h1><p class="small sj-sub">' + esc(plural(P.blocks.length, "étape") + " · " + (grp ? plural(P.grp.n, "joueur") + " · " + plural(P.grp.cs.sizes.length, "terrain") : c.mode === "solo" ? "seul" : "avec un partenaire")) + ' · <button class="linkbtn" data-a="sheet" data-k="sjSet" data-v="1">Changer</button></p>';
+    if (grp) s += '<div class="sj-wait">' + svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', 2.2) + "<span>Attente : " + (P.grp.cs.bench ? "<b>" + plural(P.grp.cs.bench, "joueur") + " en appui</b> à tour de rôle." : "<b>personne</b>.") + " Chacun passe sur tous les terrains.</span></div>";
+    s += '<div class="sj-mini" aria-hidden="true">' + P.blocks.map(function (b) { return '<i style="flex:' + b.min + ";background:" + gcol(b.cat) + '"></i>'; }).join("") + "</div>";
+    s += '<div class="sq">' + P.blocks.map(function (b, i) { return sjBlockHtml(b, i, null); }).join("") + "</div>";
+    s += sjRotHtml(P);
+    var w = sjWatchOk() && !grp;
+    s += '<div class="sj-acts">' + (grp ? '<button class="btn primary" data-a="sjGo" data-v="phone">' + svg('<path d="M8 5v14l11-7z"/>', 2) + " Lancer le minuteur du groupe</button>" :
+      '<button class="btn soft" data-a="sjGo" data-v="phone">' + svg('<path d="M8 5v14l11-7z"/>', 2) + " Sur l'iPhone</button>" + (w ? '<button class="btn primary" data-a="sjGo" data-v="watch">' + svg(SJ_WATCH, 2) + " Sur la montre</button>" : "")) + "</div>";
+    s += '<div class="sj-share"><span class="small">' + (grp ? "Envoie le plan au groupe :" : "Envoie la séance à ton partenaire :") + '</span><button class="go-pill" data-a="sjShare" data-v="wa">WhatsApp</button><button class="go-pill" data-a="sjShare" data-v="sms">Messages</button><button class="go-pill" data-a="sjShare" data-v="copy">Copier</button></div>';
+    s += '<button class="linkbtn sj-hide" data-a="sjHide">Pas aujourd\'hui</button>';
+    return s + "</div>";
+  };
+  function sjText(P) {
+    var L = ["Séance " + (P.grp ? "de groupe" : "du jour") + " · " + fmtDur(P.min) + " · " + P.title, ""];
+    P.blocks.forEach(function (b) {
+      L.push(Math.floor(b.at / 60) + ":" + ("0" + (b.at % 60)).slice(-2) + " · " + b.t + " (" + fmtDur(b.min) + ")");
+      if (b.ct) b.ct.forEach(function (x) { L.push("  " + x.k + " : " + x.x); }); else L.push("  " + b.x);
+      if (b.rot) L.push("  Toutes les " + fmtDur(Math.round(b.rot)) + ", 1 joueur par terrain change de terrain.");
+      if (b.obj) L.push("  Objectif : " + b.obj);
+    });
+    if (P.grp && P.grp.cs.sizes.length > 1) {
+      var b = P.blocks.filter(function (x) { return x.rot; })[0];
+      if (b) { L.push("", "Qui joue où :"); sjRot(P.grp.n, P.grp.c, b.rounds).rounds.forEach(function (r, k) { var t = Math.round(b.at + k * b.rot); L.push(Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2) + " · " + r.courts.map(function (cl, i) { return "T" + (i + 1) + " " + cl.join(", "); }).join(" | ")); }); }
+    }
+    L.push("", "Préparée avec Montée");
+    return L.join("\n");
+  }
+  // ----- En cours (iPhone) : un chrono par étape, un son et une vibration à chaque changement -----
+  var sjTimer = null;
+  function sjElapsed(L) { return Math.floor(((L.pausedAt || Date.now()) - L.t0 - (L.pTot || 0)) / 1000); }
+  function sjStep(L) { var s = sjElapsed(L), k = 0, acc = 0; while (k < L.P.blocks.length && s >= acc + L.P.blocks[k].min * 60) { acc += L.P.blocks[k].min * 60; k++; } return { k: k, left: k < L.P.blocks.length ? acc + L.P.blocks[k].min * 60 - s : 0, rotLeft: null }; }
+  function sjBeep() { try { var C = window.AudioContext || window.webkitAudioContext; if (!C) return; var a = sjBeep.ctx || (sjBeep.ctx = new C()), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(0.25, a.currentTime); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.5); o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.5); } catch (e) {} }
+  function sjTick() {
+    var L = S.sjLive; if (!L) { clearInterval(sjTimer); sjTimer = null; return; }
+    var st = sjStep(L), b = L.P.blocks[st.k], rk = b && b.rot ? Math.min(b.rounds - 1, Math.floor((sjElapsed(L) - b.at * 60) / (b.rot * 60))) : -1, key = st.k + "|" + rk;
+    if (key !== L.key) { var first = L.key == null; L.key = key; save(); if (!first) { haptic(st.k >= L.P.blocks.length ? "success" : "warning"); sjBeep(); if (navigator.vibrate) try { navigator.vibrate([200, 100, 200]); } catch (e) {} } if (route() === "seance/live") render(); return; }
+    var el = document.getElementById("sj-clock"); if (el && b) { var r = b.rot && rk < b.rounds - 1 ? Math.round(b.rot * 60 - ((sjElapsed(L) - b.at * 60) % (b.rot * 60))) : st.left; el.textContent = Math.floor(r / 60) + ":" + ("0" + (r % 60)).slice(-2); }
+    if (st.k >= L.P.blocks.length && route() === "seance/live") go("seance/fin");
+  }
+  function sjStart(P) {
+    S.sjLive = { P: P, t0: Date.now(), pTot: 0, pausedAt: null, cnt: {}, key: null }; save();
+    mmWake(true); clearInterval(sjTimer); sjTimer = setInterval(sjTick, 1000); go("seance/live"); sjTick();
+  }
+  function sjLiveView() {
+    var L = S.sjLive; if (!L) { location.replace("#/seance"); return ""; }
+    if (!sjTimer) { sjTimer = setInterval(sjTick, 1000); mmWake(true); }
+    var st = sjStep(L), P = L.P, b = P.blocks[Math.min(st.k, P.blocks.length - 1)], grp = !!P.grp;
+    var s = '<div class="screen sj-live">' + topbar("", (grp ? "Séance de groupe" : "Séance du jour") + " · étape " + (Math.min(st.k, P.blocks.length - 1) + 1) + " sur " + P.blocks.length).replace('data-a="back"', 'data-a="sjQuit"');
+    s += '<div class="lv-p">' + P.blocks.map(function (x, i) { return '<i class="' + (i < st.k ? "ok" : i === st.k ? "on" : "") + '"></i>'; }).join("") + "</div>";
+    var g = b.g ? goalOf(b.g) : null;
+    s += '<div class="lv-h">' + catLab(b.cat, g ? g.t : "") + '<span class="lv-t">' + esc(b.t) + "</span></div>";
+    var rk = b.rot ? Math.min(b.rounds - 1, Math.floor((sjElapsed(L) - b.at * 60) / (b.rot * 60))) : -1, rotN = b.rot ? b.rounds : 0;
+    s += '<div class="lv-clock" id="sj-clock">–:––</div><div class="lv-sub">' + (b.rot ? "avant de tourner · rotation " + Math.min(rk + 1, rotN) + " sur " + rotN : (L.pausedAt ? "en pause · " : "") + "reste sur " + fmtDur(b.min)) + "</div>";
+    if (grp && b.rot) {
+      var R = sjRot(P.grp.n, P.grp.c, rotN), r = R.rounds[Math.max(0, Math.min(rk, R.rounds.length - 1))], nx = R.rounds[Math.min(rk + 1, R.rounds.length - 1)];
+      s += '<div class="bigct">' + r.courts.map(function (cl, i) { return '<div><span class="k">Terrain ' + (i + 1) + '</span><span class="y">' + esc(b.ct && b.ct[i] ? b.ct[i].x : "") + '</span><span class="n">' + cl.map(function (n) { return n === "Toi" ? "<b>Toi</b>" : esc(n); }).join(", ") + "</span></div>"; }).join("") + "</div>";
+      if (rk + 1 < rotN && nx && nx.mv && nx.mv.length) s += '<div class="lv-next"><span>Au signal : <b>' + nx.mv.map(esc).join(", ") + "</b> " + (nx.mv.length > 1 ? "changent" : "change") + " de terrain</span></div>";
+    } else if (b.ct) s += '<div class="bigct">' + b.ct.map(function (x) { return '<div><span class="k">' + esc(x.k) + '</span><span class="y">' + esc(x.x) + "</span></div>"; }).join("") + "</div>";
+    else s += '<div class="card"><span class="lv-x">' + esc(b.x) + "</span></div>";
+    if (b.cnt) {
+      var n = L.cnt[st.k] || 0;
+      s += '<span class="mk-lbl">' + esc(b.cnt) + '</span><div class="lv-cnt"><span><b>' + n + "</b>" + (b.n ? ' <span class="muted">/ ' + b.n + "</span>" : "") + '</span><span class="pm"><button data-a="sjCnt" data-v="-1" aria-label="Retirer un">−</button><button class="on" data-a="sjCnt" data-v="1" aria-label="Ajouter un">+</button></span></div><span class="small">Facultatif : un tap par réussite.</span>';
+    }
+    var nb = P.blocks[st.k + 1];
+    if (nb) s += '<div class="lv-next">' + catDot(nb.cat) + "<span>Ensuite : <b>" + esc(nb.t) + "</b> · " + esc(fmtDur(nb.min)) + "</span></div>";
+    if (grp) s += '<span class="small">Pose le téléphone sur le banc, écran allumé : il sonne à chaque changement.</span>';
+    s += '<div class="lv-acts"><button class="btn soft" data-a="sjPause">' + (L.pausedAt ? "Reprendre" : "Pause") + '</button><button class="btn soft" data-a="sjNext">' + (b.rot && rk + 1 < rotN ? "Tourner" : nb ? "Étape suivante" : "Terminer") + "</button></div>";
+    return s + "</div>";
+  }
+  // ----- Fin de séance : ce qui est atteint, et (Montée+) ton suivi séance après séance -----
+  function sjSave(L, src) {
+    var P = L.P, td = E.iso(today()), mins = Math.max(1, Math.round(sjElapsed(L) / 60));
+    var rec = { id: uid(), sid: P.id, date: td, min: mins, plan: P.min, mode: P.mode, ax: P.ax, src: src || "phone", res: P.blocks.map(function (b, i) { return b.cnt ? { g: b.g, cnt: b.cnt, n: b.n, v: L.cnt[i] || 0 } : null; }).filter(Boolean) };
+    S.seances = (S.seances || []).concat([rec]).slice(-200);
+    // l'entraînement (heures de cordage, temps de jeu) — sauf si la montre l'envoie elle-même
+    if (src !== "watch") {
+      var r = racketFor("train");
+      S.trainings = S.trainings || [];
+      S.trainings.push({ id: uid(), date: td, minutes: mins, racketId: r ? r.id : "", string: r ? r.string || "" : "", tension: r ? r.tension || null : null, tensionCross: r && r.tensionCross != null ? r.tensionCross : null, newString: false, feel: null, note: P.title, src: "seance", at: L.t0, label: P.mode === "grp" ? "Collectif" : P.mode === "duo" ? "Partenaire" : "Autre", seance: rec.id });
+      rec.tid = S.trainings[S.trainings.length - 1].id;
+    }
+    // le créneau du jour est fait : plus de « t'as joué ? » pour lui
+    var sl = (S.slots || []).filter(function (x) { return x.dow === (today().getDay() + 6) % 7 && x.label !== "Cours" && (!x.since || td >= x.since); })[0];
+    if (sl) { S.slotLog = S.slotLog || {}; S.slotLog[sl.id + "|" + td] = "yes"; var tt = rec.tid && S.trainings.filter(function (x) { return x.id === rec.tid; })[0]; if (tt) { tt.slot = sl.id; tt.label = sl.label; } }
+    return rec;
+  }
+  function sjEndView() {
+    var R = UI.sjEnd || (S.seances || []).slice(-1)[0]; if (!R) { location.replace("#/"); return ""; }
+    var s = '<div class="screen sj-scr">' + topbar("", "Séance du jour");
+    s += '<h1 class="sj-h1">Séance faite</h1><p class="small sj-sub">' + esc(flong(E.parseDate(R.date)).replace(/^./, function (c) { return c.toUpperCase(); }) + " · " + fmtDur(R.min) + (R.src === "watch" ? " · à la montre" : "")) + "</p>";
+    if (R.res.length) s += '<div class="card sj-fin">' + R.res.map(function (x) {
+      var g = goalOf(x.g), ok = x.n ? x.v >= Math.round(x.n * 0.65) : x.v > 0, near = x.n && !ok && x.v >= x.n * 0.45;
+      return '<div class="fin-r">' + catDot(g ? g.cat : "tac") + '<span class="grow"><b>' + esc(x.cnt) + "</b><small>" + esc(SJ_EX[x.g] ? "Objectif : " + SJ_EX[x.g].obj : "") + "</small></span><em>" + x.v + (x.n ? " <small>/ " + x.n + "</small>" : "") + '</em><span class="ok-pill ' + (ok ? "ok" : "") + '">' + (ok ? "Atteint" : near ? "Presque" : x.v ? "Pas encore" : "Pas compté") + "</span></div>";
+    }).join("") + "</div>";
+    // suivi séance après séance (Montée+)
+    var ax0 = (R.res[0] || {}).g, hist = ax0 ? (S.seances || []).filter(function (x) { return (x.res || []).some(function (y) { return y.g === ax0 && y.v && y.n; }); }).slice(-5) : [];
+    if (hist.length >= 2) {
+      var lock = PLUS_LOCK(), vals = hist.map(function (x) { var y = x.res.filter(function (z) { return z.g === ax0; })[0]; return Math.round(y.v * 100 / y.n); }), mx = Math.max.apply(null, vals.concat([70]));
+      s += '<div class="card sj-hist' + (lock ? " ch-blur-w" : "") + '"><div class="ch-hd"><span class="eyebrow">' + esc(SJ_EX[ax0].cnt) + " · " + plural(hist.length, "dernière séance", "dernières séances") + '</span>' + (lock ? '<span class="ch-plus">Montée+</span>' : "") + '</div><div class="sj-bars' + (lock ? " ch-blur" : "") + '">' + vals.map(function (v, i) { return '<div><span>' + v + ' %</span><i style="height:' + Math.max(6, Math.round(v / mx * 56)) + "px;background:" + (i === vals.length - 1 ? gcol((goalOf(ax0) || {}).cat) : "var(--chip)") + '"></i></div>'; }).join("") + "</div>" +
+        (lock ? '<button class="go-pill" data-a="goSoutenirComp">Ton suivi avec Montée+ ' + I.next + "</button>" : "") + "</div>";
+    }
+    if (R.tid) s += '<a class="card sj-feel" href="#/entrainement/' + esc(R.tid) + '"><span class="grow"><b>Comment tu t\'es senti ?</b><span class="small">Comme pour tes autres entraînements</span></span><span class="go-pill">Noter ' + I.next + "</span></a>";
+    s += '<button class="btn primary" data-a="sjDone">Terminé</button>';
+    return s + "</div>";
+  }
+  // ----- Réglages (feuille) -----
+  DET.sjSet = function () {
+    var c = sjCfg(), U = UI.sjSet || (UI.sjSet = { min: c.min, mode: c.mode, ax: c.ax.slice(), n: c.n || (S.sjGrp && S.sjGrp.n) || 6, c: c.c || (S.sjGrp && S.sjGrp.c) || 2, names: ((S.sjGrp && S.sjGrp.names) || []).join(", ") });
+    var A = sjAxes(), grp = U.mode === "grp";
+    var chip = function (m) { return '<button class="sj-chip' + (U.min === m ? " on" : "") + '" data-a="sjSetMin" data-v="' + m + '">' + esc(fmtDur(m)) + "</button>"; };
+    var b = '<span class="mk-lbl">Avec qui ?</span><div class="seg sj-seg">' + [["solo", "Seul", "panier, mur"], ["duo", "À deux", "un partenaire"], ["grp", "En groupe", "sans prof"]].map(function (o) { return '<button data-a="sjSetMode" data-v="' + o[0] + '" class="' + (U.mode === o[0] ? "on" : "") + '">' + o[1] + "<small>" + o[2] + "</small></button>"; }).join("") + "</div>";
+    b += '<span class="mk-lbl">Combien de temps ?</span><div class="sj-dur">' + (grp ? [60, 90, 120] : [30, 45, 60, 90, 120]).map(chip).join("") + "</div>";
+    if (grp) {
+      var stp = function (k, t, sub, v, lo, hi) { return '<div class="stp"><span class="grow"><b>' + t + "</b><small>" + sub + '</small></span><span class="pm"><button data-a="sjSetN" data-k="' + k + '" data-v="-1"' + (v <= lo ? " disabled" : "") + ' aria-label="Moins">−</button><b>' + v + '</b><button data-a="sjSetN" data-k="' + k + '" data-v="1"' + (v >= hi ? " disabled" : "") + ' aria-label="Plus">+</button></span></div>'; };
+      b += stp("n", "Joueurs", "toi compris", U.n, 2, 16) + stp("c", "Terrains", "disponibles", U.c, 1, 6);
+      var cs = sjCourts(U.n, U.c); b += '<span class="small">' + esc(cs.sizes.join(" + ") + (cs.bench ? " · " + plural(cs.bench, "joueur") + " en appui, à tour de rôle" : " · personne n'attend")) + "</span>";
+    }
+    var all = A.ids.concat(GOALS.map(function (g) { return g[0]; }).filter(function (id) { return A.ids.indexOf(id) < 0 && SJ_EX[id]; }));
+    var max = grp ? 2 : 3;
+    b += '<span class="mk-lbl">' + (grp ? "Le thème du groupe" : "Ce que tu bosses") + ' <span class="sj-lbl2">· ' + (A.ids.length ? "conseillés en premier, " : "") + max + " au plus</span></span>";
+    b += '<div class="sj-axg">' + all.map(function (id, i) { var g = goalOf(id), on = U.ax.indexOf(id) >= 0; return '<button class="sj-ax-c' + (on ? " on" : "") + '" style="' + (on ? "color:" + gcol(g.cat) : "") + '" data-a="sjSetAx" data-v="' + id + '" aria-pressed="' + on + '">' + catDot(g.cat) + '<span>' + esc(g.t) + "</span>" + (i < A.ids.length ? '<em>conseillé</em>' : "") + "</button>"; }).join("") + "</div>";
+    if (grp) b += '<label class="mk-lbl" for="sj-names">Les prénoms <span class="sj-lbl2">· facultatif, pour les rotations</span></label><input class="input" id="sj-names" data-a="sjSetNames" placeholder="Julien, Thomas, Léa…" value="' + esc(U.names) + '">';
+    b += '<button class="btn primary" data-a="sjSetOk"' + (U.ax.length ? "" : " disabled") + ">" + (grp ? "Faire la séance du groupe" : "Faire ma séance") + "</button>";
+    return { title: "Ta séance", sub: "", body: b };
+  };
+  DET.sjFree = function () {
+    return { title: "La séance sur ta montre · Montée+", sub: "Avec Montée+, chaque séance se lance sur ta montre. Ce mois-ci, une séance montre t'est offerte.", body: '<div class="ls-foot"><button class="go-pill" data-a="goSoutenirComp">Montée+ ' + I.next + '</button><button class="btn primary small" data-a="sjGo" data-v="watch" data-ok="1">Utiliser la séance offerte</button></div><button class="btn soft" data-a="sjGo" data-v="phone">Sur l\'iPhone, gratuit</button>' };
+  };
+  DET.sjWatch = function (ok) { return ok ? { title: "C'est parti. Lève le poignet.", sub: "Montée s'est ouverte sur ta montre à l'étape 1. Une vibration à chaque étape : tu peux ranger ton téléphone.", body: "" } : { title: "Ouvre Montée sur ta montre", sub: "Elle est peut-être verrouillée ou trop loin. Dès que tu ouvres Montée au poignet, ta séance t'attend.", body: '<button class="btn soft" data-a="sjGo" data-v="phone">Sur l\'iPhone plutôt</button>' }; };
+  // Ce que la montre reçoit : les étapes, 3 mots, la couleur, et ce qu'on compte
+  function sjWatchJson(P) {
+    var words = function (b) { var g = b.g ? goalOf(b.g) : null; return b.k === "warm" ? "Petits pas, ça monte doucement." : b.k === "cool" ? "Lent, et on s'étire." : (g ? g.w + ". " : "") + (b.obj ? b.obj + "." : ""); };
+    return JSON.stringify({ id: P.id, t: P.title, steps: P.blocks.map(function (b) { return { t: b.t, min: b.min, cue: words(b), col: ({ tac: "#F2C14E", sol: "#E88A5E", cor: "#4CC9C0", tet: "#A98BFF" })[b.cat] || "#D4E64A", cnt: b.cnt || null, n: b.n || null }; }) });
+  }
+  // La montre envoie la séance (kind train) avec ses comptes : on l'attache à la séance du jour
+  function sjFromWatch(w, t) {
+    if (!w.seance) return;
+    var P = sjBuild(sjCfg()); if (S.sjLive && S.sjLive.P && S.sjLive.P.id === w.seance) P = S.sjLive.P;
+    var L = { P: P, t0: t && t.at || Date.now(), pTot: 0, pausedAt: Date.now(), cnt: {} };
+    (w.cnts || []).forEach(function (v, i) { if (v) L.cnt[i] = v; });
+    L.t0 = Date.now() - (w.minutes || P.min) * 60000;
+    var rec = sjSave(L, "watch"); rec.min = w.minutes || rec.min; if (t) { rec.tid = t.id; t.seance = rec.id; if (!t.note) t.note = P.title; }
+    UI.sjEnd = rec;
+  }
+  // Notifs : le jour d'un créneau (1 h 30 avant) ; un jour libre à 9 h seulement en mode « Tout »
+  var lastSjKey = "";
+  function scheduleSjNotif() {
+    if (!NATIVE || !S.notif || !LN || !np("seance")) { if (LN && lastSjKey !== "off") { lastSjKey = "off"; LN.cancel({ notifications: [0, 1, 2, 3, 4, 5, 6, 7].map(function (i) { return { id: 1600 + i }; }) }).catch(function () {}); } return; }
+    var now = new Date(), list = [], all = np("lvl") === "tout", A = null;
+    try { A = sjAxes(); } catch (e) { return; }
+    var t0 = A.ids[0] ? sjShort(A.ids[0]).toLowerCase() : "ta régularité";
+    for (var i = 0; i < 7 && list.length < 8; i++) {
+      var d = new Date(today().getTime() + i * 864e5), iso = E.iso(d), dow = (d.getDay() + 6) % 7;
+      if (plans().some(function (x) { return x.day === iso; })) continue;
+      try { if (friseItems().some(function (z) { return z.d === iso && !z.todo && !z.rel && !z.dim; })) continue; } catch (e) {}
+      var sl = (S.slots || []).filter(function (x) { return x.dow === dow && x.label !== "Cours" && (!x.since || iso >= x.since); })[0];
+      if (sl) {
+        var hm = String(sl.time || "18:00").split(":"), at = new Date(d); at.setHours(+hm[0] || 18, +hm[1] || 0, 0, 0); at = new Date(at.getTime() - 90 * 60000);
+        if (at.getHours() < 8) at.setHours(8, 0, 0, 0);
+        var hh = String(sl.time || "").replace(/^0/, "").replace(":", " h ").replace(" h 00", " h"), grp = sl.label === "Collectif";
+        if (at > now) list.push({ id: 1600 + list.length, title: (+hm[0] >= 17 ? "Ce soir " : "Aujourd'hui ") + hh + ", " + (grp ? "ton collectif" : "ta séance"), body: (grp ? "La séance du groupe est prête : " : "Ta séance est prête : ") + t0 + ", " + fmtDur(sl.minutes || 90) + ". " + (grp ? "Lance le minuteur en arrivant." : "Ta montre peut te guider."), schedule: { at: at }, extra: { url: "montee://open/seance" } });
+      } else if (all) {
+        var a9 = new Date(d); a9.setHours(9, 0, 0, 0);
+        if (a9 > now) list.push({ id: 1600 + list.length, title: "Pas de match aujourd'hui", body: "Séance du jour : " + t0 + ", 1 h. Elle est prête sur l'accueil.", schedule: { at: a9 }, extra: { url: "montee://open/seance" } });
+      }
+    }
+    var key = JSON.stringify(list.map(function (n) { return [n.title, n.schedule.at.getTime()]; })); if (key === lastSjKey) return; lastSjKey = key;
+    LN.cancel({ notifications: [0, 1, 2, 3, 4, 5, 6, 7].map(function (i) { return { id: 1600 + i }; }) }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
+  }
   // Stats de service d'un match compté à la montre : toi à gauche, lui à droite
   // 3.47 : rejoue le match point par point (même règles que la montre) pour situer chaque double faute
   function wReplay(ev, srv0, fmt) {
@@ -11972,10 +12317,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     try { scheduleCoachNotif(); } catch (e) {}
   }
   // 3.49 (maquette validée) : chaque notification se règle dans Réglages › Notifications
-  var NP_DEF = { hom: 1, poule: 1, avant: 1, sortie: 1, coach: 1, jalons: 1, fol: 1, insc: 1 };
+  var NP_DEF = { hom: 1, poule: 1, avant: 1, sortie: 1, coach: 1, jalons: 1, fol: 1, insc: 1, seance: 1 };
   function np(k) { var p = S.notifP || {}; if (k === "lvl") return p.lvl || "norm"; return p[k] == null ? !!NP_DEF[k] : !!p[k]; }
   function npKey(date, a, b) { var tk = function (n) { return String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z]+/).filter(function (t) { return t.length >= 3; }).join(" "); }; return date ? date + "|" + [tk(a), tk(b)].sort().join("|") : ""; }
-  function npApply() { lastPlanKey = ""; lastTimingKey = ""; try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
+  function npApply() { lastPlanKey = ""; lastTimingKey = ""; lastSjKey = ""; try { scheduleSjNotif(); } catch (e) {} try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
   // 3.49 (Montée+) : le lundi du coach, 8 h 30 : tes chances qui bougent et le match qui compte cette semaine
   var lastCoachKey = "";
   function scheduleCoachNotif(force) {
@@ -12461,7 +12806,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (added.length && !ms.length) {
         var t0 = added[added.length - 1];
         toast(added.length > 1 ? added.length + " entraînements reçus de ta montre." : "Entraînement reçu de ta montre : " + fmtDur(t0.minutes) + " de jeu.");
-        if (!UI.draft && !UI.mmOpen) go("entrainement/" + t0.id); else render();
+        if (!UI.draft && !UI.mmOpen) go(UI.sjEnd && UI.sjEnd.tid === t0.id ? "seance/fin" : "entrainement/" + t0.id); else render();
       }
       // 3.40 : plus d'écran imposé, le match attend sur l'Accueil
       // 3.47 (retour testeur : pas fluide) : un seul match et rien en cours → on ouvre directement son récap à vérifier
@@ -12476,6 +12821,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (ex) {
       ["hr", "kcal", "zones", "curve", "thr", "serve"].forEach(function (k) { if (w[k] != null) ex[k] = w[k]; });
       ex.src = "montre"; if (w.tag && !ex.label && TLABELS.indexOf(w.tag) >= 0) ex.label = w.tag;
+      if (w.seance && !ex.seance) try { sjFromWatch(w, ex); } catch (e) {}
       return ex;
     }
     var r = racketFor("train"), at = null;
@@ -12485,6 +12831,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (w.tag && TLABELS.indexOf(w.tag) >= 0) t.label = w.tag;
     if (w.hkid) { t.hid = w.hkid; if (S.health) hcDone(w.hkid, "added"); }
     S.trainings = S.trainings || []; S.trainings.push(t); S.onboarded = true;
+    try { sjFromWatch(w, t); } catch (e) {} // 3.59 : une séance du jour guidée par la montre
     return t;
   }
   // Courbe cardio lissée, colorée par zone aux seuils (pointillés), sans fond en bandes
@@ -13319,6 +13666,20 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (z.mode && z.mode !== "auto" || z.max || z.rest || z.man) s += '<button class="linkbtn" data-a="hrzReset" style="align-self:flex-start">Revenir au calcul automatique</button>';
     return s + "</div>";
   };
+  // 3.59 (Yann : « je reçois les notifs seulement quand j'ouvre l'appli ») : on montre si iOS laisse Montée vérifier en arrière-plan
+  function bgStatusHtml() {
+    if (!IOS || !Tenup || typeof Tenup.bgStatus !== "function") return "";
+    if (!UI.bgSt) { UI.bgSt = { wait: 1 }; Promise.resolve(Tenup.bgStatus()).then(function (r) { UI.bgSt = r || {}; if (route() === "notifs") render(); }, function () { UI.bgSt = {}; }); return ""; }
+    var B = UI.bgSt; if (B.wait) return "";
+    var ok = B.refresh === "available", last = B.last ? new Date(B.last * 1000) : null, h = last ? Math.round((Date.now() - last.getTime()) / 3600e3) : null;
+    var when = last ? (h < 1 ? "il y a moins d'une heure" : h < 48 ? "il y a " + h + " h" : "le " + fdate(E.iso(last)).replace(/\.$/, "")) : "jamais pour l'instant";
+    var tips = [];
+    if (!ok) tips.push(B.refresh === "restricted" ? "Le mode économie d'énergie ou un contrôle parental bloque l'actualisation en arrière-plan." : "Réglages de l'iPhone › Général › Actualisation en arrière-plan › active Montée.");
+    if (B.notif === "denied") tips.push("Réglages de l'iPhone › Notifications › Montée › Autoriser les notifications.");
+    tips.push("Ne ferme pas Montée en la balayant vers le haut : iOS ne la réveille plus jusqu'à ta prochaine ouverture.");
+    return '<h2 class="nf-gh">Vérification en arrière-plan</h2><div class="nf-grp nf-bg"><div class="nf-row"><span class="nf-r"><b>' + (ok ? "Active" : "Coupée") + "</b><small>Dernière vérification : " + esc(when) + '</small></span><span class="nf-dot ' + (ok && h != null && h < 24 ? "ok" : "ko") + '"></span></div>' +
+      '<div class="nf-tips">' + tips.map(function (t) { return '<span class="small">' + esc(t) + "</span>"; }).join("") + "</div></div>";
+  }
   V.notifs = function () {
     var s = '<div class="screen">' + topbar("", "Réglages");
     s += '<h1 class="nf-h">Notifications</h1><p class="nf-sub">Seulement quand il y a du nouveau. Jamais entre 21 h et 8 h.</p>';
@@ -13331,11 +13692,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var grp = function (h, rows) { return '<h2 class="nf-gh">' + h + '</h2><div class="nf-grp' + (S.notif ? "" : " off") + '">' + rows.join("") + "</div>"; };
     s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche avec Montée+" : ", avec ta revanche s'il t'a battu"))]);
     s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Le lundi du coach", "Tes chances qui bougent, le match qui compte", true), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
-    var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau")];
+    var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
     if (HC_OK && hcOn()) oth.push('<label class="nf-row"><span class="nf-r"><b>Séances de la montre</b><small>Une nouvelle séance à enregistrer</small></span><input type="checkbox" role="switch" data-a="hcNotify"' + (S.health.notify !== false ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>");
     s += grp("Les autres", oth);
     var lv = np("lvl"), LV = { ess: "Tes matchs, ta poule et ton classement, rien d'autre.", norm: "En plus, 3 autres par semaine au plus (copains, jalons…) : on garde les plus importantes.", tout: "Tout ce que tu as activé, sans limite." };
     s += '<h2 class="nf-gh">Combien</h2><div class="nf-grp nf-lv' + (S.notif ? "" : " off") + '"><div class="seg">' + [["ess", "L'essentiel"], ["norm", "Normal"], ["tout", "Tout"]].map(function (o) { return '<button data-a="npLvl" data-v="' + o[0] + '" class="' + (lv === o[0] ? "on" : "") + '">' + o[1] + "</button>"; }).join("") + '</div><small>' + LV[lv] + "</small></div>";
+    s += bgStatusHtml();
     s += '<p class="small nf-ft">Montée lit Ten\'Up quand ton téléphone le permet (toutes les quelques heures) : un match homologué peut arriver un peu après sa publication.</p>';
     return s + "</div>";
   };
@@ -13762,6 +14124,56 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
   // ---------- Actions ----------
   var A = {
+    // ----- 3.59 : séance du jour -----
+    sjMin: function (el) { var c = sjCfg(); S.sjPref = { d: c.d, min: +el.dataset.v, mode: c.mode, ax: c.ax, n: c.n, c: c.c }; save(); haptic("light"); render(); },
+    sjGo: function (el) {
+      var c = sjCfg(), P = sjBuild(c), v = el.dataset.v || (sjWatchOk() && c.mode !== "grp" ? "watch" : "phone");
+      UI.sheet = null;
+      if (v === "watch") {
+        var fm = E.iso(today()).slice(0, 7);
+        if (!isSup() && S.sjFreeM === fm && !el.dataset.ok) { toast("Ta séance montre offerte du mois est déjà utilisée."); UI.sheet = { k: "sjFree", v: 1 }; render(); return; }
+        if (!isSup() && !el.dataset.ok) { UI.sheet = { k: "sjFree", v: 1 }; render(); return; }
+        if (!isSup()) { S.sjFreeM = fm; save(); }
+        S.sjLive = { P: P, t0: Date.now(), pTot: 0, pausedAt: null, cnt: {}, key: null, watch: true }; save();
+        Promise.resolve(Tenup.watchSeance({ json: sjWatchJson(P) })).then(function (r) { UI.sheet = { k: "sjWatch", v: r && r.ok ? 1 : 0 }; render(); }, function () { UI.sheet = { k: "sjWatch", v: 0 }; render(); });
+        return;
+      }
+      haptic("medium"); sjStart(P);
+    },
+    sjShare: function (el) {
+      var t = sjText(sjBuild(sjCfg())), v = el.dataset.v, u = encodeURIComponent(t);
+      if (v === "wa") window.open("https://wa.me/?text=" + u, "_system");
+      else if (v === "sms") window.open("sms:" + (IOS ? "&" : "?") + "body=" + u, "_system");
+      else if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { toast("Séance copiée : colle-la où tu veux."); }, function () { sharePlain(t); });
+      else sharePlain(t);
+    },
+    sjHide: function () { S.sjHide = E.iso(today()); save(); toast("D'accord, pas de séance aujourd'hui."); go(""); },
+    sjQuit: function () {
+      var L = S.sjLive; if (!L) { back(); return; }
+      if (sjElapsed(L) >= 600) { A.sjEnd(); return; }
+      S.sjLive = null; save(); clearInterval(sjTimer); sjTimer = null; mmWake(false); back();
+    },
+    sjPause: function () { var L = S.sjLive; if (!L) return; if (L.pausedAt) { L.pTot += Date.now() - L.pausedAt; L.pausedAt = null; } else L.pausedAt = Date.now(); save(); render(); },
+    sjNext: function () {
+      var L = S.sjLive; if (!L) return; var st = sjStep(L), b = L.P.blocks[st.k]; if (!b) { A.sjEnd(); return; }
+      var into = sjElapsed(L) - b.at * 60, skip = b.rot && Math.floor(into / (b.rot * 60)) < b.rounds - 1 ? Math.ceil(b.rot * 60 - (into % (b.rot * 60))) : (b.at + b.min) * 60 - sjElapsed(L);
+      L.t0 -= skip * 1000; save();
+      if (st.k + 1 >= L.P.blocks.length && into + skip >= b.min * 60) { A.sjEnd(); return; }
+      sjTick(); render();
+    },
+    sjCnt: function (el) { var L = S.sjLive; if (!L) return; var k = sjStep(L).k; L.cnt[k] = Math.max(0, (L.cnt[k] || 0) + (+el.dataset.v)); save(); haptic("light"); render(); },
+    sjEnd: function () { var L = S.sjLive; if (!L) return; clearInterval(sjTimer); sjTimer = null; mmWake(false); UI.sjEnd = sjSave(L, "phone"); S.sjLive = null; save(); haptic("success"); location.replace("#/seance/fin"); },
+    sjDone: function () { UI.sjEnd = null; go(""); },
+    sjSetMin: function (el) { if (UI.sjSet) UI.sjSet.min = +el.dataset.v; render(); },
+    sjSetMode: function (el) { var U = UI.sjSet; if (!U) return; U.mode = el.dataset.v; if (U.mode === "grp" && U.ax.length > 2) U.ax = U.ax.slice(0, 2); if (U.mode === "grp" && U.min < 60) U.min = 90; render(); },
+    sjSetN: function (el) { var U = UI.sjSet; if (!U) return; var k = el.dataset.k; U[k] = Math.max(k === "n" ? 2 : 1, Math.min(k === "n" ? 16 : 6, U[k] + (+el.dataset.v))); render(); },
+    sjSetAx: function (el) { var U = UI.sjSet; if (!U) return; var id = el.dataset.v, i = U.ax.indexOf(id), max = U.mode === "grp" ? 2 : 3; if (i >= 0) U.ax.splice(i, 1); else { if (U.ax.length >= max) U.ax.shift(); U.ax.push(id); } haptic("light"); render(); },
+    sjSetOk: function () {
+      var U = UI.sjSet; if (!U || !U.ax.length) return;
+      S.sjPref = { d: E.iso(today()), min: U.min, mode: U.mode, ax: U.ax.slice(), n: U.n, c: U.c };
+      if (U.mode === "grp") S.sjGrp = { n: U.n, c: U.c, names: String(U.names || "").split(/[,;\n]+/).map(function (x) { return x.trim().slice(0, 16); }).filter(Boolean).slice(0, 15) };
+      save(); UI.sjSet = null; UI.sheet = null; go("seance");
+    },
     // ----- Santé connectée -----
     hcConnect: function () {
       if (!Tenup || !Tenup.healthRequest) return;
@@ -13848,7 +14260,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     leaveSave: function () { var e = editCtx(); UI.leaveAsk = false; if (e) A[e.save](); },
     rkMenu: function () { UI.rkMenu = !UI.rkMenu; render(); },
     bilanSel: function (el) { UI.bilanSel = +el.dataset.v; render(); },
-    sheet: function (el) { UI.sheet = { k: el.dataset.k, v: el.dataset.v }; render(); },
+    sheet: function (el) { if (el.dataset.k === "sjSet") UI.sjSet = null; UI.sheet = { k: el.dataset.k, v: el.dataset.v }; render(); },
     leagueShare: function () {
       var R = leagueRows(); if (R.length < 2) return;
       shareText("Course tennis de " + MOIS_L[today().getMonth()] + " (points gagnés ce mois-ci) :\n" + R.map(function (r, k) { return (k + 1) + ". " + (r.me ? (S.profile.name || "Moi") : r.name) + " · " + r.rank + " · +" + r.pts + " pts (" + plural(r.v, "victoire") + ")"; }).join("\n"));
@@ -13904,7 +14316,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     hideWatchCard: function () { S.prefs = S.prefs || {}; S.prefs.hideWatchCard = 1; UI.sheet = null; save(); render(); toast("Carte masquée. Tu la retrouves dans Réglages."); },
     showWatchCard: function () { S.prefs = S.prefs || {}; delete S.prefs.hideWatchCard; save(); render(); },
     openWatchApp: function () { try { window.open("itms-watchs://", "_system"); } catch (e) {} },
-    sheetClose: function () { if (UI.sheet && UI.sheet.k === "recap") { delete S.syncRecap; save(); } UI.sheet = UI.sheet && UI.sheet.back ? { k: UI.sheet.back } : null; render(); },
+    sheetClose: function () { if (UI.sheet && UI.sheet.k === "recap") { delete S.syncRecap; save(); } if (UI.sheet && UI.sheet.k === "sjSet") UI.sjSet = null; UI.sheet = UI.sheet && UI.sheet.back ? { k: UI.sheet.back } : null; render(); },
     menu: function () { UI.menu = true; render(); var b = app.querySelector(".sheet .menu-item"); if (b) b.focus(); },
     closeMenu: function () { UI.menu = false; render(); },
     newMatch: function () { UI.menu = false; UI.draft = null; go("match/new"); },
@@ -15047,6 +15459,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (el.dataset.f === "profile.name") { S.profile.name = el.value.trim().slice(0, 30); save(); }
     else if (el.dataset.f === "profile.licence") { S.profile.licence = el.value.replace(/\s+/g, "").toUpperCase().slice(0, 12); save(); }
     else if (el.dataset.f === "importText") UI.importText = el.value;
+    else if (el.dataset.a === "sjSetNames" && UI.sjSet) UI.sjSet.names = el.value;
     else if (el.dataset.d && el.type !== "checkbox" && el.tagName !== "SELECT") {
       UI.draft[el.dataset.d] = el.value;
       if (el.id === "m-opp" && el.parentNode && el.parentNode.classList.contains("msb")) { var g3 = el.parentNode.querySelector(".sb-go"); if (g3) g3.classList.toggle("ready", !!nameSplits(el.value).length); var c3 = el.parentNode.querySelector(".sb-clr"); if (c3) c3.hidden = !el.value; }
@@ -15273,6 +15686,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         if (mm) { var f = (S.follow || {})[mm[1]]; if (f && f.hit) openScout(f.hit); }
         var mt = u && /tournoi\/(\w+)/.exec(u); if (mt && tourOf(mt[1])) go("tournoi/" + mt[1]);
         if (u && /open\/coach/.test(u)) go(PLUS_LOCK() ? "courbes" : "coach");
+        if (u && /open\/seance/.test(u)) go("seance");
         if (u && /open\/plus/.test(u)) { if (trialInfo()) UI.sheet = { k: "trialEnd" }; go(trialInfo() ? "" : "soutenir"); }
       });
       if (ln && ln.catch) ln.catch(function () {});

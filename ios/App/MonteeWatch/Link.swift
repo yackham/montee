@@ -220,10 +220,30 @@ final class PhoneLink: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func warm(_ d: [String: Any]) {
+        // 3.59 : la séance du jour
+        if let sj = d["seance"] as? String {
+            if let at = d["at"] as? Double, Date().timeIntervalSince1970 - at > 20 * 60 { return }
+            DispatchQueue.main.async { PhoneLink.startSeance(json: sj) }
+            return
+        }
         guard let oid = d["warm"] as? String else { return }
         // Une demande restée en file trop longtemps (montre loin) ne lance plus rien
         if let at = d["at"] as? Double, Date().timeIntervalSince1970 - at > 20 * 60 { return }
         DispatchQueue.main.async { PhoneLink.startGuidedWarmup(oid: oid) }
+    }
+
+    /// 3.59 : démarre (ou complète) la séance du jour : une séance « Entraînement » avec ses étapes
+    static func startSeance(json: String?) {
+        let vm = MatchVM.shared, t = TrainVM.shared
+        guard vm.live == nil, vm.warmup == nil else { return }
+        let plan = json.flatMap { $0.data(using: .utf8) }.flatMap { try? JSONDecoder().decode(SPlan.self, from: $0) }
+        if t.live != nil { if let p = plan { t.setPlan(p) }; return }
+        Workout.shared.authorize {
+            DispatchQueue.main.async {
+                if t.live == nil { t.begin() }
+                if let p = plan { t.setPlan(p) }
+            }
+        }
     }
 
     /// Démarre (ou complète) l'échauffement guidé. Appelé par le message de l'iPhone et à l'ouverture par séance (startWatchApp).

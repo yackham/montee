@@ -26,6 +26,24 @@ struct TLive: Codable {
     var hkid: String? = nil
     var ended = false                 // séance Santé terminée (hkid connu)
     var sent = false
+    /// 3.59 : séance du jour (étapes envoyées par l'iPhone), comptes par étape, étapes passées à la main
+    var plan: SPlan? = nil
+    var cnts: [Int]? = nil
+    var stepBuzz: Int? = nil
+    var skip: Double? = nil
+}
+
+/// 3.59 : une étape de la séance du jour : titre, minutes, 3 mots, couleur de l'axe, ce qu'on compte
+struct SStep: Codable { var t: String; var min: Double; var cue: String; var col: String; var cnt: String?; var n: Int? }
+struct SPlan: Codable { var id: String; var t: String; var steps: [SStep] }
+
+extension Color {
+    init?(hexStr: String) {
+        var h = hexStr.trimmingCharacters(in: .whitespaces)
+        if h.hasPrefix("#") { h.removeFirst() }
+        guard h.count == 6, let v = UInt32(h, radix: 16) else { return nil }
+        self.init(red: Double((v >> 16) & 0xFF) / 255, green: Double((v >> 8) & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
+    }
 }
 
 /// Ce que l'iPhone reçoit (même canal que les matchs, kind = "train")
@@ -43,6 +61,9 @@ struct OutTrain: Codable {
     var serve: OutServe?
     var tag: String?
     var hkid: String?
+    /// 3.59 : la séance du jour suivie, et ce qui a été compté à chaque étape
+    var seance: String? = nil
+    var cnts: [Int]? = nil
 }
 
 /// Zones : < 60 %, 60–70, 70–80, 80–90, ≥ 90 % de ta FC max
@@ -65,7 +86,7 @@ final class TrainVM: ObservableObject {
     init() {
         if let d = UserDefaults.standard.data(forKey: key), let l = try? JSONDecoder().decode(TLive.self, from: d) {
             live = l
-            if l.t1 == nil { DispatchQueue.main.async { Workout.shared.start(); self.tick() } }
+            if l.t1 == nil { DispatchQueue.main.async { Workout.shared.start(); self.tick(); self.stepTick() } }
         }
     }
 
@@ -146,6 +167,69 @@ final class TrainVM: ObservableObject {
         buzz(.click)
     }
 
+    // MARK: 3.59 : séance du jour
+    private var stepTimer: Timer?
+
+    func setPlan(_ p: SPlan) {
+        guard var l = live, l.t1 == nil, l.plan?.id != p.id else { return }
+        l.plan = p
+        l.cnts = Array(repeating: 0, count: p.steps.count)
+        l.stepBuzz = 0
+        l.skip = 0
+        live = l
+        save()
+        stepTick()
+    }
+
+    /// Étape en cours et secondes restantes (i = nombre d'étapes une fois la séance finie)
+    func step(_ now: Date = Date()) -> (i: Int, left: Int)? {
+        guard let l = live, let p = l.plan, !p.steps.isEmpty else { return nil }
+        let s = seconds(now) + Int(l.skip ?? 0)
+        var acc = 0
+        for (i, st) in p.steps.enumerated() {
+            let d = Int(st.min * 60)
+            if s < acc + d { return (i, acc + d - s) }
+            acc += d
+        }
+        return (p.steps.count, 0)
+    }
+
+    func count(at i: Int) -> Int { guard let c = live?.cnts, i >= 0, i < c.count else { return 0 }; return c[i] }
+
+    fileprivate func stepTick() {
+        stepTimer?.invalidate()
+        guard live?.plan != nil, live?.t1 == nil else { return }
+        stepTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.checkStep() }
+    }
+
+    /// Une vibration à chaque changement d'étape
+    private func checkStep() {
+        guard var l = live, l.t1 == nil, l.pausedAt == nil, let st = step() else { return }
+        if st.i != (l.stepBuzz ?? 0) {
+            l.stepBuzz = st.i
+            live = l
+            save()
+            buzz(st.i >= (l.plan?.steps.count ?? 0) ? .success : .notification)
+        }
+    }
+
+    func countStep(_ d: Int) {
+        guard var l = live, let st = step(), var c = l.cnts, st.i < c.count else { return }
+        c[st.i] = max(0, c[st.i] + d)
+        l.cnts = c
+        live = l
+        save()
+        buzz(d > 0 ? .click : .directionDown)
+    }
+
+    func skipStep() {
+        guard var l = live, let st = step(), st.left > 0 else { return }
+        l.skip = (l.skip ?? 0) + Double(st.left)
+        live = l
+        save()
+        checkStep()
+    }
+
     // Moment service
     func startMoment() {
         guard var l = live, moment == nil else { return }
@@ -185,6 +269,7 @@ final class TrainVM: ObservableObject {
         save()
         shareLive()
         timer?.invalidate()
+        stepTimer?.invalidate()
         w.pause()
         buzz(.success)
     }
@@ -199,6 +284,7 @@ final class TrainVM: ObservableObject {
         if Workout.shared.session == nil { Workout.shared.start() } else { Workout.shared.resume() }
         shareLive()
         tick()
+        stepTick()
         buzz(.start)
     }
 
@@ -241,7 +327,7 @@ final class TrainVM: ObservableObject {
         h.dateFormat = "HH:mm"
         let all = l.moments.flatMap { $0.ev }
         let sMin = l.moments.reduce(0.0) { $0 + (($1.t1 ?? $1.t0).timeIntervalSince($1.t0)) }
-        return OutTrain(date: f.string(from: l.t0), start: h.string(from: l.t0),
+        var o = OutTrain(date: f.string(from: l.t0), start: h.string(from: l.t0),
                         minutes: max(1, seconds() / 60),
                         hr: l.avg > 0 ? OutHR(avg: l.avg, max: l.mx) : nil,
                         kcal: l.kcal > 0 ? l.kcal : nil,
@@ -250,11 +336,15 @@ final class TrainVM: ObservableObject {
                         thr: l.thr ?? thresholds(l.maxHR),
                         serve: all.isEmpty ? nil : OutServe(ins: all.filter { $0 }.count, outs: all.filter { !$0 }.count, minutes: max(1, Int(sMin / 60))),
                         tag: l.tag, hkid: nil)
+        o.seance = l.plan?.id
+        o.cnts = l.plan != nil ? l.cnts : nil
+        return o
     }
 
     /// Séance annulée : rien dans Santé, rien envoyé
     func cancel() {
         timer?.invalidate()
+        stepTimer?.invalidate()
         Workout.shared.end(save: false)
         live = nil
         save()
@@ -288,12 +378,23 @@ struct TrainView: View {
             TrainEndView()
         } else {
             // 3.34 : service à gauche, séance au milieu (page de départ), commandes à droite
-            TabView(selection: $page) {
-                ServeMomentView().containerBackground(appGradient, for: .tabView).tag(0)
-                TrainLiveView().containerBackground(appGradient, for: .tabView).tag(1)
-                TrainControls().containerBackground(appGradient, for: .tabView).tag(2)
+            if vm.live?.plan != nil {
+                // 3.59 : séance du jour : l'étape en cours d'abord
+                TabView(selection: $page) {
+                    ServeMomentView().containerBackground(appGradient, for: .tabView).tag(0)
+                    SeanceStepView().containerBackground(appGradient, for: .tabView).tag(1)
+                    TrainLiveView().containerBackground(appGradient, for: .tabView).tag(2)
+                    TrainControls().containerBackground(appGradient, for: .tabView).tag(3)
+                }
+                .tabViewStyle(.page)
+            } else {
+                TabView(selection: $page) {
+                    ServeMomentView().containerBackground(appGradient, for: .tabView).tag(0)
+                    TrainLiveView().containerBackground(appGradient, for: .tabView).tag(1)
+                    TrainControls().containerBackground(appGradient, for: .tabView).tag(2)
+                }
+                .tabViewStyle(.page)
             }
-            .tabViewStyle(.page)
         }
     }
 }
@@ -571,6 +672,51 @@ struct TrainEndView: View {
         .fullScreenCover(isPresented: $askDelete) {
             ConfirmScreen(title: "Supprimer la séance ?", note: "Rien ne sera enregistré.",
                           options: [ConfirmOption(t: "Supprimer", bg: .terre, fg: terreInk) { vm.cancel() }])
+        }
+    }
+}
+
+/// 3.59 : l'étape de la séance du jour : le temps qui reste, 3 mots, et le compteur si l'étape compte quelque chose
+struct SeanceStepView: View {
+    @ObservedObject var vm = TrainVM.shared
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { ctx in
+            if let p = vm.live?.plan, let st = vm.step(ctx.date) {
+                if st.i >= p.steps.count {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Séance terminée").font(.system(size: 13, weight: .heavy)).foregroundColor(.gazon)
+                        Text(p.t).font(.system(size: 16, weight: .heavy)).fixedSize(horizontal: false, vertical: true)
+                        Text("Glisse à droite pour terminer et l'enregistrer.").font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                } else {
+                    let s = p.steps[st.i]
+                    let col = Color(hexStr: s.col) ?? .balle
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(st.i + 1)/\(p.steps.count) · \(s.t)").font(.system(size: 12, weight: .heavy)).foregroundColor(col)
+                            .lineLimit(1).minimumScaleFactor(0.7)
+                        Text(String(format: "%d:%02d", st.left / 60, st.left % 60)).font(.system(size: 34, weight: .heavy)).monospacedDigit()
+                            .foregroundColor(vm.paused ? .secondary : .white)
+                        Text(s.cue).font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
+                            .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 2)
+                        if let c = s.cnt {
+                            HStack(spacing: 6) {
+                                Button { vm.countStep(-1) } label: { Image(systemName: "minus") }.buttonStyle(Wide()).frame(width: 44)
+                                VStack(spacing: 0) {
+                                    Text("\(vm.count(at: st.i))" + (s.n.map { "/\($0)" } ?? "")).font(.system(size: 20, weight: .heavy)).monospacedDigit()
+                                    Text(c).font(.system(size: 9, weight: .bold)).foregroundColor(.secondary).lineLimit(1).minimumScaleFactor(0.6)
+                                }.frame(maxWidth: .infinity)
+                                Button { vm.countStep(1) } label: { Image(systemName: "plus") }.buttonStyle(PrimaryStyle()).frame(width: 44)
+                            }
+                        } else {
+                            Button("Étape suivante") { vm.skipStep() }.buttonStyle(Wide())
+                        }
+                    }
+                }
+            } else {
+                Text("Ta séance arrive de l'iPhone…").font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+            }
         }
     }
 }
