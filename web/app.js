@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.56.3",
+    VERSION: "3.57.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -224,6 +224,15 @@
     document.body.appendChild(d); haptic("light");
     return false;
   }
+  // 3.57 (Yann) : « Jeu, set et match » quand tu enregistres une victoire : le tableau tombe set par set, puis ce que ça rapporte
+  function setMatch(m, imp) {
+    clearTimeout(UI.toastT); var old = document.querySelector(".toast"); if (old) old.remove();
+    var t = document.createElement("div"); t.className = "toast sm-cel sb-go"; t.setAttribute("role", "status");
+    t.innerHTML = sbHtml(m, setsTb(m.score), true).replace('class="sb"', 'class="sb" style="--n:' + setsTb(m.score).length + '"') + (imp ? '<span class="sm-imp">' + esc(imp) + "</span>" : "");
+    t.addEventListener("click", function () { t.remove(); });
+    document.body.appendChild(t); haptic("success");
+    UI.toastT = setTimeout(function () { t.remove(); }, 5200);
+  }
   function toast(msg) {
     UI.toastMsg = msg; clearTimeout(UI.toastT); haptic("light");
     var el = document.querySelector(".toast"); if (el) el.remove();
@@ -243,6 +252,10 @@
     lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', 2),
     cross: svg('<path d="M6 6l12 12M18 6 6 18"/>', 2.4),
     clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    // 3.57 (Yann) : pictos tennis
+    tenup: svg('<path d="M20 8a8.5 8.5 0 0 0-15-1.5M4 16a8.5 8.5 0 0 0 15 1.5"/><path d="M20 3v5h-5M4 21v-5h5"/><circle cx="12" cy="12" r="2.6"/>'),
+    defendre: svg('<path d="M3 19h18"/><path d="M12 19V9"/><path d="M5 19c1.5-6 4-9 7-10 3 1 5.5 4 7 10" stroke-dasharray="2 3"/><circle cx="18.5" cy="6" r="2.2"/>'),
+    cordage: svg('<ellipse cx="12" cy="9" rx="6.5" ry="7.5"/><path d="M12 16.5V22"/><path d="M8 5.5v7M12 2v4.5M12 9.5v5M16 5.5v7M6 9h4.5M13.5 9H18"/>'),
     home: svg('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'),
     list: svg('<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>'),
     chart: svg('<path d="M3 20h18M5 16l4-5 4 3 6-8"/>'),
@@ -834,7 +847,7 @@
       '<div class="m-list">' +
       ln("goSimu", I.spark, "Et si…") +
       ln("goCarte", I.share, "Ta carte du mois") +
-      ln("goTenup", I.link, "Actualiser depuis Ten'Up", S.tenup.lastImport ? fdate(S.tenup.lastImport).replace(/\.$/, "") : "") +
+      ln("goTenup", I.tenup, "Actualiser depuis Ten'Up", S.tenup.lastImport ? fdate(S.tenup.lastImport).replace(/\.$/, "") : "") +
       (PLUS ? (isSup() ? ln("goSoutenir", I.heart, "Montée+", "actif") : ln("goSoutenir", I.heart, "<b>Montée+</b> <span class=\"ml-s\">· 1 mois offert</span>", "Essayer ›", "mlp")) : "") +
       (isStandalone() || NATIVE ? "" : ln("install", I.phone, "Installer l'application")) +
       ln("share", I.share, "Partager Montée") +
@@ -905,7 +918,7 @@
     return { a: a, b: b, pa: Math.round(pa * 100), fav: pa >= 0.5 ? a : b, pA: trP(a.rank), pB: trP(b.rank), pExp: (function () { var x = trP(a.rank), y = trP(b.rank); return x == null || y == null ? (x != null ? x : y) : Math.round(x * pa + y * (1 - pa)); })() };
   }
   function trRoundP(r) { if (r.opp && r.opp.rank) return trP(r.opp.rank, r.opp.tid); var A2 = trAlt(r); return A2 ? A2.pExp : null; }
-  var TOUR_IC = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h4v4H4zM4 15h4v4H4zM8 7h4v10H8M12 12h5M17 9h3v6h-3z"/></svg>';
+  var TOUR_IC = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h4v4H3zM3 16h4v4H3z"/><path d="M7 6h3v12H7M10 12h4"/><circle cx="18" cy="12" r="3.2"/></svg>';
   // 3.46 (Yann) : « Ce qui arrive » : une frise horizontale de tout ce qui vient (tours, poule, matchs prévus, sortie du classement)
   var FR_REL = svg('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>', 2.2);
   function friseItems() {
@@ -933,6 +946,7 @@
     try { var c = ctx(), pr = c.proj; if (pr && pr.release && E.iso(pr.release) >= td && pr.status !== "top" && S.matches.length) out.push({ d: E.iso(pr.release), rel: 1, href: "#/projection", title: "Sortie du classement", sub: pr.status === "descente" ? "risque : " + lab(pr.projected) : S.ahead ? "tu passes " + S.ahead.rank : "projection : " + lab(pr.projected), st: pr.next ? pr.next.total + " / " + pr.next.norme + " pts" : "" }); } catch (e) {}
     return out.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : (a.time || "99") < (b.time || "99") ? -1 : 1; }).slice(0, 12);
   }
+  var FR_TICKETS = false; // 3.57 : « Ce qui arrive » en billets de convocation, prêt mais en attente de l'avis de Yann (true pour l'activer)
   function friseHtml() {
     var L = friseItems(); if (!L.length) return "";
     var td = E.iso(today());
@@ -942,7 +956,25 @@
       return '<a class="fr-c' + (z.dim ? " dim" : "") + (z.d === td ? " now" : "") + '" href="' + z.href + '"><span class="fr-h"><i></i>' + (same ? "" : esc(hd(z.d)) + (z.live ? " · en direct" : "") + (z.time ? " · " + esc(z.time.replace(":", "h")) : "")) + "</span>" +
         '<span class="fr-b">' + ic + "<b>" + esc(z.title) + "</b><small>" + esc(z.sub) + "</small>" + (z.st ? '<em>' + esc(z.st) + "</em>" : "") + "</span></a>";
     };
-    return '<div class="fr"><div class="fr-t"><b>Ce qui arrive</b><a href="#/tournoi">Mes épreuves ›</a></div><div class="fr-s">' + L.map(col).join("") + "</div></div>";
+    // 3.57 (Yann) : chaque échéance en billet de convocation : date en gros à gauche, prédécoupe, puis l'enjeu
+    var rel = function (d) { var g = dGap(d); return g === 0 ? "Aujourd'hui" : g === 1 ? "Demain" : "Dans " + g + " jours"; };
+    var tick = function (z, i) {
+      var same = i > 0 && L[i - 1].d === z.d, x = E.parseDate(z.d), parts = String(z.sub || "").split(" · ");
+      var eye = z.rel ? "Sortie du classement" : z.todo ? "À programmer" : parts.shift(), title = z.title, sub = parts.join(" · ");
+      if (z.rel) { title = String(z.sub || "").replace(/^projection : /, "Projection ").replace(/^risque : /, "Risque : ").replace(/^tu passes /, "Tu passes "); sub = ""; }
+      if (z.todo) { eye = (z.t && z.t.fmt === "poule" ? "Poule · " : "") + (z.sub || ""); sub = ""; }
+      if (z.time) sub = z.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h") + (sub ? " · " + sub : "");
+      var st = String(z.st || ""), bot = "", m;
+      if (z.rel && (m = st.match(/(\d+) \/ (\d+)/))) bot = '<span class="ft-bar"><i style="width:' + Math.min(100, Math.round(100 * m[1] / m[2])) + '%"></i></span><b>' + m[1] + "</b>/ " + m[2];
+      else if (st) { var p = st.match(/(\d+) %/), g = st.match(/\+\d+ pts/);
+        bot = p || g ? (p ? "<b>" + p[1] + " %</b> de chances" : "") + '<span class="grow"></span>' + (g ? "<b>" + g[0] + "</b> si tu gagnes" : "") : '<span class="grow">' + esc(st) + "</span>"; }
+      else if (z.todo) bot = '<span class="grow">Propose-leur une date</span><b>›</b>';
+      return '<a class="fr-c ft-c' + (z.dim ? " dim" : "") + (z.d === td ? " now" : "") + '" href="' + z.href + '"><span class="fr-h"><i></i>' + (same ? "" : esc(rel(z.d)) + (z.live ? " · en direct" : "")) + "</span>" +
+        '<span class="ft"><span class="ft-top"><span class="ft-d"><small>' + esc(JOURS[x.getDay()].slice(0, 3)) + ".</small><b>" + x.getDate() + "</b><span>" + esc(MOIS[x.getMonth()]) + '</span></span><span class="ft-v"></span>' +
+        '<span class="ft-m"><em>' + esc(eye || "") + "</em><b>" + esc(title) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></span>" +
+        (bot ? '<span class="ft-perf"></span><span class="ft-bot">' + bot + "</span>" : "") + "</span></a>";
+    };
+    return '<div class="fr"><div class="fr-t"><b>Ce qui arrive</b><a href="#/tournoi">Mes épreuves ›</a></div><div class="fr-s">' + L.map(FR_TICKETS ? tick : col).join("") + "</div></div>";
   }
   function tourHomeHtml() {
     // épreuve finie depuis moins de 3 jours : le récap, pas de prochain match
@@ -2304,7 +2336,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var d = today();
     var ML = S.mmLive;
     if (ML && ML.t0 && Date.now() - ML.t0 < 12 * 3600e3) { var MR = mmReplay(ML), msc = mmScore(MR) + (MR.cur[0] + MR.cur[1] ? (MR.sets.length ? " " : "") + MR.cur[0] + "-" + MR.cur[1] : ""); UI.mmBanner = '<button class="card mm-banner" data-a="mmResume"><span class="eyebrow">Match en cours</span><b>' + esc(ML.name || "Ton match") + (msc ? " · " + esc(msc) : "") + '</b><span class="small">' + (MR.done ? "Terminé : enregistre-le" : "Reprendre le suivi") + " ›</span></button>"; } else UI.mmBanner = "";
-    s += '<div class="topbar"><div class="title"><span class="small">' + esc(flong(d).replace(/^./, function (x) { return x.toUpperCase(); })) + '</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">' + (S.profile.name ? "Salut " + esc(S.profile.name) : "Salut") + "</span></div>" +
+    // 3.57 (Yann) : le jour d'un match prévu, l'accueil le dit
+    var jm = null; try { var tdj = E.iso(today()); jm = friseItems().filter(function (z) { return z.d === tdj && !z.todo && !z.rel && !z.dim && !z.team; })[0]; } catch (e) {}
+    var dLine = flong(d).replace(/^./, function (x) { return x.toUpperCase(); });
+    if (jm) dLine = (jm.time ? jm.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h") + " · " : "") + "contre " + String(jm.title || "").replace(/ · .*/, "");
+    s += '<div class="topbar"><div class="title"><span class="small">' + esc(dLine) + '</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">' + (jm ? '<span style="white-space:nowrap;font-size:26px">Jour de match</span>' : S.profile.name ? "Salut " + esc(S.profile.name) : "Salut") + "</span></div>" +
       '<span class="top-actions"><button class="mechip' + (S.ahead ? " up" : "") + '" data-a="goProfil" aria-label="Mon profil, classement ' + esc(effRank() || "?") + '">' + (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })() + '<span class="rk">' + esc(effRank() || "?") + "</span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + '</button><button class="iconbtn gearbtn" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></span></div>";
 
     if (!S.matches.length) {
@@ -2327,7 +2363,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     B.plan = p.status === "top" ? tourHomeHtml() + planHomeHtml() : "";
     B.charge = chargeHtml();
     var stale = !S.tenup.lastImport || (today() - E.parseDate(S.tenup.lastImport)) / 864e5 > 3 || (S.tenup.fails || 0) > 0; // 3.55 (Yann, maquette D) : synchro ratée ou de plus de 3 jours
-    if (stale) B.sync = '<a class="row" href="#/tenup" style="background:var(--card);border-radius:20px;text-decoration:none"><span class="badge ok">' + I.link + '</span><span class="grow"><span class="t">Actualiser depuis Ten\'Up</span><span class="s">' + (S.tenup.lastImport ? "Dernier import le " + esc(fdate(S.tenup.lastImport)) : "Récupère tes matchs et la simulation officielle") + "</span></span>" + I.next + "</a>";
+    if (stale) B.sync = '<a class="row" href="#/tenup" style="background:var(--card);border-radius:20px;text-decoration:none"><span class="badge ok">' + I.tenup + '</span><span class="grow"><span class="t">Actualiser depuis Ten\'Up</span><span class="s">' + (S.tenup.lastImport ? "Dernier import le " + esc(fdate(S.tenup.lastImport)) : "Récupère tes matchs et la simulation officielle") + "</span></span>" + I.next + "</a>";
 
     B.rate = rateCardHtml();
     B.slot = slotCardHtml();
@@ -2341,7 +2377,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         st.type === "mono" && st.min >= MONO_WARN ? (st.level === "change" ? "Au-delà de 20 h, un monofilament a perdu l'essentiel de sa tension : change-le." : "Un monofilament perd sa tension vers 20 h de jeu : songe à le changer.") :
           "Tu casses en général vers " + fmtHours(st.breakAvg.avg) + ".";
       // 3.46.5 (Yann) : une ligne : la raquette, les heures, « Recordé »
-      B.cordage += '<div class="card strc1' + (st.level === "soon" ? "" : " hot") + '"><a href="#/raquette/' + r.id + '" class="strc1-a"><span class="eyebrow">' + I.warn + "Cordage · " + esc(r.name) + "</span><b>" + title + (st.level === "broken" ? "" : ' <span class="muted">· ' + fmtHours(st.min) + " / " + fmtHours(ref) + "</span>") + "</b></a>" +
+      B.cordage += '<div class="card strc1' + (st.level === "soon" ? "" : " hot") + '"><a href="#/raquette/' + r.id + '" class="strc1-a"><span class="eyebrow">' + I.cordage + "Cordage · " + esc(r.name) + "</span><b>" + title + (st.level === "broken" ? "" : ' <span class="muted">· ' + fmtHours(st.min) + " / " + fmtHours(ref) + "</span>") + "</b></a>" +
         '<button class="btn balle small" data-a="quickRestring" data-id="' + r.id + '">Recordé</button></div>';
     });
 
@@ -2361,7 +2397,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     c.drops.forEach(function (x) {
       var when = x.leaves <= p.release ? fdate(x.leaves) : "";
       // 3.47 (Nico) : toucher l'alerte ouvre « Points à défendre » mois par mois (même quand il y a peu à défendre)
-      B.drops += '<button class="alert al-tap" data-a="goDefend"><span class="badge ko">' + I.clock + "</span><span><b>Le " + esc(when) + "</b>, ta victoire contre " + esc(nameCase(x.m.opp) || "un " + x.m.oppRank) + " (" + esc(x.m.oppRank) + ", " + esc(fdate(x.m.date)) + ") sort de tes 12 mois. Déjà comptée ici : <span class=\"neg\">−" + x.pts + " pts</span> au bilan " + lab(Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC)) + '. <span class="al-more">Mois par mois ›</span></span></button>';
+      B.drops += '<button class="alert al-tap" data-a="goDefend"><span class="badge ko">' + I.defendre + "</span><span><b>Le " + esc(when) + "</b>, ta victoire contre " + esc(nameCase(x.m.opp) || "un " + x.m.oppRank) + " (" + esc(x.m.oppRank) + ", " + esc(fdate(x.m.date)) + ") sort de tes 12 mois. Déjà comptée ici : <span class=\"neg\">−" + x.pts + " pts</span> au bilan " + lab(Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC)) + '. <span class="al-more">Mois par mois ›</span></span></button>';
     });
 
     // forme + cordage
@@ -4761,7 +4797,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     toucher: '<path d="M4 20c4-1 7-4 9-8l3-6"/><circle cx="17.5" cy="4.5" r="2.5"/><path d="M4 14c2 0 3-1 4-2"/>',
     regul: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>'
   };
-  var WATCH_IC = '<rect x="7" y="6" width="10" height="12" rx="3"/><path d="M9 6l.8-3h4.4l.8 3M9 18l.8 3h4.4l.8-3"/>';
+  var WATCH_IC = '<rect x="6" y="6" width="12" height="12" rx="3.5"/><path d="M9 6V3h6v3M9 18v3h6v-3"/><path d="M9.5 10.5c1.4 1 1.4 2 0 3M14.5 10.5c-1.4 1-1.4 2 0 3"/>';
   function trIc(k, size) { return '<svg class="trx" width="' + (size || 18) + '" height="' + (size || 18) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (TR_IC[k] || "") + "</svg>"; }
   // Ressenti après le match (icônes maison, pas d'emoji)
   var FELT = {
@@ -5875,7 +5911,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!D || mine.length) s += "<h2>Toi contre lui</h2>";
     if (mine.length) {
       var mv = mine.filter(function (m) { return m.result === "V"; }).length;
-      s += '<div class="card"><div class="h2h-big"><span>Toi</span><b>' + mv + " – " + (mine.length - mv) + "</b><span>" + esc(pr.prenom || "Lui") + "</span></div>" + mine.map(function (m) { return '<a class="row" href="#/match/' + m.id + '"><span class="vd lg ' + m.result + '">' + m.result + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.comp || "") + "</span></span>" + I.next + "</a>"; }).join("") + "</div>";
+      s += '<div class="card"><div class="h2h-big"><span>Toi</span><b>' + mv + " – " + (mine.length - mv) + "</b><span>" + esc(pr.prenom || "Lui") + "</span></div>" + mine.map(function (m) { return '<a class="row" href="#/match/' + m.id + '"><span class="vd lg ' + m.result + '">' + m.result + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.comp || "") + "</span></span>" + msbHtml(m) + I.next + "</a>"; }).join("") + "</div>";
     }
     if (!mine.length && !D) s += '<div class="card"><span style="font-size:15px"><b>Jamais joué.</b> ' + (common0.length ? "Vos adversaires communs sont plus haut." : "Pas encore d\'adversaire commun cette saison.") + "</span></div>";
     var statsHtml = s.slice(s0); s = s.slice(0, s0) + (tab === "plan" && !mixed ? planHtml : tab === "pal" ? palHtml(rows, id, name, pr) : statsHtml);
@@ -7711,7 +7747,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     // Doubles mêlés aux simples, par date
     var gotD = {}; ((c.proj.next || {}).doubles || []).forEach(function (x) { gotD[x.m.id] = x; });
-    var dRow = function (m) { var g = gotD[m.id]; return '<a class="row" href="#/double/' + esc(m.id) + '" style="background:var(--card);border-radius:20px;text-decoration:none;color:inherit"><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(nameCase(m.opp) || "Adversaires") + ' <span class="act-dbl">Double</span></span><span class="s">' + esc([fdate(m.date).replace(/\.$/, ""), m.score].filter(Boolean).join(" · ")) + "</span></span>" + (g ? '<span class="pts pos">+' + g.pts + "</span>" : "") + "</a>"; };
+    var dRow = function (m) { var g = gotD[m.id]; return '<a class="row" href="#/double/' + esc(m.id) + '" style="background:var(--card);border-radius:20px;text-decoration:none;color:inherit"><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(nameCase(m.opp) || "Adversaires") + ' <span class="act-dbl">Double</span></span><span class="s">' + esc([fdate(m.date).replace(/\.$/, ""), msbHtml(m) ? "" : m.score].filter(Boolean).join(" · ")) + "</span></span>" + msbHtml(m) + (g ? '<span class="pts pos">+' + g.pts + "</span>" : "") + "</a>"; };
     list = list.concat(dbl.map(function (m) { return Object.assign({}, m, { _dbl: true }); })).sort(function (a2, b2) { return (b2.date || "9") < (a2.date || "9") ? -1 : (b2.date || "9") > (a2.date || "9") ? 1 : 0; });
     var curMonth = "", old = false, oneRk = (S.rackets || []).length <= 1;
     // 3.43.2 : les matchs d'un même tournoi (même épreuve Ten'Up, au plus 31 jours entre deux matchs : une édition par an) réunis en timeline ; ton 1er match = ton 1er tour
@@ -7765,7 +7801,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var tag = m.wo ? '<span class="tag">Forfait · non joué</span>' : annotated(m) ? "" /* 3.55 (audit, validé) : la raquette et le cordage restent dans la fiche du match */ : needsNote(m) ? '<span class="tag todo">À annoter</span>' : "";
       if (isManual(m)) tag = '<span class="tags"><span class="tag manual" title="Pas encore sur Ten\'Up">' + I.edit + " Saisi à la main</span>" + tag + "</span>";
       else if (m.manualOrigin && m.confirmedAt && dayDiff(m.confirmedAt, E.iso(today())) <= 14) tag = '<span class="tags"><span class="tag ok">' + I.check + " Confirmé par Ten'Up</span>" + tag + "</span>";
-      s += '<a class="row' + (isManual(m) ? " manual" : "") + '" href="#/match/' + m.id + '" style="background:var(--card);border-radius:20px' + (old ? ";opacity:.65" : "") + '"><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(nameCase(m.opp) || "Adversaire") + ' <span class="muted" style="font-weight:400">· ' + esc(m.oppRank) + '</span></span><span class="s">' + (m.date ? esc(fdate(m.date)) : "") + (m.score ? (m.date ? " · " : "") + esc(m.score) : "") + (!m.date && !m.score ? "Ajoute date et score si tu veux" : "") + "</span>" + tag + "</span>" + ptsHtml + "</a>";
+      s += '<a class="row' + (isManual(m) ? " manual" : "") + '" href="#/match/' + m.id + '" style="background:var(--card);border-radius:20px' + (old ? ";opacity:.65" : "") + '"><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(nameCase(m.opp) || "Adversaire") + ' <span class="muted" style="font-weight:400">· ' + esc(m.oppRank) + '</span></span><span class="s">' + (m.date ? esc(fdate(m.date)) : "") + (m.score && !msbHtml(m) ? (m.date ? " · " : "") + esc(m.score) : "") + (!m.date && !m.score ? "Ajoute date et score si tu veux" : "") + "</span>" + tag + "</span>" + msbHtml(m) + ptsHtml + "</a>";
       if (!old && !chips.length && m.date) (palAll[m.id] || []).forEach(function (x) { s += palCard(x, m); }); // 3.55 (Yann, maquette F)
     });
     s += "</div>";
@@ -8424,15 +8460,33 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!a.items.length && !a.anon && a.pal) s += '<span class="an-note">Ses résultats et le score ne montrent rien d\'inhabituel : un match conforme aux classements.</span>';
     if (a.imp.length && !heroImp) s += '<span class="an-k">Pour ton classement</span><div class="an-imp">' + a.imp.map(function (x) { return "<div><b" + (x.v ? ' style="color:var(--gazon)"' : "") + ">" + esc(x.b) + "</b><span>" + esc(x.t) + "</span></div>"; }).join("") + "</div>";
     // 3.55 (audit R9) : la note Ten'Up (lecture en cours, joueur introuvable) passe en pied de carte, discrète, au lieu d'ouvrir l'analyse
-    if (!a.anon && !a.pal) { var nt = busy ? '<span class="spin"></span> Lecture de son palmarès sur Ten\'Up…' : err ? esc(err) : NATIVE ? "" : "Son palmarès se lit depuis l'appli Android ou iPhone : ici, l'analyse se limite au score et à ton classement."; if (nt) s += '<span class="an-note an-foot">' + nt + (err && isManual(m) && !UI.mEdit ? ' <button class="linkbtn" data-a="mEdit" style="padding:0;min-height:0;font-size:inherit">Corriger le nom</button>' : "") + "</span>"; }
+    if (!a.anon && !a.pal) { var nt = busy ? '<span class="rally-l" aria-hidden="true"><i></i></span> Lecture de son palmarès sur Ten\'Up…' : err ? esc(err) : NATIVE ? "" : "Son palmarès se lit depuis l'appli Android ou iPhone : ici, l'analyse se limite au score et à ton classement."; if (nt) s += '<span class="an-note an-foot">' + nt + (err && isManual(m) && !UI.mEdit ? ' <button class="linkbtn" data-a="mEdit" style="padding:0;min-height:0;font-size:inherit">Corriger le nom</button>' : "") + "</span>"; }
     return s + "</div>";
   }
   // Match officiel Ten'Up : une fiche en lecture seule (les données viennent de Ten'Up), puis les annotations
   // 3.55 (Yann, maquettes B et C validées) : une carte héros : bandeau, résultat, adversaire, score, puis ce que ça change pour ton classement
+  // 3.57 (Yann) : le score comme sur le tableau d'arbitre : toi en haut, lui en bas, set par set, gagnant de chaque set en gras
+  var TB_BALL = '<svg class="sb-ball" width="12" height="12" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="10" fill="currentColor"/><path d="M3.2 5.5C7.5 8.5 7.5 13.5 3.2 16.5M18.8 5.5C14.5 8.5 14.5 13.5 18.8 16.5" stroke="var(--card)" stroke-width="2" fill="none" stroke-linecap="round"/></svg>';
+  function setsTb(score) { var out = []; String(score || "").replace(/(\d{1,2})\s*[-\/]\s*(\d{1,2})(?:\s*\(\s*(\d+)(?:\s*[-\/]\s*(\d+))?\s*\))?/g, function (_, x, y, t1, t2) { var r = [+x, +y]; if (t1 != null && isTb(r)) r.push(t2 != null ? Math.min(+t1, +t2) : +t1); out.push(r); return _; }); return out; }
+  function sbTb(x, me) { return x[2] != null && (me ? x[0] < x[1] : x[1] < x[0]) ? "<sup>" + x[2] + "</sup>" : ""; }
+  function sbHtml(m, sets, v) {
+    var dur = m.minutes ? fmtDur(m.minutes) : "";
+    var cells = function (me) { return sets.map(function (x, i) { var a = me ? x[0] : x[1], b = me ? x[1] : x[0]; return '<span class="sb-d' + (a > b ? " w" : "") + '" style="--i:' + (i * 2 + (me ? 0 : 1)) + '">' + a + sbTb(x, me) + "</span>"; }).join(""); };
+    return '<div class="sb-w"><div class="sb-h"><small>' + (v ? "Jeu, set et match" : "Score final") + "</small>" + (dur ? "<span>" + esc(dur) + "</span>" : "") + "</div>" +
+      '<div class="sb" style="--n:' + sets.length + '"><span class="sb-nm">' + (v ? TB_BALL : '<i class="sb-sp"></i>') + "Toi</span>" + cells(true) +
+      '<span class="sb-nm">' + (v ? '<i class="sb-sp"></i>' : TB_BALL) + esc(isAnon(m.opp) ? "Joueur anonyme" : nameCase(m.opp)) + "</span>" + cells(false) + "</div></div>";
+  }
+  // mini-tableau des listes (Activité, face-à-face)
+  function msbHtml(m) { var sets = m.wo ? [] : setsTb(m.score); if (!sets.length) return ""; return '<span class="msb">' + sets.map(function (x) { return '<span class="' + (x[0] > x[1] ? "w" : "") + '">' + x[0] + sbTb(x, true) + '</span><span class="' + (x[1] > x[0] ? "w" : "") + '">' + x[1] + sbTb(x, false) + "</span>"; }).join("") + "</span>"; }
+  // 3.57 (Yann) : l'illustration de victoire prend la surface du match (terre battue si inconnue)
+  var SURF_ILL = { dur: { "#C9673D": "#3F78B5", "#B04A22": "#2F5F98", "#BD5C33": "#3C7A5E", "#A2441F": "#2D624A", "#E08A5E": "#6E9BD0" },
+    gazon: { "#C9673D": "#5E9B4A", "#B04A22": "#4C8A3C", "#BD5C33": "#4F8A3E", "#A2441F": "#3F7532", "#E08A5E": "#86BC6E" },
+    moquette: { "#C9673D": "#4F6B8A", "#B04A22": "#3F5878", "#BD5C33": "#7A3A3A", "#A2441F": "#682F30", "#E08A5E": "#7891AE" } };
+  function surfIll(svgS, surface) { var map = SURF_ILL[SURF_FAM[SURF_OLD[surface] || surface]]; if (!map) return svgS; return String(svgS).replace(/#[0-9A-F]{6}/gi, function (c) { return map[c.toUpperCase()] || c; }); }
   function officialCardHtml(m, pts, a) {
     var kind = (KINDS.filter(function (k) { return k[0] === m.kind; })[0] || ["", "Match"])[1], v = m.result === "V";
     var sets = m.wo ? [] : setsOf(m.score), me = curIdx() < 0 ? 0 : curIdx(), hi = E.idx(T.normRank(m.oppRank));
-    var setsHtml = sets.length ? '<div class="off-sets">' + sets.map(function (x) { var w = x[0] > x[1]; return '<span class="off-set ' + (w ? "w" : "l") + '"><b>' + x[0] + "</b>-" + x[1] + (x[2] != null ? "<sup>" + x[2] + "</sup>" : "") + "</span>"; }).join("") + "</div>" :
+    var setsHtml = sets.length ? sbHtml(m, setsTb(m.score), v) :
       '<span class="off-score">' + esc(m.wo ? "Forfait · non joué" : m.score || "Score non renseigné") + "</span>";
     var badge = "";
     if (v && !m.wo && hi != null && hi > me) {
@@ -8446,7 +8500,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var tot = nx.total, add = v && pts != null ? pts : 0, pT = Math.min(100, tot / nx.norme * 100), pA = Math.min(pT, add / nx.norme * 100);
       bar = '<div class="hx-bar"><i style="width:' + (pT - pA).toFixed(1) + '%"></i><i class="a" style="left:' + (pT - pA).toFixed(1) + "%;width:" + pA.toFixed(1) + '%"></i></div>';
     }
-    var s = '<div class="card off-card hx ' + (v ? "v" : "d") + '"><div class="hx-ill">' + (v ? PAL_ILL.vic : PAL_ILL.loss) + "</div>" +
+    var s = '<div class="card off-card hx ' + (v ? "v" : "d") + '"><div class="hx-ill">' + (v ? surfIll(PAL_ILL.vic, m.surface) : PAL_ILL.loss) + "</div>" +
       '<div class="off-top"><span class="off-res ' + (v ? "v" : "d") + '">' + (v ? "Victoire" : "Défaite") + (m.wo ? " (WO)" : "") + "</span>" + (badge ? '<span class="hx-badge">' + esc(badge) + "</span>" : "") + "</div>" +
       '<div class="off-opp"><span class="off-name">' + esc(isAnon(m.opp) ? "Joueur anonyme" : nameCase(m.opp)) + '</span><span class="off-rank">' + esc(m.oppRank || "?") + "</span></div>" +
       '<span class="small hx-meta">' + esc(fdate(m.date).replace(/\.$/, "")) + " · " + esc(m.comp || kind) + ' · <span class="hx-ok">' + I.check + " officiel Ten'Up</span></span>" +
@@ -9489,7 +9543,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     else if (lvl != null && lvl < cur) say = up ? "Tes résultats sont un cran sous ton " + lab(cur) + ", mais ta forme remonte." : "Tes résultats sont un cran sous ton " + lab(cur) + " : attention au maintien.";
     else if (lvl != null) say = up ? "Ton niveau colle à ton classement, et ta forme monte." : dn ? "Ton niveau colle à ton classement, mais ta forme baisse." : "Tes résultats collent à ton classement.";
     else say = "Tu gagnes " + Math.round(pv * 100) + " % de tes matchs sur 12 mois" + (up ? ", et plus encore en ce moment." : dn ? ", un peu moins en ce moment." : ".");
-    return '<div class="card cr3"><div class="cr3-row">' +
+    var go = !UI.cr3Go; UI.cr3Go = 1; // 3.57 (Yann) : les anneaux se remplissent, une fois par ouverture de l'appli
+    return '<div class="card cr3' + (go ? " cr3-go" : "") + '"><div class="cr3-row">' +
       cell(ring3(pv, "var(--gazon)", 92, 9, Math.round(pv * 100) + "%"), "Victoires", "victoires") +
       cell(ring3(pf, acc, 92, 9, Math.round(pf * 100) + "%"), "Forme", "!forme") +
       (lvl != null ? cell(ring3(Math.max(.08, Math.min(1, .5 + (lvl - cur) * .25)), "var(--bleu3)", 92, 9, lab(lvl)), "Classement réel", "!rrWhy") : cell(ring3(nv / Math.max(1, w12.length), "var(--bleu3)", 92, 9, String(w12.length)), "Matchs", "victoires")) +
@@ -12394,7 +12449,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     } else {
       s += '<div class="card"><span class="eyebrow" style="color:var(--gazon)">Compte Ten\'Up lié</span>' +
         '<span style="font-size:15px">' + (S.tenup.lastImport ? "Dernière mise à jour : " + esc(fdate(S.tenup.lastImport)).replace(/\.$/, "") + ". " : "") + "Montée vérifie tes nouveaux matchs à chaque ouverture, et de temps en temps en arrière-plan.</span>" +
-        '<button class="btn primary small" data-a="nativeRefresh"' + (UI.loading ? " disabled" : "") + ">" + (UI.loading ? '<span class="spin"></span> Lecture de Ten\'Up…' : "Actualiser maintenant") + "</button></div>";
+        '<button class="btn primary small" data-a="nativeRefresh"' + (UI.loading ? " disabled" : "") + ">" + (UI.loading ? '<span class="rally-l" aria-hidden="true"><i></i></span> Échange avec Ten\'Up…' : "Actualiser maintenant") + "</button></div>";
       s += '<label class="card" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;cursor:pointer"><span><b style="display:block;font-size:15px">Notifications</b><span class="small">Nouveau match détecté, points, montée ou pas, jour de sortie</span></span>' +
         '<input type="checkbox" role="switch" data-a="notifSwitch"' + (S.notif ? " checked" : "") + "></label>";
       if (S.tenup.maintAt && Date.now() - S.tenup.maintAt < 6 * 3600e3) s += '<div class="alert"><span class="badge ko">' + I.warn + '</span><span>Ten\'Up était en maintenance ' + agoLab(S.tenup.maintAt) + '. Montée réessaie tout seul ; si ça bloque encore, touche « Réparer la connexion ».</span></div>';
@@ -14511,6 +14566,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var only = {}; only[clean.id] = 1; var merged = i < 0 && !clean.hid ? hcMerge(only) : 0;
       S.onboarded = true; save(); UI.draft = null;
       var imp = c0 ? impactMsg(c0, clean) : "";
+      if (!merged && i < 0 && clean.result === "V" && !clean.wo && setsTb(clean.score).length) setMatch(clean, imp); else
       if (merged) hcMergeToast(merged); else if (imp) toast(imp); else
       toast(!clean.racketId && !clean.wo ? "Enregistré. Choisis une raquette pour qu'il ne soit plus « à annoter »." : i >= 0 ? "Match mis à jour." : "Match ajouté.");
       if (i >= 0) { UI.mEdit = false; UI.annEdit = false; UI.draft = null; render(); window.scrollTo(0, 0); return; } // 3.42.1 : on reste sur la fiche
@@ -14854,7 +14910,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (!el) { el = document.createElement("div"); el.className = "ptr"; el.setAttribute("aria-live", "polite"); document.body.appendChild(el); }
       return el;
     }
-    function show(h, txt, spin) { var b = bar(); b.style.transform = "translate(-50%," + Math.round(h) + "px)"; b.style.opacity = h > 8 ? 1 : 0; b.innerHTML = (spin ? '<span class="spin"></span>' : '<span class="ptr-arrow' + (dy > TH ? " up" : "") + '">↓</span>') + "<span>" + txt + "</span>"; }
+    function show(h, txt, spin) { var b = bar(); b.style.transform = "translate(-50%," + Math.round(h) + "px)"; b.style.opacity = h > 8 ? 1 : 0; b.innerHTML = (spin ? '<span class="rally-l" aria-hidden="true"><i></i></span>' : '<span class="ptr-arrow' + (dy > TH ? " up" : "") + '">↓</span>') + "<span>" + txt + "</span>"; }
     function hide() { if (el) { el.style.transform = "translate(-50%,-60px)"; el.style.opacity = 0; } }
     document.addEventListener("touchstart", function (e) { if (busy || !ok() || e.touches.length !== 1) { y0 = null; return; } TH = mode() === "ferme" ? 210 : 140; y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; t0 = Date.now(); dy = 0; dx = 0; }, { passive: true });
     document.addEventListener("touchmove", function (e) {
@@ -14868,7 +14924,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     document.addEventListener("touchend", function () {
       if (y0 == null) return; y0 = null;
       if (dy > TH && Date.now() - t0 > 250) {
-        busy = true; show(50, "Synchronisation avec Ten'Up…", true);
+        busy = true; show(50, "Échange avec Ten'Up…", true);
         nativeRefresh(false, true).then(function () { busy = false; hide(); }, function () { busy = false; hide(); });
       } else hide();
       dy = 0; armed = false;
