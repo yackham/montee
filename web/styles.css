@@ -5377,3 +5377,8 @@ button.h3h-r:active { opacity: .7; }
 .ft { --ft-bd: #A77C12; }
 :root[data-theme="nuit"] .ft { --ft-bd: #E9C46A; }
 .ft-bd .ft-m em, :root[data-theme="nuit"] .ft-bd .ft-m em { color: var(--ft-bd); }
+/* 3.60.1 (Yann, maquette A2 validée) : nom en entier sur la 1re ligne, classement en pastille détourée au début de la 2e,
+   score en tableau d'arbitre toujours calé à droite (colonne de largeur fixe) */
+.row .t.t2, .tg-r .t.t2 { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+.rk-tag { display: inline-block; font-weight: 800; color: var(--ink); padding: 0 6px; border-radius: 6px; box-shadow: inset 0 0 0 1.2px color-mix(in srgb, var(--ink) 28%, transparent); line-height: 1.45; font-variant-numeric: tabular-nums; }
+.msb { justify-content: end; grid-auto-columns: 17px; gap: 1px 8px; width: 77px; box-sizing: border-box; font-size: 14px; }
