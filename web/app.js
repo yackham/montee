@@ -8125,7 +8125,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     // Doubles mêlés aux simples, par date
     var gotD = {}; ((c.proj.next || {}).doubles || []).forEach(function (x) { gotD[x.m.id] = x; });
-    var dRow = function (m) { var g = gotD[m.id]; return '<a class="row" href="#/double/' + esc(m.id) + '" style="background:var(--card);border-radius:20px;text-decoration:none;color:inherit"><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t t2">' + esc(nameCase(m.opp) || "Adversaires") + ' <span class="act-dbl">Double</span></span><span class="s">' + (m.oppRank ? '<b class="rk-tag">' + esc(m.oppRank) + "</b>" : "") + (m.oppRank ? " · " : "") + esc([fdate(m.date).replace(/\.$/, ""), msbHtml(m) ? "" : m.score].filter(Boolean).join(" · ")) + (g ? ' · <b class="pts-in">+' + g.pts + " pts</b>" : "") + "</span></span>" + msbHtml(m) + "</a>"; };
+    var dRow = function (m) { var g = gotD[m.id]; return '<a class="row" href="#/double/' + esc(m.id) + '" style="background:var(--card);border-radius:20px;text-decoration:none;color:inherit"><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t t2">' + esc(pairNm(nameCase(m.opp)) || "Adversaires") + '</span><span class="s"><span class="act-dbl">Double</span> ' + (m.oppRank ? '<b class="rk-tag">' + esc(m.oppRank) + "</b>" : "") + (m.oppRank ? " · " : "") + esc([fdate(m.date).replace(/\.$/, ""), msbHtml(m) ? "" : m.score].filter(Boolean).join(" · ")) + (g ? ' · <b class="pts-in">+' + g.pts + " pts</b>" : "") + "</span></span>" + msbHtml(m) + "</a>"; };
     list = list.concat(dbl.map(function (m) { return Object.assign({}, m, { _dbl: true }); })).sort(function (a2, b2) { return (b2.date || "9") < (a2.date || "9") ? -1 : (b2.date || "9") > (a2.date || "9") ? 1 : 0; });
     var curMonth = "", old = false, oneRk = (S.rackets || []).length <= 1;
     // 3.43.2 : les matchs d'un même tournoi (même épreuve Ten'Up, au plus 31 jours entre deux matchs : une édition par an) réunis en timeline ; ton 1er match = ton 1er tour
@@ -8155,7 +8155,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         if (wo) { pH = m.result === "V" ? "" : "ne compte pas"; todo = ""; }
         if (m._dbl || m.dbl) { var gd = gotD[m.id]; pH = m.result === "V" && gd && !old ? '<b class="pts-in">+' + gd.pts + " pts</b>" : ""; todo = ""; }
         var sbx = wo ? "" : msbHtml(m);
-        h += '<a class="tg-r ' + cls + (i === ms.length - 1 ? " last" : "") + '" href="#/' + (m._dbl || m.dbl ? "double/" : "match/") + m.id + '"><span class="tg-n"><span class="vd ' + (wo && m.result === "D" ? "wo" : m.result) + '">' + (wo && m.result === "D" ? "WO" : m.result) + '</span></span><span class="grow"><span class="tg-k' + (fin ? " fin" : "") + '">' + tgRound(g, i) + '</span><span class="t t2">' + esc(nameCase(m.opp) || "Adversaire") + '</span><span class="s">' + (m.oppRank ? '<b class="rk-tag">' + esc(m.oppRank) + "</b>" : "") + (m.oppRank ? " · " : "") + esc([fdate(m.date).replace(/\.$/, ""), wo ? (m.result === "V" ? "qualifié par forfait" : "forfait · non joué") : sbx ? "" : m.score].filter(Boolean).join(" · ")) + (pH ? " · " + pH : "") + "</span>" + todo + "</span>" + sbx + "</a>";
+        h += '<a class="tg-r ' + cls + (i === ms.length - 1 ? " last" : "") + '" href="#/' + (m._dbl || m.dbl ? "double/" : "match/") + m.id + '"><span class="tg-n"><span class="vd ' + (wo && m.result === "D" ? "wo" : m.result) + '">' + (wo && m.result === "D" ? "WO" : m.result) + '</span></span><span class="grow"><span class="tg-k' + (fin ? " fin" : "") + '">' + tgRound(g, i) + '</span><span class="t t2">' + esc((m._dbl || m.dbl ? pairNm(nameCase(m.opp)) : nameCase(m.opp)) || "Adversaire") + '</span><span class="s">' + (m.oppRank ? '<b class="rk-tag">' + esc(m.oppRank) + "</b>" : "") + (m.oppRank ? " · " : "") + esc([fdate(m.date).replace(/\.$/, ""), wo ? (m.result === "V" ? "qualifié par forfait" : "forfait · non joué") : sbx ? "" : m.score].filter(Boolean).join(" · ")) + (pH ? " · " + pH : "") + "</span>" + todo + "</span>" + sbx + "</a>";
       });
       return h + "</div></div>";
     };
@@ -8871,6 +8871,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<span class="sb-nm">' + (v ? '<i class="sb-sp"></i>' : TB_BALL) + esc(isAnon(m.opp) ? "Joueur anonyme" : nameCase(m.opp)) + "</span>" + cells(false) + "</div></div>";
   }
   // mini-tableau des listes (Activité, face-à-face)
+  // 3.60.1 (Yann) : en double, la paire en « L. Roy / M. Blanc » (initiale du prénom + nom) pour tenir sur une ligne ; en simple, prénom et nom en entier
+  function pairNm(n) {
+    var L = String(n || "").split(/\s*\/\s*/).filter(Boolean); if (L.length < 2) return n;
+    return L.map(function (x) { var w = x.trim().split(/\s+/); if (w.length < 2 || /^[A-ZÀ-Ý]\.(-[A-ZÀ-Ý]\.)?$/.test(w[0])) return x.trim(); return w[0].split("-").map(function (y) { return y.charAt(0).toUpperCase() + "."; }).join("-") + " " + w.slice(1).join(" "); }).join(" / ");
+  }
   function msbHtml(m) { var sets = m.wo ? [] : setsTb(m.score); if (!sets.length) return ""; return '<span class="msb">' + sets.map(function (x) { return '<span class="' + (x[0] > x[1] ? "w" : "") + '">' + x[0] + sbTb(x, true) + '</span><span class="' + (x[1] > x[0] ? "w" : "") + '">' + x[1] + sbTb(x, false) + "</span>"; }).join("") + "</span>"; }
   // 3.57 (Yann) : l'illustration de victoire prend la surface du match (terre battue si inconnue)
   var SURF_ILL = { dur: { "#C9673D": "#3F78B5", "#B04A22": "#2F5F98", "#BD5C33": "#3C7A5E", "#A2441F": "#2D624A", "#E08A5E": "#6E9BD0" },
