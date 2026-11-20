@@ -5127,3 +5127,23 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .rally-l i::after { content: none; }
 @keyframes rlX { 0% { transform: translate(0, 0); } 50% { transform: translate(14px, -10px); } 100% { transform: translate(28px, 0); } }
 @media (prefers-reduced-motion: reduce) { .rally-l i { animation: none; left: 14px; } }
+/* 3.57 (audit parcours T1, maquette 2) : session Ten'Up expirée en tête de « À faire » */
+.tu-out { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; }
+.tu-out .eyebrow { color: var(--terre); }
+.tu-out b { font-size: 17px; line-height: 1.3; }
+.tu-out .btn { align-self: flex-start; width: auto; padding-left: 20px; padding-right: 20px; margin-top: 4px; }
+.cr3-wait .cr3-say { display: flex; flex-direction: column; gap: 3px; }
+.cr3-wait .cr3-say .small { font-weight: 400; }
+/* 3.57 (audit parcours P3, maquette 3 v2) : on voit qu'on est dans l'exemple, sans carte ni liseré */
+.demo-pill { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; font-size: 12.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--gazon); box-shadow: inset 0 0 0 1.5px currentColor; border-radius: 99px; padding: 3px 10px; }
+.demo-line { display: flex; align-items: center; gap: 12px; }
+.demo-line > span { flex: 1; min-width: 0; font-size: 14px; color: var(--muted); line-height: 1.35; }
+.demo-line .go-pill { flex: none; }
+.mechip .rk:has(.rk-d) { display: inline-flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+.mechip .rk-d { display: block; font-size: 10.5px; font-weight: 600; opacity: .75; letter-spacing: 0; white-space: nowrap; }
+/* 3.57 (audit parcours P5) : Courbes vide */
+.cv-empty { gap: 12px; }
+.cv-li { display: flex; gap: 10px; align-items: flex-start; }
+.cv-li i { flex: none; width: 8px; height: 8px; border-radius: 4px; margin-top: 7px; background: var(--gazon); }
+.cv-li > span { display: flex; flex-direction: column; gap: 2px; }
+.cv-btns { display: flex; flex-wrap: wrap; gap: 8px; }
