@@ -4865,18 +4865,18 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .tim-day { font-size: 13px; color: var(--muted); line-height: 1.4; } .tim-day b { color: var(--ink); font-weight: 700; }
 /* 3.55.3 (Yann, maquette validée) : « Annote ton match », feuille compacte */
 .qa.an { gap: 14px; }
-.an-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.qa.an .an-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .an-pos { display: flex; align-items: center; gap: 8px; }
 .an-st { display: flex; gap: 4px; } .an-st i { width: 14px; height: 4px; border-radius: 2px; background: var(--line); } .an-st i.on { background: var(--ink); }
 .an-m { display: flex; align-items: center; gap: 12px; }
-.an-r { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-size: 15px; box-shadow: inset 0 0 0 1.5px var(--line); }
-.an-r.D { color: var(--terre); } .an-r.V { color: var(--gazon); }
+.an-res { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-size: 15px; box-shadow: inset 0 0 0 1.5px var(--line); }
+.an-res.D { color: var(--terre); } .an-res.V { color: var(--gazon); }
 .an-m b { display: block; font-size: 18px; line-height: 1.2; letter-spacing: -.01em; } .an-rk0 { opacity: .55; font-weight: 500; }
 .an-m small { display: block; margin-top: 2px; font-size: 13px; color: var(--muted); }
 .an-c { background: var(--card); border-radius: 18px; box-shadow: inset 0 0 0 1px var(--line); padding: 2px 12px; }
 .an-row { display: grid; grid-template-columns: 70px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 52px; padding: 6px 0; border-top: 1px solid var(--line); }
 .an-row:first-child { border-top: 0; }
-.an-k { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.qa.an .an-k { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
 .an-seg { display: flex; gap: 3px; background: var(--chip); border-radius: 11px; padding: 3px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
 .an-seg::-webkit-scrollbar { display: none; }
 .an-seg button { flex: 1 0 auto; border: 0; background: none; font: inherit; white-space: nowrap; padding: 8px 9px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; min-height: 34px; }
@@ -5013,3 +5013,48 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .gc-t { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
 .gc-t .grow { flex: 1; min-width: 0; }
 .gc-t small { display: block; color: var(--muted); font-size: 12px; }
+
+/* ===== 3.56.3 (Yann, audit contraste des 8 thèmes, C1 à C10) ===== */
+/* Thèmes clairs (Lin, Terre, Dur, Gazon, Rétro) : les blocs dessinés pour un panneau sombre (--hl, --sub, --on-panel)
+   gardaient leurs couleurs une fois posés sur une carte blanche. Accent : --acc-ink ; texte secondaire : --muted. */
+/* C1 : « À noter · un geste » rangé dans « À faire » (blanc sur blanc) */
+.td3-i > .card.rate { color: var(--ink); }
+.td3-i > .card.rate .small { color: var(--muted) !important; opacity: 1 !important; }
+.td3-i > .card.rate .eyebrow, .td3-i > .card.rate .linkbtn { color: var(--acc-ink); }
+.td3-i > .card.rate .rate-row button { background: var(--chip); color: var(--ink); }
+:root[data-skin="retro"] .td3-i > .card.rate :is(.eyebrow, .linkbtn) { color: #7B1E2C; }
+/* C3 : surligneur et gris de panneau sur cartes blanches */
+:root:not([data-theme="nuit"]) :is(.gl-card, .tp-card) .eyebrow, :root:not([data-theme="nuit"]) .cond-ed { color: var(--acc-ink); }
+:root:not([data-theme="nuit"]) .tug-r:not(.n) > span { color: var(--ink); }
+:root:not([data-theme="nuit"]) :is(.rk-other label, .cond-min small, .hx-big:not(.pos), .hx-badge) { color: var(--muted); }
+:root:not([data-theme="nuit"]) .off-card.hx.v .hx-badge { color: var(--acc-ink); }
+:root:not([data-theme]) .off-card.hx.v .hx-badge { color: #56660A; } /* Lin : jaune foncé un cran de plus sur la pastille beige */
+.moi-hero > span.sup-badge { background: var(--hl); color: #121212; }
+/* C4 : Rétro, bordeaux sur vert sapin → moutarde */
+:root[data-skin="retro"] .moi-hero > span.sup-badge { background: #E2B13C; color: #2A1A10; }
+:root[data-skin="retro"] .bl2 svg text[style*="--hl"] { fill: #E2B13C !important; } /* étiquette de fin de courbe du bilan */
+:root[data-skin="retro"] .moi-hero .eyebrow { color: #E2B13C; }
+:root[data-skin="retro"] .moi-hero .av-me { background-color: #E2B13C; color: #2A1A10; border-color: #E2B13C; }
+:root[data-skin="retro"] .moi-hero .av-me.ghost { background-color: transparent; color: #E2B13C; }
+:root[data-skin="retro"] .moi-hero .vs { color: #FBF5E7; }
+/* C5 : Terre et Dur, texte de page vs texte de carte */
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .sp-free b { color: var(--page-ink); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > span.small { color: var(--page-muted) !important; }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .gear-sec .sec-head, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .gear-sec .sec-head * { color: var(--ink); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .gear-sec .sec-head .small { color: var(--muted); }
+/* C6 : pastilles de défaite pleines (saumon / orange) : lettre foncée */
+:root[data-theme="nuit"] :is(.ds-ic.d, .act-badge, .fo-p.D) { color: #2A1206; }
+/* C7 : Dur, orange un cran plus profond (#D9622B : 3,7:1 sur blanc → 5,4:1, et 5,4:1 en blanc sur orange) */
+:root[data-theme="dur"] { --terre: #B4471A; }
+/* C8 : Terre, l'argile foncée d'un cran pour que le petit texte posé dessus passe (blanc 4,5:1 → 5,9:1) */
+:root[data-theme="terre"] { --page-muted: #FFFFFF; }
+:root[data-theme="terre"] body::after { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: rgba(70, 22, 4, .16); }
+:root[data-theme="terre"] { --page-end: #9D4824; }
+/* C9 : infos secondaires grisées par la couleur, pas par l'opacité */
+.theme { opacity: 1; } .theme:not(.on) b { color: var(--muted); }
+.fc-r.few, .m2.few, .ga2-r.few { opacity: .85; } /* « peu de matchs » : à peine en retrait (0,5 rendait le texte illisible) */
+/* Rétro : brun secondaire un cran plus foncé (4,2:1 sur les pastilles → 5,4:1) */
+:root[data-skin="retro"] { --muted: #6A5340; }
+/* C10 : « À recorder » : texte de pastille en couleur foncée */
+:is(.mt-st, .rf-st .mt-st, .mt-grid .mt-st) { color: color-mix(in srgb, var(--c) 65%, var(--ink)); }
+.mt-done { color: var(--terre-dark, var(--terre)); }
