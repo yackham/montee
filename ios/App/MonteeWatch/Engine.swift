@@ -328,9 +328,18 @@ func coachCues(_ M: MatchState, plan: [WStep], streak: Int = 0) -> [Cue] {
     // --- Le plan, seulement quand le moment s'y prête (sinon en bas de pile)
     let tight = !M.inTB && a >= 4 && b >= 4, early = setNo == 1 && a + b <= 3
     let decider = setNo >= 3 || (M.setsWon[0] == 1 && M.setsWon[1] == 1)
-    for (i, st) in plan.prefix(3).enumerated() {
+    // 3.56 : le plan complet arrive (3 mots, moments, plan B, tes objectifs) : les 3 premiers comme avant,
+    // le plan B seulement quand tu es mené de 3 jeux dans le set, un objectif par changement (à tour de rôle)
+    let main = plan.filter { ($0.th ?? "") != "obj" && ($0.th ?? "") != "planb" }
+    for st in plan where (st.th ?? "") == "planb" {
+        if !M.inTB && b - a >= 3 { out.append(Cue(id: st.id, fromWatch: true, t: "Plan B", s: st.s ?? "", prio: 13)) }
+    }
+    for st in plan where (st.th ?? "") == "obj" {
+        out.append(Cue(id: st.id, fromWatch: false, t: st.t, s: st.s ?? "", prio: 6))
+    }
+    for (i, st) in main.enumerated() {
         let th = st.th ?? ""
-        var p = 3 - i
+        var p = max(0, 3 - i)
         if st.id == "c-mental" { p = M.setsWon[1] > M.setsWon[0] ? 10 : 0 } // ton profil : « après un set perdu »
         else if th == "mental" || st.id.contains("clutch") { p = tight ? 10 : 1 }
         else if th == "start" { p = early ? 10 : 0 }
