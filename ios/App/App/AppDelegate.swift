@@ -543,7 +543,9 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "watchSync", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "watchTake", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "watchStatus", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "watchWarm", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "watchWarm", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "watchSeance", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "bgStatus", returnType: CAPPluginReturnPromise)
     ]
 
     override public func load() {
@@ -640,6 +642,37 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         MonteeHealth.store.startWatchApp(with: cfg) { ok, _ in
             WatchLink.shared.warm(oid)
             call.resolve(["ok": ok])
+        }
+    }
+
+    /// 3.59 : séance du jour guidée. Ouvre Montée sur la montre (séance tennis « en salle » : c'est le signal
+    /// d'une séance, pas d'un échauffement) puis lui envoie les étapes.
+    @objc func watchSeance(_ call: CAPPluginCall) {
+        let json = call.getString("json") ?? "{}"
+        guard WCSession.isSupported(), WCSession.default.isPaired, WCSession.default.isWatchAppInstalled else {
+            call.resolve(["ok": false]); return
+        }
+        let cfg = HKWorkoutConfiguration()
+        cfg.activityType = .tennis
+        cfg.locationType = .indoor
+        MonteeHealth.store.startWatchApp(with: cfg) { ok, _ in
+            WatchLink.shared.seance(json)
+            call.resolve(["ok": ok])
+        }
+    }
+
+    /// 3.59 : iOS laisse-t-il Montée vérifier en arrière-plan ? Et quand l'a-t-il fait pour la dernière fois ?
+    @objc func bgStatus(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let st = UIApplication.shared.backgroundRefreshStatus
+            let r = st == .available ? "available" : st == .denied ? "denied" : "restricted"
+            UNUserNotificationCenter.current().getNotificationSettings { n in
+                let a = n.authorizationStatus == .denied ? "denied" : n.authorizationStatus == .notDetermined ? "unknown" : "granted"
+                let last = UserDefaults.standard.double(forKey: "montee.bgLast")
+                var out: [String: Any] = ["refresh": r, "notif": a]
+                if last > 0 { out["last"] = last }
+                call.resolve(out)
+            }
         }
     }
 
@@ -992,6 +1025,7 @@ enum MonteeBackground {
 
     static func handle(task: BGAppRefreshTask) {
         schedule()
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "montee.bgLast") // 3.59 : affiché dans Réglages › Notifications
         guard let script = MonteeStore.script, MonteeStore.state != nil else {
             task.setTaskCompleted(success: true)
             return
@@ -1337,6 +1371,19 @@ final class WatchLink: NSObject, WCSessionDelegate {
         let s = WCSession.default
         guard s.activationState == .activated else { return }
         let msg: [String: Any] = ["warm": oid, "at": Date().timeIntervalSince1970]
+        if s.isReachable {
+            s.sendMessage(msg, replyHandler: nil) { _ in _ = s.transferUserInfo(msg) }
+        } else {
+            _ = s.transferUserInfo(msg)
+        }
+    }
+
+    /// 3.59 : les étapes de la séance du jour (même chemin que l'échauffement)
+    func seance(_ json: String) {
+        guard WCSession.isSupported() else { return }
+        let s = WCSession.default
+        guard s.activationState == .activated else { return }
+        let msg: [String: Any] = ["seance": json, "at": Date().timeIntervalSince1970]
         if s.isReachable {
             s.sendMessage(msg, replyHandler: nil) { _ in _ = s.transferUserInfo(msg) }
         } else {

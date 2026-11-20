@@ -71,6 +71,9 @@ struct WCtx: Codable {
     var chances: WChances? = nil
     /// 3.55.3 : tes zones cardio réglées sur l'iPhone (seuils des zones 2 à 5, en bpm : automatique, Karvonen ou à la main)
     var hrThr: [Int]? = nil
+    /// 3.61 : la séance du jour, prête à lancer depuis la montre (JSON du plan), et si elle est permise (Montée+ ou séance offerte du mois)
+    var seance: String? = nil
+    var sjOk: Bool? = nil
 }
 
 /// 3.49 : un face-à-face : prénom, quand (« Sam. »), victoires, défaites, carrés du plus ancien au plus récent
@@ -210,6 +213,14 @@ final class PhoneLink: NSObject, ObservableObject, WCSessionDelegate {
         warm(userInfo)
     }
 
+    /// 3.61 : la séance du jour reçue de l'iPhone, si elle est bien d'aujourd'hui
+    var todayPlan: SPlan? {
+        guard let j = ctx.seance, let d = j.data(using: .utf8), let p = try? JSONDecoder().decode(SPlan.self, from: d), !p.steps.isEmpty else { return nil }
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"
+        if let day = p.day, day != f.string(from: Date()) { return nil }
+        return p
+    }
+
     /// L'adversaire du match : parmi ceux envoyés par l'iPhone, sinon le prochain match
     func opp(for oid: String) -> WOpp? {
         if let o = ctx.opps.first(where: { $0.id == oid }) { return o }
@@ -220,10 +231,30 @@ final class PhoneLink: NSObject, ObservableObject, WCSessionDelegate {
     }
 
     private func warm(_ d: [String: Any]) {
+        // 3.59 : la séance du jour
+        if let sj = d["seance"] as? String {
+            if let at = d["at"] as? Double, Date().timeIntervalSince1970 - at > 20 * 60 { return }
+            DispatchQueue.main.async { PhoneLink.startSeance(json: sj) }
+            return
+        }
         guard let oid = d["warm"] as? String else { return }
         // Une demande restée en file trop longtemps (montre loin) ne lance plus rien
         if let at = d["at"] as? Double, Date().timeIntervalSince1970 - at > 20 * 60 { return }
         DispatchQueue.main.async { PhoneLink.startGuidedWarmup(oid: oid) }
+    }
+
+    /// 3.59 : démarre (ou complète) la séance du jour : une séance « Entraînement » avec ses étapes
+    static func startSeance(json: String?) {
+        let vm = MatchVM.shared, t = TrainVM.shared
+        guard vm.live == nil, vm.warmup == nil else { return }
+        let plan = json.flatMap { $0.data(using: .utf8) }.flatMap { try? JSONDecoder().decode(SPlan.self, from: $0) }
+        if t.live != nil { if let p = plan { t.setPlan(p) }; return }
+        Workout.shared.authorize {
+            DispatchQueue.main.async {
+                if t.live == nil { t.begin() }
+                if let p = plan { t.setPlan(p) }
+            }
+        }
     }
 
     /// Démarre (ou complète) l'échauffement guidé. Appelé par le message de l'iPhone et à l'ouverture par séance (startWatchApp).

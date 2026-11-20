@@ -304,6 +304,7 @@ struct HomeView: View {
             PlaySheet { kind in
                 play = false
                 if kind == "match" { DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { draft.openSetup = true } }
+                else if kind == "seance" { DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { PhoneLink.startSeance(json: PhoneLink.shared.ctx.seance) } }
                 else { DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { startTraining() } }
             }
         }
@@ -320,7 +321,13 @@ struct PlaySheet: View {
             ScrollView {
                 VStack(spacing: 8) {
                     Button { pick("match") } label: { HomeButton(icon: "play.fill", t: "Match", s: "on compte les points", main: true).frame(maxWidth: .infinity) }.buttonStyle(.plain)
-                    Button { pick("train") } label: { HomeButton(icon: "heart.fill", t: "Entraînement", s: "sans score · gratuit", main: false).frame(maxWidth: .infinity) }.buttonStyle(.plain)
+                    // 3.61 : un jour de séance, Entraînement demande « Séance du jour » ou « Libre »
+                    if let plan = link.todayPlan {
+                        NavigationLink { TrainChoiceView(plan: plan, pick: pick) } label: { HomeButton(icon: "heart.fill", t: "Entraînement", s: "séance du jour ou libre", main: false).frame(maxWidth: .infinity) }.buttonStyle(.plain)
+                        Text("Ta séance du jour est prête.").font(.system(size: 11, weight: .semibold)).foregroundColor(.gazon).multilineTextAlignment(.center)
+                    } else {
+                        Button { pick("train") } label: { HomeButton(icon: "heart.fill", t: "Entraînement", s: "sans score · gratuit", main: false).frame(maxWidth: .infinity) }.buttonStyle(.plain)
+                    }
                     if !link.hasPlus && !link.freeUsed {
                         Text("1 match au poignet offert chaque mois.").font(.system(size: 11, weight: .semibold)).foregroundColor(.gazon).multilineTextAlignment(.center)
                     }
