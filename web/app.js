@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.56.1",
+    VERSION: "3.56.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -12647,7 +12647,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var others = (S.trainings || []).filter(function (t) { return t.src === "sante" && t.date === m.date; });
     var s = '<div class="card hc-ml"><span class="hc-ml-t">' + I.clock + "<span>" + (IOS || m.hw ? "Durée de ta montre" : "Durée de ta séance") + (function () { // 3.56.1 : la durée, puis l'heure (« séance de 12 h 33 » se lisait comme une durée)
       var mn = m.hat && m.hend ? Math.round((m.hend - m.hat) / 60000) : m.minutes;
-      return (mn ? " : " + fmtDur(mn) : "") + (m.hat ? " · de " + hcHour(m.hat).replace(" ", "\u00a0") + (m.hend ? " à " + hcHour(m.hend).replace(" ", "\u00a0") : "") : "");
+      // 3.56.2 (Yann) : les heures toujours sur une 2e ligne, pour un rendu constant
+      var nb = function (ms) { return hcHour(ms).replace(/ /g, "\u00a0"); };
+      return (mn ? " : " + fmtDur(mn) : "") + (m.hat ? '<small class="hc-ml-h">de ' + nb(m.hat) + (m.hend ? " à " + nb(m.hend) : "") + "</small>" : "");
     })() + "</span></span>";
     others.forEach(function (t) {
       s += '<button class="linkbtn" data-a="hcSwap" data-id="' + esc(t.id) + '">C\'était la séance de ' + (t.at ? hcHour(t.at) : "l'autre") + " (" + esc(fmtDur(t.minutes)) + ")</button>";
