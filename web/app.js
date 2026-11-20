@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.56.0",
+    VERSION: "3.56.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -12210,18 +12210,24 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
       d += " C" + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + " " + (p1[1] + (p2[1] - p0[1]) / 6).toFixed(1) + " " + (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + " " + (p2[1] - (p3[1] - p1[1]) / 6).toFixed(1) + " " + p2[0] + " " + p2[1];
     }
-    var id = "hz" + uidk + "t" + thr.join("_"), st = "", pos = 0, cur = ZONE_C[4]; // 3.53.4 : l'id change avec les zones (sinon iOS garde l'ancien dégradé)
-    st += '<stop offset="0" stop-color="' + cur + '"/>';
-    for (var k = 3; k >= 0; k--) {
-      var f = Math.min(1, Math.max(pos, 1 - (thr[k] - lo) / Math.max(1, hi - lo)));
-      st += '<stop offset="' + f.toFixed(3) + '" stop-color="' + cur + '"/>'; cur = ZONE_C[k]; st += '<stop offset="' + f.toFixed(3) + '" stop-color="' + cur + '"/>'; pos = f;
-    }
-    st += '<stop offset="1" stop-color="' + cur + '"/>';
+    var id = "hz" + uidk + "t" + thr.join("_"); // 3.53.4 : l'id change avec les zones (sinon iOS garde l'ancien dégradé)
     var lines = thr.filter(function (t) { return t > lo && t < hi; }).map(function (t) { return '<line x1="0" x2="' + W + '" y1="' + y(t) + '" y2="' + y(t) + '" stroke="currentColor" stroke-opacity=".22" stroke-dasharray="2 4"/>'; }).join("");
     var last = P[P.length - 1], lz = 0; thr.forEach(function (t) { if (pts[pts.length - 1] >= t) lz++; });
-    return '<svg class="hr-curve" style="height:' + H + 'px" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="' + H + '">' + st + "</linearGradient></defs>" + lines +
-      '<linearGradient id="' + id + 'f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient><path d="' + d + " L" + W + " " + H + " L0 " + H + ' Z" fill="url(#' + id + 'f)"/><path d="' + d + '" fill="none" stroke="url(#' + id + ')" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+    var ZS = zoneStroke(d, thr, y, W, H, id, 3);
+    return '<svg class="hr-curve" style="height:' + H + 'px" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" aria-hidden="true"><defs>' + ZS.defs + "</defs>" + lines +
+      '<linearGradient id="' + id + 'f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".16"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient><path d="' + d + " L" + W + " " + H + " L0 " + H + ' Z" fill="url(#' + id + 'f)"/>' + ZS.paths +
       '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="4" fill="' + ZONE_C[lz] + '"/></svg>';
+  }
+  // 3.56.1 (Yann : courbe toute grise avec 157 de moyenne) : iOS (WebKit) applique mal un dégradé « userSpaceOnUse » sur un trait
+  // en vector-effect non-scaling-stroke, d'où une courbe d'une seule couleur. On trace donc la courbe une fois par zone, découpée en bandes.
+  function zoneStroke(d, thr, yOf, W, H, id, sw) {
+    var cl = "", ps = "", top = -60, bot = H + 60;
+    for (var k = 0; k < 5; k++) {
+      var y1 = k === 4 ? top : yOf(thr[k]), y2 = k === 0 ? bot : yOf(thr[k - 1]); if (y2 <= y1) continue;
+      cl += '<clipPath id="' + id + "z" + k + '"><rect x="-20" y="' + y1 + '" width="' + (W + 40) + '" height="' + (+(y2 - y1).toFixed(1)) + '"/></clipPath>';
+      ps += '<path d="' + d + '" fill="none" stroke="' + ZONE_C[k] + '" stroke-width="' + sw + '" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" clip-path="url(#' + id + "z" + k + ')"/>';
+    }
+    return { defs: cl, paths: ps };
   }
   function sparkHr(pts) {
     var thr = hrThr(), W = 64, H = 18, lo = Math.min.apply(null, pts) - 3, hi = Math.max.apply(null, pts) + 3, n = pts.length;
@@ -12639,7 +12645,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function hcMatchLine(m) {
     if (!m.hid) return "";
     var others = (S.trainings || []).filter(function (t) { return t.src === "sante" && t.date === m.date; });
-    var s = '<div class="card hc-ml"><span class="hc-ml-t">' + I.clock + "<span>" + (IOS || m.hw ? "Durée de ta montre" : "Durée de ta séance") + (m.hat ? " · séance de " + hcHour(m.hat).replace(" ", "\u00a0") : "") + "</span></span>";
+    var s = '<div class="card hc-ml"><span class="hc-ml-t">' + I.clock + "<span>" + (IOS || m.hw ? "Durée de ta montre" : "Durée de ta séance") + (function () { // 3.56.1 : la durée, puis l'heure (« séance de 12 h 33 » se lisait comme une durée)
+      var mn = m.hat && m.hend ? Math.round((m.hend - m.hat) / 60000) : m.minutes;
+      return (mn ? " : " + fmtDur(mn) : "") + (m.hat ? " · de " + hcHour(m.hat).replace(" ", "\u00a0") + (m.hend ? " à " + hcHour(m.hend).replace(" ", "\u00a0") : "") : "");
+    })() + "</span></span>";
     others.forEach(function (t) {
       s += '<button class="linkbtn" data-a="hcSwap" data-id="' + esc(t.id) + '">C\'était la séance de ' + (t.at ? hcHour(t.at) : "l'autre") + " (" + esc(fmtDur(t.minutes)) + ")</button>";
     });
@@ -12784,7 +12793,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (R) { var best = null; R.pts.forEach(function (p) { var tt = ET.t[p.i]; if (tt != null && tt >= 0 && tt <= pk && (!best || tt >= ET.t[best.i])) best = p; }); pt = best; }
     if (pt) out.push({ c: 4, t: "Ton cœur s'est emballé " + (pt.tb ? (ET.ap ? "vers le tie-break du " : "au tie-break du ") + (pt.set + 1) + (pt.set ? "e" : "er") + " set" : "au " + (pt.set + 1) + (pt.set ? "e" : "er") + " set, " + (ET.ap ? "vers " : "à ") + pt.g[0] + "-" + pt.g[1]), s: H.max + " bpm, ton maximum du match." });
     else if (MK && MK.length) { var fk = pk / H.dur, kk = MK.filter(function (x) { return fk >= x.a && fk <= x.b; })[0] || MK[MK.length - 1], ki = MK.indexOf(kk), inTb = kk.tb != null && fk >= kk.tb;
-      out.push({ c: 4, t: "Ton cœur s'est emballé " + (inTb ? "vers le tie-break du " : "vers la " + (fk - kk.a > (kk.b - kk.a) * 0.66 ? "fin" : fk - kk.a < (kk.b - kk.a) * 0.33 ? "début" : "moitié") + " du ") + (ki + 1) + (ki ? "e" : "er") + " set", s: H.max + " bpm, à " + mmss(pk) + " de jeu." }); }
+      out.push({ c: 4, t: "Ton cœur s'est emballé " + (inTb ? "vers le tie-break du " : "vers " + (fk - kk.a > (kk.b - kk.a) * 0.66 ? "la fin" : fk - kk.a < (kk.b - kk.a) * 0.33 ? "le début" : "le milieu") + " du ") + (ki + 1) + (ki ? "e" : "er") + " set", s: H.max + " bpm, à " + mmss(pk) + " de jeu." }); }
     else out.push({ c: 4, t: "Le pic à " + mmss(pk), s: H.max + " bpm" + (function () { var after = avgIn(pk + 120, pk + 900); return after && H.max - after >= 10 ? ", puis ton cœur est redescendu de " + (H.max - after) + " bpm." : "."; })() });
     if (R && R.sets >= 2) {
       var ends = []; R.pts.forEach(function (p, k) { var nx = R.pts[k + 1]; if (!nx || nx.set !== p.set) ends.push(ET.t[p.i]); });
@@ -12831,16 +12840,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function hrSvg(H, sets, uidk) {
     var W = 330, Hh = 140, lo = Math.min(Math.min.apply(null, H.pts), H.thr[0]) - 6, hi = Math.max(H.max, H.thr[3]) + 8;
     var y = function (v) { return +(Hh - 6 - (v - lo) / Math.max(1, hi - lo) * (Hh - 22)).toFixed(1); }, x = function (i) { return +(W * i / (H.pts.length - 1)).toFixed(1); };
-    var id = "hm" + uidk + "t" + H.thr.join("_"), g = "", cur = ZONE_C[4], st = '<stop offset="0" stop-color="' + cur + '"/>';
-    for (var k = 3; k >= 0; k--) { var f = Math.min(1, Math.max(0, y(H.thr[k]) / Hh)).toFixed(3); st += '<stop offset="' + f + '" stop-color="' + cur + '"/>'; cur = ZONE_C[k]; st += '<stop offset="' + f + '" stop-color="' + cur + '"/>'; }
-    st += '<stop offset="1" stop-color="' + cur + '"/>';
+    var id = "hm" + uidk + "t" + H.thr.join("_"), g = "";
     (sets || []).forEach(function (s0, i) { var X = W * s0.a, X2 = W * s0.b; if (i % 2 === 0) g += '<rect x="' + X.toFixed(1) + '" y="0" width="' + (X2 - X).toFixed(1) + '" height="' + Hh + '" fill="currentColor" fill-opacity=".04"/>'; if (i) g += '<line x1="' + X.toFixed(1) + '" x2="' + X.toFixed(1) + '" y1="0" y2="' + Hh + '" stroke="currentColor" stroke-opacity=".2" stroke-dasharray="3 3"/>'; if (s0.tb != null) g += '<rect x="' + (W * s0.tb).toFixed(1) + '" y="14" width="' + Math.max(4, X2 - W * s0.tb).toFixed(1) + '" height="' + (Hh - 14) + '" rx="4" fill="#ED5454" fill-opacity=".13"/><text x="' + (W * s0.tb + 3).toFixed(1) + '" y="' + (Hh - 5) + '" font-size="9" font-weight="800" fill="#ED5454">TB</text>'; });
     H.thr.forEach(function (t) { g += '<line x1="0" x2="' + W + '" y1="' + y(t) + '" y2="' + y(t) + '" stroke="currentColor" stroke-opacity=".12" stroke-dasharray="2 4"/>'; });
     var d = "M0 " + y(H.pts[0]); for (var i = 1; i < H.pts.length; i++) d += " L" + x(i) + " " + y(H.pts[i]);
     var pi = Math.min(H.pts.length - 1, Math.round(H.pkT / H.dur * (H.pts.length - 1))), PX = x(pi), PY = y(Math.max(H.pts[pi], H.max - 2));
     var lab = H.max + " bpm", anchor = PX > W * 0.6 ? "end" : PX < W * 0.25 ? "start" : "middle", LX = anchor === "end" ? PX - 8 : anchor === "start" ? PX + 8 : PX;
-    return '<svg class="hrm-svg" viewBox="0 0 ' + W + " " + Hh + '" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="' + Hh + '">' + st + '</linearGradient><linearGradient id="' + id + 'f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".14"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>' + g +
-      '<path d="' + d + " L" + W + " " + Hh + " L0 " + Hh + ' Z" fill="url(#' + id + 'f)"/><path d="' + d + '" fill="none" stroke="url(#' + id + ')" stroke-width="2.4" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
+    var ZS = zoneStroke(d, H.thr, y, W, Hh, id, 2.4);
+    return '<svg class="hrm-svg" viewBox="0 0 ' + W + " " + Hh + '" preserveAspectRatio="none" aria-hidden="true"><defs>' + ZS.defs + '<linearGradient id="' + id + 'f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".14"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>' + g +
+      '<path d="' + d + " L" + W + " " + Hh + " L0 " + Hh + ' Z" fill="url(#' + id + 'f)"/>' + ZS.paths +
       '<circle cx="' + PX + '" cy="' + PY + '" r="4.5" fill="#ED5454" stroke="var(--card)" stroke-width="2"/><text x="' + LX + '" y="' + Math.max(11, PY - 9) + '" text-anchor="' + anchor + '" font-size="10.5" font-weight="800" fill="currentColor">' + lab + "</text></svg>";
   }
   // 3.53.1 : entraînement venu de Santé sans courbe : on la lit (ou on propose l'autorisation)
