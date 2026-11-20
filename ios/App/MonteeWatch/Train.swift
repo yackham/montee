@@ -337,6 +337,20 @@ final class TrainVM: ObservableObject {
         if !quiet, let w = d.w, w >= 0, df.g != nil, !(df.solo == true && w == 0), var l = live { l.gp = i; live = l }
         save()
     }
+    /// Les points des défis à deux : victoire 2, défaite 1, égalité 1 chacun
+    func duelPoints() -> (me: Int, him: Int)? {
+        guard let l = live, let p = l.plan else { return nil }
+        var me = 0
+        var him = 0
+        var n = 0
+        for d in l.duels ?? [] {
+            guard let w = d.w, w > -2, d.k >= 0, d.k < p.steps.count else { continue }
+            if p.steps[d.k].df?.solo == true { continue }
+            n += 1
+            if w == 0 { me += 2; him += 1 } else if w == 1 { me += 1; him += 2 } else { me += 1; him += 1 }
+        }
+        return n > 0 ? (me, him) : nil
+    }
     func finalizeAll() {
         guard let st = step(), let p = live?.plan else { return }
         for i in 0...min(st.i, p.steps.count - 1) { finalize(i, quiet: true) }
@@ -380,7 +394,9 @@ final class TrainVM: ObservableObject {
         }
         let n = l.mtN ?? 0
         let df = p.steps[i].df
-        l.mtGage = df?.gl.flatMap { $0.isEmpty ? nil : $0[n % $0.count] } ?? df?.g
+        var gage: String? = df?.g
+        if let gl = df?.gl, !gl.isEmpty { gage = gl[n % gl.count] }
+        l.mtGage = gage
         l.mt = courts; l.mtPts = pts; l.mtN = n + 1; l.mtLosers = losers; l.mtGd = false
         l.mtPick = Array(repeating: [], count: courts.count)
         live = l; save(); buzz(.success)
@@ -838,10 +854,8 @@ struct TrainEndView: View {
                 }
                 // 3.61 : les défis (à deux : victoire 2, défaite 1) et le classement de la montante
                 if let p = l.plan {
-                    let ds = (l.duels ?? []).filter { ($0.w ?? -2) > -2 && p.steps.indices.contains($0.k) && p.steps[$0.k].df?.solo != true }
-                    if !ds.isEmpty {
-                        let me = ds.reduce(0) { $0 + ($1.w == 0 ? 2 : 1) }, him = ds.reduce(0) { $0 + ($1.w == 1 ? 2 : 1) }
-                        StatTile(k: "Défis · toi – " + (p.mate ?? "lui"), v: "\(me) – \(him) pts", color: me >= him ? .gazon : .terre)
+                    if let dp = vm.duelPoints() {
+                        StatTile(k: "Défis · toi – " + (p.mate ?? "lui"), v: "\(dp.me) – \(dp.him) pts", color: dp.me >= dp.him ? Color.gazon : Color.terre)
                     }
                     if let pts = l.mtPts, (l.mtN ?? 0) > 0 {
                         let rk = pts.sorted { $0.value > $1.value }
@@ -921,6 +935,12 @@ struct SeanceStepView: View {
         }
     }
 
+    func duelLine(_ w: Int, _ d: SDuel) -> String {
+        if w == 0 { return "Défi gagné " + String(d.a) + "–" + String(d.b) }
+        if w == 1 { return "Défi perdu " + String(d.a) + "–" + String(d.b) }
+        return "Défi : égalité"
+    }
+
     @ViewBuilder func classic(_ p: SPlan, _ i: Int, _ left: Int) -> some View {
         let s = p.steps[i]
         let col = Color(hexStr: s.col) ?? .balle
@@ -935,7 +955,7 @@ struct SeanceStepView: View {
                 if df.solo == true {
                     Text("Défi : \(vm.count(at: i))/\(df.to)").font(.system(size: 11, weight: .heavy)).foregroundColor(.balle)
                 } else if let d = vm.duel(i), let w = d.w {
-                    Text(w == 0 ? "Défi gagné \(d.a)–\(d.b)" : w == 1 ? "Défi perdu \(d.a)–\(d.b)" : "Défi : égalité").font(.system(size: 11, weight: .heavy)).foregroundColor(.balle)
+                    Text(duelLine(w, d)).font(.system(size: 11, weight: .heavy)).foregroundColor(.balle)
                 } else {
                     Text("Défi : les \(Int(df.m)) dernières min").font(.system(size: 11, weight: .heavy)).foregroundColor(.balle)
                 }
@@ -1026,19 +1046,37 @@ struct GageCard: View {
     let p: SPlan
     let i: Int
     let d: SDuel
+    var df: SDefi? { p.steps[i].df }
+    var mate: String { p.mate ?? "Ton partenaire" }
+    var solo: Bool { df?.solo == true }
+    var w: Int { d.w ?? -2 }
+    var owes: Bool {
+        guard df?.g != nil else { return false }
+        if solo { return w == 1 }
+        return w == 0 || w == 1
+    }
+    var title: String {
+        if solo { return w == 0 ? "Défi réussi" : "Défi raté" }
+        if w == -1 { return "Égalité" }
+        if w == 0 { return "Tu gagnes" }
+        return mate + " gagne"
+    }
+    var tone: Color {
+        if w == 0 { return Color.gazon }
+        if w == -1 { return Color.secondary }
+        return Color.terre
+    }
+    var score: String {
+        if solo { return String(d.a) + " / " + String(df?.to ?? 0) }
+        return String(max(d.a, d.b)) + " – " + String(min(d.a, d.b))
+    }
     var body: some View {
-        let df = p.steps[i].df
-        let mate = p.mate ?? "Ton partenaire"
-        let solo = df?.solo == true
-        let w = d.w ?? -2
-        let owes = df?.g != nil && ((solo && w == 1) || (!solo && (w == 0 || w == 1)))
         ScrollView {
             VStack(alignment: .leading, spacing: 4) {
-                Text(solo ? (w == 0 ? "Défi réussi" : "Défi raté") : w == -1 ? "Égalité" : w == 0 ? "Tu gagnes" : mate + " gagne")
-                    .font(.system(size: 12, weight: .heavy)).foregroundColor(w == 0 ? .gazon : w == -1 ? .secondary : .terre).lineLimit(1).minimumScaleFactor(0.7)
-                Text(solo ? "\(d.a) / \(df?.to ?? 0)" : "\(max(d.a, d.b)) – \(min(d.a, d.b))").font(.system(size: 30, weight: .heavy)).monospacedDigit()
+                Text(title).font(.system(size: 12, weight: .heavy)).foregroundColor(tone).lineLimit(1).minimumScaleFactor(0.7)
+                Text(score).font(.system(size: 30, weight: .heavy)).monospacedDigit()
                 if owes, let g = df?.g {
-                    GageBox(who: !solo && w == 0 ? mate : "toi", t: g, s: df?.gs)
+                    GageBox(who: (!solo && w == 0) ? mate : "toi", t: g, s: df?.gs)
                     Button("Gage fait") { vm.gageDone(i) }.buttonStyle(Wide(bg: .gazon, fg: .encre))
                 } else {
                     Button("Continuer") { vm.gageDone(i) }.buttonStyle(Wide())
@@ -1170,8 +1208,7 @@ struct TrainChoiceView: View {
                 GeometryReader { g in
                     HStack(spacing: 2) {
                         ForEach(Array(plan.steps.enumerated()), id: \.offset) { _, s in
-                            Capsule().fill(Color(hexStr: s.col) ?? .balle)
-                                .frame(width: max(2, (g.size.width - CGFloat(plan.steps.count - 1) * 2) * CGFloat(s.min) / CGFloat(max(1, plan.minutes))))
+                            Capsule().fill(Color(hexStr: s.col) ?? Color.balle).frame(width: barWidth(g.size.width, s))
                         }
                     }
                 }.frame(height: 4)
@@ -1183,15 +1220,35 @@ struct TrainChoiceView: View {
     }
 }
 
-func fmtMin(_ m: Int) -> String { m < 60 ? "\(m) min" : m % 60 == 0 ? "\(m / 60) h" : "\(m / 60) h \(String(format: "%02d", m % 60))" }
+extension TrainChoiceView {
+    func barWidth(_ total: CGFloat, _ s: SStep) -> CGFloat {
+        let n = CGFloat(plan.steps.count - 1)
+        let free: CGFloat = total - n * 2
+        let share: CGFloat = CGFloat(s.min) / CGFloat(max(1, plan.minutes))
+        return max(2, free * share)
+    }
+}
+
+func fmtMin(_ m: Int) -> String {
+    if m < 60 { return "\(m) min" }
+    if m % 60 == 0 { return "\(m / 60) h" }
+    return "\(m / 60) h " + String(format: "%02d", m % 60)
+}
 
 /// 3.61 : l'aperçu : les étapes, avec qui, les défis ; puis on commence
 struct SeancePreview: View {
     let plan: SPlan
     let pick: (String) -> Void
+    var nd: Int { plan.steps.filter { $0.df != nil }.count }
+    var sub: String {
+        let gages = plan.steps.contains { $0.df?.g != nil } ? ", gages" : ""
+        if plan.mode == "grp" { return "En groupe · montante" + gages }
+        if plan.mode == "solo" { return "Seul · défis contre ton record" }
+        let who = plan.mate ?? "ton partenaire"
+        let nb = nd > 1 ? "\(nd) défis" : "\(nd) défi"
+        return "Avec " + who + " · " + nb + gages
+    }
     var body: some View {
-        let nd = plan.steps.filter { $0.df != nil }.count
-        let gages = plan.steps.contains { $0.df?.g != nil }
         ScrollView {
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(Array(plan.steps.enumerated()), id: \.offset) { _, s in
@@ -1203,7 +1260,7 @@ struct SeancePreview: View {
                     }
                 }
                 if nd > 0 {
-                    Text(plan.mode == "grp" ? "En groupe · montante" + (gages ? ", gages" : "") : plan.mode == "solo" ? "Seul · défis contre ton record" : "Avec " + (plan.mate ?? "ton partenaire") + " · \(nd) défi" + (nd > 1 ? "s" : "") + (gages ? ", gages" : ""))
+                    Text(sub)
                         .font(.system(size: 11, weight: .semibold)).foregroundColor(.secondary).padding(.top, 2).fixedSize(horizontal: false, vertical: true)
                 }
                 Button("Commencer") { pick("seance") }.buttonStyle(PrimaryStyle()).padding(.top, 4)
