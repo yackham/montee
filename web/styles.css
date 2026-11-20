@@ -5298,3 +5298,41 @@ button.h3h-r:active { opacity: .7; }
 .rc-info svg { flex: none; width: 16px; height: 16px; margin-top: 1px; color: var(--ink); }
 .rc-info b { color: var(--ink); font-size: inherit; font-weight: 700; }
 .lg-card .ls-foot { flex-wrap: wrap; justify-content: flex-end; }
+/* 3.59 (Yann, maquettes B1-B3 v2) : les badges, médailles en couleur par famille (mois gazon, saison terre battue, records dur) */
+.bd-card { display: flex; flex-direction: column; gap: 8px; color: var(--ink); text-decoration: none; }
+.bd-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.bd-h .eyebrow { white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.bd-h .eyebrow i { width: 8px; height: 8px; border-radius: 50%; }
+.bd-card .m2-t { font-size: 16px; }
+.bd-strip { display: flex; gap: 10px; overflow: hidden; margin: 0 -2px; padding-top: 8px; }
+.bd-strip .bd { width: 72px; flex: none; }
+.bd-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 8px; margin-top: 4px; padding-top: 6px; }
+.bd { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; position: relative; background: none; border: 0; padding: 0; font: inherit; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.bd-m { width: 62px; height: 62px; display: flex; }
+.bd b { font-size: 11.5px; line-height: 1.2; font-weight: 700; }
+.bd small { font-size: 10.5px; color: var(--muted); line-height: 1.2; margin-top: -3px; }
+.bd-x { position: absolute; top: -6px; right: 0; font-size: 10.5px; font-weight: 900; background: var(--card); box-shadow: inset 0 0 0 1.3px currentColor; border-radius: 99px; padding: 1px 6px; line-height: 1.35; }
+.bd-x-mois { color: #2E8A57; } .bd-x-saison { color: #B85A2E; } .bd-x-rec { color: #2F5BB7; }
+:root[data-theme="nuit"] .bd-x-mois { color: #6FC28F; } :root[data-theme="nuit"] .bd-x-saison { color: #E89A70; } :root[data-theme="nuit"] .bd-x-rec { color: #8FB2FF; }
+.bd-intro { margin-top: -8px; }
+.bd-sec { gap: 6px; }
+.bd-big { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0 0 12px; }
+.bd-big .bd-m { width: 96px; height: 96px; }
+.bd-big b { font-size: 20px; }
+.bd-x2 { font-size: 13px; font-weight: 800; }
+.bd-hist { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+.bd-hist .grow { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bd-hist .grow b { font-size: 15px; }
+.bd-hist em { font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); width: 62px; flex: none; }
+.bd-hist svg { width: 16px; height: 16px; flex: none; color: var(--muted); }
+.bd-how { margin-top: 10px; }
+@media (prefers-reduced-motion: no-preference) {
+  .bd .bd-md { animation: bdPop .45s cubic-bezier(.3,1.4,.5,1) both; animation-delay: .15s; }
+  .bd .bd-pr { animation: bdRing 1s cubic-bezier(.22,.8,.3,1) .2s both; }
+}
+@keyframes bdPop { from { transform: scale(.6); opacity: 0; } }
+@keyframes bdRing { from { stroke-dashoffset: 191.6; } }
+/* billet « badge » dans Ce qui arrive (piste B) */
+.ft { --ft-bd: #A77C12; }
+:root[data-theme="nuit"] .ft { --ft-bd: #E9C46A; }
+.ft-bd .ft-m em, :root[data-theme="nuit"] .ft-bd .ft-m em { color: var(--ft-bd); }
