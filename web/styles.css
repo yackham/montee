@@ -5577,3 +5577,7 @@ button.h3h-r:active { opacity: .7; }
 .gp-f .btn { flex: 1; }
 .h2s-l .row .t .rk-tag { font-size: 14px; }
 .h2s-k { color: var(--muted); font-weight: 600; }
+/* Feuille face-à-face : plus d'encadré autour des matchs, des lignes séparées par un trait fin (comme la course) */
+.sh-body .list.h2s-l { background: none; border-radius: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.sh-body .h2s-l > .row, :root[data-theme="nuit"] .sheet .h2s-l > .row { padding: 12px 0; background: none; border-radius: 0; }
+.sh-body .h2s-l > .row + .row { border-top: 1px solid var(--line); }
