@@ -5850,3 +5850,20 @@ button.h3h-r.fx2 { display: flex; flex-direction: column; align-items: stretch; 
 .tsx-c.off .tsx-r { opacity: .4; } .tsx-c.off small { opacity: .6; }
 .tsx-c.fut .tsx-r { box-shadow: none; outline: 1.5px dashed color-mix(in srgb, var(--muted) 45%, transparent); outline-offset: -1.5px; } .tsx-c.fut small { opacity: .55; }
 .tsx-me { min-height: 11px; }
+
+/* 3.67 (Yann) : pastille « dernière synchro » des pages de données, détourée (pas d'aplat), touche = relire */
+.sy { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px 0 8px; border-radius: 13px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 600; line-height: 1; letter-spacing: 0; text-transform: none; white-space: nowrap; vertical-align: middle; cursor: pointer; flex: none; }
+.sy svg { width: 13px; height: 13px; flex: none; }
+.sy b { font-weight: 700; color: var(--ink); }
+.sy.old, .sy.old b { color: color-mix(in srgb, var(--balle) 60%, var(--ink)); }
+.sy.old { border-color: color-mix(in srgb, var(--balle) 45%, transparent); }
+.sy.err, .sy.err b { color: var(--terre); }
+.sy.err { border-color: color-mix(in srgb, var(--terre) 50%, transparent); }
+.sy.run svg { animation: syr 1s linear infinite; }
+@keyframes syr { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sy.run svg { animation: none; } }
+.sy-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.topbar .title .small .sy { margin-left: 8px; }
+.topbar > .sy { margin-right: 0; }
+.topbar > .title { min-width: 0; }
+.topbar > .title > .small:only-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* 3.67 : « Face-à-face » sur une ligne à côté de la pastille */

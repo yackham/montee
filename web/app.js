@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.66.1",
+    VERSION: "3.67.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1153,6 +1153,47 @@
   // Avant : une fiche gardée d'une ancienne version (sans saisons passées ni meilleur classement), ou une lecture ratée,
   // n'était relue qu'au bout de 2 h (ou jamais si la fiche existait) ; un adversaire sans « hit » n'était jamais lu.
   var SC_V = 2, SC_TTL = 6 * 3600e3;
+  // 3.67 (Yann, maquette validée) : la pastille « dernière synchro » des pages de données. Elle dit de quand datent les données
+  // (heure aujourd'hui, « hier 18 h », « il y a 3 j »), tourne pendant une lecture, passe en jaune balle au-delà de 24 h et en terre
+  // si la lecture a échoué. La toucher relit tout de suite. Les pages trop vieilles se relisent aussi toutes seules à l'ouverture.
+  var SY_IC = svg('<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v4.5h-4.5"/>', 2.4);
+  function syWhen(ms) {
+    var d = new Date(ms), t0 = today(), dd = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(t0.getFullYear(), t0.getMonth(), t0.getDate())) / 864e5);
+    if (dd === 0) return d.getHours() + " h " + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes();
+    return dd === -1 ? "hier " + d.getHours() + " h" : "il y a " + Math.max(2, -dd) + " j";
+  }
+  function syMin(L) { var m = null; L.forEach(function (v) { v = v || 0; if (m == null || v < m) m = v; }); return m || 0; }
+  function syPill(k, v) {
+    if (!NATIVE) return "";
+    var at = 0, run = false, err = false, lab = "À jour", what = "tes matchs Ten'Up";
+    if (k === "me") { if (!S.tenup.linked) return ""; at = S.tenup.lastAuto || (S.tenup.lastImport ? E.parseDate(S.tenup.lastImport).getTime() : 0); run = !!UI.loading; err = (S.tenup.fails || 0) > 0; }
+    else if (k === "pool") {
+      var t = tourOf(v), L = t ? (t.pool || []).filter(function (x) { return !x.res && (x.tid || x.hit); }) : []; if (!t || (t.pool || []).length < 2 || !L.length) return "";
+      at = syMin(L.map(function (x) { var sc = x.tid && (S.scout || {})[String(x.tid)]; return sc && sc.got ? sc.got : x.psAt; })); run = !!(UI.psBusy && UI.psBusy[t.id]); lab = "Poule"; what = "les fiches de tes adversaires de poule";
+    } else if (k === "scout") { var sc = (S.scout || {})[v]; if (!sc || !sc.hit) return ""; at = sc.got || sc.ts || 0; run = UI.scRef === v; err = UI.scErr === v; lab = ""; /* 3.67 : l'heure seule, « Face-à-face » tient à côté */ what = "sa fiche Ten'Up"; }
+    else if (k === "fol") { var ids = Object.keys(S.follow || {}); if (!ids.length) return ""; at = syMin(ids.map(function (id) { return S.follow[id].at; })); run = !!UI.folBusy; lab = "Suivis"; what = "les fiches des joueurs suivis"; }
+    else if (k === "team") { if (!S.teams || !S.teams.at) return ""; at = S.teams.at; run = !!UI.tmBusy; err = !!UI.tmErr; lab = "Équipes"; what = "tes équipes"; }
+    var old = !at || Date.now() - at > 864e5;
+    var txt = run ? "Lecture…" : err ? "Échec · <b>réessayer</b>" : !at ? "Pas encore lu · <b>lire</b>" : (old ? "Synchro · " : lab ? lab + " · " : "") + "<b>" + syWhen(at) + "</b>";
+    return '<button class="sy' + (run ? " run" : err ? " err" : old ? " old" : "") + '" data-a="syTap" data-k="' + k + '" data-v="' + esc(v || "") + '" aria-label="' + esc("Actualiser " + what + (at ? " (lu " + (old ? syWhen(at) : "à " + syWhen(at)) + ")" : "")) + '">' + SY_IC + txt + "</button>";
+  }
+  // Relit sa fiche sans la vider (elle reste affichée pendant la lecture)
+  function scoutRefresh(id, manual) {
+    var sc = (S.scout || {})[id]; if (!NATIVE || !sc || !sc.hit || UI.scRef) return;
+    UI.scRef = id; if (UI.scErr === id) UI.scErr = null; if (manual) render();
+    tenupQuery("player", sc.hit).then(function (r) {
+      UI.scRef = null;
+      if (!r || r.error) { UI.scErr = id; if (manual) toast(tuErrMsg(r)); }
+      else { try { scoutStore(id, sc.hit, r, true); if ((S.follow || {})[id]) folUpdate(id, false); } catch (e) {} save(); }
+      if (route() === "joueur/" + id) render();
+    });
+  }
+  // Accueil, Activité : tes matchs relus à l'ouverture s'ils ont plus de 2 h (comme au réveil de l'appli)
+  function syAutoMe() {
+    if (!NATIVE || !S.tenup.linked || S.tenup.expired || UI.loading || offline()) return;
+    var at = S.tenup.lastAuto || 0; if (Date.now() - at < 2 * 3600e3 || (UI.syMeTry && Date.now() - UI.syMeTry < 120e3)) return;
+    UI.syMeTry = Date.now(); setTimeout(function () { nativeRefresh(true).then(function () { var r0 = route().split("/")[0]; if (r0 === "" || r0 === "palmares") render(); }); }, 0);
+  }
   function poolHit(x) {
     if (x.hit && x.hit.id) return x.hit; if (!x.tid) return null;
     var nm = String(x.name || "").trim().split(/\s+/); return { id: x.tid, prenom: nm.slice(0, -1).join(" "), nom: nm.slice(-1)[0] || "", rank: x.rank || "" };
@@ -1561,7 +1602,7 @@
     tenupQuery("equipes", { club: (t && t.club && t.club.code) || S.tenup.clubCode || "", pid: (t && t.pid) || "", nomClub: (t && t.club && t.club.nom) || "", lic: S.profile.licence || "", nm: S.profile.name || "" }).then(function (r) {
       UI.tmBusy = false;
       if (r && !r.error && r.champs) { r.qv = 6; S.teams = r; if (r.club && r.club.code && !S.tenup.clubCode) S.tenup.clubCode = r.club.code; UI.tmErr = null; save(); } else UI.tmErr = (r && r.error) || "Ten'Up n'a pas répondu";
-      var rt = route(); if (rt === "" || rt.indexOf("tournoi") === 0 || rt.indexOf("equipe") === 0) render();
+      var rt = route(); if (rt === "" || rt.indexOf("tournoi") === 0 || rt.indexOf("equipe") === 0 || rt.indexOf("rencontre") === 0) render();
     });
   }
   function teamRow(c) {
@@ -1687,7 +1728,7 @@
   V.equipe = function (id) {
     var c = ((S.teams && S.teams.champs) || []).filter(function (x) { return x.id === String(id); })[0];
     teamsRefresh();
-    var s = '<div class="screen tm-scr">' + topbar("", backLab("Mes épreuves"));
+    var s = '<div class="screen tm-scr">' + topbar("", backLab("Mes épreuves"), syPill("team")); setTimeout(function () { try { teamsRefresh(); } catch (e) {} }, 0); // 3.67 : relue si plus de 6 h
     if (!c || !c.teams) return s + '<div class="card"><b>Équipe introuvable</b><span class="small">Montée relit tes championnats sur Ten\'Up : reviens dans un instant.</span></div></div>';
     var me = c.me.mine, mt = tmOf(c, me) || {}, td = E.iso(today()), cal = c.cal || [], jDone = cal.filter(function (x) { return x.d <= td; }).length;
     var live = (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && tmLive(r) && (r.c1 || r.c2); })[0];
@@ -1825,7 +1866,7 @@
   }
   V.rencontre = function (cid, rid) {
     var c = ((S.teams && S.teams.champs) || []).filter(function (x) { return x.id === String(cid); })[0], r = c && (c.renc || []).filter(function (x) { return String(x.id) === String(rid); })[0];
-    var s = '<div class="screen tm-scr">' + topbar("", backLab(c ? tmNm((tmOf(c, c.me.mine) || {}).nom || "Ton équipe") : "Ton équipe"));
+    var s = '<div class="screen tm-scr">' + topbar("", backLab(c ? tmNm((tmOf(c, c.me.mine) || {}).nom || "Ton équipe") : "Ton équipe"), syPill("team")); setTimeout(function () { try { teamsRefresh(); } catch (e) {} }, 0);
     if (!c || !r) return s + '<div class="card"><b>Rencontre introuvable</b></div></div>';
     var me = c.me.mine, mySide = r.b === me ? 2 : 1, lv = tmLive(r), sc = tmScore(r), jn = (c.cal || []).filter(function (x) { return x.d === r.d; })[0];
     var short = function (n) { return tmNm(n).replace(/\s+\d+$/, function (x) { return x; }); };
@@ -1900,7 +1941,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.44.2 : résultats déclarés avant cette version : on les ajoute une fois au palmarès
     var mig = false; (t.rounds || []).forEach(function (r) { if (r.res && !r.mx) { trMatchSync(t, r, false); mig = true; } }); (t.pool || []).forEach(function (r) { if (r.res && !r.mx) { trMatchSync(t, r, true); mig = true; } }); if (mig) save();
     var rs = t.rounds || [], over = tourOver(t), poule = t.fmt === "poule";
-    var s = '<div class="screen">' + topbar("", backLab("Mes épreuves"), over || UI.trRen === t.id ? "" : '<button class="linkbtn" data-a="trEdit" style="padding:0 6px">Modifier</button>');
+    var s = '<div class="screen">' + topbar("", backLab("Mes épreuves"), syPill("pool", t.id) + (over || UI.trRen === t.id ? "" : '<button class="linkbtn" data-a="trEdit" style="padding:0 6px">Modifier</button>'));
     if (over && rs.length) { var lr = rs.length - 1; while (lr > 0 && !rs[lr].res) lr--; s += recapHtml(t) + (rs[lr] && rs[lr].res ? '<button class="linkbtn tq-undo" data-a="trUndo" data-i="' + lr + '">' + (rs[lr].res === "D" ? "J'ai mis « perdu » par erreur" : "Corriger le dernier résultat") + "</button>" : ""); }
     else {
       var ren = UI.trRen === t.id;
@@ -2529,6 +2570,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return pmoCard(o);
   }
   V.home = function () {
+    syAutoMe(); // 3.67
     var c = ctx(), p = c.proj, s = '<div class="screen has-tabs">';
     var d = today();
     var ML = S.mmLive;
@@ -2540,7 +2582,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.58 (Yann) : le lendemain d'un match, le salut en parle
     var hier = null, gt = null; if (!jm) try { var yd = E.iso(new Date(today().getTime() - 864e5)); hier = knownMatches(false).filter(function (m) { return m.date === yd && !m.wo && (m.result === "V" || m.result === "D"); })[0]; } catch (e) {}
     if (hier) { gt = hier.result === "V" ? "Bien joué !" : "On repart"; dLine = (hier.result === "V" ? "Victoire hier" : "Défaite hier") + (hier.score ? " · " + hier.score : ""); }
-    s += '<div class="topbar"><div class="title">' + (S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small">' + esc(dLine) + "</span>") + '<span style="font-size:28px;font-weight:600;letter-spacing:-.03em">' + (jm ? '<span style="white-space:nowrap;font-size:26px">Jour de match</span>' : gt ? esc(gt) : S.profile.name ? "Salut " + esc(S.profile.name) : "Salut") + "</span></div>" +
+    var dl0 = (S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small">' + esc(dLine) + "</span>"), sy0 = syPill("me"); // 3.67 : la pastille « dernière synchro »
+    s += '<div class="topbar"><div class="title">' + (sy0 ? '<span class="sy-row">' + dl0 + sy0 + "</span>" : dl0) + '<span style="font-size:28px;font-weight:600;letter-spacing:-.03em">' + (jm ? '<span style="white-space:nowrap;font-size:26px">Jour de match</span>' : gt ? esc(gt) : S.profile.name ? "Salut " + esc(S.profile.name) : "Salut") + "</span></div>" +
       '<span class="top-actions"><button class="mechip' + (S.ahead ? " up" : "") + '" data-a="goProfil" aria-label="Mon profil, classement ' + esc(effRank() || "?") + '">' + (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })() + '<span class="rk">' + esc(effRank() || "?") + (S.ahead && S.ahead.release ? '<small class="rk-d">' + aheadDay() + "</small>" : "") + "</span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + '</button><button class="iconbtn gearbtn" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></span></div>";
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
@@ -3599,8 +3642,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return head + (rows || '<span class="small" style="padding:6px 0 10px">Personne de ce nom dans tes adversaires.</span>') + cta;
   }
   V.faf = function () {
+    setTimeout(function () { try { folRefresh(); } catch (e) {} }, 0); // 3.67 : suivis relus à l'ouverture (plus de 4 h)
     var q = UI.faf || (UI.faf = { q: "" }), busy = UI.fafBusy, done = UI.fafHits && !busy && q.q === q.searched;
-    var s = '<div class="screen has-tabs"><div class="topbar"><div class="title"><span class="small">Tes adversaires et ceux que tu suis</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">Joueurs</span></div></div>';
+    var s = '<div class="screen has-tabs"><div class="topbar"><div class="title"><span class="small">Tes adversaires et ceux que tu suis' + syPill("fol") + '</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">Joueurs</span></div></div>';
     s += '<div class="sbar' + (done ? " done" : "") + '">' + svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 2.2) +
       '<input id="ff-q" type="search" data-ff="q" value="' + esc(q.q || "") + '" placeholder="Prénom en entier et nom" autocomplete="off" autocapitalize="words" enterkeyhint="search">' +
       (!done ? '<button class="sb-clr" data-a="fafClear" aria-label="Effacer"' + (q.q ? "" : " hidden") + ">" + I.cross + "</button>" : "") +
@@ -6168,7 +6212,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     tryMark("adv");
     var p = (S.scout || {})[id], folOn = (S.follow || {})[id], isMe = S.tenup && S.tenup.id && String(S.tenup.id) === String(id);
     var star = p && !isMe ? '<button class="fol-top' + (folOn ? " on" : "") + '" data-a="follow" data-id="' + esc(id) + '" aria-label="' + (folOn ? "Ne plus suivre" : "Suivre ce joueur") + '">' + (folOn ? BELL_ON + "<span>Suivi</span>" : BELL + "<span>Suivre</span>") + "</button>" : "";
-    var s = '<div class="screen">' + topbar("", "Face-à-face", star);
+    var s = '<div class="screen">' + topbar("", "Face-à-face", (p && !isMe ? syPill("scout", id) : "") + star);
+    // 3.67 : sa fiche relue à l'ouverture si elle a plus de 6 h (avant : gardée 3 jours) ; affichée tout de suite, mise à jour après
+    if (NATIVE && p && p.hit && !isMe && !scoutFresh(id) && !UI.scRef) { UI.scAuto = UI.scAuto || {}; if (!UI.scAuto[id] || Date.now() - UI.scAuto[id] > 90e3) { UI.scAuto[id] = Date.now(); setTimeout(function () { scoutRefresh(id); }, 0); } }
     if (!p) {
       // 3.40 : ouverte depuis ton historique (lien direct) : on lit sa fiche une fois
       UI.scoutTried = UI.scoutTried || {};
@@ -6772,11 +6818,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return news;
   }
   // Après une synchro Ten'Up : on relit en silence les joueurs suivis (au plus une fois toutes les 12 h chacun)
-  function folRefresh() {
+  function folRefresh(force) {
     if (!NATIVE) return;
-    if (UI.folBusy) return; UI.folBusy = true;
-    var ids = Object.keys(S.follow || {}).filter(function (id) { return Date.now() - (S.follow[id].at || 0) > 4 * 3600e3; })
+    if (UI.folBusy) return;
+    var ids = Object.keys(S.follow || {}).filter(function (id) { return force || Date.now() - (S.follow[id].at || 0) > 4 * 3600e3; })
       .sort(function (a, b) { return (S.follow[a].at || 0) - (S.follow[b].at || 0); }).slice(0, 12), chain = Promise.resolve(), any = false;
+    if (!ids.length) return; UI.folBusy = true; if (route() === "faf") render(); // 3.67 : la pastille tourne
     ids.forEach(function (id) {
       chain = chain.then(function () {
         var f = S.follow[id]; if (!f || !f.hit) return;
@@ -6787,7 +6834,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         });
       });
     });
-    chain.then(function () { UI.folBusy = false; save(); if (any) { syncWidgets(); watchSync(); var r0 = route().split("/")[0]; if (r0 === "faf" || r0 === "") render(); } }, function () { UI.folBusy = false; });
+    chain.then(function () { UI.folBusy = false; save(); if (any) { syncWidgets(); watchSync(); } var r0 = route().split("/")[0]; if (r0 === "faf" || (any && r0 === "")) render(); }, function () { UI.folBusy = false; if (route() === "faf") render(); });
   }
   // 3.47.3 : enregistre la fiche Ten'Up d'un joueur (ouverte, ou lue en arrière-plan pour une poule / un tableau)
   function scoutStore(id, hit, r, keepTs) {
@@ -8212,6 +8259,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return '<div class="at-row' + (t2 ? "" : " one") + '">' + t1 + t2 + "</div>";
   }
   V.palmares = function () {
+    syAutoMe(); // 3.67
     var c = ctx(), pts = countedMap(c.proj.next), tab = UI.palTab;
     var from = E.iso(new Date(today().getFullYear() - 1, today().getMonth(), today().getDate()));
     var all = sortedMatches();
@@ -8226,7 +8274,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.29 : onglet « Activité » — la bande des jours, puis Matchs / Entraînements séparés
     var act = UI.actTab === "t" ? "t" : "m";
     var nT = (S.trainings || []).filter(function (t) { var a = new Date(today()); a.setDate(1); return t.date && t.date >= E.iso(a); }).length;
-    var s = '<div class="screen has-tabs"><div class="topbar"><div class="title"><span class="small">' + (act === "t" ? plural(nT, "séance", "séances") + " ce mois-ci" : plural(playedWin().filter(function (m) { return !m.dbl; }).length, "match", "matchs") + " sur 12 mois" + (c.proj.next && c.proj.next.label ? " · points au bilan " + esc(c.proj.next.label) : "")) + '</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">Activité</span></div>' +
+    var s = '<div class="screen has-tabs"><div class="topbar"><div class="title"><span class="small">' + (act === "t" ? plural(nT, "séance", "séances") + " ce mois-ci" : plural(playedWin().filter(function (m) { return !m.dbl; }).length, "match", "matchs") + (NATIVE && S.tenup.linked ? "" : " sur 12 mois") /* 3.67 : place pour la pastille */ + (c.proj.next && c.proj.next.label ? (NATIVE && S.tenup.linked ? " · bilan " : " · points au bilan ") + esc(c.proj.next.label) : "")) + syPill("me") + '</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">Activité</span></div>' +
       '<button class="iconbtn" data-a="actPlus" aria-label="Ajouter" style="background:var(--solid);color:var(--on-solid)">' + I.plus + "</button></div>";
     s += dayStripHtml();
     s += '<div class="seg act-seg" role="tablist"><button data-a="actTab" data-v="m" class="' + (act === "m" ? "on" : "") + '" aria-pressed="' + (act === "m") + '">Matchs</button><button data-a="actTab" data-v="t" class="' + (act === "t" ? "on" : "") + '" aria-pressed="' + (act === "t") + '">Entraînements</button></div>';
@@ -15684,6 +15732,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     resOpen: function () { var t = tourOf(route().split("/")[1]); if (!t || !t.resUrl) return; UI.resNudge = null; window.open(/^https?:/i.test(t.resUrl) ? t.resUrl : "https://" + t.resUrl, "_system"); render(); },
     resEdit: function () { UI.resEdit = true; render(); setTimeout(function () { var i = document.getElementById("rl-in"); if (i) i.focus(); }, 60); },
     resSave: function () { var t = tourOf(route().split("/")[1]), i = document.getElementById("rl-in"); if (!t || !i) return; var v = i.value.trim(); var m = v.match(/https?:\/\/\S+/i); t.resUrl = m ? m[0] : v ? "https://" + v.replace(/^\/+/, "") : ""; UI.resEdit = false; save(); toast(t.resUrl ? "Lien enregistré." : "Lien retiré."); render(); },
+    syTap: function (el) { // 3.67 : la pastille « dernière synchro » : on relit tout de suite
+      var k = el.dataset.k, v = el.dataset.v || ""; haptic("light");
+      if (k === "me") { nativeRefresh(false, true).then(function () { render(); }); render(); }
+      else if (k === "pool") { var t = tourOf(v); if (!t) return; t.poolAt = 0; UI.psTry = {}; poolSync(t); render(); }
+      else if (k === "scout") scoutRefresh(v, true);
+      else if (k === "fol") folRefresh(true);
+      else if (k === "team") { UI.tmErr = null; teamsRefresh(true); render(); }
+    },
     plOpen: function (el) {
       var id = String(el.dataset.v || ""); if (!id) return;
       var x = null; toursAll().forEach(function (t) { (t.pool || []).concat((t.rounds || []).map(function (r) { return r.opp || {}; }), [].concat.apply([], (t.rounds || []).map(function (r) { return r.alt || []; }))).forEach(function (y) { if (!x && y && String(y.tid) === id) x = y; }); });
