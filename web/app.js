@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.65.0",
+    VERSION: "3.66.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -616,7 +616,7 @@
   document.addEventListener("focusout", function () { setTimeout(function () { if (!kbField(document.activeElement)) document.body.classList.remove("kb"); }, 80); });
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
-    var r = route(); UI.sheet = null;
+    var r = route(); UI.sheet = null; UI.flAnim = true; // 3.66 : la fleur s'anime à chaque arrivée sur une page
     // 3.57.3 (testeur) : la feuille « Programmer le match » restait ouverte en quittant la poule et se rouvrait au retour
     UI.plSched = null; UI.plHost = null;
     if (!/^tournoi\//.test(r)) { UI.trR = null; UI.trHits = null; }
@@ -1556,6 +1556,7 @@
     if (known.length && !known.some(function (m) { return tmClubFits(m.oclub, vs); })) return { s: [], d: [] };
     return { s: s0.filter(function (m) { return !m.oclub || tmClubFits(m.oclub, vs); }), d: d0 };
   }
+  var CHEV_DN = '<svg class="tsx-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
   function teamSeasonHtml() {
     var td = E.iso(today()), y0 = today().getMonth() >= 8 ? today().getFullYear() : today().getFullYear() - 1, from = y0 + "-09-01";
     // les rencontres de tes équipes cette saison, jouées
@@ -1567,15 +1568,29 @@
     var vS = mS.filter(function (m) { return m.result === "V"; }).length, vD = mD.filter(function (m) { return m.result === "V"; }).length, V0 = vS + vD, N0 = mS.length + mD.length;
     var playedN = R.filter(function (x) { return x.ms.s.length + x.ms.d.length > 0; }).length;
     var teamWon = R.reduce(function (a, x) { var r = x.r; return a + ((x.my === 1 ? r.s1 : r.s2) || 0); }, 0);
-    var col = function (x) { var r = x.r, a = x.my === 1 ? r.s1 : r.s2, b = x.my === 1 ? r.s2 : r.s1, res = a > b ? "V" : a < b ? "D" : "N", d = E.parseDate(r.d);
+    // 3.66 (Yann, maquette 2) : une frise par championnat, sur toutes ses dates (5 au plus) : avec toi en couleur, sans toi en pâle, à venir en pointillés
+    var dLab = function (r) { var d = E.parseDate(r.d); return d.getDate() + " " + MOIS[d.getMonth()].replace(/\.$/, ""); };
+    var col = function (x) { var r = x.r, a = x.my === 1 ? r.s1 : r.s2, b = x.my === 1 ? r.s2 : r.s1, res = a > b ? "V" : a < b ? "D" : "N";
       var sq = x.ms.s.map(function (m) { return '<i class="' + (m.result === "V" ? "" : "d") + '"></i>'; }).concat(x.ms.d.map(function (m) { return '<i class="' + (m.result === "V" ? "" : "d") + ' db"></i>'; }));
-      return '<a class="tsx-c" href="#/rencontre/' + esc(x.c.id) + "/" + esc(r.id) + '"><span class="tsx-r ' + res + '">' + a + "–" + b + '</span><span class="tsx-me">' + (sq.length ? sq.join("") : '<i class="x"></i>') + "</span><small>" + d.getDate() + " " + MOIS[d.getMonth()].replace(/\.$/, "") + "</small></a>"; };
+      return '<a class="tsx-c' + (sq.length ? "" : " off") + '" href="#/rencontre/' + esc(x.c.id) + "/" + esc(r.id) + '"><span class="tsx-r ' + res + '">' + a + "–" + b + '</span><span class="tsx-me">' + sq.join("") + "</span><small>" + dLab(r) + "</small></a>"; };
+    var fut = function (c, r) { return '<a class="tsx-c fut" href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"><span class="tsx-r"></span><span class="tsx-me"></span><small>' + dLab(r) + "</small></a>"; };
+    var CH = []; R.forEach(function (x) { var g = CH.filter(function (y) { return y.c === x.c; })[0]; if (!g) CH.push(g = { c: x.c, R: [] }); g.R.push(x); });
+    CH.sort(function (a, b) { return !!a.c.cloture !== !!b.c.cloture ? (a.c.cloture ? 1 : -1) : tmOrdOn(a.c, b.c); });
+    var chHtml = function (g) {
+      var c = g.c, me = c.me.mine, t = tmOf(c, me) || {}, n = (c.teams || []).length, w = g.R.filter(function (x) { return x.ms.s.length + x.ms.d.length > 0; }).length;
+      var up = c.cloture ? [] : (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.d > td && r.st !== "T"; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+      var cells = g.R.map(col).concat(up.map(function (r) { return fut(c, r); })).slice(0, 6);
+      return '<div class="tsx-ch"><div class="tsx-chh"><b>' + esc(champNm(c)) + "</b><span>" + w + " / " + g.R.length + " avec toi" + (t.cl ? ' · <span class="tsx-rk ' + tmRkC(t.cl, n) + '">' + t.cl + "<sup>" + (t.cl === 1 ? "er" : "e") + "</sup> sur " + n + "</span>" : "") + '</span></div><div class="tsx-tl">' + cells.join("") + "</div></div>";
+    };
+    var LGD = '<span class="tsx-lg">en couleur : avec toi · pâle : sans toi · pointillés : à venir · en bas : tes matchs (carré : simple, rond : double)</span>';
+    var open = CH.length < 2 || !!(S.prefs || {}).tsxOpen;
+    var detail = (CH.length > 1 ? '<button class="tsx-tg' + (open ? " on" : "") + '" data-a="tsxTg" aria-expanded="' + open + '"><span>' + (open ? "Masquer le détail" : "Détail par championnat") + "<em>" + CH.length + "</em></span>" + CHEV_DN + "</button>" : "") + (open ? CH.map(chHtml).join("") + LGD : "");
     var say = "";
     if (mS.length >= 2 && mD.length >= 2) { var rs = vS / mS.length, rd = vD / mD.length; say = "Tu gagnes <b>" + vS + " simple" + (vS > 1 ? "s" : "") + " sur " + mS.length + "</b>" + (rd < rs - 0.25 ? ", mais <b>" + (vD ? vD + " double" + (vD > 1 ? "s" : "") : "aucun double") + " sur " + mD.length + "</b> : c'est en double que l'équipe perd des points." : rd > rs + 0.25 ? " et <b>" + vD + " double" + (vD > 1 ? "s" : "") + " sur " + mD.length + "</b> : tes doubles portent l'équipe." : " et <b>" + vD + " double" + (vD > 1 ? "s" : "") + " sur " + mD.length + "</b>."); }
     else if (N0) say = "Tu as gagné <b>" + plural(V0, "match", "matchs") + " sur " + N0 + "</b> en équipe cette saison.";
     return '<div class="card tsx"><span class="eyebrow">Ta saison par équipes · ' + y0 + "-" + String(y0 + 1).slice(2) + '</span>' +
-      '<div class="tsx-big"><div><b>' + playedN + " / " + R.length + "</b><small>" + (playedN > 1 ? "rencontres jouées" : "rencontre jouée") + '</small></div><div><b><span class="v">' + V0 + ' V</span> · <span class="d">' + (N0 - V0) + ' D</span></b><small>tes matchs</small></div><div><b>' + V0 + " / " + teamWon + "</b><small>points de l'équipe</small></div></div>" +
-      '<div class="tsx-tl">' + R.slice(-6).map(col).join("") + '</div><span class="tsx-lg">en haut : la rencontre · en bas : tes matchs (carré : simple, rond : double)</span>' + (say ? '<span class="tsx-say">' + say + "</span>" : "") + "</div>";
+      '<div class="tsx-big"><div><b>' + playedN + " / " + R.length + "</b><small>" + (playedN > 1 ? "rencontres avec toi" : "rencontre avec toi") + '</small></div><div><b><span class="v">' + V0 + ' V</span> · <span class="d">' + (N0 - V0) + ' D</span></b><small>tes matchs</small></div><div><b>' + V0 + " / " + teamWon + "</b><small>points de l'équipe</small></div></div>" +
+      (say ? '<span class="tsx-say">' + say + "</span>" : "") + detail + "</div>";
   }
   function teamsTabHtml() {
     var L = myTeams(true), on = L.filter(function (c) { return !c.cloture; }).sort(tmOrdOn), off = L.filter(function (c) { return c.cloture; }).sort(function (a, b) { return a.last < b.last ? 1 : -1; });
@@ -9210,8 +9225,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     return { R: R, cur: cur, curL: curL, forts: forts, faibs: faibs, title: title, n: ms.length, measured: CP_KEYS.filter(function (k) { return R[k].st !== "lock"; }).length };
   }
+  // 3.66 (Yann, maquettes F3 + J2) : à l'arrivée sur le profil, la fleur s'ouvre en éventail puis le point fort pulse ;
+  // dans le détail, la jauge se remplit, les paliers s'allument au passage et le contour du pétale se referme. Une fois par arrivée sur la page.
   function compFlower(P, size, sel, blur, links, focus) {
-    var cx = size / 2, r1 = size * 0.46, r0 = size * 0.07, n = CP_KEYS.length, dk = cpDark(), s = '<svg class="cp-fl" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" aria-hidden="true"' + (blur ? ' style="filter:blur(5px);opacity:.75"' : "") + ">";
+    var an = (links || focus) && UI.flAnim !== false && !blur; if (links || focus) UI.flAnim = false;
+    var top = an && links && P.forts && P.forts[0];
+    var cx = size / 2, r1 = size * 0.46, r0 = size * 0.07, n = CP_KEYS.length, dk = cpDark(), s = '<svg class="cp-fl' + (an ? (focus ? " fl-j" : " fl-f") : "") + '" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" aria-hidden="true"' + (blur ? ' style="filter:blur(5px);opacity:.75"' : "") + ">";
     var f = function (x) { return x.toFixed(1); }, L = function (p, q, t) { return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]; };
     CP_KEYS.forEach(function (k, i) {
       var x = P.R[k], stt = x.st, col = cpCol(k), rr = focus || stt === "fort" || stt === "lock" ? r1 : stt === "norme" ? r1 * 0.86 : r1 * 0.74, gap = 0.035;
@@ -9223,11 +9242,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       d += " L" + f(D[0]) + "," + f(D[1]) + " Q" + f(v2[0]) + "," + f(v2[1]) + " " + f(E2[0]) + "," + f(E2[1]) + " L" + f(F2[0]) + "," + f(F2[1]) + " Q" + f(v0[0]) + "," + f(v0[1]) + " " + f(A[0]) + "," + f(A[1]) + "Z";
       var icc;
       if (links) s += '<a href="#/competiteur/' + k + '" class="cp-pt" aria-label="' + CP_LAB[k] + '">';
+      if (an) s += '<g class="pt' + (top === k ? " top" : "") + (focus && focus.k === k ? " on" : "") + '" style="--i:' + i + '">';
       if (focus && focus.k !== k) { s += '<path d="' + d + '" fill="var(--ink)" fill-opacity=".07"/>'; icc = "color-mix(in srgb, var(--ink) 30%, transparent)"; }
       else if (focus) {
         var rl = r0 + (r1 - r0) * focus.level, cid = "cpc" + k;
-        s += '<clipPath id="' + cid + '"><path d="' + d + '"/></clipPath><path d="' + d + '" fill="' + col + '" fill-opacity=".18" stroke="' + col + '" stroke-width="2.5"/>' +
-          '<g clip-path="url(#' + cid + ')"><circle cx="' + f(cx) + '" cy="' + f(cx) + '" r="' + f(rl) + '" fill="' + col + '"/>' + [0.4, 0.7].map(function (t) { return '<circle cx="' + f(cx) + '" cy="' + f(cx) + '" r="' + f(r0 + (r1 - r0) * t) + '" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.5" stroke-dasharray="3 4"/>'; }).join("") + "</g>";
+        s += '<clipPath id="' + cid + '"><path d="' + d + '"/></clipPath><path d="' + d + '" fill="' + col + '" fill-opacity=".18" stroke="' + col + '" stroke-width="2.5"' + (an ? ' stroke-opacity=".25"' : "") + "/>" +
+          '<g clip-path="url(#' + cid + ')"><circle' + (an ? ' class="gz" style="--s0:' + (r0 / rl).toFixed(3) + '"' : "") + ' cx="' + f(cx) + '" cy="' + f(cx) + '" r="' + f(rl) + '" fill="' + col + '"/>' + [0.4, 0.7].map(function (t) {
+            var rt = r0 + (r1 - r0) * t, tk = an && rt < rl ? ' class="tk" style="--d:' + (0.35 + 1.05 * Math.pow((rt - r0) / (rl - r0), 1.6)).toFixed(2) + 's"' : "";
+            return '<circle' + tk + ' cx="' + f(cx) + '" cy="' + f(cx) + '" r="' + f(rt) + '" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.5" stroke-dasharray="3 4"/>';
+          }).join("") + "</g>" + (an ? '<path class="edge" d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2.5" pathLength="1"/>' : "");
         icc = focus.level >= 0.62 ? cpOnFill(col) : col;
       }
       else if (stt === "fort") { s += '<path d="' + d + '" fill="' + col + '"/>'; icc = cpOnFill(col); }
@@ -9236,7 +9259,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       else { s += '<path d="' + d + '" fill="transparent" stroke="var(--muted)" stroke-opacity=".7" stroke-width="2" stroke-dasharray="5 5"/>'; icc = "var(--muted)"; }
       if (sel === k) s += '<path d="' + d + '" fill="none" stroke="var(--ink)" stroke-width="3"/>';
       var ip = [cx + (r0 + (rr - r0) * 0.62) * Math.cos(am), cx + (r0 + (rr - r0) * 0.62) * Math.sin(am)], sz = size * (focus && focus.k === k ? 0.1 : 0.075);
-      s += '<svg x="' + f(ip[0] - sz / 2) + '" y="' + f(ip[1] - sz / 2) + '" width="' + f(sz) + '" height="' + f(sz) + '" viewBox="0 0 24 24" fill="none" stroke="' + icc + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + CP_IC[k] + "</svg>" + (links ? "</a>" : "");
+      s += '<svg x="' + f(ip[0] - sz / 2) + '" y="' + f(ip[1] - sz / 2) + '" width="' + f(sz) + '" height="' + f(sz) + '" viewBox="0 0 24 24" fill="none" stroke="' + icc + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + CP_IC[k] + "</svg>" + (an ? "</g>" : "") + (links ? "</a>" : "");
     });
     return s + "</svg>";
   }
@@ -15643,6 +15666,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (Tenup && typeof Tenup.shareText === "function") Promise.resolve(Tenup.shareText({ title: "Diagnostic Montée", text: txt })).catch(function () {});
       else if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast("Copié : colle-le dans ta conversation avec Claude."); });
     },
+    tsxTg: function () { S.prefs = S.prefs || {}; S.prefs.tsxOpen = !S.prefs.tsxOpen; save(); render(); },
     epTab: function (el) { S.prefs = S.prefs || {}; S.prefs.epTab = el.dataset.v; save(); render(); window.scrollTo(0, 0); },
     fdmDiag: function (el) {
       var F = (UI.fdm || {})[el.dataset.v] || {}, raw = F.raw || {};
