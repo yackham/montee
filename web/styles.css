@@ -5837,3 +5837,16 @@ button.h3h-r.fx2 { display: flex; flex-direction: column; align-items: stretch; 
 .cp-fl .edge { stroke-dasharray: 1; stroke-dashoffset: 1; animation: flDraw .5s ease-out 1.6s both; }
 @keyframes flDraw { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .cp-fl.fl-f .pt, .cp-fl.fl-j .pt, .cp-fl .gz, .cp-fl .tk, .cp-fl .edge { animation: none !important; } .cp-fl .edge { stroke-dashoffset: 0; } }
+
+/* 3.66 (Yann, maquette 2) : « Ta saison par équipes » : tes stats d'abord, détail par championnat repliable */
+.tsx-tg { display: flex; justify-content: space-between; align-items: center; width: 100%; background: none; border: 0; border-top: 1px solid var(--line); padding: 12px 0 0; margin: 0; font: inherit; font-weight: 700; font-size: 14px; color: var(--gazon); cursor: pointer; text-align: left; }
+.tsx-tg em { font-style: normal; font-size: 11.5px; font-weight: 800; color: var(--muted); margin-left: 8px; border: 1.5px solid var(--line); border-radius: 99px; padding: 0 7px; }
+.tsx-chev { width: 18px; height: 18px; transition: transform .2s; } .tsx-tg.on .tsx-chev { transform: rotate(180deg); }
+.tsx-ch { display: flex; flex-direction: column; gap: 9px; padding-top: 12px; border-top: 1px solid var(--line); }
+.tsx-tg + .tsx-ch { border-top: 0; padding-top: 2px; }
+.tsx-chh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.tsx-chh b { font-size: 15px; min-width: 0; } .tsx-chh > span { font-size: 12.5px; color: var(--muted); font-weight: 700; white-space: nowrap; }
+.tsx-rk { font-weight: 800; } .tsx-rk.g { color: var(--gazon); } .tsx-rk.b { color: var(--bleu3); } .tsx-rk.r { color: #D4553C; } :root[data-theme="nuit"] .tsx-rk.r { color: #EE6F55; }
+.tsx-c.off .tsx-r { opacity: .4; } .tsx-c.off small { opacity: .6; }
+.tsx-c.fut .tsx-r { box-shadow: none; outline: 1.5px dashed color-mix(in srgb, var(--muted) 45%, transparent); outline-offset: -1.5px; } .tsx-c.fut small { opacity: .55; }
+.tsx-me { min-height: 11px; }
