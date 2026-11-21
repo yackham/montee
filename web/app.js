@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.66.0",
+    VERSION: "3.66.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1148,36 +1148,74 @@
     todo.forEach(function (r) { UI.toTried[r.opp.tid] = 1; chain = chain.then(function () { return tenupQuery("player", r.opp.hit).then(function (x) { if (x && !x.error) { try { scoutStore(r.opp.tid, r.opp.hit, x); } catch (e) {} } }).catch(function () {}); }); });
     chain.then(function () { save(); if (route() === "tournoi/" + t.id || route() === "") render(); });
   }
+  // 3.66.1 (Davy : Anthony marqué protégé seulement après avoir ouvert sa fiche) : chaque adversaire de la poule a sa fiche à jour
+  // (palmarès, saisons passées, meilleur classement, simulation Ten'Up), pas seulement quand la poule entière a plus de 2 h.
+  // Avant : une fiche gardée d'une ancienne version (sans saisons passées ni meilleur classement), ou une lecture ratée,
+  // n'était relue qu'au bout de 2 h (ou jamais si la fiche existait) ; un adversaire sans « hit » n'était jamais lu.
+  var SC_V = 2, SC_TTL = 6 * 3600e3;
+  function poolHit(x) {
+    if (x.hit && x.hit.id) return x.hit; if (!x.tid) return null;
+    var nm = String(x.name || "").trim().split(/\s+/); return { id: x.tid, prenom: nm.slice(0, -1).join(" "), nom: nm.slice(-1)[0] || "", rank: x.rank || "" };
+  }
+  function scoutFresh(tid) { var sc = tid && (S.scout || {})[String(tid)]; return !!(sc && sc.pv === SC_V && sc.got && Date.now() - sc.got < SC_TTL); }
+  // Ce que dit sa fiche Ten'Up, posé sur chaque ligne de poule où il figure (sa simulation, « protégé », son classement du jour)
+  function poolApply(x, r) {
+    if (!x || !r) return;
+    x.sim = r.sim || null; x.simAt = E.iso(today()); x.psAt = Date.now();
+    if (r.sim && protMsg(r.sim.message)) x.protAt = E.iso(E.nextRelease(today())); // 3.62 : on retient que Ten'Up l'a dit protégé
+    var rk0 = r.profil && T.normRank(r.profil.classement); if (rk0) x.rankNow = rk0;
+  }
+  function poolApplyAll(tid, r) {
+    if (!tid) return; tid = String(tid);
+    try { toursAll().forEach(function (t) { (t.pool || []).forEach(function (y) { if (y.tid && String(y.tid) === tid) poolApply(y, r); }); }); } catch (e) {}
+  }
   function poolSync(t) {
     if (!NATIVE || !t.pool || t.pool.length < 2) return;
-    UI.psTried = UI.psTried || {};
-    var scMiss = (t.pool || []).some(function (x) { return x.hit && x.tid && !(S.scout || {})[x.tid]; }) && !UI.psTried[t.id]; // 3.47.3 : fiches manquantes → on les lit tout de suite (une fois par session)
-    if (scMiss) UI.psTried[t.id] = 1;
-    if (!scMiss && t.poolAt && Date.now() - t.poolAt < 2 * 3600e3) return;
-    t.poolAt = Date.now(); save();
-    var mem = (t.pool || []).filter(function (x) { return x.hit; }), lo = t.from ? E.iso(new Date(E.parseDate(t.from).getTime() - 7 * 864e5)) : "";
-    var found = {}, chain = Promise.resolve();
+    UI.psBusy = UI.psBusy || {}; UI.psTry = UI.psTry || {};
+    if (UI.psBusy[t.id]) return;
+    var force = !t.poolAt || Date.now() - t.poolAt > 2 * 3600e3, now = Date.now();
+    // À relire : sa fiche manque, date d'une ancienne version ou de plus de 6 h, ou sa simulation manque sur la ligne de poule.
+    // Une lecture ratée est retentée (1 min 30 plus tard, 3 fois par session au plus).
+    var mem = (t.pool || []).filter(function (x) {
+      var h = poolHit(x); if (!h) return false;
+      var k = String(x.tid || h.id), tr = UI.psTry[k];
+      if (tr && (tr.n >= 3 || now - tr.at < 90e3)) return false;
+      return force || !x.sim || (x.tid ? !scoutFresh(x.tid) : !(x.psAt && now - x.psAt < SC_TTL));
+    });
+    if (!mem.length) return;
+    UI.psBusy[t.id] = 1; if (force) { t.poolAt = now; save(); }
+    var lo = t.from ? E.iso(new Date(E.parseDate(t.from).getTime() - 7 * 864e5)) : "", got = {}, chain = Promise.resolve();
+    var show = function () { var r0 = route(); if (r0 === "tournoi/" + t.id || r0 === "") render(); };
     mem.forEach(function (x) {
       chain = chain.then(function () {
-        return tenupQuery("player", x.hit).then(function (r) {
+        var h = poolHit(x), k = String(x.tid || h.id), tr = UI.psTry[k] || (UI.psTry[k] = { n: 0, at: 0 }); tr.n++; tr.at = Date.now();
+        return tenupQuery("player", h).then(function (r) {
           if (!r || r.error) return;
-          if (x.tid) { try { scoutStore(x.tid, x.hit, r); } catch (e) {} } // 3.47.3 : même % que sa fiche
-          // 3.44.2 : sa projection Ten'Up à la prochaine sortie (pour « le bon moment pour le jouer »)
-          var px = (t.pool || []).filter(function (y) { return y === x || (y.tid && x.tid && String(y.tid) === String(x.tid)); })[0];
-          if (px) { px.sim = r.sim || null; px.simAt = E.iso(today()); if (r.sim && protMsg(r.sim.message)) px.protAt = E.iso(E.nextRelease(today())); /* 3.62 : on retient que Ten'Up l'a dit protégé */ var rk0 = r.profil && T.normRank(r.profil.classement); if (rk0) px.rankNow = rk0; }
-          (T.rows({ raw: r.raw }) || []).forEach(function (row) {
-            if (!row.date || row.date < lo || !(row.result === "V" || row.result === "D")) return;
-            // 3.46.4 (retour testeur) : seulement les matchs de CETTE épreuve (indivs de la même série), et le bon joueur (pas un simple prénom en commun)
-            if (!poolRowFits(t, row)) return;
-            var o = (t.pool || []).filter(function (y) { return y !== x && ((row.oid && y.tid && String(row.oid) === String(y.tid)) || (!(row.oid && y.tid) && samePerson(y.name, row.opp))); })[0];
-            if (!o) return;
-            var k = [x.name, o.name].sort().join("|") + "|" + row.date; if (found[k]) return;
-            found[k] = { a: nameCase(x.name), b: nameCase(o.name), w: row.result === "V" ? "a" : "b", sc: row.score || "", date: row.date };
-          });
-        });
+          delete UI.psTry[k];
+          if (x.tid) { try { scoutStore(x.tid, h, r); } catch (e) {} } else poolApply(x, r); // scoutStore la pose sur toutes ses lignes de poule
+          got[t.pool.indexOf(x)] = T.rows({ raw: r.raw }) || [];
+          save(); show(); // 3.66.1 : la grille se met à jour joueur par joueur
+        }).catch(function () {});
       });
     });
-    chain.then(function () { t.poolX = Object.keys(found).map(function (k) { return found[k]; }); save(); try { scheduleTimingNotif(); } catch (e) {} try { syncNative(); } catch (e) {} if (route() === "tournoi/" + t.id) render(); });
+    chain.then(function () {
+      UI.psBusy[t.id] = 0;
+      // Résultats entre adversaires : la fiche qu'on vient de lire, sinon celle déjà gardée
+      var found = {};
+      (t.pool || []).forEach(function (x, i) {
+        var rows = got[i] || (x.tid && (S.scout || {})[String(x.tid)] || {}).rows || [];
+        rows.forEach(function (row) {
+          if (!row.date || row.date < lo || !(row.result === "V" || row.result === "D")) return;
+          // 3.46.4 (retour testeur) : seulement les matchs de CETTE épreuve (indivs de la même série), et le bon joueur (pas un simple prénom en commun)
+          if (!poolRowFits(t, row)) return;
+          var o = (t.pool || []).filter(function (y) { return y !== x && ((row.oid && y.tid && String(row.oid) === String(y.tid)) || (!(row.oid && y.tid) && samePerson(y.name, row.opp))); })[0];
+          if (!o) return;
+          var k = [x.name, o.name].sort().join("|") + "|" + row.date; if (found[k]) return;
+          found[k] = { a: nameCase(x.name), b: nameCase(o.name), w: row.result === "V" ? "a" : "b", sc: row.score || "", date: row.date };
+        });
+      });
+      t.poolX = Object.keys(found).map(function (k) { return found[k]; }); save(); try { scheduleTimingNotif(); } catch (e) {} try { syncNative(); } catch (e) {} show();
+    }, function () { UI.psBusy[t.id] = 0; });
   }
   // 3.44.2 (Montée+) : le bon moment pour jouer chaque adversaire de poule : sa projection Ten'Up à la prochaine sortie,
   // et ce que vaut ta victoire avant / après (faits : points du barème, à ton classement actuel)
@@ -6744,9 +6782,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var f = S.follow[id]; if (!f || !f.hit) return;
         return tenupQuery("player", f.hit).then(function (r) {
           if (!r || r.error) return;
-          if (r.profil) delete r.profil.lic;
-          var old = S.scout[id] || {};
-          S.scout[id] = { at: E.iso(today()), ts: old.ts || Date.now(), hit: f.hit, profil: r.profil, sim: r.sim, fiche: r.fiche || {}, rows: T.rows({ raw: r.raw }) };
+          scoutStore(id, f.hit, r, true); // 3.66.1 : garde ses saisons passées (avant : effacées à chaque relecture)
           if (folUpdate(id, true)) any = true;
         });
       });
@@ -6754,22 +6790,29 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     chain.then(function () { UI.folBusy = false; save(); if (any) { syncWidgets(); watchSync(); var r0 = route().split("/")[0]; if (r0 === "faf" || r0 === "") render(); } }, function () { UI.folBusy = false; });
   }
   // 3.47.3 : enregistre la fiche Ten'Up d'un joueur (ouverte, ou lue en arrière-plan pour une poule / un tableau)
-  function scoutStore(id, hit, r) {
+  function scoutStore(id, hit, r, keepTs) {
     S.scout = S.scout || {}; id = String(id);
-      var rows = T.rows({ raw: r.raw });
+      var rows = T.rows({ raw: r.raw }), old = S.scout[id] || {};
       if (r.profil) delete r.profil.lic; // on ne garde pas la licence des autres
       S.scout[id] = { at: E.iso(today()), hit: { id: hit.id, idp: hit.idp, nom: hit.nom, prenom: hit.prenom, rank: hit.rank, club: hit.club, sexe: hit.sexe || "" }, profil: r.profil, sim: r.sim, fiche: r.fiche || {}, rows: rows };
-      S.scout[id].ts = Date.now();
+      S.scout[id].ts = keepTs && old.ts ? old.ts : Date.now();
+      // 3.66.1 : lue avec ses saisons passées et son meilleur classement (version 2), et quand (pour la relire en poule au bout de 6 h)
+      if (Array.isArray(r.past)) { S.scout[id].pv = SC_V; S.scout[id].got = Date.now(); }
       // 3.48.10 (Davy) : un « Joueur ANONYME » dont on ouvre la fiche : on retient son vrai nom et on le remet sur tes matchs contre lui
       try { var pf = r.profil || {}, full = [pf.prenom, pf.nom].filter(Boolean).join(" ").trim(); if (full && !isAnon(full)) { S.oppNames = S.oppNames || {}; S.oppNames[id] = full;
         S.matches.forEach(function (m) { if (String(m.oid || "") === id && isAnon(m.opp)) { if (m.oppTenup == null) m.oppTenup = m.opp; m.opp = full; } }); } } catch (e) {}
       // 3.47 : ses saisons précédentes, en léger (date, résultat, classement de l'adversaire le jour du match, score, nom)
       if (r.past && r.past.length) { try { S.scout[id].past = r.past.map(function (x) { return { y: x.y, cl: x.cl || "", rows: T.rows({ raw: x.raw }).filter(function (m) { return m.ok !== false && m.date; }).map(function (m) { return { date: m.date, result: m.result, oppRank: m.oppRank, wo: !!m.wo, score: m.score || "", opp: m.opp || "", dbl: !!m.dbl }; }) }; }).filter(function (x) { return x.rows.length; }); } catch (e) {} }
+      // 3.66.1 : une saison passée pas relue cette fois (6 s dépassées, relance en arrière-plan qui ne les lit pas) : on garde l'ancienne.
+      // Avant, la relecture d'un joueur suivi effaçait ses saisons passées : plus de trace de sa descente, donc plus de bouclier.
+      if (old.past && old.past.length) { var nP = S.scout[id].past || [], ys = nP.map(function (x) { return x.y; }); S.scout[id].past = nP.concat(old.past.filter(function (x) { return ys.indexOf(x.y) < 0; })).sort(function (a, b) { return b.y - a.y; }); }
+      if (!Array.isArray(r.past) && old.pv) { S.scout[id].pv = old.pv; S.scout[id].got = old.got; }
+      poolApplyAll(id, r); // 3.66.1 : sa fiche ouverte (ou relue) met aussi à jour la grille « le bon moment » de ta poule
       // On garde les 10 fiches consultées le plus récemment (à l'heure près, pas seulement au jour), jamais celle qu'on vient d'ouvrir
       var tsOf = function (k) { var x = S.scout[k]; return x.ts || new Date(x.at).getTime(); };
             var keep = trScoutIds(), fol = S.follow || {}; var ks = Object.keys(S.scout).filter(function (k) { return k !== id && !fol[k] && !keep[k]; }).sort(function (a, b) { return tsOf(b) - tsOf(a); }); ks.slice(9).forEach(function (k) { delete S.scout[k]; });
   }
-  function trScoutIds() { var o = {}; try { toursOpen().forEach(function (t) { (t.pool || []).forEach(function (x) { if (x.tid) o[x.tid] = 1; }); (t.rounds || []).forEach(function (r) { if (r.opp && r.opp.tid) o[r.opp.tid] = 1; }); }); } catch (e) {} return o; }
+  function trScoutIds() { var o = {}; try { toursAll().filter(function (t) { return !tourOver(t); }).forEach(function (t) { (t.pool || []).forEach(function (x) { if (x.tid) o[x.tid] = 1; }); (t.rounds || []).forEach(function (r) { if (r.opp && r.opp.tid) o[r.opp.tid] = 1; }); }); } catch (e) {} return o; }
   function openScout(hit, force) {
     S.scout = S.scout || {};
     var id = String(hit.id);
@@ -6777,7 +6820,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!UI.plNav) UI.plTrail = []; UI.plNav = false;
     // 3.34 : fiche déjà en cache : on y garde au moins le sexe vu dans la recherche
     if (S.scout[id] && hit.sexe) { S.scout[id].hit = S.scout[id].hit || {}; if (!S.scout[id].hit.sexe) { S.scout[id].hit.sexe = hit.sexe; save(); } }
-    if (S.scout[id] && !force && (Date.now() - new Date(S.scout[id].at).getTime()) < 3 * 864e5) { go("joueur/" + id); return; }
+    if (S.scout[id] && !force && S.scout[id].pv === SC_V && (Date.now() - new Date(S.scout[id].at).getTime()) < 3 * 864e5) { go("joueur/" + id); return; } // 3.66.1 : une fiche d'une ancienne version (sans saisons passées) est relue
     UI.scoutBusy = id; UI.scoutErr = null;
     if (force) delete S.scout[id];
     go("joueur/" + id);
@@ -9788,7 +9831,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var add = function (o) { var k = o.tid ? "t" + o.tid : nameKey(o.name || "") + "|" + o.rank; if (seen[k] || E.idx(T.normRank(o.rank || "")) == null) return; seen[k] = 1; out.push(o); };
     try { toursOpen().forEach(function (t) {
       var kind = t.kind === "champ" ? "champ" : "tournoi", end = t.dl || t.to || "";
-      (t.pool || []).forEach(function (x) { if (x.res) return; var d = x.day || end; if (d && d >= td && d <= relI) add({ name: trNm(x.name), rank: x.rank, tid: x.tid || "", day: d, kind: kind, where: "Poule" + (t.name ? " · " + t.name : ""), p: trP(x.rank, x.tid) }); });
+      (t.pool || []).forEach(function (x) { if (x.res) return; var d = x.day || end; if (d && d >= td && d <= relI) add({ name: trNm(x.name), rank: x.rankNow || x.rank, tid: x.tid || "", day: d, kind: kind, where: "Poule" + (t.name ? " · " + t.name : ""), p: trP(x.rankNow || x.rank, x.tid) }); });
       var r = (t.rounds || []).filter(function (y) { return !y.res; })[0];
       if (r && r.opp && r.opp.rank) { var d2 = r.day || end; if (d2 && d2 >= td && d2 <= relI) add({ name: trNm(r.opp.name) || "Ton adversaire", rank: r.opp.rank, tid: r.opp.tid || "", day: d2, kind: kind, where: "Tableau" + (t.name ? " · " + t.name : ""), p: trP(r.opp.rank, r.opp.tid) }); }
     }); } catch (e) {}
@@ -12898,7 +12941,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function importPayload(pl, opts) {
     if (pl && !pl.folOnly && !pl.error) demoPurge();
     // 3.43.2 : fiches de joueurs suivis relues pendant la relance en arrière-plan (déjà notifiées par l'iPhone)
-    if (pl && pl.fol && pl.fol.length) { try { pl.fol.forEach(function (x) { var f = (S.follow || {})[x.id], r = x.d; if (r && !r.error) { try { trWatchHit(x.id, T.rows({ raw: r.raw })); } catch (e) {} } if (!f || !r || r.error) return; if (r.profil) delete r.profil.lic; var old = (S.scout || {})[x.id] || {}; S.scout = S.scout || {}; S.scout[x.id] = { at: E.iso(today()), ts: old.ts || Date.now(), hit: f.hit, profil: r.profil, sim: r.sim, fiche: r.fiche || {}, rows: T.rows({ raw: r.raw }) }; folUpdate(x.id, false); }); } catch (e) {} delete pl.fol; }
+    if (pl && pl.fol && pl.fol.length) { try { pl.fol.forEach(function (x) { var f = (S.follow || {})[x.id], r = x.d; if (r && !r.error) { try { trWatchHit(x.id, T.rows({ raw: r.raw })); } catch (e) {} } if (!f || !r || r.error) return; scoutStore(x.id, f.hit, r, true); /* 3.66.1 : garde ses saisons passées */ folUpdate(x.id, false); }); } catch (e) {} delete pl.fol; }
     if (pl && pl.folOnly) { save(); render(); return; } // relance « joueurs suivis » : ton palmarès n'a pas été relu
     opts = opts || {};
     if (!opts.quiet) history.replaceState(null, "", location.pathname + "#/tenup");
@@ -14058,7 +14101,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!NATIVE) return;
     syncWidgets(true); // un widget a pu être ajouté ou redimensionné
     setTimeout(folRefresh, 5000); // nouvelles des joueurs suivis, sans attendre ta prochaine synchro
-    setTimeout(function () { try { toursOpen().forEach(function (t) { if (t.pool && t.pool.length > 1) poolSync(t); }); } catch (e) {} }, 9000);
+    setTimeout(function () { try { toursAll().filter(function (t) { return !tourOver(t); }).forEach(function (t) { if (t.pool && t.pool.length > 1) poolSync(t); }); } catch (e) {} }, 9000); // 3.66.1 : aussi une poule qui commence dans plus de 2 jours
     setTimeout(function () { try { teamsRefresh(); } catch (e) {} }, 12000); // 3.50 : tes équipes // 3.49 : ta poule à jour (et ce que la relance en arrière-plan a déjà vu)
     supCheck(false);
     watchSync(true); watchTake(); watchStatusCheck();
