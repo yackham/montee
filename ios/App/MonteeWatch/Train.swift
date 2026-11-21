@@ -50,6 +50,8 @@ struct TLive: Codable {
 struct SDefi: Codable { var t: String; var to: Int; var m: Double; var solo: Bool? = nil; var grp: Bool? = nil; var g: String? = nil; var gs: String? = nil; var gl: [String]? = nil }
 struct SStep: Codable {
     var t: String; var min: Double; var cue: String; var col: String; var cnt: String?; var n: Int?
+    /// 3.62 (Yann) : comment mettre l'exercice en place (avec le partenaire, le groupe ou seul)
+    var x: String? = nil
     var df: SDefi? = nil
     /// Groupe : qui joue où à chaque rotation (terrains → prénoms), durée d'une rotation, qui vient de bouger
     var rot: [[[String]]]? = nil
@@ -944,6 +946,7 @@ struct SeanceStepView: View {
     @ViewBuilder func classic(_ p: SPlan, _ i: Int, _ left: Int) -> some View {
         let s = p.steps[i]
         let col = Color(hexStr: s.col) ?? .balle
+        ScrollView {
         VStack(alignment: .leading, spacing: 3) {
             Text("\(i + 1)/\(p.steps.count) · \(s.t)").font(.system(size: 12, weight: .heavy)).foregroundColor(col)
                 .lineLimit(1).minimumScaleFactor(0.7)
@@ -951,6 +954,9 @@ struct SeanceStepView: View {
                 .foregroundColor(vm.paused ? .secondary : .white)
             Text(s.cue).font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
                 .lineLimit(s.df != nil ? 2 : 3).fixedSize(horizontal: false, vertical: true)
+            if let x = s.x, !x.isEmpty {
+                StepHowText(x: x)
+            }
             if let df = s.df {
                 if df.solo == true {
                     Text("Défi : \(vm.count(at: i))/\(df.to)").font(.system(size: 11, weight: .heavy)).foregroundColor(.balle)
@@ -974,6 +980,20 @@ struct SeanceStepView: View {
                 Button("Étape suivante") { vm.skipStep() }.buttonStyle(Wide())
             }
         }
+        }
+    }
+}
+
+/// 3.62 : le petit descriptif de l'exercice (comment le mettre en place), sous la consigne
+struct StepHowText: View {
+    let x: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text("Comment faire").font(.system(size: 10, weight: .heavy)).foregroundColor(.gazon)
+            Text(x).font(.system(size: 12, weight: .medium)).foregroundColor(.white)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 2)
     }
 }
 
@@ -1236,6 +1256,25 @@ func fmtMin(_ m: Int) -> String {
 }
 
 /// 3.61 : l'aperçu : les étapes, avec qui, les défis ; puis on commence
+/// 3.62 : une étape de l'aperçu, avec son descriptif en petit
+struct PreviewStepRow: View {
+    let s: SStep
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 6) {
+                Circle().fill(Color(hexStr: s.col) ?? .balle).frame(width: 7, height: 7)
+                Text(s.t).font(.system(size: 12.5, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                Spacer(minLength: 4)
+                Text("\(Int(s.min))′").font(.system(size: 12, weight: .bold)).foregroundColor(.secondary).monospacedDigit()
+            }
+            if let x = s.x, !x.isEmpty {
+                Text(x).font(.system(size: 10.5, weight: .medium)).foregroundColor(.secondary)
+                    .lineLimit(3).fixedSize(horizontal: false, vertical: true).padding(.leading, 13)
+            }
+        }
+    }
+}
+
 struct SeancePreview: View {
     let plan: SPlan
     let pick: (String) -> Void
@@ -1252,12 +1291,7 @@ struct SeancePreview: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(Array(plan.steps.enumerated()), id: \.offset) { _, s in
-                    HStack(spacing: 6) {
-                        Circle().fill(Color(hexStr: s.col) ?? .balle).frame(width: 7, height: 7)
-                        Text(s.t).font(.system(size: 12.5, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                        Spacer(minLength: 4)
-                        Text("\(Int(s.min))′").font(.system(size: 12, weight: .bold)).foregroundColor(.secondary).monospacedDigit()
-                    }
+                    PreviewStepRow(s: s)
                 }
                 if nd > 0 {
                     Text(sub)
