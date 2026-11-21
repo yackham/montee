@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.62.0",
+    VERSION: "3.63.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -10398,6 +10398,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
           '<p class="small pf-ed">Tu pourras le modifier avant de l\'envoyer.</p><div class="pf-send"><button class="go-pill" data-a="profSend" data-v="sms">Messages</button><button class="go-pill" data-a="profSend" data-v="wa">WhatsApp</button><button class="go-pill" data-a="profSend" data-v="mail">Mail</button><button class="go-pill" data-a="profCopy">Copier</button></div>' };
     },
     h2hm: function (k) { return h2hSheet(k); },
+    // 3.63 : la feuille de partage (aperçu de l'image, format, partager)
+    shv: function () {
+      var V = UI.shv; if (!V) return null; var f = UI.shvF || "45";
+      var seg = [["45", "Carré 4:5"], ["916", "Story 9:16"], ["txt", "Texte"]].map(function (x) { return '<button class="' + (f === x[0] ? "on" : "") + '" data-a="shvFmt" data-v="' + x[0] + '" aria-pressed="' + (f === x[0]) + '">' + x[1] + "</button>"; }).join("");
+      var prev = f === "txt" ? '<p class="shv-txt">' + esc(V.text || V.title) + "</p>" : '<img class="shv-img' + (f === "916" ? " st" : "") + '" alt="Aperçu de l\'image partagée" src="' + shvDraw(V, f).toDataURL("image/png") + '">';
+      return { title: "Partager", sub: f === "txt" ? "Le texte seul, pour ton prof ou un groupe d'équipe." : "Une image prête pour Instagram, WhatsApp ou Messages.", body: '<div class="shv">' + prev + '<div class="seg shv-seg" role="group" aria-label="Format">' + seg + '</div><button class="btn primary" data-a="shvGo">Partager ' + I.next + "</button></div>" };
+    },
     badge: function (v) { return badgeSheet(v); }, // 3.59 : un badge, ouvert // 3.59 (Yann) : tous les matchs d'un face-à-face
     // 3.59 (Yann, maquette L5) : qui court avec toi. Sortir de la course ne retire pas des suivis.
     race: function () {
@@ -11064,17 +11071,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var c = sjCfg(), P = sjBuild(c), grp = c.mode === "grp", sl = c.sl, when = "";
     if (sl) { var hh = String(sl.time || "").replace(/^0/, "").replace(":", " h ").replace(" h 00", " h"), h0 = +String(sl.time || "0").split(":")[0]; when = (h0 >= 17 ? "Ce soir " : h0 >= 12 ? "Cet après-midi " : "Ce matin ") + hh + " · " + (sl.label === "Collectif" ? "ton collectif" : sl.label === "Partenaire" ? "avec ton partenaire" : "ton créneau"); }
     var eb = sl ? when : "Séance du jour";
-    var axs = P.ax.map(function (id) { var g = goalOf(id); return '<div class="sj-a">' + catLab(g ? g.cat : "tac") + "<b>" + esc(g ? g.t : SJ_EX[id].t) + "</b>" + (c.why[id] ? "<small>" + esc(c.why[id]) + "</small>" : "") + "</div>"; }).join("");
-    var durs = grp ? [60, 90, 120] : [45, 60, 90];
-    if (durs.indexOf(P.min) < 0) durs = durs.concat([P.min]).sort(function (a, b) { return a - b; });
-    var chips = durs.map(function (m) { return '<button class="sj-chip' + (m === P.min ? " on" : "") + '" data-a="sjMin" data-v="' + m + '" aria-pressed="' + (m === P.min) + '">' + esc(fmtDur(m)) + "</button>"; }).join("") +
-      (grp ? '<button class="sj-chip" data-a="sheet" data-k="sjSet" data-v="1">' + P.grp.n + " joueurs · " + plural(P.grp.cs.sizes.length, "terrain") + "</button>" : '<button class="sj-chip" data-a="sheet" data-k="sjSet" data-v="1">Régler</button>');
+    // 3.63 (Yann, 21/11) : la carte tient sur une ligne. Vignette, titre, une pastille par axe et « Détail ». ▶ lance tout de suite ;
+    // le reste de la carte ouvre la séance (durée, exercices, partenaire) avant de lancer.
     var nb = P.blocks.length, w = sjWatchOk() && !grp;
-    var foot = "<b>" + nb + " étapes · " + (grp ? (P.blocks.filter(function (b) { return b.rot; }).map(function (b) { return "rotations toutes les " + fmtDur(Math.round(b.rot)); })[0] || "sans attente") : c.mode === "solo" ? "seul" : "avec un partenaire") + "</b><small>" + (sl ? "Réglée d'après ta semaine type." : grp ? "Pose le téléphone sur le banc : il sonne à chaque rotation." : w ? "Lance-la sur ta montre, elle te guide." : "Ton iPhone sonne et vibre à chaque étape.") + "</small>";
-    return '<div class="card sj"><div class="sj-top"><a class="grow sj-top-a" href="#/seance"><span class="eyebrow">' + esc(eb) + '</span><span class="sj-t">' + esc(P.title) + '</span></a><a class="sj-vig" href="#/seance" aria-hidden="true" tabindex="-1">' + sjVig(P) + "</a></div>" +
-      '<div class="sj-ax">' + axs + '</div><div class="sj-dur" role="group" aria-label="Durée de la séance">' + chips + "</div>" +
-      '<div class="sj-foot"><span class="grow">' + foot + '<a class="linkbtn sj-lnk" href="#/seance">Voir la séance ' + I.next + "</a></span>" +
-      '<button class="wu-go" data-a="sjGo" aria-label="' + (w ? "Lancer la séance sur la montre" : grp ? "Lancer le minuteur du groupe" : "Lancer la séance") + '">' + svg(w ? SJ_WATCH : '<path d="M8 5v14l11-7z"/>', 2.2) + "</button></div></div>";
+    var eb2 = (sl ? eb : "Séance du jour") + " · " + fmtDur(P.min) + (grp ? " · " + P.grp.n + " joueurs" : c.mode === "solo" ? " · seul" : " · à deux");
+    var dots = P.ax.map(function (id) { var g = goalOf(id); return '<i class="gcat-d" style="background:' + gcol(g ? g.cat : "tac") + '" title="' + esc(g ? g.t : SJ_EX[id].t) + '"></i>'; }).join("");
+    var axTxt = P.ax.map(function (id) { var g = goalOf(id); return g ? g.t : SJ_EX[id].t; }).join(", ");
+    return '<div class="card sj sj1"><a class="sj-vig" href="#/seance" aria-hidden="true" tabindex="-1">' + sjVig(P) + '</a><a class="grow sj1-a" href="#/seance" aria-label="' + esc(P.title + ". " + nb + " étapes : " + axTxt + ". Voir le détail") + '"><span class="sj1-eb">' + esc(eb2) + '</span><b class="sj1-t">' + esc(P.title) + '</b><span class="sj1-ds">' + dots + '<span class="sj1-lnk">Détail ' + I.next + "</span></span></a>" +
+      '<button class="sj1-go" data-a="sjGo" aria-label="' + (w ? "Lancer la séance sur la montre" : grp ? "Lancer le minuteur du groupe" : "Lancer la séance") + '">' + svg(w ? SJ_WATCH : '<path d="M8 5v14l11-7z"/>', 2.2) + "</button></div>";
   }
   // ----- La séance (plan) -----
   function sjBlockHtml(b, i, live) {
@@ -11702,7 +11706,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var hist = !m.id, sub = esc([m.comp ? insName(m.comp) : "", m.wo ? "forfait" : ""].filter(Boolean).join(" · ")), rk = m.oppRank ? ' <span class="h2s-k">·</span> <span class="rk-tag" title="Son classement ce jour-là">' + esc(m.oppRank) + "</span>" : ""; // 3.61.3 (Yann) : classement en pastille comme dans l'Activité, nom d'épreuve lisible sur une ligne
         return (hist ? '<div class="row"' : '<a class="row" href="#/match/' + m.id + '"') + '><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + rk + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + "</span>" + (sub ? '<span class="s h2s-s">' + sub + "</span>" : "") + (m.note ? '<span class="s rev">« ' + esc(m.note) + " »</span>" : "") + "</span>" + msbHtml(m) + (hist ? "</div>" : I.next + "</a>");
       }).join("") + "</div>" +
-      '<a class="btn soft h2s-go" href="#/' + advPath(key) + '">Sa fiche et ton plan contre lui ' + I.next + "</a>";
+      '<div class="h2s-acts"><a class="btn soft h2s-go" href="#/' + advPath(key) + '">Sa fiche et ton plan contre lui ' + I.next + '</a><button class="iconbtn h2s-sh" data-a="h2hShare" data-v="' + esc(key) + '" aria-label="Partager ce face-à-face en image">' + svg('<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6h14v-6"/>', 2.2) + "</button></div>";
     return { title: name, sub: plural(pl.length, "match", "matchs") + " l'un contre l'autre, toutes saisons confondues.", body: body };
   }
   function h2hHtml(inFaf) {
@@ -11723,10 +11727,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       list.map(function (x) {
         var ms = x.ms.sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; }), v = ms.filter(function (m) { return m.result === "V"; }).length, d = ms.length - v;
         var nt = revNotes(x.name)[0];
-        // 3.33 : initiales, bilan toi – lui en couleurs, une barre par match (du plus ancien au plus récent), la note en citation
-        var bars = ms.slice().reverse().map(function (m, i) { return '<i class="' + m.result + '" style="--i:' + i + '"></i>'; }).join("");
-        return '<button class="h3h-r" data-a="sheet" data-k="h2hm" data-v="' + esc(nameKey(x.name)) + '"><span class="h3h-t"><span class="h3h-av">' + esc(initials(nameCase(x.name))) + '</span><span class="grow">' + (x.tag ? '<span class="h3h-tag ' + x.tag[0] + '">' + x.tag[1] + "</span>" : "") + '<b>' + esc(nameCase(x.name)) + ' <span class="muted">· ' + esc(ms[0].oppRank || "") + '</span></b><small>Dernier : ' + (ms[0].result === "V" ? "victoire" : "défaite") + (ms[0].date ? " le " + esc(fdate(ms[0].date)) : "") + (ms[0].score ? " · " + esc(ms[0].score) : "") + '</small></span><span class="h3h-s"><b><em class="V">' + v + '</em> – <em class="D">' + d + "</em></b><small>toi · lui</small></span></span>" +
-          '<span class="h3h-b">' + bars + "</span>" + (nt && nt.text ? '<span class="h3h-n">' + esc(nt.text.length > 120 ? nt.text.slice(0, 118).replace(/\s+\S*$/, "") + "…" : nt.text) + "</span>" : "") + "</button>";
+        // 3.63 (Yann, 21/11) : 2 lignes. Le nom, son classement (balle) et l'étiquette ; puis un carré par match (le plus ancien à gauche,
+        // le dernier cerclé) et le bilan en couleurs. Plus de « toi · lui » ni de « Dernier : » (le détail est dans la feuille). La note entre guillemets.
+        var sq = ms.slice().reverse().map(function (m, i, a) { return '<i class="' + m.result + (i === a.length - 1 ? " last" : "") + '" style="--i:' + i + '"></i>'; }).join("");
+        var nTxt = nt && nt.text ? (nt.text.length > 140 ? nt.text.slice(0, 138).replace(/\s+\S*$/, "") + "…" : nt.text) : "";
+        return '<button class="h3h-r fx2" data-a="sheet" data-k="h2hm" data-v="' + esc(nameKey(x.name)) + '" aria-label="' + esc(nameCase(x.name) + " : " + v + " victoire" + (v > 1 ? "s" : "") + ", " + d + " défaite" + (d > 1 ? "s" : "")) + '">' +
+          '<span class="fx-l1"><b>' + esc(nameCase(x.name)) + "</b>" + (ms[0].oppRank ? '<span class="rk-tag">' + esc(ms[0].oppRank) + "</span>" : "") + (x.tag ? '<span class="fx-pt ' + x.tag[0] + '">' + (x.tag[0] === "cl" ? "Meilleur client" : "Bête noire") + "</span>" : "") + "</span>" +
+          '<span class="fx-l2"><span class="fx-q" aria-hidden="true">' + sq + '</span><span class="fx-s"><em class="V">' + v + '</em><span class="sep">–</span><em class="D">' + d + "</em></span></span>" +
+          (nTxt ? '<span class="fx-note"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M0 12V7C0 3 2 .7 6 0l.6 1.6C4.3 2.4 3.3 3.8 3.2 5.6H6V12zm9 0V7c0-4 2-6.3 6-7l.6 1.6c-2.3.8-3.3 2.2-3.4 4H16V12z" fill="currentColor"/></svg><span>' + esc(nTxt) + "</span></span>" : "") + "</button>";
       }).join("") + (inFaf && nAll > 3 ? '<button class="linkbtn h3h-more" data-a="h2hAll">' + (UI.h2hAll ? "Réduire" : "Voir les " + (nAll - 3) + " autres") + "</button>" : "") + findBtn + "</div>";
     return '<div class="card" style="gap:4px">' + chead("h2h", "Face-à-face", "Les adversaires que tu as joués plusieurs fois") +
       list.map(function (x) {
@@ -12792,6 +12800,66 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (Tenup && typeof Tenup.shareText === "function") return Promise.resolve().then(function () { return Tenup.shareText({ title: "Montée", text: full }); }).catch(function () { if (navigator.share) navigator.share({ title: "Montée", text: full }).catch(function () {}); else copy(); });
     if (navigator.share) return navigator.share({ title: "Montée", text: msg, url: NATIVE ? STORE_LINKS.ios : location.origin + location.pathname }).catch(function () {});
     copy();
+  }
+
+  // 3.63 (Yann, 21/11) : partager une IMAGE (carré 4:5 ou story 9:16), le texte reste au choix. V = { key, eb, col, title, big:[[txt, couleur]], sep, sq:["V","D"…], rows:[[gauche, droite, moi]], line, foot, text }
+  function shvHex(h, a) { var n = parseInt(String(h).replace("#", ""), 16); return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")"; }
+  function shvWrap(g, txt, maxW) {
+    var out = [], line = ""; String(txt || "").split(/\s+/).forEach(function (w) { var t = line ? line + " " + w : w; if (g.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; });
+    if (line) out.push(line); return out;
+  }
+  function shvDraw(V, fmt) {
+    var W = 1080, H = fmt === "916" ? 1920 : 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    var g = cv.getContext("2d"), F = "MonteeCard, Figtree, system-ui, sans-serif", X = 90, MW = W - 180, col = V.col || "#D4E64A";
+    g.fillStyle = "#16181B"; g.fillRect(0, 0, W, H);
+    var gr = g.createRadialGradient(W, 0, 0, W, 0, 1200); gr.addColorStop(0, shvHex(col, .28)); gr.addColorStop(1, shvHex(col, 0)); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    var y = fmt === "916" ? 300 : 120;
+    g.textBaseline = "alphabetic";
+    g.fillStyle = col; g.beginPath(); g.arc(X + 14, y - 12, 14, 0, 6.3); g.fill();
+    g.font = "800 34px " + F; g.fillText(String(V.eb || "").toUpperCase(), X + 44, y); y += 40;
+    g.fillStyle = "#F4F2EE"; g.font = "800 92px " + F;
+    shvWrap(g, V.title, MW).slice(0, 3).forEach(function (l) { y += 100; g.fillText(l, X, y); });
+    if (V.big && V.big.length) {
+      y += 60; var bs = V.big.length > 1 ? 250 : 220; g.font = "800 " + bs + "px " + F; var x = X; y += bs * .8;
+      V.big.forEach(function (b, i) {
+        if (i && V.sep) { g.fillStyle = "#77756F"; g.font = "700 " + Math.round(bs * .55) + "px " + F; g.fillText(V.sep, x + 10, y - bs * .18); x += g.measureText(V.sep).width + 30; g.font = "800 " + bs + "px " + F; }
+        g.fillStyle = b[1] || "#F4F2EE"; g.fillText(String(b[0]), x, y); x += g.measureText(String(b[0])).width + 20;
+      });
+    }
+    if (V.sq && V.sq.length) {
+      y += 60; var n = V.sq.length, per = Math.min(n, 8), gap = 20, sz = Math.min(110, Math.floor((MW - gap * (per - 1)) / per));
+      V.sq.forEach(function (r, i) {
+        var cx = X + (i % per) * (sz + gap), cy = y + Math.floor(i / per) * (sz + gap);
+        g.fillStyle = r === "V" ? "#5DB582" : "#9E5F48"; g.beginPath(); if (g.roundRect) g.roundRect(cx, cy, sz, sz, sz * .24); else g.rect(cx, cy, sz, sz); g.fill();
+        if (i === n - 1) { g.strokeStyle = "#D4E64A"; g.lineWidth = 7; g.beginPath(); if (g.roundRect) g.roundRect(cx - 10, cy - 10, sz + 20, sz + 20, sz * .3); else g.rect(cx - 10, cy - 10, sz + 20, sz + 20); g.stroke(); }
+      });
+      y += Math.ceil(n / per) * (sz + gap);
+    }
+    if (V.rows && V.rows.length) {
+      y += 50; g.font = "700 50px " + F;
+      V.rows.slice(0, 5).forEach(function (r, i) {
+        y += 84; g.fillStyle = r[2] ? "#D4E64A" : "#F4F2EE"; g.textAlign = "left"; g.fillText((i + 1) + ". " + r[0], X, y);
+        g.textAlign = "right"; g.fillStyle = r[2] ? "#D4E64A" : "#C9C7C1"; g.fillText(r[1], W - X, y); g.textAlign = "left";
+      });
+    }
+    if (V.line) { y += 80; g.fillStyle = "#C9C7C1"; g.font = "500 44px " + F; shvWrap(g, V.line, MW).slice(0, 4).forEach(function (l) { y += 58; g.fillText(l, X, y); }); }
+    var fy = H - (fmt === "916" ? 220 : 100);
+    g.fillStyle = "#D4E64A"; g.beginPath(); g.arc(X + 16, fy - 13, 16, 0, 6.3); g.fill();
+    g.fillStyle = "#F4F2EE"; g.font = "800 40px " + F; g.fillText("Montée", X + 48, fy);
+    if (V.foot) { g.textAlign = "right"; g.fillStyle = "#9A9892"; g.font = "700 36px " + F; g.fillText(V.foot, W - X, fy); g.textAlign = "left"; }
+    return cv;
+  }
+  function shareVisual(V) { UI.shv = V; if (!UI.shvF) UI.shvF = "45"; loadCardFonts().then(function () { UI.sheet = { k: "shv", v: V.key || "1" }; render(); }); }
+  function shvSend() {
+    var V = UI.shv; if (!V) return;
+    if (UI.shvF === "txt") return sharePlain(V.text || V.title);
+    var cv = shvDraw(V, UI.shvF), url = cv.toDataURL("image/png"), name = "montee-" + String(V.key || "partage").replace(/[^a-z0-9-]/gi, "-").toLowerCase() + ".png";
+    if (NATIVE && Tenup && typeof Tenup.shareImage === "function") { Promise.resolve().then(function () { return Tenup.shareImage({ base64: url.split(",")[1], name: name }); }).catch(function () { toast("Partage impossible. Mets à jour Montée."); }); return; }
+    cv.toBlob(function (blob) {
+      var file = window.File ? new File([blob], name, { type: "image/png" }) : null;
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: "Montée" }).catch(function () {}); return; }
+      var a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); toast("Image enregistrée : " + name);
+    }, "image/png");
   }
 
   // ---- Import d'une page Ten'Up en PDF ----
@@ -14859,8 +14927,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     bilanSel: function (el) { UI.bilanSel = +el.dataset.v; render(); },
     sheet: function (el) { if (el.dataset.k === "sjSet") UI.sjSet = null; UI.sheet = { k: el.dataset.k, v: el.dataset.v }; render(); },
     leagueShare: function () {
-      var R = leagueRows(); if (R.length < 2) return;
-      shareText("Course tennis de " + MOIS_L[today().getMonth()] + " (points gagnés ce mois-ci) :\n" + R.map(function (r, k) { return (k + 1) + ". " + (r.me ? (S.profile.name || "Moi") : r.name) + " · " + r.rank + " · +" + r.pts + " pts (" + plural(r.v, "victoire") + ")"; }).join("\n"));
+      var R = leagueRows(); if (R.length < 2) return; var me = 0; R.forEach(function (r, k) { if (r.me) me = k + 1; });
+      var t = "Course tennis de " + MOIS_L[today().getMonth()] + " (points gagnés ce mois-ci) :\n" + R.map(function (r, k) { return (k + 1) + ". " + (r.me ? (S.profile.name || "Moi") : r.name) + " · " + r.rank + " · +" + r.pts + " pts (" + plural(r.v, "victoire") + ")"; }).join("\n");
+      shareVisual({ key: "course-" + monthKey(), eb: "Course du mois · " + MOIS_L[today().getMonth()], col: "#6FB7E8", title: me ? "Je suis " + (me === 1 ? "1er" : me + "e") + " sur " + R.length : "La course du mois", rows: R.map(function (r) { return [r.me ? "Moi" : r.name, "+" + r.pts + " pts", r.me]; }), foot: "points gagnés ce mois-ci", text: t });
     },
     leagueOut: function (el) { S.league = S.league || { y: seasonY(), start: {} }; S.league.out = (S.league.out || []).concat([el.dataset.v]); save(); render(); toast("Retiré de ta course. Tu le suis toujours."); },
     // 3.55.4 (Yann) : la feuille de partage proposait un fichier ; on ouvre directement l'appli choisie, message prérempli
@@ -14895,12 +14964,24 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var lim = E.iso(new Date(today() - 730 * 864e5)); Object.keys(S.checkin).forEach(function (d) { if (d < lim) delete S.checkin[d]; });
       save(); haptic("light"); UI.sheet = { k: "ciDone", v: 1 }; render();
     },
-    badgeShare: function (el) { var p = el.dataset.v.split(":"), G = badgesData(), b = (G[p[0]] || []).filter(function (x) { return x.k === p[1]; })[0]; if (b) sharePlain("Badge Montée : « " + b.t + " »" + (b.x > 1 ? ", obtenu " + b.x + " fois" : "") + ". " + plural(G.got, "badge") + " à mon actif."); },
+    badgeShare: function (el) { var p = el.dataset.v.split(":"), G = badgesData(), b = (G[p[0]] || []).filter(function (x) { return x.k === p[1]; })[0]; if (!b) return;
+      shareVisual({ key: "badge-" + b.k, eb: "Badge Montée", col: "#E8B64A", title: b.t, big: b.x > 1 ? [["×" + b.x, "#E8B64A"]] : null, line: (b.x > 1 ? "Obtenu " + b.x + " fois. " : "") + plural(G.got, "badge") + " à mon actif.", foot: "saison " + seasonY(),
+        text: "Badge Montée : « " + b.t + " »" + (b.x > 1 ? ", obtenu " + b.x + " fois" : "") + ". " + plural(G.got, "badge") + " à mon actif." }); },
+    shvFmt: function (el) { UI.shvF = el.dataset.v; render(); },
+    shvGo: function () { shvSend(); },
+    h2hShare: function (el) {
+      var key = el.dataset.v, ms = knownMatches(false).filter(function (m) { return m.opp && !isAnon(m.opp) && nameKey(m.opp) === key && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
+      if (!ms.length) return; var v = ms.filter(function (m) { return m.result === "V"; }).length, d = ms.length - v, name = nameCase(ms[0].opp), L = ms[0];
+      var line = plural(ms.length, "match", "matchs") + ", " + plural(v, "victoire") + ". Le dernier : " + (L.result === "V" ? "victoire" : "défaite") + (L.score ? " " + L.score : "") + (L.date ? ", le " + fdate(L.date).replace(/\.$/, "") : "") + ".";
+      shareVisual({ key: "face-a-face-" + key, eb: "Face-à-face", col: v >= d ? "#6FC28F" : "#E88A5E", title: "Moi contre " + name, big: [[v, "#6FC28F"], [d, "#E88A5E"]], sep: "–", sq: ms.slice().reverse().map(function (m) { return m.result; }), line: line, foot: (effRank() || "") + " · saison " + seasonY(),
+        text: "Face-à-face contre " + name + " : " + v + " – " + d + ". " + line });
+    },
     leagueToggle: function () { UI.lgOpen = !UI.lgOpen; render(); },
     whySet: function (el) { S.why = el.dataset.v; save(); UI.sheet = { k: "why", v: S.why }; haptic("light"); render(); },
     defiShare: function (el) {
       var D = defisData(), r = D.list.filter(function (x) { return x.d.k === el.dataset.v; })[0]; if (!r || !r.done) return;
-      sharePlain("Défi réussi : « " + r.d.t + " » (" + (r.done.score ? r.done.score + " " : "") + "contre " + r.who + "). " + D.done + " défis sur " + D.list.length + " cette saison.");
+      var t = "Défi réussi : « " + r.d.t + " » (" + (r.done.score ? r.done.score + " " : "") + "contre " + r.who + "). " + D.done + " défis sur " + D.list.length + " cette saison.";
+      shareVisual({ key: "defi-" + r.d.k, eb: "Défi réussi", col: "#D4E64A", title: r.d.t, line: (r.done.score ? r.done.score + " " : "") + "contre " + r.who + ".", big: [[D.done + "/" + D.list.length, "#D4E64A"]], foot: "défis de la saison", text: t });
     },
     warmFreeGo: function (el) { el.dataset.ok = "1"; A.warmGo(el); },
     warmPhone: function (el) {
@@ -15535,7 +15616,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
     shareMontee: function () {
       if (!S.ahead) return;
-      shareText("Je monte " + S.ahead.rank + " à la sortie du classement du " + flong(E.parseDate(S.ahead.release)) + " ! Calculé avec Montée.");
+      shareVisual({ key: "je-monte-" + S.ahead.rank.replace("/", "-"), eb: "Je monte", col: "#D4E64A", title: "Je monte " + S.ahead.rank + " !", big: [[S.ahead.rank, "#D4E64A"]], line: "À la sortie du classement du " + flong(E.parseDate(S.ahead.release)) + ".", foot: "calculé avec Montée",
+        text: "Je monte " + S.ahead.rank + " à la sortie du classement du " + flong(E.parseDate(S.ahead.release)) + " ! Calculé avec Montée." });
     },
     don: function () {
       UI.menu = false;
