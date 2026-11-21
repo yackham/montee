@@ -5593,3 +5593,43 @@ button.h3h-r:active { opacity: .7; }
 .tw-sj .linkbtn { font-size: 14px; }
 .sj-lbl3 { margin-top: 6px; }
 .sj-wt b, .sj-wait b { font-size: inherit; font-weight: 700; color: var(--ink); }
+/* 3.63 (Yann, 21/11) : face-à-face en 2 lignes, petits carrés comme le widget, note entre guillemets */
+button.h3h-r.fx2 { display: flex; flex-direction: column; align-items: stretch; gap: 7px; padding: 12px 0; }
+.fx-l1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fx-l1 b { font-size: 15.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fx-l1 .rk-tag { flex: none; font-size: 13px; color: var(--muted); }
+.fx-pt { flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; padding: 2px 7px; border-radius: 99px; box-shadow: inset 0 0 0 1.5px currentColor; white-space: nowrap; }
+.fx-pt.cl { color: var(--gazon); } .fx-pt.bn { color: var(--terre); }
+.fx-l2 { display: flex; align-items: center; gap: 10px; }
+.fx-q { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.fx-q i { width: 14px; height: 14px; border-radius: 4px; display: block; }
+.fx-q i.V { background: var(--chart-v); } .fx-q i.D { background: var(--chart-d); }
+.fx-q i.last { box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--acc-ink, var(--balle)); }
+.fx-s { flex: none; font-size: 21px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.fx-s em { font-style: normal; } .fx-s em.V { color: var(--gazon); } .fx-s em.D { color: var(--terre); } .fx-s .sep { color: var(--muted); font-weight: 600; margin: 0 3px; }
+.fx-note { display: flex; gap: 8px; font-size: 13px; line-height: 1.4; color: var(--ink); opacity: .9; text-align: left; }
+.fx-note svg { flex: none; margin-top: 2px; color: var(--acc-ink, var(--balle)); }
+:root[data-theme="nuit"] .fx-q i.V { background: #5DB582; } :root[data-theme="nuit"] .fx-q i.D { background: #9E5F48; }
+:root[data-theme="nuit"] .fx-pt.cl, :root[data-theme="nuit"] .fx-s em.V { color: #6FCF97; } :root[data-theme="nuit"] .fx-pt.bn, :root[data-theme="nuit"] .fx-s em.D { color: #EE8A5E; }
+:root[data-theme="nuit"] .fx-note svg, :root[data-theme="nuit"] .fx-q i.last { --acc-ink: #D4E64A; }
+/* 3.63 (Yann, 21/11) : séance du jour sur une ligne */
+.card.sj1 { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; }
+.sj1 .sj-vig { width: 52px; height: 52px; flex: none; }
+.sj1-a { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; text-decoration: none; color: inherit; }
+.sj1-eb { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sj1-t { font-size: 15.5px; font-weight: 700; line-height: 1.2; }
+.sj1-ds { display: flex; align-items: center; gap: 5px; margin-top: 3px; }
+.sj1-ds .gcat-d { width: 9px; height: 9px; }
+.sj1-lnk { display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; font-size: 13px; font-weight: 700; color: var(--gazon); }
+.sj1-lnk svg { width: 13px; height: 13px; }
+.sj1-go { flex: none; width: 48px; height: 48px; border-radius: 50%; border: 0; cursor: pointer; background: var(--hl); color: var(--on-balle, #121212); display: grid; place-items: center; }
+.sj1-go svg { width: 20px; height: 20px; }
+.h2s-acts { display: flex; gap: 10px; align-items: center; margin-top: 14px; }
+.h2s-acts .h2s-go { margin-top: 0; flex: 1; }
+.h2s-sh { flex: none; background: var(--chip); }
+/* 3.63 : feuille de partage en image */
+.shv { display: flex; flex-direction: column; gap: 14px; align-items: stretch; }
+.shv-img { display: block; width: 62%; max-width: 260px; margin: 0 auto; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.shv-img.st { width: 46%; max-width: 200px; }
+.shv-txt { margin: 0; background: var(--card); border-radius: 14px; padding: 12px 14px; font-size: 14px; line-height: 1.45; white-space: pre-line; max-height: 220px; overflow: auto; }
+.shv-seg { align-self: center; }
