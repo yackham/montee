@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.65.0",
+    VERSION: "3.66.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -616,7 +616,7 @@
   document.addEventListener("focusout", function () { setTimeout(function () { if (!kbField(document.activeElement)) document.body.classList.remove("kb"); }, 80); });
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
-    var r = route(); UI.sheet = null;
+    var r = route(); UI.sheet = null; UI.flAnim = true; // 3.66 : la fleur s'anime à chaque arrivée sur une page
     // 3.57.3 (testeur) : la feuille « Programmer le match » restait ouverte en quittant la poule et se rouvrait au retour
     UI.plSched = null; UI.plHost = null;
     if (!/^tournoi\//.test(r)) { UI.trR = null; UI.trHits = null; }
@@ -9210,8 +9210,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     return { R: R, cur: cur, curL: curL, forts: forts, faibs: faibs, title: title, n: ms.length, measured: CP_KEYS.filter(function (k) { return R[k].st !== "lock"; }).length };
   }
+  // 3.66 (Yann, maquettes F3 + J2) : à l'arrivée sur le profil, la fleur s'ouvre en éventail puis le point fort pulse ;
+  // dans le détail, la jauge se remplit, les paliers s'allument au passage et le contour du pétale se referme. Une fois par arrivée sur la page.
   function compFlower(P, size, sel, blur, links, focus) {
-    var cx = size / 2, r1 = size * 0.46, r0 = size * 0.07, n = CP_KEYS.length, dk = cpDark(), s = '<svg class="cp-fl" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" aria-hidden="true"' + (blur ? ' style="filter:blur(5px);opacity:.75"' : "") + ">";
+    var an = (links || focus) && UI.flAnim !== false && !blur; if (links || focus) UI.flAnim = false;
+    var top = an && links && P.forts && P.forts[0];
+    var cx = size / 2, r1 = size * 0.46, r0 = size * 0.07, n = CP_KEYS.length, dk = cpDark(), s = '<svg class="cp-fl' + (an ? (focus ? " fl-j" : " fl-f") : "") + '" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" aria-hidden="true"' + (blur ? ' style="filter:blur(5px);opacity:.75"' : "") + ">";
     var f = function (x) { return x.toFixed(1); }, L = function (p, q, t) { return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]; };
     CP_KEYS.forEach(function (k, i) {
       var x = P.R[k], stt = x.st, col = cpCol(k), rr = focus || stt === "fort" || stt === "lock" ? r1 : stt === "norme" ? r1 * 0.86 : r1 * 0.74, gap = 0.035;
@@ -9223,11 +9227,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       d += " L" + f(D[0]) + "," + f(D[1]) + " Q" + f(v2[0]) + "," + f(v2[1]) + " " + f(E2[0]) + "," + f(E2[1]) + " L" + f(F2[0]) + "," + f(F2[1]) + " Q" + f(v0[0]) + "," + f(v0[1]) + " " + f(A[0]) + "," + f(A[1]) + "Z";
       var icc;
       if (links) s += '<a href="#/competiteur/' + k + '" class="cp-pt" aria-label="' + CP_LAB[k] + '">';
+      if (an) s += '<g class="pt' + (top === k ? " top" : "") + (focus && focus.k === k ? " on" : "") + '" style="--i:' + i + '">';
       if (focus && focus.k !== k) { s += '<path d="' + d + '" fill="var(--ink)" fill-opacity=".07"/>'; icc = "color-mix(in srgb, var(--ink) 30%, transparent)"; }
       else if (focus) {
         var rl = r0 + (r1 - r0) * focus.level, cid = "cpc" + k;
-        s += '<clipPath id="' + cid + '"><path d="' + d + '"/></clipPath><path d="' + d + '" fill="' + col + '" fill-opacity=".18" stroke="' + col + '" stroke-width="2.5"/>' +
-          '<g clip-path="url(#' + cid + ')"><circle cx="' + f(cx) + '" cy="' + f(cx) + '" r="' + f(rl) + '" fill="' + col + '"/>' + [0.4, 0.7].map(function (t) { return '<circle cx="' + f(cx) + '" cy="' + f(cx) + '" r="' + f(r0 + (r1 - r0) * t) + '" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.5" stroke-dasharray="3 4"/>'; }).join("") + "</g>";
+        s += '<clipPath id="' + cid + '"><path d="' + d + '"/></clipPath><path d="' + d + '" fill="' + col + '" fill-opacity=".18" stroke="' + col + '" stroke-width="2.5"' + (an ? ' stroke-opacity=".25"' : "") + "/>" +
+          '<g clip-path="url(#' + cid + ')"><circle' + (an ? ' class="gz" style="--s0:' + (r0 / rl).toFixed(3) + '"' : "") + ' cx="' + f(cx) + '" cy="' + f(cx) + '" r="' + f(rl) + '" fill="' + col + '"/>' + [0.4, 0.7].map(function (t) {
+            var rt = r0 + (r1 - r0) * t, tk = an && rt < rl ? ' class="tk" style="--d:' + (0.35 + 1.05 * Math.pow((rt - r0) / (rl - r0), 1.6)).toFixed(2) + 's"' : "";
+            return '<circle' + tk + ' cx="' + f(cx) + '" cy="' + f(cx) + '" r="' + f(rt) + '" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.5" stroke-dasharray="3 4"/>';
+          }).join("") + "</g>" + (an ? '<path class="edge" d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2.5" pathLength="1"/>' : "");
         icc = focus.level >= 0.62 ? cpOnFill(col) : col;
       }
       else if (stt === "fort") { s += '<path d="' + d + '" fill="' + col + '"/>'; icc = cpOnFill(col); }
@@ -9236,7 +9244,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       else { s += '<path d="' + d + '" fill="transparent" stroke="var(--muted)" stroke-opacity=".7" stroke-width="2" stroke-dasharray="5 5"/>'; icc = "var(--muted)"; }
       if (sel === k) s += '<path d="' + d + '" fill="none" stroke="var(--ink)" stroke-width="3"/>';
       var ip = [cx + (r0 + (rr - r0) * 0.62) * Math.cos(am), cx + (r0 + (rr - r0) * 0.62) * Math.sin(am)], sz = size * (focus && focus.k === k ? 0.1 : 0.075);
-      s += '<svg x="' + f(ip[0] - sz / 2) + '" y="' + f(ip[1] - sz / 2) + '" width="' + f(sz) + '" height="' + f(sz) + '" viewBox="0 0 24 24" fill="none" stroke="' + icc + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + CP_IC[k] + "</svg>" + (links ? "</a>" : "");
+      s += '<svg x="' + f(ip[0] - sz / 2) + '" y="' + f(ip[1] - sz / 2) + '" width="' + f(sz) + '" height="' + f(sz) + '" viewBox="0 0 24 24" fill="none" stroke="' + icc + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' + CP_IC[k] + "</svg>" + (an ? "</g>" : "") + (links ? "</a>" : "");
     });
     return s + "</svg>";
   }

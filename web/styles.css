@@ -3558,7 +3558,7 @@ button.ts-t { border: 0; font: inherit; color: var(--ink); text-align: left; }
 .fr { display: flex; flex-direction: column; gap: 10px; }
 .fr-t { display: flex; justify-content: space-between; align-items: baseline; padding: 0 2px; }
 .fr-t b { font-size: 18px; }
-.fr-t a { font-size: 13px; font-weight: 700; color: var(--muted); text-decoration: none; }
+.fr-t a { font-size: 13px; font-weight: 700; color: var(--gazon); text-decoration: none; } /* 3.66 (Yann) : en couleur d'accent, comme « Détail › » de la séance, pour qu'on voie que c'est un lien */
 .fr-s { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -20px; padding: 0 20px 4px; scrollbar-width: none; position: relative; }
 .fr-s::-webkit-scrollbar { display: none; }
 .fr-c { flex: none; width: 148px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--ink); scroll-snap-align: start; scroll-margin-left: 20px; position: relative; }
@@ -3698,7 +3698,7 @@ html:root[data-theme="nuit"] .card.hero.h3.h3.h3.terre { --hacc: var(--terre); }
 .tu-alt .btn svg { width: 16px; height: 16px; }
 /* 3.46.6 : terre / dur — la frise « Ce qui arrive » sur la page colorée, les cartes « panneau » visibles sur le bleu */
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .fr .fr-t b { color: var(--page-ink); }
-:is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .fr .fr-t a { color: var(--page-muted); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .fr .fr-t a { color: var(--hl); }
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .fr .fr-h { color: var(--page-muted); }
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .fr .fr-c.now .fr-h { color: var(--page-ink); }
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .fr .fr-c::before { background: color-mix(in srgb, var(--page-ink) 40%, transparent); }
@@ -5822,3 +5822,18 @@ button.h3h-r.fx2 { display: flex; flex-direction: column; align-items: stretch; 
 .co-scn .ilx .sway{transform-box:view-box;transform-origin:165px 22px;animation:ilSway 3.2s ease-in-out infinite}
 @keyframes ilSway{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
 
+
+/* 3.66 (Yann, maquettes F3 + J2) : fleur du profil en éventail + pulsation du point fort ; jauge du détail qui se remplit */
+.cp-fl .pt { transform-box: view-box; transform-origin: 50% 50%; }
+.cp-fl.fl-f .pt { animation: flFan .8s cubic-bezier(.2,.9,.3,1) both; animation-delay: calc(var(--i) * .06s); }
+.cp-fl.fl-f .pt.top { animation: flFan .8s cubic-bezier(.2,.9,.3,1) both, flPulse .55s ease-in-out 1.25s both; animation-delay: calc(var(--i) * .06s), 1.25s; }
+@keyframes flFan { from { transform: rotate(-80deg) scale(.35); opacity: 0; } }
+@keyframes flPulse { 50% { transform: scale(1.07); } }
+.cp-fl.fl-j .pt:not(.on) { animation: fade .4s ease-out both; }
+.cp-fl.fl-j .gz { transform-box: view-box; transform-origin: 50% 50%; animation: flFill 1.4s cubic-bezier(.25,.8,.3,1) .35s both; }
+@keyframes flFill { from { transform: scale(var(--s0)); } }
+.cp-fl.fl-j .tk { animation: flTick .5s ease-out both; animation-delay: var(--d); }
+@keyframes flTick { 0% { stroke-opacity: .18; } 40% { stroke-opacity: .75; stroke-width: 2.6; } 100% { stroke-opacity: .18; } }
+.cp-fl .edge { stroke-dasharray: 1; stroke-dashoffset: 1; animation: flDraw .5s ease-out 1.6s both; }
+@keyframes flDraw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .cp-fl.fl-f .pt, .cp-fl.fl-j .pt, .cp-fl .gz, .cp-fl .tk, .cp-fl .edge { animation: none !important; } .cp-fl .edge { stroke-dashoffset: 0; } }
