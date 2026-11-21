@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.61.4",
+    VERSION: "3.61.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -189,12 +189,33 @@
       if (run.length > best) { best = run.length; add(m, { k: "serie", t: best + " victoires d'affilée", s: (best === 3 ? run.map(function (x) { return nameCase(x.opp) || "un " + x.oppRank; }).join(", ") + " : t" : "T") + "a plus longue série cette saison." }); }
       if (won) { var prev = acts.filter(function (x) { return x < m.date; }).pop(); var gap = prev ? Math.round(dayDiff(prev, m.date)) : 0;
         if (gap >= 21 && gap >= 2 * med && (!ret || gap >= ret.g)) ret = { m: m, g: gap }; }
-      try { var rl = E.nextRelease(E.parseDate(m.date)), b = E.bilanAt(E.windowMatches(allM, rl, E.parseDate(m.date)), target, c.sex, c.cur, E.iso(rl) === rel0 ? c.opts.extra : 0); nB++;
-        if (recMax == null || b.total > recMax) { if (recMax != null && nB > 3) { recM = m; recPts = b.total; } recMax = b.total; } } catch (e) {}
     });
     if (ret) add(ret.m, { k: "retour", t: "Retour gagnant", s: "Victoire pour ton 1er match après " + (ret.g >= 28 ? (Math.floor(ret.g / 30) > 1 ? Math.floor(ret.g / 30) + " mois" : "un mois") : Math.floor(ret.g / 7) + " semaines") + " sans jouer." }); // un seul par saison : la plus longue pause
-    if (recM) add(recM, { k: "record", t: "Record de saison : " + recPts + " pts", s: "Ton bilan pour " + lab(target) + " n'a jamais été aussi haut cette saison." });
+    // 3.61 (Yann, 20/11) : record de points = ton bilan LE JOUR D'UNE SORTIE dépasse celui de toutes tes sorties d'avant (1 par saison)
+    try { var rs = recordSorties(), r0 = rs.filter(function (x) { return x.y === seasonY(); })[0]; if (r0 && r0.m && (c.proj.matches || []).some(function (m) { return m.id === r0.m.id; })) add(r0.m, { k: "record", t: "Record à une sortie : " + r0.pts + " pts", s: r0.txt }); } catch (e) {}
     UI.palK = key; UI.palV = out; return out;
+  }
+  // 3.61 (Yann, 20/11, « je vais toujours le battre, non ? ») : le record de points ne se joue plus à chaque victoire.
+  // On regarde ton bilan (classement visé = celui au-dessus de toi aujourd'hui) le jour de chaque sortie passée ; une saison
+  // a son record si sa meilleure sortie dépasse la meilleure de toutes les saisons d'avant. Il faut au moins 3 sorties avant.
+  function recordSorties() {
+    var c = ctx(), cur = c.cur < 0 ? 0 : c.cur, target = Math.min(cur + 1, E.MAX_CALC), allM = allMatches(), key = E.iso(today()) + "|" + allM.length + "|" + cur;
+    if (UI.rsK === key && UI.rsV) return UI.rsV;
+    var ds = allM.filter(function (m) { return m.date; }).map(function (m) { return m.date; }).sort(), out = [];
+    if (ds.length) {
+      var t = today(), R = E.nextRelease(E.parseDate(ds[0])), list = [];
+      while (R <= t) { try { var b = E.bilanAt(E.windowMatches(allM, R, R, false), target, c.sex, c.cur, 0); list.push({ R: R, pts: b.total, y: seasonY(R) }); } catch (e) {} R = E.nextRelease(new Date(R.getTime() + 864e5)); }
+      var best = null, n = 0, ys = list.map(function (x) { return x.y; }).filter(function (y, i, a) { return a.indexOf(y) === i; });
+      ys.forEach(function (y) {
+        var L = list.filter(function (x) { return x.y === y; }), top = L.slice().sort(function (a, b) { return b.pts - a.pts || (a.R < b.R ? -1 : 1); })[0];
+        if (top && best != null && n >= 3 && top.pts > best.pts) {
+          var iso = E.iso(top.R), wins = allM.filter(function (m) { return m.date && m.date < iso && m.result === "V" && !m.wo && m.id; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+          out.push({ y: y, R: top.R, pts: top.pts, prev: best.pts, m: wins[0] || null, txt: "À la sortie du " + top.R.getDate() + " " + MOIS[top.R.getMonth()] + " " + top.R.getFullYear() + ", ton bilan pour " + lab(target) + " a dépassé tout ce que tu avais eu à une sortie (avant : " + best.pts + " pts)." });
+        }
+        L.forEach(function (x) { n++; if (best == null || x.pts > best.pts) best = x; });
+      });
+    }
+    UI.rsK = key; UI.rsV = out; return out;
   }
   function palCard(x, m) {
     var d = E.parseDate(m.date);
@@ -2771,11 +2792,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     });
     // Records : les paliers de la saison (12 mois du bilan)
     var pal = {}; try { pal = paliers(); } catch (e) {}
-    var REC = [["perf", "perf", "1re perf de la saison", "Ta 1re victoire de la saison contre un mieux classé."], ["serie", "serie", "Série record", "Ta plus longue série de victoires de la saison (3 et plus)."], ["retour", "retour", "Retour gagnant", "Une victoire pour ton 1er match après une pause inhabituelle pour toi (3 semaines et plus)."], ["record", "record", "Record de points", "Ton bilan pour le classement visé n'a jamais été aussi haut cette saison."]];
+    var REC = [["perf", "perf", "1re perf de la saison", "Ta 1re victoire de la saison contre un mieux classé."], ["serie", "serie", "Série record", "Ta plus longue série de victoires de la saison (3 et plus)."], ["retour", "retour", "Retour gagnant", "Une victoire pour ton 1er match après une pause inhabituelle pour toi (3 semaines et plus)."], ["record", "record", "Record de points", "Le jour d'une sortie de classement, ton bilan pour le classement visé dépasse celui de toutes tes sorties d'avant (il en faut au moins 3). Compté une fois par saison, sur sa meilleure sortie."]];
     var rec = REC.map(function (q) {
-      var h = []; S.matches.forEach(function (m) { (pal[m.id] || []).forEach(function (x) { if (x.k === q[0]) h.push({ m: m, t: x.t, s: x.s }); }); });
+      var h = []; if (q[0] === "record") { try { recordSorties().forEach(function (r) { h.push({ m: r.m || { date: E.iso(r.R) }, t: r.pts + " pts à la sortie du " + r.R.getDate() + " " + MOIS[r.R.getMonth()], s: "Avant : " + r.prev + " pts au mieux", y: r.y }); }); } catch (e) {} }
+      else S.matches.forEach(function (m) { (pal[m.id] || []).forEach(function (x) { if (x.k === q[0]) h.push({ m: m, t: x.t, s: x.s }); }); });
       h.sort(function (a, b) { return a.m.date < b.m.date ? 1 : -1; });
-      return { fam: "rec", k: q[0], ic: q[1], t: q[2], how: q[3], p: h.length ? 1 : 0, s: !h.length ? "" : q[0] === "record" ? h[0].t.replace(/^Record de saison : /, "") : q[0] === "serie" ? h[0].t.replace(/ d'affilée$/, "") : "le " + fdate(h[0].m.date).replace(/\.$/, ""), x: h.length, hist: h, m: h[0] ? h[0].m : null };
+      return { fam: "rec", k: q[0], ic: q[1], t: q[2], how: q[3], p: h.length ? 1 : 0, s: !h.length ? "" : q[0] === "record" ? h[0].t.replace(/ à la sortie.*$/, "") : q[0] === "serie" ? h[0].t.replace(/ d'affilée$/, "") : "le " + fdate(h[0].m.date).replace(/\.$/, ""), x: h.length, hist: h, m: h[0] ? h[0].m : null };
     });
     var all = mois.concat(saison, rec), got = all.filter(function (b) { return b.p >= 1; });
     var near = saison.concat(mois).filter(function (b) { return b.p < 1 && b.p >= 0.5; }).sort(function (a, b) { return (b.p - a.p) || ((a.of - a.n) - (b.of - b.n)); })[0];
@@ -2811,7 +2833,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var hs = b.hist.map(function (h) {
       if (b.fam === "mois") { var d = E.parseDate(h.mo + "-01"); return row(MOIS[d.getMonth()] + " " + String(d.getFullYear()).slice(2), h.m, h.m ? mt(h.m) : "Obtenu", h.m && h.m.score ? h.m.score : ""); }
       if (b.fam === "saison") return row((h.y - 1) + "-" + String(h.y).slice(2), h.m, mt(h.m), [h.m.score, h.m.comp].filter(Boolean).join(" · "));
-      return row(fdate(h.m.date).replace(/\.$/, ""), h.m, h.t, h.s);
+      return row(h.y ? (h.y - 1) + "-" + String(h.y).slice(2) : fdate(h.m.date).replace(/\.$/, ""), h.m, h.t, h.s);
     }).join("");
     return { title: b.t, sub: "", body: head + hs + '<p class="small bd-how">' + esc(b.how) + " " + (b.fam === "mois" ? "Revient chaque 1er du mois." : b.fam === "saison" ? "Revient chaque 1er septembre." : "Un par saison, aussi dans la timeline d'Activité sous le match.") + "</p>" +
       (b.p >= 1 ? '<div class="ls-foot"><button class="btn soft small" data-a="badgeShare" data-v="' + esc(v) + '">Partager</button></div>' : "") };
