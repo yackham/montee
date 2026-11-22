@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.68.1",
+    VERSION: "3.68.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1649,11 +1649,12 @@
   }
   // 3.68 (Davy) : comment Montée a cherché tes équipes, pour comprendre (et nous envoyer) ce qui coince sans deviner
   function tmTraceHtml() {
-    var tr = S.teamsTrace; if (!NATIVE || !tr) return "";
+    if (!NATIVE || !(S.tenup && S.tenup.linked)) return "";
+    var tr = S.teamsTrace || {};
     var L = (tr.last && tr.last.champs) || [], W = { feuille: "trouvée sur la feuille de match", club: "trouvée par le club d'en face", jour: "trouvée par le jour du match", rien: "pas trouvée" };
     var rows = L.map(function (c) { return '<div class="tm-trr"><b>' + esc(c.nom || "Championnat " + c.id) + "</b><span>" + esc((W[c.trouve] || "") + (c.fini ? "" : " · recherche pas finie")) + " · " + plural(c.poules, "poule") + " lue" + (c.poules > 1 ? "s" : "") + ", " + plural(c.feuilles, "feuille") + " de match · " + Math.round((c.ms || 0) / 1000) + " s" + (c.err ? " · " + plural(c.err, "erreur") : "") + "</span></div>"; }).join("");
-    var head = UI.tmBusy ? "Recherche en cours…" : tr.err ? "Dernière recherche : " + tr.err : "Dernière recherche " + agoLab(tr.at) + " en " + plural(tr.calls, "lecture");
-    return '<details class="tm-tr"><summary>Comment Montée a cherché tes équipes</summary><span class="small">' + esc(head) + "</span>" + (rows || '<span class="small">Aucune rencontre par équipes dans ton palmarès Ten\'Up des 13 derniers mois.</span>') +
+    var head = UI.tmBusy ? "Recherche en cours…" : !tr.at ? "Pas encore de recherche avec cette version : touche Relancer." : tr.err ? "Dernière recherche : " + tr.err : "Dernière recherche " + agoLab(tr.at) + " en " + plural(tr.calls, "lecture");
+    return '<details class="tm-tr"><summary>Comment Montée a cherché tes équipes</summary><span class="small">' + esc(head) + "</span>" + (rows || (tr.at ? '<span class="small">Aucune rencontre par équipes dans ton palmarès Ten\'Up des 13 derniers mois.</span>' : "")) +
       (UI.tmBusy ? "" : '<button class="linkbtn" data-a="syTap" data-k="team">Relancer la recherche</button>') + '<button class="linkbtn" data-a="tmReport">Envoyer le rapport à Yann</button>' + "</details>";
   }
   // 3.68 : rapport de diagnostic des équipes à envoyer (aucun mot de passe, aucun nom de joueur : championnats, équipes, nombres)
@@ -1737,7 +1738,7 @@
     var s = teamSeasonHtml();
     if (on.length) s += '<h2 class="tm-gh">En cours</h2><div class="blk">' + on.map(teamRow).join("") + "</div>";
     if (off.length) s += '<h2 class="tm-gh">Terminés</h2><div class="blk">' + off.map(teamRow).join("") + "</div>";
-    return s || '<div class="card"><span class="small">Montée lit tes championnats sur Ten\'Up…</span></div>';
+    return (s || '<div class="card"><span class="small">Montée lit tes championnats sur Ten\'Up…</span></div>');
   }
   // 3.50.4 (Yann) : ton impact dans un championnat : l'équipe avec toi / sans toi, tes matchs, ta part des matchs gagnés
   function teamImpactHtml(c) {
