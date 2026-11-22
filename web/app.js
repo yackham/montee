@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.71.3",
+    VERSION: "3.71.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2881,7 +2881,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // état de la synchro en petit) ; la date au-dessus. Avant : date, pastille de synchro, salut, profil et réglages mal alignés.
     var dl0 = S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small hd-d">' + esc(dLine) + "</span>";
     var hiT = jm ? "Jour de match" : gt ? gt : S.profile.name ? "Salut " + S.profile.name : "Salut", rk0 = effRank() || "";
-    // 3.71.3 (Yann, maquette v4 validée) : jour de match, victoire de la veille ou montée détectée mettent la barre en avant
+    // 3.71.4 (Yann, maquette v4 validée) : jour de match, victoire de la veille ou montée détectée mettent la barre en avant
     // (contour couleur, pastille sur l'avatar, surtitre, action à droite) ; la ligne du haut redevient la date.
     var spK = null, spH = "";
     try {
@@ -9448,7 +9448,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       E.ECHELONS.slice(0, 22).map(function (e) { return '<option' + (m.oppRank === e ? " selected" : "") + ">" + e + "</option>"; }).join("") + '<option value="N°"' + (/^N°/.test(m.oppRank) ? " selected" : "") + ">Numéroté</option>";
     var c = ctx(), pts = countedMap(c.proj.next)[m.id];
     var s = '<div class="screen">' + topbar(isNew ? "Nouveau match" : "", isNew ? "" : (annotated(m) ? "Fiche du match" : "À annoter"),
-      isNew || !isManual(m) ? "" : (UI.mEdit ? "" : '<button class="iconbtn" data-a="mEdit" aria-label="Modifier le match" style="margin-right:6px">' + I.edit + "</button>") + '<button class="iconbtn" data-a="delMatch" aria-label="Supprimer ce match">' + I.trash + "</button>");
+      (!isNew && m.result === "V" && !m.wo ? '<button class="iconbtn" data-a="shareWin" aria-label="Partager ma victoire" style="margin-right:6px">' + I.share + "</button>" : "") + (isNew || !isManual(m) ? "" : (UI.mEdit ? "" : '<button class="iconbtn" data-a="mEdit" aria-label="Modifier le match" style="margin-right:6px">' + I.edit + "</button>") + '<button class="iconbtn" data-a="delMatch" aria-label="Supprimer ce match">' + I.trash + "</button>"));
     var official = !isNew && !isManual(m);
     var mA = isNew ? null : (S.matches.filter(function (x) { return x.id === m.id; })[0] || m), anA = null;
     if (mA && !mA.wo && (mA.result === "V" || mA.result === "D")) { try { anA = analyse(mA); } catch (e) {} }
@@ -10847,7 +10847,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var V = UI.shv; if (!V) return null; var f = UI.shvF || "45";
       var seg = [["45", "Carré 4:5"], ["916", "Story 9:16"], ["txt", "Texte"]].map(function (x) { return '<button class="' + (f === x[0] ? "on" : "") + '" data-a="shvFmt" data-v="' + x[0] + '" aria-pressed="' + (f === x[0]) + '">' + x[1] + "</button>"; }).join("");
       var prev = f === "txt" ? '<p class="shv-txt">' + esc(V.text || V.title) + "</p>" : '<img class="shv-img' + (f === "916" ? " st" : "") + '" alt="Aperçu de l\'image partagée" src="' + shvDraw(V, f).toDataURL("image/png") + '">';
-      return { title: "Partager", sub: f === "txt" ? "Le texte seul, pour ton prof ou un groupe d'équipe." : "Une image prête pour Instagram, WhatsApp ou Messages.", body: '<div class="shv">' + prev + '<div class="seg shv-seg" role="group" aria-label="Format">' + seg + '</div><button class="btn primary" data-a="shvGo">Partager ' + I.next + "</button></div>" };
+      var sSeg = V.stys && f !== "txt" ? '<div class="seg shv-seg" role="group" aria-label="Style">' + V.stys.map(function (x, i) { var on = (V.stys.indexOf(UI.shvS) >= 0 ? UI.shvS : V.stys[0]) === x; return '<button class="' + (on ? "on" : "") + '" data-a="shvSty" data-v="' + x + '" aria-pressed="' + on + '">' + ({ balle: "Balle", affiche: "Affiche", tableau: "Tableau" })[x] + "</button>"; }).join("") + "</div>" : "";
+      return { title: "Partager", sub: f === "txt" ? "Le texte seul, pour ton prof ou un groupe d'équipe." : "Une image prête pour Instagram, WhatsApp ou Messages.", body: '<div class="shv">' + prev + '<div class="seg shv-seg" role="group" aria-label="Format">' + seg + '</div>' + sSeg + '<button class="btn primary" data-a="shvGo">Partager ' + I.next + "</button></div>" };
     },
     badge: function (v) { return badgeSheet(v); }, // 3.59 : un badge, ouvert // 3.59 (Yann) : tous les matchs d'un face-à-face
     // 3.59 (Yann, maquette L5) : qui court avec toi. Sortir de la course ne retire pas des suivis.
@@ -13818,45 +13819,164 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var out = [], line = ""; String(txt || "").split(/\s+/).forEach(function (w) { var t = line ? line + " " + w : w; if (g.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; });
     if (line) out.push(line); return out;
   }
-  function shvDraw(V, fmt) {
+  // 3.71.4 (Yann, maquettes partage-cartes : A partout, B pour la montée) : affiche sombre avec terrain en perspective, gros chiffres,
+  // pied « Calcule ta montée · gratuit… » pour donner envie de rejoindre. V en plus : sty ("balle"), path [ancien, nouveau, note],
+  // sets [[a,b]…], opp {n, rk}, badge, stats [[valeur, libellé]…], ball (balle à côté du gros chiffre), cta.
+  function shvBall(g, cx, cy, r, fill, seam) {
+    g.save(); g.fillStyle = fill; g.beginPath(); g.arc(cx, cy, r, 0, 6.3); g.fill(); g.clip();
+    g.strokeStyle = seam; g.lineWidth = Math.max(3, r * .1);
+    g.beginPath(); g.arc(cx - r * 1.32, cy, r * .95, -1.1, 1.1); g.stroke(); g.beginPath(); g.arc(cx + r * 1.32, cy, r * .95, Math.PI - 1.1, Math.PI + 1.1); g.stroke();
+    g.restore();
+  }
+  function shvRR(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
+  function shvSp(g, v) { try { g.letterSpacing = v; } catch (e) {} }
+  function shvFoot(g, W, H, fmt, V, ink, mut, dot) {
+    var X = 84, fy = H - (fmt === "916" ? 150 : 90);
+    g.fillStyle = dot; g.beginPath(); g.arc(X + 20, fy - 14, 20, 0, 6.3); g.fill();
+    g.fillStyle = ink; g.font = "800 50px " + SHV_F; g.fillText("Montée", X + 56, fy);
+    g.textAlign = "right"; g.font = "800 36px " + SHV_F; g.fillText(V.cta || "Calcule ta montée", W - X, fy - 34);
+    g.fillStyle = mut; g.font = "700 31px " + SHV_F; g.fillText("gratuit · App Store et Google Play", W - X, fy + 10); g.textAlign = "left";
+  }
+  var SHV_F = "MonteeCard, Figtree, system-ui, sans-serif";
+  function shvDrawBalle(V, fmt) {
     var W = 1080, H = fmt === "916" ? 1920 : 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-    var g = cv.getContext("2d"), F = "MonteeCard, Figtree, system-ui, sans-serif", X = 90, MW = W - 180, col = V.col || "#D4E64A";
-    g.fillStyle = "#16181B"; g.fillRect(0, 0, W, H);
-    var gr = g.createRadialGradient(W, 0, 0, W, 0, 1200); gr.addColorStop(0, shvHex(col, .28)); gr.addColorStop(1, shvHex(col, 0)); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-    var y = fmt === "916" ? 300 : 120;
-    g.textBaseline = "alphabetic";
-    g.fillStyle = col; g.beginPath(); g.arc(X + 14, y - 12, 14, 0, 6.3); g.fill();
-    g.font = "800 34px " + F; g.fillText(String(V.eb || "").toUpperCase(), X + 44, y); y += 40;
-    g.fillStyle = "#F4F2EE"; g.font = "800 92px " + F;
-    shvWrap(g, V.title, MW).slice(0, 3).forEach(function (l) { y += 100; g.fillText(l, X, y); });
-    if (V.big && V.big.length) {
-      y += 60; var bs = V.big.length > 1 ? 250 : 220; g.font = "800 " + bs + "px " + F; var x = X; y += bs * .8;
-      V.big.forEach(function (b, i) {
-        if (i && V.sep) { g.fillStyle = "#77756F"; g.font = "700 " + Math.round(bs * .55) + "px " + F; g.fillText(V.sep, x + 10, y - bs * .18); x += g.measureText(V.sep).width + 30; g.font = "800 " + bs + "px " + F; }
-        g.fillStyle = b[1] || "#F4F2EE"; g.fillText(String(b[0]), x, y); x += g.measureText(String(b[0])).width + 20;
+    var g = cv.getContext("2d"), X = 84, ink = "#16181B", k = H / 1920;
+    g.fillStyle = "#D4E64A"; g.fillRect(0, 0, W, H);
+    var R = 640 * Math.max(k, .8), cx = W + 20, cy = 1010 * k;
+    g.save(); g.fillStyle = "#E3F25B"; g.beginPath(); g.arc(cx, cy, R, 0, 6.3); g.fill(); g.clip();
+    g.strokeStyle = "#F7FBE0"; g.lineWidth = 42; g.beginPath(); g.arc(cx - R * 1.3, cy, R * .95, -1.1, 1.1); g.stroke(); g.restore();
+    var y = fmt === "916" ? 230 : 140;
+    g.fillStyle = ink; shvSp(g, "5px"); g.font = "800 39px " + SHV_F; g.fillText(String(V.eb || "").toUpperCase(), X, y); shvSp(g, "0px");
+    g.font = "800 " + (fmt === "916" ? 186 : 150) + "px MonteeSerif, Georgia, serif"; var lh = fmt === "916" ? 170 : 140;
+    (V.bTitle || ["C'est", "officiel."]).forEach(function (l) { y += lh; g.fillText(l, X - 6, y); });
+    var rs = fmt === "916" ? 400 : 300; g.font = "800 " + rs + "px " + SHV_F; shvSp(g, "-18px");
+    var rk = String((V.big && V.big[0] && V.big[0][0]) || ""), mw = g.measureText(rk).width; if (mw > W - 2 * X) { rs = Math.floor(rs * (W - 2 * X) / mw); g.font = "800 " + rs + "px " + SHV_F; }
+    y += rs * .95 + 40; g.fillText(rk, X - 12, y); shvSp(g, "0px");
+    var bb = V.bBadge || V.badge; if (bb) { y += 70; g.font = "800 45px " + SHV_F; var bw = g.measureText(bb).width + 96; g.fillStyle = ink; shvRR(g, X, y, bw, 100, 50); g.fill(); g.fillStyle = "#D4E64A"; g.fillText(bb, X + 48, y + 66); y += 100; }
+    if (V.line) { y += 40; g.fillStyle = ink; g.font = "600 45px " + SHV_F; shvWrap(g, V.line, W - 2 * X - 200).slice(0, 3).forEach(function (l) { y += 62; g.fillText(l, X, y); }); }
+    shvFoot(g, W, H, fmt, V, ink, "rgba(22,24,27,.72)", ink);
+    return cv;
+  }
+  // 3.71.4 : style « tableau d'affichage » (terrain vu du dessus, tuiles ancien → nouveau classement, tableau de chiffres)
+  function shvDrawTableau(V, fmt) {
+    var W = 1080, H = fmt === "916" ? 1920 : 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    var g = cv.getContext("2d"), F = SHV_F, ink = "#F4F2EE", acc = "#D4E64A", k = fmt === "916" ? 1 : .72;
+    var bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#0E3B2A"); bg.addColorStop(1, "#0A2C20"); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    var fyb = H - (fmt === "916" ? 290 : 200);
+    g.strokeStyle = "rgba(255,255,255,.18)"; g.lineWidth = 6; g.strokeRect(78, 78, W - 156, fyb - 78);
+    g.beginPath(); g.moveTo(78, (78 + fyb) / 2); g.lineTo(W - 78, (78 + fyb) / 2); g.stroke();
+    var y = fmt === "916" ? 230 : 170; g.textAlign = "center";
+    g.fillStyle = acc; shvSp(g, "6px"); g.font = "800 39px " + F; g.fillText("MONTÉE DÉTECTÉE", W / 2, y); shvSp(g, "0px");
+    y += 100; g.fillStyle = ink; g.font = "800 84px " + F; g.fillText(V.tTitle || V.title, W / 2, y);
+    var o = V.path ? V.path[0] : "", n = V.path ? V.path[1] : ((V.big || [[""]])[0][0]);
+    g.font = "800 " + Math.round(170 * k) + "px " + F; var nw = g.measureText(n).width + 80; g.font = "800 " + Math.round(92 * k) + "px " + F; var ow = o ? g.measureText(o).width + 64 : 0;
+    var aw = o ? 110 : 0, tot = ow + aw + nw, x0 = (W - tot) / 2, th = Math.round(250 * k), ty = y + (fmt === "916" ? 150 : 80);
+    var tile = function (x, w, h, t, size, col) {
+      g.fillStyle = "rgba(0,0,0,.35)"; shvRR(g, x, ty + (th - h) / 2 + 18, w, h, 30); g.fill();
+      g.fillStyle = "#111"; shvRR(g, x, ty + (th - h) / 2, w, h, 30); g.fill();
+      g.fillStyle = col; g.font = "800 " + size + "px " + F; g.fillText(t, x + w / 2, ty + th / 2 + size * .36);
+      g.fillStyle = "#000"; g.fillRect(x, ty + th / 2 - 3, w, 6);
+    };
+    if (o) { tile(x0, ow, Math.round(th * .62), o, Math.round(92 * k), "#8C8A84"); g.fillStyle = acc; g.font = "800 90px " + F; g.fillText("→", x0 + ow + aw / 2, ty + th / 2 + 30); }
+    tile(x0 + ow + aw, nw, th, n, Math.round(170 * k), acc);
+    y = Math.max(ty + th + 70, (78 + fyb) / 2 + (fmt === "916" ? 90 : 50)); g.textAlign = "left";
+    var rows = (V.stats || []).slice(0, 3);
+    if (rows.length) {
+      var bx = 120, bw = W - 240, rh = Math.round(96 * k + 10), bh = rows.length * rh + 40; g.fillStyle = "rgba(0,0,0,.28)"; shvRR(g, bx, y, bw, bh, 42); g.fill();
+      rows.forEach(function (r, i) {
+        var ry = y + 20 + i * rh; if (i) { g.fillStyle = "rgba(255,255,255,.1)"; g.fillRect(bx + 48, ry, bw - 96, 3); }
+        g.fillStyle = ink; g.font = "700 42px " + F; g.fillText(String(r[2] || r[1]).replace(/^./, function (c) { return c.toUpperCase(); }), bx + 48, ry + rh / 2 + 15);
+        g.textAlign = "right"; g.fillStyle = acc; g.font = "800 46px " + F; g.fillText(String(r[0]), bx + bw - 48, ry + rh / 2 + 16); g.textAlign = "left";
       });
+      y += bh;
+    }
+    if (V.when) { g.textAlign = "center"; g.fillStyle = "#CFE3D8"; g.font = "500 39px " + F; g.fillText(V.when, W / 2, fmt === "916" ? fyb - 110 : Math.min(fyb - 50, y + 90)); g.textAlign = "left"; }
+    shvFoot(g, W, H, fmt, V, ink, "#B8CFC3", acc);
+    return cv;
+  }
+  function shvDraw(V, fmt) {
+    var sty = V.stys ? (V.stys.indexOf(UI.shvS) >= 0 ? UI.shvS : V.stys[0]) : V.sty;
+    if (sty === "balle") return shvDrawBalle(V, fmt);
+    if (sty === "tableau") return shvDrawTableau(V, fmt);
+    var W = 1080, H = fmt === "916" ? 1920 : 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    var g = cv.getContext("2d"), F = SHV_F, X = 84, MW = W - 2 * X, col = V.col || "#D4E64A", ink = "#F4F2EE", mut = "#B9B7B0";
+    g.fillStyle = "#14161A"; g.fillRect(0, 0, W, H);
+    // terrain en perspective, très discret
+    g.strokeStyle = "rgba(255,255,255,.09)"; g.lineWidth = 6; var ty = H * .4;
+    g.beginPath(); g.moveTo(180, H); g.lineTo(390, ty); g.lineTo(690, ty); g.lineTo(900, H);
+    g.moveTo(285, H); g.lineTo(435, ty); g.moveTo(795, H); g.lineTo(645, ty);
+    var sy = ty + (H - ty) * .52, sx = function (x0, x1) { return x0 + (x1 - x0) * .52; };
+    g.moveTo(sx(435, 285), sy); g.lineTo(sx(645, 795), sy); g.moveTo(540, sy); g.lineTo(540, H); g.stroke();
+    var gr = g.createRadialGradient(W / 2, H * .17, 0, W / 2, H * .17, W * .85); gr.addColorStop(0, shvHex(col, .32)); gr.addColorStop(1, shvHex(col, 0)); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    var y = fmt === "916" ? 230 : 140;
+    g.textBaseline = "alphabetic";
+    g.fillStyle = col; shvSp(g, "5px"); g.font = "800 39px " + F; g.fillText(String(V.eb || "").toUpperCase(), X, y); shvSp(g, "0px");
+    g.fillStyle = ink; var tf = V.title && V.title.length > 26 ? 80 : 96; g.font = "800 " + tf + "px " + F;
+    shvWrap(g, V.title, MW).slice(0, 3).forEach(function (l, i) { y += i ? tf * 1.05 : tf * 1.15; g.fillText(l, X, y); });
+    if (V.big && V.big.length) {
+      y += 40; var bs = V.big.length > 1 ? 260 : (fmt === "916" ? 340 : 280); g.font = "800 " + bs + "px " + F; shvSp(g, "-12px");
+      var tw = 0; V.big.forEach(function (b) { tw += g.measureText(String(b[0])).width + 30; }); if (V.ball) tw += bs * .5;
+      if (tw > MW) { bs = Math.floor(bs * MW / tw); g.font = "800 " + bs + "px " + F; }
+      var x = X - 6; y += bs * .78;
+      V.big.forEach(function (b, i) {
+        if (i && V.sep) { shvSp(g, "0px"); g.fillStyle = "#77756F"; g.font = "700 " + Math.round(bs * .55) + "px " + F; g.fillText(V.sep, x + 10, y - bs * .18); x += g.measureText(V.sep).width + 30; g.font = "800 " + bs + "px " + F; shvSp(g, "-12px"); }
+        g.fillStyle = b[1] || ink; g.fillText(String(b[0]), x, y); x += g.measureText(String(b[0])).width + 30;
+      });
+      shvSp(g, "0px");
+      if (V.ball) shvBall(g, Math.min(W - X - bs * .2, x + bs * .2), y - bs * .62, bs * .2, "#D4E64A", "#14161A");
+    }
+    if (V.sets && V.sets.length) {
+      var sk = fmt === "916" ? 1 : .72; y += 50 * sk; var tw2 = Math.round(210 * sk), th = Math.round(300 * sk);
+      V.sets.forEach(function (st, i) {
+        var tx = X + i * (tw2 + 30); g.fillStyle = "#22252B"; shvRR(g, tx, y, tw2, th, 40); g.fill();
+        g.textAlign = "center"; g.fillStyle = ink; g.font = "800 " + Math.round(130 * sk) + "px " + F; g.fillText(String(st[0]), tx + tw2 / 2, y + 150 * sk);
+        g.fillStyle = "#8C8A84"; g.font = "800 " + Math.round(84 * sk) + "px " + F; g.fillText(String(st[1]), tx + tw2 / 2, y + 255 * sk); g.textAlign = "left";
+      });
+      y += th;
+    }
+    if (V.path) {
+      y += 110; g.font = "800 54px " + F; var px = X;
+      g.fillStyle = "rgba(244,242,238,.5)"; g.fillText(V.path[0], px, y); px += g.measureText(V.path[0]).width + 26;
+      g.fillStyle = ink; g.fillText("→", px, y); px += g.measureText("→").width + 26;
+      g.fillStyle = col; g.fillText(V.path[1], px, y); px += g.measureText(V.path[1]).width + 30;
+      if (V.path[2]) { g.fillStyle = mut; g.font = "700 39px " + F; g.fillText(V.path[2], px, y); }
+    }
+    if (V.opp) {
+      y += 110; g.fillStyle = mut; shvSp(g, "4px"); g.font = "700 40px " + F; g.fillText("CONTRE", X, y); shvSp(g, "0px");
+      y += 90; g.fillStyle = ink; g.font = "800 76px " + F; var on = V.opp.n; while (g.measureText(on).width > MW - 280 && on.length > 4) on = on.slice(0, -2) + "…"; g.fillText(on, X, y);
+      if (V.opp.rk) { var ox = X + g.measureText(on).width + 40; shvBall(g, ox + 22, y - 24, 22, "#D4E64A", "#14161A"); g.font = "800 66px " + F; g.fillText(V.opp.rk, ox + 58, y); }
+    }
+    if (V.badge) {
+      y += 70; g.font = "800 42px " + F; var bw = g.measureText(V.badge).width + 84; g.strokeStyle = col; g.lineWidth = 6; shvRR(g, X + 3, y, bw, 96, 48); g.stroke();
+      g.fillStyle = col; g.fillText(V.badge, X + 45, y + 63); y += 96;
+    }
+    if (V.stats && V.stats.length) {
+      y += 70; var cw = MW / V.stats.length; g.fillStyle = "rgba(255,255,255,.15)"; g.fillRect(X, y, MW, 3); g.fillRect(X, y + 210, MW, 3);
+      V.stats.forEach(function (st, i) {
+        g.fillStyle = ink; g.font = "800 92px " + F; g.fillText(String(st[0]), X + i * cw, y + 115);
+        g.fillStyle = mut; shvSp(g, "3px"); g.font = "700 33px " + F; g.fillText(String(st[1]).toUpperCase(), X + i * cw, y + 170); shvSp(g, "0px");
+      });
+      y += 213;
     }
     if (V.sq && V.sq.length) {
-      y += 60; var n = V.sq.length, per = Math.min(n, 8), gap = 20, sz = Math.min(110, Math.floor((MW - gap * (per - 1)) / per));
+      y += 70; var n = V.sq.length, per = Math.min(n, 8), gap = 22, sz = Math.min(80, Math.floor((MW - gap * (per - 1)) / per));
       V.sq.forEach(function (r, i) {
         var cx = X + (i % per) * (sz + gap), cy = y + Math.floor(i / per) * (sz + gap);
-        g.fillStyle = r === "V" ? "#5DB582" : "#9E5F48"; g.beginPath(); if (g.roundRect) g.roundRect(cx, cy, sz, sz, sz * .24); else g.rect(cx, cy, sz, sz); g.fill();
-        if (i === n - 1) { g.strokeStyle = "#D4E64A"; g.lineWidth = 7; g.beginPath(); if (g.roundRect) g.roundRect(cx - 10, cy - 10, sz + 20, sz + 20, sz * .3); else g.rect(cx - 10, cy - 10, sz + 20, sz + 20); g.stroke(); }
+        g.fillStyle = r === "V" ? "#5DB582" : "#9E5F48"; shvRR(g, cx, cy, sz, sz, sz * .24); g.fill();
+        if (i === n - 1) { g.strokeStyle = "#D4E64A"; g.lineWidth = 8; shvRR(g, cx - 11, cy - 11, sz + 22, sz + 22, sz * .32); g.stroke(); }
       });
       y += Math.ceil(n / per) * (sz + gap);
     }
     if (V.rows && V.rows.length) {
-      y += 50; g.font = "700 50px " + F;
+      y += 30; g.font = "700 50px " + F;
       V.rows.slice(0, 5).forEach(function (r, i) {
-        y += 84; g.fillStyle = r[2] ? "#D4E64A" : "#F4F2EE"; g.textAlign = "left"; g.fillText((i + 1) + ". " + r[0], X, y);
+        y += 84; g.fillStyle = r[2] ? "#D4E64A" : ink; g.textAlign = "left"; g.fillText((i + 1) + ". " + r[0], X, y);
         g.textAlign = "right"; g.fillStyle = r[2] ? "#D4E64A" : "#C9C7C1"; g.fillText(r[1], W - X, y); g.textAlign = "left";
       });
     }
-    if (V.line) { y += 80; g.fillStyle = "#C9C7C1"; g.font = "500 44px " + F; shvWrap(g, V.line, MW).slice(0, 4).forEach(function (l) { y += 58; g.fillText(l, X, y); }); }
-    var fy = H - (fmt === "916" ? 220 : 100);
-    g.fillStyle = "#D4E64A"; g.beginPath(); g.arc(X + 16, fy - 13, 16, 0, 6.3); g.fill();
-    g.fillStyle = "#F4F2EE"; g.font = "800 40px " + F; g.fillText("Montée", X + 48, fy);
-    if (V.foot) { g.textAlign = "right"; g.fillStyle = "#9A9892"; g.font = "700 36px " + F; g.fillText(V.foot, W - X, fy); g.textAlign = "left"; }
+    var fTop = H - (fmt === "916" ? 150 : 90) - 110;
+    if (V.line) { y += 50; g.fillStyle = mut; g.font = "500 42px " + F; shvWrap(g, V.line, MW).slice(0, 4).forEach(function (l) { if (y + 58 > fTop) return; y += 58; g.fillText(l, X, y); }); }
+    shvFoot(g, W, H, fmt, V, ink, mut, "#D4E64A");
     return cv;
   }
   function shareVisual(V) { UI.shv = V; if (!UI.shvF) UI.shvF = "45"; loadCardFonts().then(function () { UI.sheet = { k: "shv", v: V.key || "1" }; render(); }); }
@@ -16088,6 +16208,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       shareVisual({ key: "badge-" + b.k, eb: "Badge Montée", col: "#E8B64A", title: b.t, big: b.x > 1 ? [["×" + b.x, "#E8B64A"]] : null, line: (b.x > 1 ? "Obtenu " + b.x + " fois. " : "") + plural(G.got, "badge") + " à mon actif.", foot: "saison " + seasonY(),
         text: "Badge Montée : « " + b.t + " »" + (b.x > 1 ? ", obtenu " + b.x + " fois" : "") + ". " + plural(G.got, "badge") + " à mon actif." }); },
     shvFmt: function (el) { UI.shvF = el.dataset.v; render(); },
+    shvSty: function (el) { UI.shvS = el.dataset.v; render(); },
     shvGo: function () { shvSend(); },
     h2hShare: function (el) {
       var key = el.dataset.v, ms = knownMatches(false).filter(function (m) { return m.opp && !isAnon(m.opp) && nameKey(m.opp) === key && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
@@ -16747,8 +16868,27 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
     shareMontee: function () {
       if (!S.ahead) return;
-      shareVisual({ key: "je-monte-" + S.ahead.rank.replace("/", "-"), eb: "Je monte", col: "#D4E64A", title: "Je monte " + S.ahead.rank + " !", big: [[S.ahead.rank, "#D4E64A"]], line: "À la sortie du classement du " + flong(E.parseDate(S.ahead.release)) + ".", foot: "calculé avec Montée",
-        text: "Je monte " + S.ahead.rank + " à la sortie du classement du " + flong(E.parseDate(S.ahead.release)) + " ! Calculé avec Montée." });
+      var old = S.profile.rank && S.profile.rank !== S.ahead.rank ? S.profile.rank : "", y1 = E.iso(new Date(today().getTime() - 365 * 864e5)), nv = 0;
+      try { nv = knownMatches(false).filter(function (m) { return m.result === "V" && !m.wo && m.date >= y1; }).length; } catch (e) {}
+      var rel = flong(E.parseDate(S.ahead.release)).replace(/ 1 /, " 1er ");
+      // 3.71.4 (Yann) : la montée a sa carte « balle » (fond jaune), les autres partages l'affiche sombre
+      var ci = E.idx(S.profile.rank), np = 0, tot = null; try { np = knownMatches(false).filter(function (m) { return m.result === "V" && !m.wo && m.date >= y1 && ci != null && E.idx(m.oppRank) > ci; }).length; } catch (e) {}
+      try { var pr = ctx().proj, hb = pr && (pr.steps || []).filter(function (x) { return x.calc === pr.projected; })[0]; if (hb) tot = hb.total; } catch (e) {}
+      var stats = [[nv, "victoires", "victoires de la saison"], [np, "perfs", "perfs de la saison"]]; if (tot != null) stats.push([tot, "points", "bilan (points)"]);
+      shareVisual({ key: "je-monte-" + S.ahead.rank.replace("/", "-"), stys: ["balle", "affiche", "tableau"], ball: true, eb: "Je monte", path: old ? [old, S.ahead.rank, "+" + plural(Math.max(1, E.idx(S.ahead.rank) - ci), "échelon", "échelons")] : null, stats: stats,
+        tTitle: S.profile.name ? S.profile.name + " monte" : "Je monte", when: "Sortie du classement le " + rel, eb: "Je monte", col: "#D4E64A", title: S.profile.name ? S.profile.name + " passe" : "Je passe", big: [[S.ahead.rank]],
+        bBadge: (old ? old + " → " + S.ahead.rank : "Je monte " + S.ahead.rank) + (nv ? " · " + plural(nv, "victoire", "victoires") : ""), line: "Calculé avec Montée, à la sortie du classement du " + rel + ".", cta: "Et toi, tu montes ?",
+        text: "Je monte " + S.ahead.rank + " à la sortie du classement du " + rel + " ! Calculé avec Montée." });
+    },
+    shareWin: function () {
+      var m = UI.draft && S.matches.filter(function (x) { return x.id === UI.draft.id; })[0] || UI.draft; if (!m || m.result !== "V") return;
+      var gap = 0; try { var oi = E.idx(m.oppRank), ci = E.idx(S.profile.rank); if (oi != null && ci != null) gap = oi - ci; } catch (e) {}
+      var sq = []; try { sq = knownMatches(false).filter(function (x) { return !x.wo && (x.result === "V" || x.result === "D") && x.date <= m.date; }).sort(byDateDesc).slice(0, 6).reverse().map(function (x) { return x.result; }); } catch (e) {}
+      var nvq = sq.filter(function (r) { return r === "V"; }).length, on = nameCase(m.opp || "ton adversaire").replace(/^(\S+)\s+(\S)\S*$/, "$1 $2.");
+      shareVisual({ key: "victoire-" + m.id, eb: "Victoire" + (m.comp ? " · " + String(m.comp).slice(0, 28) : ""), col: "#6FC28F", title: S.profile.name ? "Bien joué, " + S.profile.name + "." : "Victoire !",
+        sets: setsOf(m.score).slice(0, 3), opp: { n: on, rk: m.oppRank || "" }, badge: gap > 0 ? "Perf · +" + plural(gap, "échelon", "échelons") : "", sq: sq.length >= 3 ? sq : null,
+        line: sq.length >= 3 ? plural(nvq, "victoire", "victoires") + " sur les " + sq.length + " derniers matchs" : "", cta: "Suis ta saison",
+        text: "Victoire " + (m.score || "") + " contre " + on + (m.oppRank ? " (" + m.oppRank + ")" : "") + " ! Suivi avec Montée." });
     },
     don: function () {
       UI.menu = false;
