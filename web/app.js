@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.68.0",
+    VERSION: "3.68.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1395,6 +1395,7 @@
               if (!c || (j > 0 && c.dI !== col.dI) || c.g == null) k = "unk";
               else if (q.kind === "any" || G(c) >= bG - 4) k = j === q.best && q.kind === "wait" ? "best" : "ok";
               else k = j < q.best ? "lo" : "no";
+              if (q.drop > 0 && j >= q.drop && k === "ok") k = "no"; // 3.68 : il aura baissé : à éviter même à points égaux
               var mv = c && c.dir === "up" ? '<em class="up">↗</em> ' : c && c.dir === "down" ? '<em class="dn">↘</em> ' : "";
               return '<div class="bz-c ' + k + tap + '">' + (k === "best" ? '<span class="bz-tg">MEILLEUR</span>' : "") + (j === mj ? '<span class="bz-mt">' + CAL + esc(dm(E.parseDate(x.day)).toUpperCase()) + "</span>" : "") +
                 '<span class="bz-st">' + ST[k] + "</span>" + (k === "unk" ? "<b>?</b>" : k === "no" ? "<s>+" + c.g + "</s>" : "<b>+" + c.g + "</b>") + "<span>" + (c && k !== "unk" ? mv + esc(lab(c.rank)) + (c.kept ? ' <i class="bz-pr" title="protégé : déjà descendu il y a moins de 12 mois">' + SHIELD + "protégé</i>" : "") : "") + "</span></div>";
@@ -1430,9 +1431,12 @@
     }
     var G = function (c) { return c.g == null ? -1 : c.g; }, shown = Math.min(3, C.length), best = 0;
     for (var i = 1; i < shown; i++) if (G(C[i]) >= G(C[best]) + 5) best = i;
-    var drop = -1; for (i = best + 1; i < C.length; i++) if (G(C[i]) <= G(C[best]) - 5) { drop = i; break; }
+    // 3.68 (testeur : un 15/5 qui passe 30 en janv. ne ressortait plus quand tout vaut +0) : la baisse se repère aussi à son CLASSEMENT,
+    // pas seulement aux points. Battre un 15/5 vaut mieux qu'un 30 même si ça ne change rien aujourd'hui : il peut compter plus tard,
+    // quand d'autres victoires sortent des 12 mois.
+    var drop = -1; for (i = best + 1; i < C.length; i++) if (G(C[i]) <= G(C[best]) - 5 || (C[i].g != null && C[i].dir === "down" && !C[i].kept)) { drop = i; break; }
     var ups = C.slice(1, best + 1).filter(function (c) { return c.dir === "up"; }).length, day = x.day || "", dd = day ? dm(E.parseDate(day)) : "";
-    var q = { z: z, cells: C, best: best, col: best, kind: "any", verdict: "", tag: "", short: "quand tu veux", alerts: [], notif: null };
+    var q = { z: z, cells: C, best: best, drop: drop, col: best, kind: "any", verdict: "", tag: "", short: "quand tu veux", alerts: [], notif: null };
     if (best > 0) {
       var B = C[best]; q.kind = "wait"; q.tag = "+" + B.g; q.short = "après " + dm(B.d);
       q.verdict = "Attends le " + dm(B.d) + " : il monte" + (ups > 1 ? " deux fois" : "") + (drop > 0 ? ", puis joue-le avant le " + dm(C[drop].d) : "");
@@ -1446,13 +1450,13 @@
       var D = C[drop], lim = dm(D.d), late = day && day >= D.dI; q.short = "avant " + lim;
       q.tag = "+" + G(C[0]);
       if (drop === 1) {
-        q.kind = "go"; q.verdict = "Joue-le avant le " + lim + " : il descend, ta victoire perd " + (G(C[0]) - G(D)) + " pts";
+        q.kind = "go"; q.verdict = "Joue-le avant le " + lim + " : il descend" + (G(C[0]) - G(D) > 0 ? ", ta victoire perd " + (G(C[0]) - G(D)) + " pts" : " (" + lab(C[0].rank) + " puis " + lab(D.rank) + "), battre le mieux classé compte plus tard");
         var rp = new Date(D.d.getTime() - 5 * 864e5);
         if (late) q.alerts.push(["warn", "Votre match est prévu le <b>" + dd + "</b>, après sa descente : avance-le avant le " + lim + " si tu peux."]);
         else if (!day && dGap(E.iso(rp)) >= 0) q.alerts.push(["bell", "Rappel le <b>" + dm(rp) + "</b> s'il n'est pas programmé."]);
       } else {
         q.kind = "warn"; q.tag = "avant " + MOIS[D.d.getMonth()]; q.verdict = "Joue-le avant le " + lim + " : il risque de descendre";
-        q.alerts.push(["warn", (D.lost ? "<b>" + plural(D.lost, "victoire sort", "victoires sortent") + "</b> de ses 12 mois le " + lim : "Son bilan sur 12 mois ne suffit plus le " + lim) + " : sans résultat d'ici là, il passe " + esc(lab(D.rank)) + " (ta victoire : +" + G(D) + ")." + (late ? " Votre match est prévu le " + dd + " : avance-le si tu peux." : day && dGap(day) >= 0 ? " Votre match du <b>" + dd + "</b> tombe bien." : "")]);
+        q.alerts.push(["warn", (D.lost ? "<b>" + plural(D.lost, "victoire sort", "victoires sortent") + "</b> de ses 12 mois le " + lim : "Son bilan sur 12 mois ne suffit plus le " + lim) + " : sans résultat d'ici là, il passe " + esc(lab(D.rank)) + " (ta victoire : +" + G(D) + ")." + (G(D) >= G(C[0]) ? " Ça ne change rien aujourd'hui, mais battre un mieux classé peut compter plus tard." : "") + (late ? " Votre match est prévu le " + dd + " : avance-le si tu peux." : day && dGap(day) >= 0 ? " Votre match du <b>" + dd + "</b> tombe bien." : "")]);
         q.notif = { at: new Date(D.d.getTime() - 7 * 864e5), title: trNm(x.name) + " risque de descendre le " + lim, body: (D.lost ? plural(D.lost, "victoire sort", "victoires sortent") + " de ses 12 mois. " : "") + "Joue-le avant : +" + G(C[0]) + ", puis +" + G(D) + ".", until: D.d };
       }
     } else {
