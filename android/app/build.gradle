@@ -9,7 +9,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Codemagic fournit un numéro de build qui augmente à chaque fois (obligatoire pour le Play Store)
         versionCode System.getenv("PROJECT_BUILD_NUMBER") ? (System.getenv("PROJECT_BUILD_NUMBER").toInteger() + 100) : 6
-        versionName "3.68.2"
+        versionName "3.69.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

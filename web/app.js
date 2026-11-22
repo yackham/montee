@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.68.2",
+    VERSION: "3.69.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -784,7 +784,7 @@
     var f = app.querySelector("[data-autofocus]"); if (f) f.focus();
     if (UI.fafFocus && parts[0] === "faf") { UI.fafFocus = false; var fq = document.getElementById("ff-q"); if (fq) setTimeout(function () { fq.focus(); }, 120); }
     if (UI.partyKey && S.celebrated !== UI.partyKey) { S.celebrated = UI.partyKey; save(); setTimeout(party, 350); }
-    syncWidgets(); watchSync(); schedulePlanNotif(); try { scheduleSjNotif(); } catch (e) {}
+    syncWidgets(); watchSync(); schedulePlanNotif(); try { scheduleTeamsNotif(); schedulePoolNotif(); } catch (e) {} try { scheduleSjNotif(); } catch (e) {}
   }
 
   // 3.59 (Yann, 20/11) : les scores et totaux mis en avant comptent jusqu'à leur valeur (0,6 s), une fois par page
@@ -1642,7 +1642,7 @@
           var rt = route(); if (rt.indexOf("equipe") === 0) render();
           return go(r.job);
         }
-        delete r.job; delete r.trace; delete r.partial; r.qv = 7; S.teams = r; UI.tmErr = null; save(); done();
+        delete r.job; delete r.trace; delete r.partial; r.qv = 7; S.teams = r; UI.tmErr = null; save(); try { scheduleTeamsNotif(); } catch (e) {} done();
       });
     };
     go(null);
@@ -13543,13 +13543,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var bgScript = T.nativeScriptBg ? T.nativeScriptBg(S.profile.licence || "", S.tenup.id || "", tenupWho(), bgIds.concat(folIds.filter(function (id) { return !bgIds.some(function (w) { return w.id === id; }); }).map(function (id) { return { id: id, hit: S.follow[id].hit }; }))) : nativeScript();
     Tenup.setState({ state: JSON.stringify(st), script: bgScript }).catch(function () {});
     scheduleReleaseNotif();
+    try { scheduleTeamsNotif(); schedulePoolNotif(); } catch (e) {}
     try { scheduleCoachNotif(); } catch (e) {}
   }
   // 3.49 (maquette validée) : chaque notification se règle dans Réglages › Notifications
-  var NP_DEF = { hom: 1, poule: 1, avant: 1, sortie: 1, coach: 1, jalons: 1, fol: 1, insc: 1, seance: 1 };
+  var NP_DEF = { hom: 1, poule: 1, avant: 1, apres: 1, eq: 1, sortie: 1, coach: 1, jalons: 1, fol: 1, insc: 1, seance: 1 };
   function np(k) { var p = S.notifP || {}; if (k === "lvl") return p.lvl || "norm"; return p[k] == null ? !!NP_DEF[k] : !!p[k]; }
   function npKey(date, a, b) { var tk = function (n) { return String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z]+/).filter(function (t) { return t.length >= 3; }).join(" "); }; return date ? date + "|" + [tk(a), tk(b)].sort().join("|") : ""; }
-  function npApply() { lastPlanKey = ""; lastTimingKey = ""; lastSjKey = ""; try { scheduleSjNotif(); } catch (e) {} try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
+  function npApply() { lastPlanKey = ""; lastTimingKey = ""; lastTeamNotifKey = ""; lastPoolNotifKey = ""; lastSjKey = ""; try { scheduleSjNotif(); } catch (e) {} try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
   // 3.49 (Montée+) : le lundi du coach, 8 h 30 : tes chances qui bougent et le match qui compte cette semaine
   var lastCoachKey = "";
   function scheduleCoachNotif(force) {
@@ -13605,6 +13606,41 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (list.length) return LN.schedule({ notifications: list });
     }).catch(function () {});
   }
+  // 3.69 : rencontre par équipes (la veille à 19 h, ou le jour même à 9 h) : contre qui, à domicile ou à l'extérieur, où en est ton équipe
+  var lastTeamNotifKey = "";
+  function scheduleTeamsNotif() {
+    if (!NATIVE || !S.notif || !LN) return;
+    var now = new Date(), L = [];
+    if (np("eq")) myTeams().forEach(function (c) {
+      var r = tmNext(c); if (!r || r.rep) return; var d = E.parseDate(r.d); if (!d) return;
+      var me = tmOf(c, c.me.mine) || {}, eve = new Date(d.getTime()), morn = new Date(d.getTime()); eve.setDate(eve.getDate() - 1); eve.setHours(19, 0, 0, 0); morn.setHours(9, 0, 0, 0);
+      var at = eve > now ? eve : morn > now ? morn : null; if (!at) return;
+      var vs = r.a === me.id ? r.bn : r.an, home = r.dom === me.id, n = (c.teams || []).length;
+      L.push({ at: at, c: c, n: { title: (at === eve ? "Demain : " : "Aujourd'hui : ") + tmNm(me.nom || "ton équipe") + " contre " + tmNm(vs), body: (home ? "À domicile" : "À l'extérieur") + " · " + champNm(c) + (me.cl ? " · ton équipe est " + me.cl + (me.cl === 1 ? "re" : "e") + " sur " + n : "") + ".", schedule: { at: at }, extra: { url: "montee://open/equipe/" + c.id } } });
+    });
+    L.sort(function (a, b) { return a.at - b.at; }); L = L.slice(0, 4);
+    var list = L.map(function (x, i) { x.n.id = 1800 + i; return x.n; }), key = JSON.stringify(list.map(function (n) { return [n.id, n.title, n.schedule.at.getTime()]; }));
+    if (key === lastTeamNotifKey) return; lastTeamNotifKey = key;
+    LN.cancel({ notifications: [{ id: 1800 }, { id: 1801 }, { id: 1802 }, { id: 1803 }] }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
+  }
+  // 3.69 : date limite de poule : 7 jours puis 2 jours avant, seulement s'il reste des matchs à jouer (18 h 30)
+  var lastPoolNotifKey = "";
+  function schedulePoolNotif() {
+    if (!NATIVE || !S.notif || !LN) return;
+    var now = new Date(), list = [];
+    if (np("poule")) toursOpen().filter(function (t) { return t.fmt === "poule" || t.kind === "champ"; }).slice(0, 3).forEach(function (t, ti) {
+      var dl = t.dl || t.to, dd = dl ? E.parseDate(dl) : null; if (!dd) return;
+      var left = (t.pool || []).filter(function (x) { return !x.res; }); if (!left.length) return;
+      var nm = left.slice(0, 2).map(function (x) { return trNm(x.name).split(" ")[0]; }).join(" et "), more = left.length > 2 ? " et " + (left.length - 2) + " autre" + (left.length > 3 ? "s" : "") : "";
+      [7, 2].forEach(function (k, ki) {
+        var at = new Date(dd.getTime()); at.setDate(at.getDate() - k); at.setHours(18, 30, 0, 0); if (at <= now) return;
+        list.push({ id: 1900 + ti * 2 + ki, title: "Plus que " + plural(left.length, "match") + " avant le " + dm(dd), body: "Date limite de ta poule dans " + k + " jours. Il te reste " + nm + more + " à jouer.", schedule: { at: at }, extra: { url: "montee://open/tournoi/" + t.id } });
+      });
+    });
+    var key = JSON.stringify(list.map(function (n) { return [n.id, n.title, n.schedule.at.getTime()]; }));
+    if (key === lastPoolNotifKey) return; lastPoolNotifKey = key;
+    LN.cancel({ notifications: [1900, 1901, 1902, 1903, 1904, 1905].map(function (i) { return { id: i }; }) }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
+  }
   // Match programmé : un rappel la veille à 19 h (ou le matin même à 9 h si on programme pour aujourd'hui)
   var lastPlanKey = "";
   function schedulePlanNotif() {
@@ -13627,7 +13663,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (n) list.push({ id: 1100 + i, title: n.t, body: rv ? "Il t'a battu " + rvW + (rv.score ? ", " + rv.score : "") + ". Ta revanche est prête" + (pl.p != null ? " · " + pl.p + " % de chances." : ".") : (pl.hom ? "Match homologué" : "Match libre") + odds + tip + " Ton plan de jeu est prêt.", schedule: { at: n.at }, extra: { url: "montee://open/joueur/" + pl.id } });
     });
     if (!np("avant")) list = [];
-    LN.cancel({ notifications: [{ id: 1100 }, { id: 1101 }, { id: 1102 }, { id: 1103 }] }).catch(function () {}).then(function () {
+    // 3.69 : le lendemain du match prévu, 9 h : « comment ça s'est passé ? » (score + ressenti), sinon le bilan du coach n'a rien à lire
+    var after = [];
+    if (np("apres")) pls.forEach(function (pl, i) { var d = E.parseDate(pl.day); if (!d) return; var nx = new Date(d.getTime()); nx.setDate(nx.getDate() + 1); nx.setHours(9, 0, 0, 0); if (nx > now) after.push({ id: 1110 + i, title: "Ton match contre " + (pl.name || "ton adversaire") + " : comment ça s'est passé ?", body: "Ajoute le score et ton ressenti en 20 secondes : ton bilan du coach se met à jour.", schedule: { at: nx }, extra: { url: "montee://open/" } }); });
+    list = list.concat(after);
+    LN.cancel({ notifications: [{ id: 1100 }, { id: 1101 }, { id: 1102 }, { id: 1103 }, { id: 1110 }, { id: 1111 }, { id: 1112 }, { id: 1113 }] }).catch(function () {}).then(function () {
       if (list.length) return LN.schedule({ notifications: list });
     }).catch(function () {});
   }
@@ -14900,16 +14940,22 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   };
   // 3.59 (Yann : « je reçois les notifs seulement quand j'ouvre l'appli ») : on montre si iOS laisse Montée vérifier en arrière-plan
   function bgStatusHtml() {
-    if (!IOS || !Tenup || typeof Tenup.bgStatus !== "function") return "";
+    if (!NATIVE || !Tenup || typeof Tenup.bgStatus !== "function") return "";
     if (!UI.bgSt) { UI.bgSt = { wait: 1 }; Promise.resolve(Tenup.bgStatus()).then(function (r) { UI.bgSt = r || {}; if (route() === "notifs") render(); }, function () { UI.bgSt = {}; }); return ""; }
     var B = UI.bgSt; if (B.wait) return "";
-    var ok = B.refresh === "available", last = B.last ? new Date(B.last * 1000) : null, h = last ? Math.round((Date.now() - last.getTime()) / 3600e3) : null;
+    // 3.69 : journal des passages (iPhone et Android) : « heure|résultat », pour savoir POURQUOI peu de notifications arrivent
+    var LG = (B.log || []).map(function (x) { var q = String(x).split("|"); return { t: +q[0] * 1000, r: q[1] || "" }; }).filter(function (x) { return x.t > 0; }).reverse();
+    var RL = { rien: "rien de nouveau", deconnecte: "Ten'Up déconnecté : reconnecte-toi", timeout: "Ten'Up trop lent, réessayé plus tard", maintenance: "Ten'Up en maintenance", erreur: "erreur de lecture", interrompu: "arrêté par le téléphone (temps écoulé)", "sans-lecture": "rien à lire pour l'instant" };
+    var ok = IOS ? B.refresh === "available" : true, lastT = B.last ? B.last * 1000 : LG.length ? LG[0].t : 0, last = lastT ? new Date(lastT) : null, h = last ? Math.round((Date.now() - lastT) / 3600e3) : null;
     var when = last ? (h < 1 ? "il y a moins d'une heure" : h < 48 ? "il y a " + h + " h" : "le " + fdate(E.iso(last)).replace(/\.$/, "")) : "jamais pour l'instant";
     var tips = [];
-    if (!ok) tips.push(B.refresh === "restricted" ? "Le mode économie d'énergie ou un contrôle parental bloque l'actualisation en arrière-plan." : "Réglages de l'iPhone › Général › Actualisation en arrière-plan › active Montée.");
-    if (B.notif === "denied") tips.push("Réglages de l'iPhone › Notifications › Montée › Autoriser les notifications.");
-    tips.push("Ne ferme pas Montée en la balayant vers le haut : iOS ne la réveille plus jusqu'à ta prochaine ouverture.");
+    if (IOS && !ok) tips.push(B.refresh === "restricted" ? "Le mode économie d'énergie ou un contrôle parental bloque l'actualisation en arrière-plan." : "Réglages de l'iPhone › Général › Actualisation en arrière-plan › active Montée.");
+    if (B.notif === "denied") tips.push(IOS ? "Réglages de l'iPhone › Notifications › Montée › Autoriser les notifications." : "Réglages Android › Applications › Montée › Notifications : autorise-les.");
+    if (!IOS && B.battery === "optimized") tips.push("Réglages Android › Applications › Montée › Batterie › Sans restriction : sinon certains téléphones coupent la vérification quand l'écran est éteint.");
+    if (IOS) tips.push("Ne ferme pas Montée en la balayant vers le haut : iOS ne la réveille plus jusqu'à ta prochaine ouverture.");
+    var rows = LG.slice(0, 6).map(function (x) { var d = new Date(x.t), m = /^notif:(\d+)$/.exec(x.r), lab2 = m ? plural(+m[1], "notification") + " envoyée" + (+m[1] > 1 ? "s" : "") : RL[x.r] || x.r; return '<div class="nf-lg"><span>' + esc(fdate(E.iso(d)).replace(/\.$/, "") + " · " + String(d.getHours()).padStart(2, "0") + " h " + String(d.getMinutes()).padStart(2, "0")) + "</span><b>" + esc(lab2) + "</b></div>"; }).join("");
     return '<h2 class="nf-gh">Vérification en arrière-plan</h2><div class="nf-grp nf-bg"><div class="nf-row"><span class="nf-r"><b>' + (ok ? "Active" : "Coupée") + "</b><small>Dernière vérification : " + esc(when) + '</small></span><span class="nf-dot ' + (ok && h != null && h < 24 ? "ok" : "ko") + '"></span></div>' +
+      (rows ? '<div class="nf-log"><small>Les derniers passages</small>' + rows + "</div>" : "") +
       '<div class="nf-tips">' + tips.map(function (t) { return '<span class="small">' + esc(t) + "</span>"; }).join("") + "</div></div>";
   }
   V.notifs = function () {
@@ -14922,7 +14968,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return '<label class="nf-row"><span class="nf-r"><b>' + t + (plus ? " " + pill : "") + "</b><small>" + sub + '</small></span><input type="checkbox" role="switch" data-a="npSet" data-k="' + k + '"' + (np(k) ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>";
     };
     var grp = function (h, rows) { return '<h2 class="nf-gh">' + h + '</h2><div class="nf-grp' + (S.notif ? "" : " off") + '">' + rows.join("") + "</div>"; };
-    s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche avec Montée+" : ", avec ta revanche s'il t'a battu"))]);
+    s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche avec Montée+" : ", avec ta revanche s'il t'a battu")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
     s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Le coach", "Le lundi : tes chances qui bougent, le match qui compte. Et quand une consigne est remplie", true), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
     var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
     if (HC_OK && hcOn()) oth.push('<label class="nf-row"><span class="nf-r"><b>Séances de la montre</b><small>Une nouvelle séance à enregistrer</small></span><input type="checkbox" role="switch" data-a="hcNotify"' + (S.health.notify !== false ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>");
