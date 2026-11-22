@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.70.6",
+    VERSION: "3.70.7",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1122,7 +1122,7 @@
   // 3.44 : la poule (indivs). Tes matchs dans t.pool ; les matchs des autres, lus sur leurs fiches Ten'Up (t.poolX)
   function ageOfX(x) { if (!x) return null; var h = x.hit || {}, sc = x.tid && S.scout && S.scout[x.tid]; return h.age || (sc && sc.profil && sc.profil.age) || null; }
   function poolMembers(t) { return [{ me: true, name: "Toi", rank: lab(curIdx() < 0 ? 0 : curIdx()) }].concat((t.pool || []).map(function (x) { return { name: x.name, rank: x.rank, tid: x.tid, hit: x.hit, age: ageOfX(x) }; })); }
-  // 3.70.6 (Yann : les matchs de poule de Davy homologués sur Ten'Up, dans son palmarès, mais 0-0 dans la poule) : un match de ton palmarès
+  // 3.70.7 (Yann : les matchs de poule de Davy homologués sur Ten'Up, dans son palmarès, mais 0-0 dans la poule) : un match de ton palmarès
   // pendant la poule, contre un joueur de la poule, dans cette épreuve, compte dans la poule. Avant, seul le résultat noté à la main
   // dans la poule (ou un match saisi dans Montée et rattaché) comptait : un match importé de Ten'Up n'y entrait jamais.
   function poolAutoLink(t) {
@@ -1269,12 +1269,14 @@
     });
     if (!mem.length) return;
     UI.psBusy[t.id] = 1; if (force) { t.poolAt = now; save(); }
+    UI.psProg = UI.psProg || {}; UI.psProg[t.id] = { n: mem.length, d: 0, nm: "" }; // 3.70.7 (Yann) : la lecture des fiches se voit avancer
     var lo = t.from ? E.iso(new Date(E.parseDate(t.from).getTime() - 7 * 864e5)) : "", got = {}, chain = Promise.resolve();
     var show = function () { var r0 = route(); if (r0 === "tournoi/" + t.id || r0 === "") render(); };
     mem.forEach(function (x) {
       chain = chain.then(function () {
         var h = poolHit(x), k = String(x.tid || h.id), tr = UI.psTry[k] || (UI.psTry[k] = { n: 0, at: 0 }); tr.n++; tr.at = Date.now();
-        return tenupQuery("player", h).then(function (r) {
+        var pg = UI.psProg[t.id]; if (pg) { pg.nm = nameCase(trNm(x.name)); show(); }
+        return tenupQuery("player", h).finally(function () { var pg2 = UI.psProg[t.id]; if (pg2) pg2.d++; }).then(function (r) {
           if (!r || r.error) return;
           delete UI.psTry[k];
           if (x.tid) { try { scoutStore(x.tid, h, r); } catch (e) {} } else poolApply(x, r); // scoutStore la pose sur toutes ses lignes de poule
@@ -1284,7 +1286,7 @@
       });
     });
     chain.then(function () {
-      UI.psBusy[t.id] = 0;
+      UI.psBusy[t.id] = 0; delete UI.psProg[t.id];
       // Résultats entre adversaires : la fiche qu'on vient de lire, sinon celle déjà gardée
       var found = {};
       (t.pool || []).forEach(function (x, i) {
@@ -1294,7 +1296,7 @@
           // 3.46.4 (retour testeur) : seulement les matchs de CETTE épreuve (indivs de la même série), et le bon joueur (pas un simple prénom en commun)
           if (!poolRowFits(t, row)) return;
           var o = (t.pool || []).filter(function (y) { return y !== x && ((row.oid && y.tid && String(row.oid) === String(y.tid)) || (!(row.oid && y.tid) && samePerson(y.name, row.opp))); })[0];
-          // 3.70.6 (Yann : un adversaire de poule anonyme sur Ten'Up, renommé à la main) : sa fiche est illisible, mais ses matchs sont sur
+          // 3.70.7 (Yann : un adversaire de poule anonyme sur Ten'Up, renommé à la main) : sa fiche est illisible, mais ses matchs sont sur
           // la fiche des autres, face à « Joueur anonyme ». Dans la poule, un anonyme est un joueur sans fiche Ten'Up : s'il n'y en a qu'un,
           // c'est lui ; s'il y en a plusieurs, celui qui a le classement du match ; sinon on ne devine pas.
           if (!o && (isAnon(row.opp) || /anonym/i.test(String(row.opp || "")))) {
@@ -1308,7 +1310,13 @@
         });
       });
       t.poolX = Object.keys(found).map(function (k) { return found[k]; }); save(); try { scheduleTimingNotif(); } catch (e) {} try { syncNative(); } catch (e) {} show();
-    }, function () { UI.psBusy[t.id] = 0; });
+    }, function () { UI.psBusy[t.id] = 0; delete UI.psProg[t.id]; show(); });
+  }
+  // 3.70.7 (Yann) : pendant la lecture des fiches de la poule, une barre qui avance et qui est lu
+  function poolProgHtml(t) {
+    var pg = UI.psProg && UI.psProg[t.id]; if (!NATIVE || !pg || !pg.n || !(UI.psBusy && UI.psBusy[t.id])) return "";
+    return '<div class="ps-prog"><span class="small"><span class="spin"></span>Lecture des fiches Ten\'Up · ' + Math.min(pg.d + 1, pg.n) + "/" + pg.n + (pg.nm ? " · " + esc(pg.nm) : "") + "</span>" +
+      '<span class="ti-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + pg.n + '" aria-valuenow="' + pg.d + '"><i style="width:' + Math.max(6, Math.round(100 * pg.d / pg.n)) + '%"></i></span></div>';
   }
   // 3.44.2 (Montée+) : le bon moment pour jouer chaque adversaire de poule : sa projection Ten'Up à la prochaine sortie,
   // et ce que vaut ta victoire avant / après (faits : points du barème, à ton classement actuel)
@@ -1422,7 +1430,7 @@
           var x = q.z.x, G = function (c) { return c.g == null ? -1 : c.g; }, bG = G(q.cells[q.best]);
           var mj = -1; if (x.day && dGap(x.day) >= 0) cols.forEach(function (c, j) { if (j === 0 || c.dI <= x.day) mj = j; });
           var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : "";
-          // 3.70.6 (Yann, maquette B validée) : sous le prénom, son classement (balle jaune) ; un joueur sans enjeu tient sur une case large ;
+          // 3.70.7 (Yann, maquette B validée) : sous le prénom, son classement (balle jaune) ; un joueur sans enjeu tient sur une case large ;
           // le conseil et l'alerte s'affichent juste sous sa ligne (plus de liste dessous qui répète la grille)
           var rkNow = q.z.sp && q.z.sp.cur ? lab(q.z.sp.cur) : (x.rank || "");
           var nmC = '<div class="bz-n' + tap + '"><span class="tq-av">' + esc(initials(trNm(x.name))) + "</span><b>" + esc(trNm(x.name).split(" ")[0]) + "</b>" + (rkNow ? '<span class="rk-tag">' + esc(rkNow) + "</span>" : "") + "</div>";
@@ -1462,7 +1470,7 @@
       "<li><b>1er changement</b> : la simulation Ten'Up. <b>Le suivant</b> : Montée le calcule sur son palmarès, comme s'il ne rejouait plus.</li>" +
       "<li><b>Protégé</b> : il est déjà descendu il y a moins de 12 mois (Ten'Up ou son palmarès le montre). La FFT ne le fait pas redescendre.</li>" +
       "<li>Touche un joueur pour sa fiche.</li>" + (t.to || t.dl ? "" : "<li>Indique la date limite (Modifier, en haut) pour ne voir que les dates encore jouables.</li>") + "</ul></details>";
-    return '<div class="card pt-card bx">' + head + sub + grid + (body ? '<div class="bz-d">' + body + "</div>" : "") + HOW + "</div>";
+    return '<div class="card pt-card bx">' + head + sub + poolProgHtml(t) + grid + (body ? '<div class="bz-d">' + body + "</div>" : "") + HOW + "</div>";
   }
   function dm(d) { return d.getDate() + " " + MOIS[d.getMonth()]; }
   // 3.55.3 : la meilleure date pour un adversaire : cases (maintenant, chaque sortie jusqu'à la fin de la poule), la meilleure, le conseil, les alertes
@@ -1569,7 +1577,7 @@
     }).sort(function (a, b) { return (b.p - a.p) || (b.v - a.v) || (b.sd - a.sd) || (b.gd - a.gd); });
     var tieUsed = st.some(function (x, i) { var y = st[i + 1]; return y && x.p === y.p; });
     var sgn = function (x) { return (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x); };
-    var s = '<div class="card pl-st"><span class="eyebrow">Le classement</span>' + st.map(function (x, i) {
+    var s = '<div class="card pl-st"><span class="eyebrow">Le classement</span>' + poolProgHtml(t) + st.map(function (x, i) {
       return '<div class="pl-r' + (x.m.me ? " me" : "") + (!x.m.me && x.m.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.m.tid) + '" role="button' : "") + '"><b class="pl-k' + (i < (t.qual || 1) ? " q" : "") + '">' + (i + 1) + "</b><b>" + esc(x.m.me ? "Toi" : trNm(x.m.name)) + (x.m.rank ? ' <span class="muted">· ' + esc(x.m.rank) + "</span>" : "") + (!x.m.me && x.m.age ? '<span class="muted pl-age"> · ' + x.m.age + " ans</span>" : "") + (x.scN ? '<small class="pl-tb">sets ' + sgn(x.sd) + " · jeux " + sgn(x.gd) + "</small>" : "") + '</b><span class="pl-d">' + x.res.map(function (r) { return '<i class="' + (r === "V" ? "v" : r === "D" ? "d" : "") + '"></i>'; }).join("") + '</span><b class="pl-vd">' + x.v + "-" + x.d + '<small class="pl-pt">' + plural(x.p, "pt", "pts") + "</small></b></div>";
     }).join("") + '<span class="small">Classement aux points : victoire 2 pts, défaite 1 pt, pas encore joué 0.' + (tieUsed ? " À égalité de points : départage aux sets gagnés − perdus, puis aux jeux." + (games.some(function (gm) { return !gm.sc; }) ? " Il manque des scores : ajoute-les pour un départage juste." : "") : "") + "</span>" + (NATIVE ? "" : '<span class="small">Les matchs des autres se lisent sur Ten\'Up depuis l\'appli iPhone ou Android.</span>') + "</div>";
     var played = games.slice().sort(function (a, b) { return (b.me ? 1 : 0) - (a.me ? 1 : 0); });
@@ -2333,7 +2341,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       (nErr && !nBusy ? '<button class="btn small" data-a="trImpRetry">Relancer la recherche Ten\'Up (' + nErr + ")</button>" : "") +
       (me ? '<span class="small">✓ Toi (' + esc(trNm(me.name)) + ") retiré de la liste. Les numéros restent sur ton téléphone.</span>" : '<span class="small">Les numéros restent sur ton téléphone.</span>') +
       '<button class="linkbtn" data-a="trImpBack" style="align-self:center">‹ Revenir au mail</button><div class="spacer"></div>' +
-      // 3.70.6 (Yann) : pas de poule remplie avant la fin de la recherche Ten'Up (sinon les adversaires restent sans fiche : ni résultats, ni projection)
+      // 3.70.7 (Yann) : pas de poule remplie avant la fin de la recherche Ten'Up (sinon les adversaires restent sans fiche : ni résultats, ni projection)
       (NATIVE && nBusy ? '<button class="btn primary" disabled aria-disabled="true"><span class="spin"></span> Recherche sur Ten\'Up… ' + (ppl.length - nBusy) + "/" + ppl.length + "</button>" :
         '<button class="btn primary" data-a="trImpCreate">' + (I0.into ? "Remplir ma poule" : P.fmt === "poule" ? "Créer ma poule" : "Créer l'épreuve") + "</button>") + "</div>";
     return s;
@@ -16169,7 +16177,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     trImpRk: function (el) { var x = UI.trImp.p.ppl[+el.dataset.v]; if (!x) return; x.rank = el.dataset.k; UI.trImp.open = null; render(); },
     trImpCreate: function () {
       var P = UI.trImp && UI.trImp.p; if (!P) return;
-      if (NATIVE && P.ppl.some(function (x) { return !x.me && x.st === "busy"; })) return; // 3.70.6 : recherche Ten'Up pas finie
+      if (NATIVE && P.ppl.some(function (x) { return !x.me && x.st === "busy"; })) return; // 3.70.7 : recherche Ten'Up pas finie
       var ppl = P.ppl.filter(function (x) { return !x.me; });
       // 3.45.7 : le mail complète l'épreuve existante (venue de Ten'Up ou créée avant) au lieu d'en créer une 2e
       var into = UI.trImp.into ? tourOf(UI.trImp.into) : UI.trImp.noAuto ? null : toursAll().filter(function (y) { return y.tuid && !tourOver(y) && !(y.pool || []).length && insSame(y, { name: P.name, from: E.iso(today()) }, P.kind, null) || (y.tuid && !tourOver(y) && !(y.pool || []).length && P.kind === "champ" && y.kind === "champ" && insKey(y.name).s && insKey(P.name).s === insKey(y.name).s); })[0];

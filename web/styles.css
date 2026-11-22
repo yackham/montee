@@ -5966,3 +5966,7 @@ textarea, input:not([type=checkbox]):not([type=radio]) { max-width: 100%; box-si
 @keyframes tiSh { to { transform: translateX(100%); } }
 @media (prefers-reduced-motion: reduce) { .ti-prog i::after { animation: none; } }
 .btn.primary[disabled] { opacity: .75; cursor: default; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+/* 3.70.7 (Yann) : lecture des fiches de la poule en cours */
+.ps-prog { display: flex; flex-direction: column; gap: 6px; }
+.ps-prog .small { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.ps-prog .spin { width: 13px; height: 13px; border-width: 2px; border-color: var(--line); border-top-color: var(--gazon); flex: none; }
