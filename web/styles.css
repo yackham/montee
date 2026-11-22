@@ -6002,3 +6002,9 @@ textarea, input:not([type=checkbox]):not([type=radio]) { max-width: 100%; box-si
 .hd-dr { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; }
 .hd .hd-gear { width: 40px; height: 40px; background: transparent; color: var(--muted); margin: -8px -8px -8px 0; flex: none; }
 .hd .hd-gear svg { width: 22px; height: 22px; }
+/* 3.71.2 (Yann : « c'est pas la première fois que le zoom merde ») : filets de sécurité sur tout l'écran.
+   La page ne peut plus glisser de côté (un texte collé ou un lien sans espace se coupe au lieu de pousser l'écran),
+   et sur les petits iPhone les rangées de boutons passent à la ligne au lieu de déborder. */
+body { overflow-x: clip; overflow-wrap: break-word; }
+.ws3-eb { flex-wrap: wrap; } .ws3-eb .btn.primary { min-width: 60%; }
+.simu-top .sp-row { flex-wrap: wrap; row-gap: 6px; }
