@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.71.2",
+    VERSION: "3.71.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2881,10 +2881,29 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // état de la synchro en petit) ; la date au-dessus. Avant : date, pastille de synchro, salut, profil et réglages mal alignés.
     var dl0 = S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small hd-d">' + esc(dLine) + "</span>";
     var hiT = jm ? "Jour de match" : gt ? gt : S.profile.name ? "Salut " + S.profile.name : "Salut", rk0 = effRank() || "";
+    // 3.71.3 (Yann, maquette v4 validée) : jour de match, victoire de la veille ou montée détectée mettent la barre en avant
+    // (contour couleur, pastille sur l'avatar, surtitre, action à droite) ; la ligne du haut redevient la date.
+    var spK = null, spH = "";
+    try {
+      var NX = svg('<path d="M9 6l6 6-6 6"/>', 2.4), cta = function (t, a, h) { return '<span class="hd-cta" role="button" data-a="' + a + '"' + (h ? ' data-h="' + esc(h) + '"' : "") + ">" + t + NX + "</span>"; };
+      if (jm) {
+        var shN = function (n) { n = nameCase(n); return n.length > 18 ? n.replace(/^(\S)[^\s-]*(-(\S)[^\s-]*)?\s+/, function (z, a, b, c) { return a + "." + (c ? "-" + c + "." : "") + " "; }) : n; }, jt = shN(String(jm.title || "").replace(/ · .*/, "")); var jr = (String(jm.title || "").match(/ · (.+)$/) || [])[1] || "", jst = jm.st && /%$/.test(jm.st) ? jm.st.replace(" %", " %") + " de chances" : "";
+        spK = { c: "var(--balle)", i: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/>' };
+        spH = '<span class="hd-k">Jour de match' + (jm.time ? " · " + esc(jm.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h")) : "") + '</span><b class="hd-2' + (jt.length > 20 ? " lg" : "") + '">Contre ' + esc(jt) + "</b><small>" + (jr ? '<span class="rk-tag">' + esc(jr) + "</span>" : "") + (jst ? '<span class="hd-x">' + (jr ? "· " : "") + esc(jst) + "</span>" : "") + "</small></span>" + (jm.href ? cta("Plan", "hdGo", jm.href) : "");
+      } else if (hier && hier.result === "V") {
+        spK = { c: "var(--gazon)", i: '<path d="M5 12l5 5 9-10"/>' };
+        var shN2 = function (n) { n = nameCase(n); return n.length > 18 ? n.replace(/^(\S)[^\s-]*(-(\S)[^\s-]*)?\s+/, function (z, a, b, c) { return a + "." + (c ? "-" + c + "." : "") + " "; }) : n; };
+        spH = '<span class="hd-k">Victoire hier' + (hier.score ? " · " + esc(hier.score) : "") + '</span><b>Bien joué !</b><small><span class="hd-o">' + esc(shN2(hier.opp || "")) + "</span>" + (hier.oppRank ? '<span class="rk-tag">' + esc(hier.oppRank) + "</span>" : "") + "</small></span>" + (hier.id ? cta("Noter", "hdGo", "#/match/" + hier.id) : "");
+      } else if (S.ahead && S.ahead.rank && S.ahead.release) {
+        spK = { c: "var(--balle)", i: '<path d="M12 19V5M5 12l7-7 7 7"/>' };
+        spH = '<span class="hd-k">Montée détectée</span><span class="hd-big">Tu montes <span class="rk-tag">' + esc(S.ahead.rank) + "</span></span><small>à la sortie du " + aheadDay() + "</small></span>" + cta("Partager", "shareMontee");
+      }
+    } catch (e) { spK = null; }
+    if (spK && !S.demo) dl0 = '<span class="small hd-d">' + esc(flong(d).replace(/^./, function (x) { return x.toUpperCase(); })) + "</span>";
     var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })();
     // 3.70.9 (Yann, maquette 1) : la roue des réglages, discrète, en face de la date ; la barre de profil prend toute la largeur
-    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + dl0 + '<button class="iconbtn gearbtn hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r"><div class="hd-id' + (S.ahead ? " up" : "") + '" data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + av0 +
-      '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div></div></div></div>";
+    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + dl0 + '<button class="iconbtn gearbtn hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + ' data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div></div></div></div>" : av0 +
+      '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div></div></div></div>");
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
     if (!S.matches.length) {
@@ -16773,6 +16792,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     goRaquettes: function () { UI.menu = false; go("materiel"); },
     goProfil: function () { UI.menu = false; go("profil"); },
+    hdGo: function (el) { if (el.dataset.h) location.hash = el.dataset.h; },
     goReglages: function () { UI.menu = false; go("reglages"); },
     setTheme: function (el) {
       if (PLUS_THEMES[el.dataset.v] && !isSup()) { if (PLUS) { UI.supFrom = "theme"; go("soutenir"); } return; }
