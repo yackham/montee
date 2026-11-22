@@ -57,6 +57,7 @@ struct ThickRing: View {
             Circle().inset(by: 4.5).trim(from: 0, to: CGFloat(max(0.02, min(1, value))))
                 .stroke(color, style: StrokeStyle(lineWidth: 6.5, lineCap: .round)).rotationEffect(.degrees(-90))
                 .widgetAccentable()
+                .animation(.smooth(duration: 0.4), value: value) // 3.71 : transition quand la valeur change
             if let icon { Image(systemName: icon).font(.system(size: 15, weight: .bold)).foregroundColor(color).widgetAccentable() }
         }
     }
@@ -96,6 +97,7 @@ struct Rings3View: View {
         ZStack {
             Circle().inset(by: inset).stroke(c.opacity(0.25), lineWidth: 5.5)
             Circle().inset(by: inset).trim(from: 0, to: CGFloat(max(0.02, min(1, v)))).stroke(c, style: StrokeStyle(lineWidth: 5.5, lineCap: .round)).rotationEffect(.degrees(-90)).widgetAccentable()
+                .animation(.smooth(duration: 0.4), value: v)
         }
     }
 }
@@ -197,7 +199,7 @@ struct RankView: View {
     var body: some View {
         switch family {
         case .accessoryCorner:
-            Text(rank).font(.system(size: 18, weight: .bold))
+            Text(rank).font(.system(size: 18, weight: .bold)).contentTransition(.numericText())
                 .widgetLabel { Gauge(value: v) { Text("") }.tint(mBalle) }
         case .accessoryInline:
             Text(e.ctx.next.isEmpty ? "Montée · \(rank)" : "\(rank) → \(e.ctx.next)")
@@ -697,7 +699,7 @@ struct ChancesView: View {
         if !e.plus { Locked() } else if let c = e.ctx.chances {
             if family == .accessoryInline { Text("\(c.p) % d'être \(c.t)") }
             else {
-                Gauge(value: Double(c.p), in: 0...100) { Text(c.down == true ? "MAINT." : "MONTER") } currentValueLabel: { Text("\(c.p)%").font(.system(size: 14, weight: .heavy)) }
+                Gauge(value: Double(c.p), in: 0...100) { Text(c.down == true ? "MAINT." : "MONTER") } currentValueLabel: { Text("\(c.p)%").font(.system(size: 14, weight: .heavy)).contentTransition(.numericText(value: Double(c.p))) }
                     .gaugeStyle(.accessoryCircularCapacity).tint(mBalle)
             }
         } else if family == .accessoryInline { Text("Pas de match prévu") }
