@@ -350,6 +350,8 @@
         var step = function (det, cx) {
           var key = cx.d + "/" + cx.p + "/" + cx.q; if (cs.seen[key]) return Promise.resolve(); cs.seen[key] = 1;
           var ids = isMine(det); if (!ids.length) return Promise.resolve();
+          // 3.72 (Yann, responsable sportif) : mode « club » : on garde TOUTES les équipes du club de chaque poule lue, sans chercher la tienne
+          if (cs.all) { ids.forEach(function (t) { var k = cs.id + "~" + t; if (!cs.cl[k]) cs.clk.push(k); cs.cl[k] = pick(det, ids, cx, t); }); return Promise.resolve(); }
           return chk(det, ids, cx).then(function () {
             if (allDone()) { cs.fin = true; return; }
             if (!myDays.length) { if (!cs.best) cs.best = pick(det, ids, cx); cs.fin = true; return; }
@@ -366,7 +368,7 @@
         // Une page lue : sa poule, puis les poules, phases et divisions qu'elle fait découvrir (toutes, plus de plafond à 24 pages).
         var grow = function (det, dv) {
           var dId = (det.division || {}).id || dv.d, pId = (det.phase || {}).id || dv.p, qId = (det.poule || {}).id, dn = dv.dn || (det.division || {}).nom || "";
-          var add = function (tk, key) { cs.qd = cs.qd || {}; if (cs.seen[key] || cs.qd[key]) return; cs.qd[key] = 1; cs.q.push(tk); };
+          var add = function (tk, key) { if (cs.only) return; cs.qd = cs.qd || {}; if (cs.seen[key] || cs.qd[key]) return; cs.qd[key] = 1; cs.q.push(tk); };
           ((det.phase || {}).poules || []).forEach(function (q) { if (q.id !== qId && dId && pId) add({ k: "poule", d: dId, p: pId, q: q.id, dn: dn }, dId + "/" + pId + "/" + q.id); });
           ((det.division || {}).phases || []).forEach(function (p) { if (p && p.id && p.id !== pId && dId) add({ k: "phase", d: dId, p: p.id, dn: dn }, dId + "/" + p.id); });
           return qId && dId && pId ? step(det, { d: dId, p: pId, q: qId, dn: dn }) : Promise.resolve();
@@ -419,6 +421,33 @@
           });
         });
       };
+      // 3.72 : les championnats du club. Ceux où tu joues (A.cids, déjà connus), plus ceux que Ten'Up liste pour le club (deux adresses
+      // essayées ; laquelle répond est notée dans le rapport). Relecture courte : seulement les poules déjà connues (A.known), sauf A.full.
+      var startClub = function () {
+        if (A.job && A.job.cs) return Promise.resolve(A.job);
+        return who().then(function (u) {
+          var C = {}, src = [], add = function (id, nom, from) { id = String(id || ""); if (!/^\d+$/.test(id)) return; if (!C[id]) { C[id] = { id: id, nom: nom || "", dates: [], last: "", opp: [] }; if (from && src.indexOf(from) < 0) src.push(from); } else if (!C[id].nom && nom) C[id].nom = nom; };
+          (A.cids || []).forEach(function (c) { add(c.id, c.nom, "toi"); });
+          var walk = function (o, d, from) { if (!o || typeof o !== "object" || d > 7) return; if (Array.isArray(o)) return o.forEach(function (x) { walk(x, d + 1, from); });
+            if (o.idChampionnat || o.championnatId) add(o.idChampionnat || o.championnatId, o.nomChampionnat || o.libelleChampionnat || "", from);
+            if (o.championnat && typeof o.championnat === "object" && o.championnat.id) add(o.championnat.id, o.championnat.nom || o.championnat.libelle || "", from);
+            Object.keys(o).forEach(function (k) { if (k !== "championnat") walk(o[k], d + 1, from); }); };
+          var code = String(u.code || A.club || ""), tries = code ? ["v1/championnats-equipes/clubs/" + code, "v1/clubs/" + code + "/equipes", "v1/clubs/" + code + "/championnats-equipes"] : [];
+          return tries.reduce(function (ch, t) { return ch.then(function () { return jg(t).then(function (j) { var n0 = Object.keys(C).length; walk(j, 0, t); src.push(t + " : " + (Object.keys(C).length - n0) + " en plus"); }, function (e) { src.push(t + " : " + String(e && e.message || e)); }); }); }, Promise.resolve()).then(function () {
+            var K = A.known || {}, L = Object.keys(C).map(function (k) { return C[k]; }).slice(0, 16);
+            return { u: u, calls: 0, club: 1, src: src, cs: L.map(function (c) { var cs = mkCs(c, K[String(c.id)]); if (!A.full && K[String(c.id)] && K[String(c.id)].length) { cs.q = cs.q.filter(function (x) { return x.k !== "root"; }); cs.only = true; } cs.all = true; cs.cl = {}; cs.clk = []; return cs; }) };
+          });
+        });
+      };
+      if (A.all) return startClub().then(function (job) {
+        job.calls = (job.calls || 0) + 1;
+        return Promise.all(job.cs.filter(function (cs) { return !cs.fin; }).map(function (cs) { return scan(cs, job.u.nom); })).then(function () {
+          var done = job.cs.every(function (cs) { return cs.fin; });
+          var champs = [].concat.apply([], job.cs.filter(function (cs) { return done || cs.fin; }).map(function (cs) { return cs.clk.map(function (k) { var o = cs.cl[k]; o.id = k; o.cid = cs.id; o.cl = 1; o.me.sure = false; return o; }); }));
+          return ok({ at: Date.now(), club: { code: job.u.code, nom: job.u.nom }, champs: champs, job: done ? null : job, partial: !done,
+            trace: { calls: job.calls, src: job.src, champs: job.cs.map(function (cs) { return { id: cs.id, nom: (cs.d0 || {}).nom || cs.nom, pages: cs.n, poules: Object.keys(cs.seen).length, equipes: cs.clk.length, reste: cs.q.length, fini: cs.fin, err: cs.err || 0 }; }) } });
+        });
+      }).catch(err);
       return start().then(function (job) {
         job.calls = (job.calls || 0) + 1; ME.id = String(job.u.id || "");
         var todo = job.cs.filter(function (cs) { return !cs.fin; });
