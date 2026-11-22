@@ -5991,3 +5991,6 @@ textarea, input:not([type=checkbox]):not([type=radio]) { max-width: 100%; box-si
 .hd-sy.run i { background: var(--muted); animation: tiP 1s ease-in-out infinite; }
 .hd .gearbtn { flex: none; }
 .hd .demo-pill { align-self: flex-start; }
+.hd-dr { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; }
+.hd .hd-gear { width: 40px; height: 40px; background: transparent; color: var(--muted); margin: -8px -8px -8px 0; flex: none; }
+.hd .hd-gear svg { width: 22px; height: 22px; }
