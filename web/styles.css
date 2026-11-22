@@ -5881,6 +5881,14 @@ button.h3h-r.fx2 { display: flex; flex-direction: column; align-items: stretch; 
 .nf-log { display: flex; flex-direction: column; padding: 4px 16px 10px; } .nf-log > small { font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 0 6px; }
 .nf-lg { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; } .nf-lg span { color: var(--muted); white-space: nowrap; } .nf-lg b { font-weight: 600; text-align: right; }
 
+/* 3.71 : métriques animées (pastille « ce qui a bougé », bascule de la montée au réel, enfoncement au toucher) */
+.mtn-pill { position: absolute; left: 50%; top: -6px; transform: translate(-50%, 0); font-size: 12px; font-weight: 800; line-height: 1; padding: 4px 8px; border-radius: 99px; border: 1.5px solid currentColor; background: var(--card); white-space: nowrap; opacity: 0; transition: opacity .25s, transform .35s cubic-bezier(.3, 1.6, .5, 1); z-index: 3; pointer-events: none; }
+.mtn-pill.on { opacity: 1; transform: translate(-50%, -10px); }
+.mtn-flip { display: inline-block; animation: mtnflip .44s ease-in-out; }
+@keyframes mtnflip { 0% { transform: rotateX(0); } 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
+.cr3-c, .bd, .d3b, .fc-r, button.tj3, button.rr { transition: transform 90ms ease-out; -webkit-tap-highlight-color: transparent; }
+.cr3-c:active, .bd:active, .d3b:active, .fc-r:active, button.tj3:active, button.rr:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) { .mtn-pill { transition: opacity .25s; } .mtn-pill.on { transform: translate(-50%, -10px); } .mtn-flip { animation: none; } .cr3-c:active, .bd:active, .d3b:active, .fc-r:active, button.tj3:active, button.rr:active { transform: none; } }
 
 /* 3.69 : ton groupe enregistré, qui est là, le tirage, les jeux à 6 */
 .sjg-hd2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
