@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.70.1",
+    VERSION: "3.70.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1597,8 +1597,8 @@
           [[A2.a, A2.pA], [A2.b, A2.pB]].map(function (z) { return '<span class="tq-alt"><span>' + esc((trNm(z[0].name) || "Un joueur") + (z[0].rank ? " · " + z[0].rank : "")) + "</span><b>" + (z[1] != null ? z[1] + " %" : "–") + "</b></span>"; }).join("") : "") +
         (g != null && !r.res ? '<span class="tq-g">' + (g > 0 ? "+" + g + " pts si tu gagnes" : "Une victoire ne changerait pas ton bilan") + "</span>" : "") +
         (!r.res && past && !done ? '<span class="tq-res"><button class="chip" data-a="trRes" data-v="V" data-i="' + i + '">J\'ai gagné</button><button class="chip" data-a="trRes" data-v="D" data-i="' + i + '">J\'ai perdu</button></span>' : "") +
-        (!r.res && !done ? '<button class="linkbtn tq-ed" data-a="trRound" data-i="' + i + '">Modifier ce tour</button>' : "") +
-        (r.res && !done ? '<button class="linkbtn tq-ed" data-a="trUndo" data-i="' + i + '">Corriger le résultat</button>' : "") +
+        (!r.res && !done ? '<button class="linkbtn tq-edl" data-a="trRound" data-i="' + i + '">Modifier ce tour</button>' : "") +
+        (r.res && !done ? '<button class="linkbtn tq-edl" data-a="trUndo" data-i="' + i + '">Corriger le résultat</button>' : "") +
         "</span></div>";
     });
     return s;
@@ -3686,7 +3686,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var lim = UI.fafHits && !UI.fafAll && !k ? 5 : 1e9;
     var rows = list.slice(0, lim).map(function (x) {
       var fid = x.oid ? String(x.oid) : "", fon = fid && (S.follow || {})[fid];
-      return '<button class="row" data-a="fafKnown" data-v="' + esc(x.key) + '"><span class="ini">' + esc(initials(x.name)) + '</span><span class="grow"><span class="t">' + hl(x.name) + ' <span class="muted" style="font-weight:400">· ' + esc(x.rank || "") + '</span></span><span class="s">' + (x.oyear ? (today().getFullYear() - x.oyear) + " ans · " : "") + (x.v ? x.v + " V" : "") + (x.v && x.d ? " · " : "") + (x.d ? x.d + " D" : "") + (x.last ? " · dernier match en " + MOIS[E.parseDate(x.last).getMonth()] : "") + "</span></span>" + (fid ? folStar(fon, 'data-a="followKnown" data-v="' + esc(x.key) + '"') : I.next) + "</button>";
+      return '<button class="row" data-a="fafKnown" data-v="' + esc(x.key) + '"><span class="ini">' + esc(initials(x.name)) + '</span><span class="grow"><span class="t">' + hl(x.name) + ' <span class="rk-tag">' + esc(x.rank || "") + '</span></span><span class="s">' + (x.oyear ? (today().getFullYear() - x.oyear) + " ans · " : "") + (x.v ? x.v + " V" : "") + (x.v && x.d ? " · " : "") + (x.d ? x.d + " D" : "") + (x.last ? " · dernier match en " + MOIS[E.parseDate(x.last).getMonth()] : "") + "</span></span>" + (fid ? folStar(fon, 'data-a="followKnown" data-v="' + esc(x.key) + '"') : I.next) + "</button>";
     }).join("");
     // 3.44.3 (Yann) : plus de ligne « Chercher … sur Ten'Up » (doublon du bouton) ; la recherche regarde aussi tes suivis et tes récents
     var cta = "";
@@ -3696,7 +3696,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var fo = Object.keys(S.follow || {}).map(function (id) { return S.follow[id]; }).filter(function (f) { return f && mt(f.name) && !seenK[nameKey(f.name)]; });
       fo.forEach(function (f) { seenK[nameKey(f.name)] = 1; });
       var re = Object.keys(S.scout || {}).map(function (id) { var sc = S.scout[id], pr = (sc && sc.profil) || {}; return { id: id, nm: [pr.prenom, pr.nom].filter(Boolean).join(" "), rk: pr.classement || "" }; }).filter(function (x) { return x.nm && mt(x.nm) && !seenK[nameKey(x.nm)] && !(S.follow || {})[x.id]; }).slice(0, 5);
-      if (fo.length) cta += '<div class="blk-h"><span class="eyebrow">Dans tes suivis</span><span class="cnt">' + fo.length + "</span></div>" + fo.map(function (f) { var nm = nameCase(f.name); return '<button class="row" data-a="folOpen" data-id="' + esc(f.id) + '"><span class="ini">' + esc(initials(nm)) + '</span><span class="grow"><span class="t">' + hl(nm) + (f.rank ? ' <span class="muted" style="font-weight:400">· ' + esc(f.rank) + "</span>" : "") + '</span><span class="s">Suivi</span></span>' + I.next + "</button>"; }).join("");
+      if (fo.length) cta += '<div class="blk-h"><span class="eyebrow">Dans tes suivis</span><span class="cnt">' + fo.length + "</span></div>" + fo.map(function (f) { var nm = nameCase(f.name); return '<button class="row" data-a="folOpen" data-id="' + esc(f.id) + '"><span class="ini">' + esc(initials(nm)) + '</span><span class="grow"><span class="t">' + hl(nm) + (f.rank ? '  <span class="rk-tag">' + esc(f.rank) + "</span>" : "") + '</span><span class="s">Suivi</span></span>' + I.next + "</button>"; }).join("");
       if (re.length) cta += '<div class="blk-h"><span class="eyebrow">Dans tes recherches récentes</span><span class="cnt">' + re.length + "</span></div>" + re.map(function (x) { var nm = nameCase(x.nm); return '<button class="row" data-a="recOpen" data-id="' + esc(x.id) + '"><span class="ini">' + esc(initials(nm)) + '</span><span class="grow"><span class="t">' + hl(nm) + (x.rk ? ' <span class="muted" style="font-weight:400">· ' + esc(T.normRank(x.rk) || x.rk) + "</span>" : "") + "</span></span>" + I.next + "</button>"; }).join("");
     }
     var head = '<div class="blk-h"><span class="eyebrow">' + (k ? "Dans tes adversaires" : "Tes adversaires") + '</span><span class="cnt">' + (lim < list.length ? '<button class="linkbtn" data-a="fafAll" style="padding:0;min-height:0;font-size:inherit">' + list.length + " · voir tout ›</button>" : list.length) + "</span></div>";
@@ -4646,7 +4646,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var a = x.mine.result === "V", b = x.his.result === "V", sym = a && !b ? "+" : !a && b ? "−" : "=", cls = a && !b ? "g" : !a && b ? "o" : "n";
       var cap = a && b ? "Vous l'avez battu tous les deux" : a && !b ? "Tu l'as battu, lui non : avantage toi" : !a && b ? "Il l'a battu, pas toi" : "Il vous a battus tous les deux";
       var box = function (who, m) { return '<div><small>' + who + '</small><b class="' + (m.result === "V" ? "good" : "bad") + '">' + m.result + "</b> " + esc(m.score || "") + (m.date ? " · " + esc(ffMonth(m.date)) : "") + "</div>"; };
-      return '<details class="cx"><summary><span class="cx-s ' + cls + '">' + sym + '</span><span class="grow"><b>' + esc(x.name) + " · " + esc(x.rank || "?") + "</b><small>" + cap + '</small></span><span class="cx-r"><b class="' + (a ? "good" : "bad") + '">' + (a ? "V" : "D") + '</b> · <b class="' + (b ? "good" : "bad") + '">' + (b ? "V" : "D") + "</b></span></summary>" +
+      return '<details class="cx"><summary><span class="cx-s ' + cls + '">' + sym + '</span><span class="grow"><b>' + esc(x.name) + (x.rank ? ' <span class="rk-tag">' + esc(x.rank) + "</span>" : " · ?") + "</b><small>" + cap + '</small></span><span class="cx-r"><b class="' + (a ? "good" : "bad") + '">' + (a ? "V" : "D") + '</b> · <b class="' + (b ? "good" : "bad") + '">' + (b ? "V" : "D") + "</b></span></summary>" +
         '<div class="cx-d">' + box("Toi", x.mine) + box(esc(D.first), x.his) + "</div>" + (x.his.oid ? '<button class="linkbtn cx-go" data-a="scoutOpp" data-id="' + esc(x.his.oid) + '" data-v="' + esc(x.name) + '">Voir sa fiche ›</button>' : "") + "</details>";
     }).join("") + "</div>";
   }
@@ -6839,7 +6839,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var row = function (r, k, first) {
       var ph = r.me ? myPhoto() : ""; // 3.59 (Yann) : ta photo à la place de ton initiale
       return '<div class="lgc' + (r.me ? " me" : "") + (first ? " f" : "") + '"><span class="lg-k">' + (k + 1) + '</span><span class="ini' + (r.me ? " me" : "") + (ph ? " ph" : "") + '"' + (ph ? ' style="background-image:url(\'' + esc(ph) + '\')"' : "") + ">" + (ph ? "" : esc(r.me ? initials(S.profile.name || "Toi") : initials(r.name))) + "</span>" +
-        '<span class="grow"><span class="lgc-n"><b>' + esc(r.name) + "</b><small>" + esc(r.rank) + '</small></span><span class="lgc-nw">' + raceNews(r) + "</span></span><em>+" + r.pts + "<small>pts</small></em></div>";
+        '<span class="grow"><span class="lgc-n"><b>' + esc(r.name) + '</b><small><span class="rk-tag">' + esc(r.rank) + '</span></small></span><span class="lgc-nw">' + raceNews(r) + "</span></span><em>+" + r.pts + "<small>pts</small></em></div>";
     };
     var body;
     if (open || R.length <= 3) body = R.map(function (r, k) { return row(r, k, !k); }).join("");
@@ -10617,7 +10617,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var R = leagueRows(); if (R.length < 2) return null;
       var body = '<div class="list">' + R.map(function (r) {
         var d = r.W.length ? r.W.map(function (w) { return "V contre un " + esc(w.m.oppRank) + " le " + E.parseDate(w.m.date).getDate() + " : +" + w.pts; }).join(" · ") : r.D ? "Pas encore de victoire ce mois-ci" : "Pas encore joué ce mois-ci";
-        return '<div class="row"><span class="grow"><span class="t">' + esc(r.name) + ' <span class="muted" style="font-weight:400">· ' + esc(r.rank) + " · +" + r.pts + ' pts</span></span><span class="s">' + d + "</span></span>" + "</div>";
+        return '<div class="row"><span class="grow"><span class="t">' + esc(r.name) + ' <span class="rk-tag">' + esc(r.rank) + '</span><span class="muted" style="font-weight:400"> · +' + r.pts + ' pts</span></span><span class="s">' + d + "</span></span>" + "</div>";
       }).join("") + "</div>" +
         '<p class="small" style="margin-top:12px">Chaque victoire du mois rapporte les points du barème FFT, comptés depuis le classement que vise le joueur (l\'échelon au-dessus du sien) : 60 contre un joueur de ce classement, 90 contre un échelon au-dessus, 120 contre deux ou plus ; en dessous, 30, 20, 15, puis 0. Une perf, c\'est une victoire contre mieux classé que soi. Les WO et les doubles ne comptent pas. Les matchs des joueurs suivis sont lus dans Ten\'Up à chaque synchro. Remise à zéro le 1er de chaque mois. Rien n\'est publié : toi seul vois ta course, sauf si tu la partages. Retirer un joueur de la course ne l\'empêche pas d\'être suivi.</p>';
       return { title: "Course de " + MOIS_L[today().getMonth()], sub: "Points gagnés ce mois-ci par chacun, victoire par victoire.", body: body };
@@ -11519,7 +11519,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var M = sjMtStart(L), s = '<div class="card sj-duel"><div class="hd"><span class="t df">Montante</span><span class="small">Match ' + (M.n + 1) + " · les gagnants montent, les perdants descendent</span></div>";
     if (M.last && M.last.losers.length && M.last.gage && !M.gd) s += sjGageHtml(M.last.losers.join(", "), M.last.gage) + '<button class="btn soft" data-a="sjMtGage">Gages faits</button>';
     s += '<span class="mk-lbl">Qui a gagné ? Tape les gagnants</span>';
-    s += M.courts.map(function (c, i) { return '<div class="mt-c"><span class="k">Terrain ' + (i + 1) + (i === 0 && M.courts.length > 1 ? " · le haut" : "") + '</span><div class="mt-p">' + c.map(function (n) { var on = (M.pick[i] || []).indexOf(n) >= 0; return '<button class="' + (on ? "on" : "") + '" data-a="sjMtPick" data-c="' + i + '" data-v="' + esc(n) + '" aria-pressed="' + on + '">' + esc(n) + "</button>"; }).join("") + "</div></div>"; }).join("");
+    s += M.courts.map(function (c, i) { return '<div class="sj-ct"><span class="k">Terrain ' + (i + 1) + (i === 0 && M.courts.length > 1 ? " · le haut" : "") + '</span><div class="sj-pk">' + c.map(function (n) { var on = (M.pick[i] || []).indexOf(n) >= 0; return '<button class="' + (on ? "on" : "") + '" data-a="sjMtPick" data-c="' + i + '" data-v="' + esc(n) + '" aria-pressed="' + on + '">' + esc(n) + "</button>"; }).join("") + "</div></div>"; }).join("");
     s += '<button class="btn primary" data-a="sjMtOk"' + (M.pick.some(function (x) { return x && x.length; }) ? "" : " disabled") + ">Valider le match</button>";
     if (M.n) s += '<span class="mk-lbl">Le classement · victoire 2, défaite 1</span><div class="sj-rk">' + sjRank(M.pts).map(function (x, i) { return "<div><b>" + (i + 1) + "</b><span>" + esc(x.n) + "</span><em>" + x.p + "</em></div>"; }).join("") + "</div>";
     return s + "</div>";
