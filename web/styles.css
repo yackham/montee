@@ -5942,3 +5942,20 @@ button.h3h-r.fx2 { display: flex; flex-direction: column; align-items: stretch; 
 /* 3.70.3 (Yann) : iOS zoome dans tout champ dont le texte fait moins de 16 px et la page déborde ensuite à droite ; plancher de 16 px partout */
 input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color]), textarea, select { font-size: max(16px, 1em) !important; }
 textarea, input:not([type=checkbox]):not([type=radio]) { max-width: 100%; box-sizing: border-box; }
+
+/* 3.70.4 (Yann, maquette B validée) : le bon moment : case large pour un joueur sans enjeu, conseil sous la ligne, légende avec le bouclier, explication repliée */
+.bz-n .rk-tag { font-size: 11.5px; color: var(--muted); }
+.bz-c.bz-all { min-height: 0; justify-content: center; }
+.bz-al1 { display: flex; align-items: baseline; gap: 8px; }
+.bz-al1 > span { font-size: 12px; font-weight: 700; color: var(--muted); }
+.bz-prw { font-size: 12px !important; }
+.bz-tip { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 2px; margin-top: -4px; padding-left: 2px; }
+.bz-tip .bz-v { font-size: 13px; }
+.bz-lg.bz-lg2 { flex-wrap: wrap; white-space: normal; row-gap: 6px; }
+.bz-prl { font-size: 0; display: inline-flex; } .bz-prl svg { width: 13px; height: 13px; }
+.bz-how { border-top: 1px solid var(--line); padding-top: 10px; }
+.bz-how summary { list-style: none; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--acc-ink); cursor: pointer; }
+.bz-how summary::-webkit-details-marker { display: none; }
+.bz-how summary svg { width: 15px; height: 15px; }
+.bz-how ul { margin: 8px 0 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.bz-how li b { color: var(--ink); }

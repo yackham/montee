@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.70.3",
+    VERSION: "3.70.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1271,6 +1271,14 @@
           // 3.46.4 (retour testeur) : seulement les matchs de CETTE épreuve (indivs de la même série), et le bon joueur (pas un simple prénom en commun)
           if (!poolRowFits(t, row)) return;
           var o = (t.pool || []).filter(function (y) { return y !== x && ((row.oid && y.tid && String(row.oid) === String(y.tid)) || (!(row.oid && y.tid) && samePerson(y.name, row.opp))); })[0];
+          // 3.70.4 (Yann : un adversaire de poule anonyme sur Ten'Up, renommé à la main) : sa fiche est illisible, mais ses matchs sont sur
+          // la fiche des autres, face à « Joueur anonyme ». Dans la poule, un anonyme est un joueur sans fiche Ten'Up : s'il n'y en a qu'un,
+          // c'est lui ; s'il y en a plusieurs, celui qui a le classement du match ; sinon on ne devine pas.
+          if (!o && (isAnon(row.opp) || /anonym/i.test(String(row.opp || "")))) {
+            var an = (t.pool || []).filter(function (y) { return y !== x && !y.tid && !poolHit(y); });
+            if (an.length > 1 && row.oppRank) an = an.filter(function (y) { return y.rank && T.normRank(y.rank) === T.normRank(row.oppRank); });
+            if (an.length === 1) o = an[0];
+          }
           if (!o) return;
           var k = [x.name, o.name].sort().join("|") + "|" + row.date; if (found[k]) return;
           found[k] = { a: nameCase(x.name), b: nameCase(o.name), w: row.result === "V" ? "a" : "b", sc: row.score || "", date: row.date };
@@ -1375,6 +1383,7 @@
     var sub = '<span class="bx-sub">Ce que vaut ta victoire contre chacun' + (nC > 1 ? ", période par période" : "") + (endS ? ", d'ici la fin de la poule (" + endS + ")" : "") + ".</span>";
     var CAL = svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', 3);
     var SHIELD = svg('<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>', 2.6); // 3.58.1 : « protégé » tient dans la case
+    var BELL = svg('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>', 2.2), WARN = svg('<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>', 2.2);
     var grid = "";
     if (nC > 1) {
       var veille = function (c) { return dm(new Date(c.d.getTime() - 864e5)); }, dj = Math.max(1, dGap(cols[1].dI));
@@ -1389,7 +1398,16 @@
           var x = q.z.x, G = function (c) { return c.g == null ? -1 : c.g; }, bG = G(q.cells[q.best]);
           var mj = -1; if (x.day && dGap(x.day) >= 0) cols.forEach(function (c, j) { if (j === 0 || c.dI <= x.day) mj = j; });
           var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : "";
-          return '<div class="bz-n' + tap + '"><span class="tq-av">' + esc(initials(trNm(x.name))) + "</span><b>" + esc(trNm(x.name).split(" ")[0]) + '</b><small class="' + q.kind + '">' + esc(q.short) + "</small></div>" +
+          // 3.70.4 (Yann, maquette B validée) : sous le prénom, son classement (balle jaune) ; un joueur sans enjeu tient sur une case large ;
+          // le conseil et l'alerte s'affichent juste sous sa ligne (plus de liste dessous qui répète la grille)
+          var rkNow = q.z.sp && q.z.sp.cur ? lab(q.z.sp.cur) : (x.rank || "");
+          var nmC = '<div class="bz-n' + tap + '"><span class="tq-av">' + esc(initials(trNm(x.name))) + "</span><b>" + esc(trNm(x.name).split(" ")[0]) + "</b>" + (rkNow ? '<span class="rk-tag">' + esc(rkNow) + "</span>" : "") + "</div>";
+          var c0 = q.cells[0], flat = q.kind === "any" && !(q.drop > 0) && cols.every(function (col, j) { var c = q.cells[j]; return c && c.g != null && (j === 0 || c.dI === col.dI) && c.g === c0.g && c.dir !== "down"; });
+          var kept = cols.some(function (col, j) { return q.cells[j] && q.cells[j].kept; });
+          if (flat) return nmC + '<div class="bz-c ok bz-all' + tap + '" style="grid-column:span ' + nC + '"><span class="bz-st">✓ jouable tout le temps</span><span class="bz-al1"><b>+' + c0.g + "</b><span>à chaque période" + (kept ? ' · <i class="bz-pr bz-prw">' + SHIELD + "protégé</i>" : "") + "</span></span></div>";
+          var tipA = q.alerts.slice(), tip = q.kind === "any" && !tipA.length ? "" : '<div class="bz-tip' + tap + '"><span class="bz-v ' + q.kind + '">' + esc(/\.$/.test(q.verdict) ? q.verdict : q.verdict + ".") + "</span>" +
+            tipA.map(function (a) { return '<span class="bz-al ' + a[0] + '">' + (a[0] === "warn" ? WARN : BELL) + "<span>" + a[1] + "</span></span>"; }).join("") + "</div>";
+          return nmC +
             cols.map(function (col, j) {
               var c = q.cells[j], k;
               if (!c || (j > 0 && c.dI !== col.dI) || c.g == null) k = "unk";
@@ -1399,25 +1417,28 @@
               var mv = c && c.dir === "up" ? '<em class="up">↗</em> ' : c && c.dir === "down" ? '<em class="dn">↘</em> ' : "";
               return '<div class="bz-c ' + k + tap + '">' + (k === "best" ? '<span class="bz-tg">MEILLEUR</span>' : "") + (j === mj ? '<span class="bz-mt">' + CAL + esc(dm(E.parseDate(x.day)).toUpperCase()) + "</span>" : "") +
                 '<span class="bz-st">' + ST[k] + "</span>" + (k === "unk" ? "<b>?</b>" : k === "no" ? "<s>+" + c.g + "</s>" : "<b>+" + c.g + "</b>") + "<span>" + (c && k !== "unk" ? mv + esc(lab(c.rank)) + (c.kept ? ' <i class="bz-pr" title="protégé : déjà descendu il y a moins de 12 mois">' + SHIELD + "protégé</i>" : "") : "") + "</span></div>";
-            }).join("");
+            }).join("") + tip;
         }).join("") + "</div>" +
-        '<div class="bz-lg"><span><i class="ok"></i>jouable</span><span><i class="lo"></i>trop tôt ↗</span><span><i class="no"></i>à éviter ↘</span></div>';
+        '<div class="bz-lg bz-lg2"><span><i class="ok"></i>jouable</span><span><i class="lo"></i>trop tôt : il va monter ↗</span><span><i class="no"></i>à éviter : il aura baissé ↘</span><span><em class="bz-pr bz-prl">' + SHIELD + "</em>protégé : ne peut pas redescendre</span></div>";
     }
-    var BELL = svg('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>', 2.2), WARN = svg('<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>', 2.2);
     var row = function (x, av, verdict, kind, al) {
       var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : "";
       return '<div class="bz-r' + tap + '"><span class="tq-av">' + esc(av) + "</span><span><b>" + esc(trNm(x.name) || "Un joueur") + '</b><span class="bz-v ' + kind + '">' + esc(verdict) + "</span>" +
         al.map(function (a) { return '<span class="bz-al ' + a[0] + '">' + (a[0] === "warn" ? WARN : BELL) + "<span>" + a[1] + "</span></span>"; }).join("") + "</span>" + (x.tid ? I.next : "<span></span>") + "</div>";
     };
-    var body = P.map(function (q) {
+    var body = (nC > 1 ? [] : P).map(function (q) {
       var x = q.z.x, al = q.alerts.slice();
       if (nC <= 1) al.unshift(["bell", esc(lab(q.z.sp.cur)) + " aujourd'hui · ta victoire : <b>+" + q.cells[0].g + "</b>"]);
       return row(x, initials(trNm(x.name)), /\.$/.test(q.verdict) ? q.verdict : q.verdict + ".", q.kind, al);
     }).join("") + U.map(function (u) {
       return row(u.x, "?", "Sa projection n'est pas visible : pas de meilleure date pour lui.", "any", u.g != null ? [["bell", "Aujourd'hui, ta victoire vaut <b>+" + u.g + "</b>" + (u.x.rank ? " (" + esc(u.x.rank) + ")" : "") + "."]] : []);
     }).join("");
-    return '<div class="card pt-card bx">' + head + sub + grid + '<div class="bz-d">' + body + "</div>" +
-      '<span class="small bx-ft">Trop tôt ↗ : il va monter, ta victoire vaudra plus après. À éviter ↘ : il aura baissé. +35 : ce que vaut ta victoire, à ton classement actuel. La prochaine sortie vient de la simulation Ten\'Up ; la suivante (calcul Montée), Montée la calcule sur son palmarès comme s\'il ne rejouait plus, avec la règle FFT d\'une descente au plus par 12 mois (bouclier : protégé, il est déjà descendu il y a moins de 12 mois, Ten\'Up ou son palmarès le montre). Touche un joueur pour sa fiche.' + (t.to || t.dl ? "" : " Indique la date limite (Modifier, en haut) pour ne voir que les dates encore jouables.") + "</span></div>";
+    var HOW = '<details class="bz-how"><summary>' + svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>', 2.2) + "Comment Montée calcule</summary><ul>" +
+      "<li><b>+35</b> : ce que vaut ta victoire, à ton classement d'aujourd'hui.</li>" +
+      "<li><b>1er changement</b> : la simulation Ten'Up. <b>Le suivant</b> : Montée le calcule sur son palmarès, comme s'il ne rejouait plus.</li>" +
+      "<li><b>Protégé</b> : il est déjà descendu il y a moins de 12 mois (Ten'Up ou son palmarès le montre). La FFT ne le fait pas redescendre.</li>" +
+      "<li>Touche un joueur pour sa fiche.</li>" + (t.to || t.dl ? "" : "<li>Indique la date limite (Modifier, en haut) pour ne voir que les dates encore jouables.</li>") + "</ul></details>";
+    return '<div class="card pt-card bx">' + head + sub + grid + (body ? '<div class="bz-d">' + body + "</div>" : "") + HOW + "</div>";
   }
   function dm(d) { return d.getDate() + " " + MOIS[d.getMonth()]; }
   // 3.55.3 : la meilleure date pour un adversaire : cases (maintenant, chaque sortie jusqu'à la fin de la poule), la meilleure, le conseil, les alertes
