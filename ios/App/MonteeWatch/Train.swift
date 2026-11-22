@@ -47,7 +47,10 @@ struct TLive: Codable {
 
 /// 3.59 : une étape de la séance du jour : titre, minutes, 3 mots, couleur de l'axe, ce qu'on compte
 /// 3.61 : le défi de l'étape (à deux : premier à « to » ; seul : contre ton record ; groupe : montante), et le gage du perdant
-struct SDefi: Codable { var t: String; var to: Int; var m: Double; var solo: Bool? = nil; var grp: Bool? = nil; var g: String? = nil; var gs: String? = nil; var gl: [String]? = nil }
+struct SDefi: Codable { var t: String; var to: Int; var m: Double; var solo: Bool? = nil; var grp: Bool? = nil; var g: String? = nil; var gs: String? = nil; var gl: [String]? = nil
+    /// 3.70 : défi d'équipe (triples, match du groupe sur un seul terrain)
+    var team: Bool? = nil
+}
 struct SStep: Codable {
     var t: String; var min: Double; var cue: String; var col: String; var cnt: String?; var n: Int?
     /// 3.62 (Yann) : comment mettre l'exercice en place (avec le partenaire, le groupe ou seul)
@@ -61,6 +64,8 @@ struct SStep: Codable {
     var mt: [[String]]? = nil
 }
 struct SPlan: Codable { var id: String; var t: String; var steps: [SStep]; var day: String? = nil; var mode: String? = nil; var mate: String? = nil; var adv: Bool? = nil
+    /// 3.70 : le tirage du jour, une ligne par terrain (« T1 · Toi et Léa contre Julien et Karim »)
+    var tg: [String]? = nil
     var minutes: Int { Int(steps.reduce(0.0) { $0 + $1.min }) }
 }
 /// 3.61 : un défi joué : Toi (a) contre ton partenaire (b) ; w = 0 tu gagnes, 1 il gagne (ou défi seul raté), -1 égalité, -2 pas joué
@@ -1024,7 +1029,10 @@ struct DuelView: View {
     let df: SDefi
     var body: some View {
         let d = vm.duel(i) ?? SDuel(k: i)
-        let mate = p.mate ?? "Lui"
+        let isTeam: Bool = df.team ?? false
+        let mate: String = isTeam ? "En face" : (p.mate ?? "Lui")
+        let me: String = isTeam ? "Ton équipe" : "Toi"
+        let plus: String = isTeam ? "+2 équipe" : "+2 toi"
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("Défi · premier à \(df.to)").font(.system(size: 11, weight: .heavy)).foregroundColor(.balle).lineLimit(1).minimumScaleFactor(0.7)
@@ -1033,12 +1041,12 @@ struct DuelView: View {
             }
             Text(df.t).font(.system(size: 10.5, weight: .semibold)).foregroundColor(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 5) {
-                side("Toi", d.a, true) { vm.tapDuel(0) }
+                side(me, d.a, true) { vm.tapDuel(0) }
                 side(mate, d.b, false) { vm.tapDuel(1) }
             }
             if d.a == 0 && d.b == 0 && p.adv != false {
                 HStack {
-                    Button("+2 toi") { vm.advDuel(0) }
+                    Button(plus) { vm.advDuel(0) }
                     Spacer()
                     Button("+2 " + mate) { vm.advDuel(1) }.lineLimit(1)
                 }.font(.system(size: 11, weight: .bold)).buttonStyle(.plain).foregroundColor(.gazon)
@@ -1275,13 +1283,30 @@ struct PreviewStepRow: View {
     }
 }
 
+/// 3.70 : le tirage du jour, fait sur l'iPhone avec les prénoms de ton groupe
+struct TirageRows: View {
+    let lines: [String]
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Le tirage").font(.system(size: 11, weight: .heavy)).foregroundColor(.balle)
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, l in
+                Text(l).font(.system(size: 12, weight: .semibold)).lineLimit(3).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.bottom, 4)
+    }
+}
+
 struct SeancePreview: View {
     let plan: SPlan
     let pick: (String) -> Void
     var nd: Int { plan.steps.filter { $0.df != nil }.count }
     var sub: String {
         let gages = plan.steps.contains { $0.df?.g != nil } ? ", gages" : ""
-        if plan.mode == "grp" { return "En groupe · montante" + gages }
+        if plan.mode == "grp" {
+            let mt: Bool = plan.steps.contains { $0.df?.grp == true }
+            return (mt ? "En groupe · montante" : "En groupe · défi d'équipe") + gages
+        }
         if plan.mode == "solo" { return "Seul · défis contre ton record" }
         let who = plan.mate ?? "ton partenaire"
         let nb = nd > 1 ? "\(nd) défis" : "\(nd) défi"
@@ -1290,6 +1315,9 @@ struct SeancePreview: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 5) {
+                if let tg = plan.tg, !tg.isEmpty {
+                    TirageRows(lines: tg)
+                }
                 ForEach(Array(plan.steps.enumerated()), id: \.offset) { _, s in
                     PreviewStepRow(s: s)
                 }

@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.69.0",
+    VERSION: "3.70.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -12073,10 +12073,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Ce que la montre reçoit : les étapes, 3 mots, la couleur, et ce qu'on compte
   function sjWatchJson(P) {
     var words = function (b) { var g = b.g ? goalOf(b.g) : null; return b.k === "warm" ? "Petits pas, ça monte doucement." : b.k === "cool" ? "Lent, et on s'étire." : (g ? g.w + ". " : "") + (b.obj ? b.obj + "." : ""); };
-    var G = P.grp, rb = P.blocks.filter(function (x) { return x.rot; })[0], R = G ? sjRot(G.n, G.c, rb ? rb.rounds : 1) : null;
-    return JSON.stringify({ id: P.id, t: P.title, day: P.date, mode: P.mode, mate: P.mode === "duo" ? sjMate() : null, adv: sjDefs().adv, steps: P.blocks.map(function (b) {
+    var G = P.grp;
+    // 3.70 : le tirage du jour sur la montre (les prénoms du groupe, les équipes de chaque terrain) ; d'abord, pour que les rotations le suivent
+    if (G) { var D1 = S.sjDraw; sjDrawFor(G.n, G.c); if (S.sjDraw !== D1) save(); } // même tirage sur l'iPhone et au poignet
+    var rb = P.blocks.filter(function (x) { return x.rot; })[0], R = G ? sjRot(G.n, G.c, rb ? rb.rounds : 1) : null;
+    var tg = null, D = S.sjDraw;
+    if (G && D && D.d === E.iso(today()) && D.order && D.order.length === G.n) { var kk = 0; tg = G.cs.sizes.map(function (z, i) { var cl = D.order.slice(kk, kk + z); kk += z; return "T" + (i + 1) + " · " + sjTeams(cl).map(function (t) { return t.join(z === 4 ? " et " : ", "); }).join(" contre "); }); if (G.cs.bench) tg.push("Atelier · " + D.order.slice(kk).join(", ")); }
+    return JSON.stringify({ id: P.id, t: P.title, day: P.date, mode: P.mode, mate: P.mode === "duo" ? sjMate() : null, adv: sjDefs().adv, tg: tg, steps: P.blocks.map(function (b) {
       var o = { t: b.t, min: b.min, x: b.ct ? b.ct.map(function (z) { return z.k + " : " + z.x; }).join("\n") : (b.x || ""), cue: words(b), col: ({ tac: "#F2C14E", sol: "#E88A5E", cor: "#4CC9C0", tet: "#A98BFF" })[b.cat] || "#D4E64A", cnt: b.cnt || null, n: b.n || null };
-      if (b.df) o.df = { t: b.df.t, to: b.df.to || 0, m: b.df.m, solo: b.df.solo ? true : false, grp: b.df.grp ? true : false, g: b.df.gage ? b.df.gage.t : null, gs: b.df.gage ? b.df.gage.s : null, gl: b.df.grp && b.df.gage ? [0, 1, 2, 3, 4, 5, 6, 7].map(function (i) { return sjGageN(i).t; }) : null };
+      if (b.df) o.df = { t: b.df.t, to: b.df.to || 0, m: b.df.m, solo: b.df.solo ? true : false, grp: b.df.grp ? true : false, team: b.df.team ? true : false, g: b.df.gage ? b.df.gage.t : null, gs: b.df.gage ? b.df.gage.s : null, gl: b.df.grp && b.df.gage ? [0, 1, 2, 3, 4, 5, 6, 7].map(function (i) { return sjGageN(i).t; }) : null };
       if (b.rot && R) { o.rot = R.rounds.map(function (r) { return r.courts; }); o.rotMin = b.rot; o.mv = R.rounds.map(function (r) { return r.mv || []; }); }
       if (b.df && b.df.grp && R) o.mt = R.rounds[R.rounds.length - 1].courts;
       return o;
