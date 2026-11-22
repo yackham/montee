@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.71.0",
+    VERSION: "3.72.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -790,7 +790,7 @@
     var f = app.querySelector("[data-autofocus]"); if (f) f.focus();
     if (UI.fafFocus && parts[0] === "faf") { UI.fafFocus = false; var fq = document.getElementById("ff-q"); if (fq) setTimeout(function () { fq.focus(); }, 120); }
     if (UI.partyKey && S.celebrated !== UI.partyKey) { S.celebrated = UI.partyKey; save(); setTimeout(party, 350); }
-    syncWidgets(); watchSync(); schedulePlanNotif(); try { scheduleSjNotif(); } catch (e) {}
+    syncWidgets(); watchSync(); schedulePlanNotif(); try { scheduleTeamsNotif(); schedulePoolNotif(); } catch (e) {} try { scheduleSjNotif(); } catch (e) {}
   }
 
   // 3.59 (Yann, 20/11) : les scores et totaux mis en avant comptent jusqu'à leur valeur (0,6 s), une fois par page
@@ -1168,8 +1168,8 @@
       }
     });
     // 3.50 : la prochaine rencontre de ton équipe (ou celle qui se joue), avec un picto équipe
-    if (teamsOn()) myTeams().forEach(function (c) { var nx = tmNext(c); if (!nx) return; var me = c.me.mine, mt = tmOf(c, me) || {}, lv = tmLive(nx) && (nx.c1 || nx.c2);
-      out.push({ d: nx.d, team: 1, live: lv, href: "#/equipe/" + c.id, title: tmNm(nx.an) + " – " + tmNm(nx.bn), sub: "Équipe · " + (nx.dom === me ? "à domicile" : "à l'extérieur") + " · " + tmDiv(c.div), st: lv ? nx.c1 + " – " + nx.c2 : mt.cl ? tmOrd(mt.cl) + " de la poule" : "" }); });
+    if (teamsOn()) myTeams().concat(clubOn() ? clubTeams().filter(function (c) { return clubFol(c.id) && !c.cloture; }) : []).forEach(function (c) { var nx = tmNext(c); if (!nx) return; var me = c.me.mine, mt = tmOf(c, me) || {}, lv = tmLive(nx) && (nx.c1 || nx.c2);
+      out.push({ d: nx.d, team: 1, live: lv, href: "#/equipe/" + c.id, title: tmNm(nx.an) + " – " + tmNm(nx.bn), sub: (c.cl ? "Suivie · " : "Équipe · ") + (nx.dom === me ? "à domicile" : "à l'extérieur") + " · " + tmDiv(c.div), st: lv ? nx.c1 + " – " + nx.c2 : mt.cl ? tmOrd(mt.cl) + " de la poule" : "" }); });
     plans().filter(function (x) { return dGap(x.day) >= 0 && !(x.tour && tourOf(x.tour)); }).forEach(function (pl) {
       out.push({ d: pl.day, time: pl.time, pl: pl, href: "#/joueur/" + encodeURIComponent(pl.id), title: (pl.name || "Ton adversaire") + (pl.rank ? " · " + pl.rank : ""), sub: pl.hom ? "match homologué" : "match libre", st: pl.p != null ? pl.p + " %" : "" });
     });
@@ -1298,7 +1298,30 @@
   // 3.44 : la poule (indivs). Tes matchs dans t.pool ; les matchs des autres, lus sur leurs fiches Ten'Up (t.poolX)
   function ageOfX(x) { if (!x) return null; var h = x.hit || {}, sc = x.tid && S.scout && S.scout[x.tid]; return h.age || (sc && sc.profil && sc.profil.age) || null; }
   function poolMembers(t) { return [{ me: true, name: "Toi", rank: lab(curIdx() < 0 ? 0 : curIdx()) }].concat((t.pool || []).map(function (x) { return { name: x.name, rank: x.rank, tid: x.tid, hit: x.hit, age: ageOfX(x) }; })); }
+  // 3.70.8 (Yann : les matchs de poule de Davy homologués sur Ten'Up, dans son palmarès, mais 0-0 dans la poule) : un match de ton palmarès
+  // pendant la poule, contre un joueur de la poule, dans cette épreuve, compte dans la poule. Avant, seul le résultat noté à la main
+  // dans la poule (ou un match saisi dans Montée et rattaché) comptait : un match importé de Ten'Up n'y entrait jamais.
+  function poolAutoLink(t) {
+    if (!t || !(t.pool || []).length) return false;
+    var lo = t.from ? E.iso(new Date(E.parseDate(t.from).getTime() - 7 * 864e5)) : "", hi = t.to ? E.iso(new Date(E.parseDate(t.to).getTime() + 7 * 864e5)) : "", ch = false, used = {};
+    (t.pool || []).forEach(function (x) { if (x.twin) used[x.twin] = 1; });
+    (t.pool || []).forEach(function (x) {
+      if (x.res || x.noAuto) return;
+      var m = (S.matches || []).filter(function (m) {
+        if (used[m.id] || m.dbl || !(m.result === "V" || m.result === "D") || !m.date || (lo && m.date < lo) || (hi && m.date > hi)) return false;
+        if (m.tour ? m.tour !== t.id : !(m.comp && poolRowFits(t, { comp: m.comp }))) return false; // son épreuve, pas un match amical, par équipes ou d'un autre tournoi
+        if (m.kind === "equipes" || m.kind === "amical" || m.kind === "libre") return false;
+        return x.tid && m.oid ? String(m.oid) === String(x.tid) : !!(m.opp && !isAnon(m.opp) && nameTokens(m.opp).length >= 2 && samePerson(m.opp, trNm(x.name)));
+      }).sort(function (a, b) { return a.date < b.date ? -1 : 1; })[0];
+      if (!m) return;
+      used[m.id] = 1; x.res = m.result; x.twin = m.id; x.mx = 1; x.auto = 1; if (!x.day) x.day = m.date;
+      if (m.result === "V") { try { TR_KIND = t.kind === "champ" ? "champ" : "tournoi"; x.pts = trGain(x.rank || m.oppRank) || 0; } catch (e) {} }
+      ch = true;
+    });
+    return ch;
+  }
   function poolGames(t) {
+    if (poolAutoLink(t)) { try { save(); } catch (e) {} }
     var g = [];
     // 3.47 : le score saisi dans la fiche du match (« Ajouter le score ») sert au départage
     (t.pool || []).forEach(function (x) { if (x.res) { var mm = poolMyMatch(t, x); g.push({ a: "Toi", b: x.name, w: x.res === "V" ? "a" : "b", sc: x.score || (mm && mm.score) || poolScoreFromHim(t, x) || "", me: true, mid: mm ? mm.id : "" }); } });
@@ -1360,6 +1383,13 @@
     return dd === -1 ? "hier " + d.getHours() + " h" : "il y a " + Math.max(2, -dd) + " j";
   }
   function syMin(L) { var m = null; L.forEach(function (v) { v = v || 0; if (m == null || v < m) m = v; }); return m || 0; }
+  // 3.70.8 : l'état de la synchro dans la barre de profil de l'accueil : un point et l'heure, touchable pour relire
+  function syMini() {
+    if (!NATIVE || !S.tenup.linked) return "";
+    var at = S.tenup.lastAuto || (S.tenup.lastImport ? E.parseDate(S.tenup.lastImport).getTime() : 0), run = !!UI.loading, err = (S.tenup.fails || 0) > 0, old = !at || Date.now() - at > 864e5;
+    var txt = run ? "lecture…" : err ? "échec · réessayer" : !at ? "pas encore lu" : (old ? "lu " : "à jour ") + syWhen(at);
+    return '<span class="hd-sy' + (run ? " run" : err ? " err" : old ? " old" : "") + '" data-a="syTap" data-k="me" data-v="" role="button" aria-label="Actualiser tes matchs Ten\'Up"><i></i>' + txt + "</span>";
+  }
   function syPill(k, v) {
     if (!NATIVE) return "";
     var at = 0, run = false, err = false, lab = "À jour", what = "tes matchs Ten'Up";
@@ -1422,12 +1452,14 @@
     });
     if (!mem.length) return;
     UI.psBusy[t.id] = 1; if (force) { t.poolAt = now; save(); }
+    UI.psProg = UI.psProg || {}; UI.psProg[t.id] = { n: mem.length, d: 0, nm: "" }; // 3.70.8 (Yann) : la lecture des fiches se voit avancer
     var lo = t.from ? E.iso(new Date(E.parseDate(t.from).getTime() - 7 * 864e5)) : "", got = {}, chain = Promise.resolve();
     var show = function () { var r0 = route(); if (r0 === "tournoi/" + t.id || r0 === "") render(); };
     mem.forEach(function (x) {
       chain = chain.then(function () {
         var h = poolHit(x), k = String(x.tid || h.id), tr = UI.psTry[k] || (UI.psTry[k] = { n: 0, at: 0 }); tr.n++; tr.at = Date.now();
-        return tenupQuery("player", h).then(function (r) {
+        var pg = UI.psProg[t.id]; if (pg) { pg.nm = nameCase(trNm(x.name)); show(); }
+        return tenupQuery("player", h).finally(function () { var pg2 = UI.psProg[t.id]; if (pg2) pg2.d++; }).then(function (r) {
           if (!r || r.error) return;
           delete UI.psTry[k];
           if (x.tid) { try { scoutStore(x.tid, h, r); } catch (e) {} } else poolApply(x, r); // scoutStore la pose sur toutes ses lignes de poule
@@ -1437,7 +1469,7 @@
       });
     });
     chain.then(function () {
-      UI.psBusy[t.id] = 0;
+      UI.psBusy[t.id] = 0; delete UI.psProg[t.id];
       // Résultats entre adversaires : la fiche qu'on vient de lire, sinon celle déjà gardée
       var found = {};
       (t.pool || []).forEach(function (x, i) {
@@ -1447,19 +1479,34 @@
           // 3.46.4 (retour testeur) : seulement les matchs de CETTE épreuve (indivs de la même série), et le bon joueur (pas un simple prénom en commun)
           if (!poolRowFits(t, row)) return;
           var o = (t.pool || []).filter(function (y) { return y !== x && ((row.oid && y.tid && String(row.oid) === String(y.tid)) || (!(row.oid && y.tid) && samePerson(y.name, row.opp))); })[0];
+          // 3.70.8 (Yann : un adversaire de poule anonyme sur Ten'Up, renommé à la main) : sa fiche est illisible, mais ses matchs sont sur
+          // la fiche des autres, face à « Joueur anonyme ». Dans la poule, un anonyme est un joueur sans fiche Ten'Up : s'il n'y en a qu'un,
+          // c'est lui ; s'il y en a plusieurs, celui qui a le classement du match ; sinon on ne devine pas.
+          if (!o && (isAnon(row.opp) || /anonym/i.test(String(row.opp || "")))) {
+            var an = (t.pool || []).filter(function (y) { return y !== x && !y.tid && !poolHit(y); });
+            if (an.length > 1 && row.oppRank) an = an.filter(function (y) { return y.rank && T.normRank(y.rank) === T.normRank(row.oppRank); });
+            if (an.length === 1) o = an[0];
+          }
           if (!o) return;
           var k = [x.name, o.name].sort().join("|") + "|" + row.date; if (found[k]) return;
           found[k] = { a: nameCase(x.name), b: nameCase(o.name), w: row.result === "V" ? "a" : "b", sc: row.score || "", date: row.date };
         });
       });
       t.poolX = Object.keys(found).map(function (k) { return found[k]; }); save(); try { scheduleTimingNotif(); } catch (e) {} try { syncNative(); } catch (e) {} show();
-    }, function () { UI.psBusy[t.id] = 0; });
+    }, function () { UI.psBusy[t.id] = 0; delete UI.psProg[t.id]; show(); });
+  }
+  // 3.70.8 (Yann) : pendant la lecture des fiches de la poule, une barre qui avance et qui est lu
+  function poolProgHtml(t) {
+    var pg = UI.psProg && UI.psProg[t.id]; if (!NATIVE || !pg || !pg.n || !(UI.psBusy && UI.psBusy[t.id])) return "";
+    return '<div class="ps-prog"><span class="small"><span class="spin"></span>Lecture des fiches Ten\'Up · ' + Math.min(pg.d + 1, pg.n) + "/" + pg.n + (pg.nm ? " · " + esc(pg.nm) : "") + "</span>" +
+      '<span class="ti-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + pg.n + '" aria-valuenow="' + pg.d + '"><i style="width:' + Math.max(6, Math.round(100 * pg.d / pg.n)) + '%"></i></span></div>';
   }
   // 3.44.2 (Montée+) : le bon moment pour jouer chaque adversaire de poule : sa projection Ten'Up à la prochaine sortie,
   // et ce que vaut ta victoire avant / après (faits : points du barème, à ton classement actuel)
   var PLUS_LOCK = function () { return PLUS && !isSup(); };
   function gainVs(o) { if (o == null) return null; try { var c = ctx(); return E.simulateWin(allMatches(), c.cur, c.sex, o, Object.assign({}, c.opts, { kind: TR_KIND })).gain; } catch (e) { return null; } }
   function poolTiming(t) {
+    try { if (poolAutoLink(t)) save(); } catch (e) {}
     var end = t.dl || t.to || "", out = [];
     (t.pool || []).forEach(function (x, i) {
       if (x.res) return;
@@ -1551,6 +1598,7 @@
     var sub = '<span class="bx-sub">Ce que vaut ta victoire contre chacun' + (nC > 1 ? ", période par période" : "") + (endS ? ", d'ici la fin de la poule (" + endS + ")" : "") + ".</span>";
     var CAL = svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', 3);
     var SHIELD = svg('<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>', 2.6); // 3.58.1 : « protégé » tient dans la case
+    var BELL = svg('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>', 2.2), WARN = svg('<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>', 2.2);
     var grid = "";
     if (nC > 1) {
       var veille = function (c) { return dm(new Date(c.d.getTime() - 864e5)); }, dj = Math.max(1, dGap(cols[1].dI));
@@ -1565,7 +1613,16 @@
           var x = q.z.x, G = function (c) { return c.g == null ? -1 : c.g; }, bG = G(q.cells[q.best]);
           var mj = -1; if (x.day && dGap(x.day) >= 0) cols.forEach(function (c, j) { if (j === 0 || c.dI <= x.day) mj = j; });
           var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : "";
-          return '<div class="bz-n' + tap + '"><span class="tq-av">' + esc(initials(trNm(x.name))) + "</span><b>" + esc(trNm(x.name).split(" ")[0]) + '</b><small class="' + q.kind + '">' + esc(q.short) + "</small></div>" +
+          // 3.70.8 (Yann, maquette B validée) : sous le prénom, son classement (balle jaune) ; un joueur sans enjeu tient sur une case large ;
+          // le conseil et l'alerte s'affichent juste sous sa ligne (plus de liste dessous qui répète la grille)
+          var rkNow = q.z.sp && q.z.sp.cur ? lab(q.z.sp.cur) : (x.rank || "");
+          var nmC = '<div class="bz-n' + tap + '"><span class="tq-av">' + esc(initials(trNm(x.name))) + "</span><b>" + esc(trNm(x.name).split(" ")[0]) + "</b>" + (rkNow ? '<span class="rk-tag">' + esc(rkNow) + "</span>" : "") + "</div>";
+          var c0 = q.cells[0], flat = q.kind === "any" && !(q.drop > 0) && cols.every(function (col, j) { var c = q.cells[j]; return c && c.g != null && (j === 0 || c.dI === col.dI) && c.g === c0.g && c.dir !== "down"; });
+          var kept = cols.some(function (col, j) { return q.cells[j] && q.cells[j].kept; });
+          if (flat) return nmC + '<div class="bz-c ok bz-all' + tap + '" style="grid-column:span ' + nC + '"><span class="bz-st">✓ jouable tout le temps</span><span class="bz-al1"><b>+' + c0.g + "</b><span>à chaque période" + (kept ? ' · <i class="bz-pr bz-prw">' + SHIELD + "protégé</i>" : "") + "</span></span></div>";
+          var tipA = q.alerts.slice(), tip = q.kind === "any" && !tipA.length ? "" : '<div class="bz-tip' + tap + '"><span class="bz-v ' + q.kind + '">' + esc(/\.$/.test(q.verdict) ? q.verdict : q.verdict + ".") + "</span>" +
+            tipA.map(function (a) { return '<span class="bz-al ' + a[0] + '">' + (a[0] === "warn" ? WARN : BELL) + "<span>" + a[1] + "</span></span>"; }).join("") + "</div>";
+          return nmC +
             cols.map(function (col, j) {
               var c = q.cells[j], k;
               if (!c || (j > 0 && c.dI !== col.dI) || c.g == null) k = "unk";
@@ -1575,25 +1632,28 @@
               var mv = c && c.dir === "up" ? '<em class="up">↗</em> ' : c && c.dir === "down" ? '<em class="dn">↘</em> ' : "";
               return '<div class="bz-c ' + k + tap + '">' + (k === "best" ? '<span class="bz-tg">MEILLEUR</span>' : "") + (j === mj ? '<span class="bz-mt">' + CAL + esc(dm(E.parseDate(x.day)).toUpperCase()) + "</span>" : "") +
                 '<span class="bz-st">' + ST[k] + "</span>" + (k === "unk" ? "<b>?</b>" : k === "no" ? "<s>+" + c.g + "</s>" : "<b>+" + c.g + "</b>") + "<span>" + (c && k !== "unk" ? mv + esc(lab(c.rank)) + (c.kept ? ' <i class="bz-pr" title="protégé : déjà descendu il y a moins de 12 mois">' + SHIELD + "protégé</i>" : "") : "") + "</span></div>";
-            }).join("");
+            }).join("") + tip;
         }).join("") + "</div>" +
-        '<div class="bz-lg"><span><i class="ok"></i>jouable</span><span><i class="lo"></i>trop tôt ↗</span><span><i class="no"></i>à éviter ↘</span></div>';
+        '<div class="bz-lg bz-lg2"><span><i class="ok"></i>jouable</span><span><i class="lo"></i>trop tôt : il va monter ↗</span><span><i class="no"></i>à éviter : il aura baissé ↘</span><span><em class="bz-pr bz-prl">' + SHIELD + "</em>protégé : ne peut pas redescendre</span></div>";
     }
-    var BELL = svg('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>', 2.2), WARN = svg('<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>', 2.2);
     var row = function (x, av, verdict, kind, al) {
       var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : "";
       return '<div class="bz-r' + tap + '"><span class="tq-av">' + esc(av) + "</span><span><b>" + esc(trNm(x.name) || "Un joueur") + '</b><span class="bz-v ' + kind + '">' + esc(verdict) + "</span>" +
         al.map(function (a) { return '<span class="bz-al ' + a[0] + '">' + (a[0] === "warn" ? WARN : BELL) + "<span>" + a[1] + "</span></span>"; }).join("") + "</span>" + (x.tid ? I.next : "<span></span>") + "</div>";
     };
-    var body = P.map(function (q) {
+    var body = (nC > 1 ? [] : P).map(function (q) {
       var x = q.z.x, al = q.alerts.slice();
       if (nC <= 1) al.unshift(["bell", esc(lab(q.z.sp.cur)) + " aujourd'hui · ta victoire : <b>+" + q.cells[0].g + "</b>"]);
       return row(x, initials(trNm(x.name)), /\.$/.test(q.verdict) ? q.verdict : q.verdict + ".", q.kind, al);
     }).join("") + U.map(function (u) {
       return row(u.x, "?", "Sa projection n'est pas visible : pas de meilleure date pour lui.", "any", u.g != null ? [["bell", "Aujourd'hui, ta victoire vaut <b>+" + u.g + "</b>" + (u.x.rank ? " (" + esc(u.x.rank) + ")" : "") + "."]] : []);
     }).join("");
-    return '<div class="card pt-card bx">' + head + sub + grid + '<div class="bz-d">' + body + "</div>" +
-      '<span class="small bx-ft">Trop tôt ↗ : il va monter, ta victoire vaudra plus après. À éviter ↘ : il aura baissé. +35 : ce que vaut ta victoire, à ton classement actuel. La prochaine sortie vient de la simulation Ten\'Up ; la suivante (calcul Montée), Montée la calcule sur son palmarès comme s\'il ne rejouait plus, avec la règle FFT d\'une descente au plus par 12 mois (bouclier : protégé, il est déjà descendu il y a moins de 12 mois, Ten\'Up ou son palmarès le montre). Touche un joueur pour sa fiche.' + (t.to || t.dl ? "" : " Indique la date limite (Modifier, en haut) pour ne voir que les dates encore jouables.") + "</span></div>";
+    var HOW = '<details class="bz-how"><summary>' + svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>', 2.2) + "Comment Montée calcule</summary><ul>" +
+      "<li><b>+35</b> : ce que vaut ta victoire, à ton classement d'aujourd'hui.</li>" +
+      "<li><b>1er changement</b> : la simulation Ten'Up. <b>Le suivant</b> : Montée le calcule sur son palmarès, comme s'il ne rejouait plus.</li>" +
+      "<li><b>Protégé</b> : il est déjà descendu il y a moins de 12 mois (Ten'Up ou son palmarès le montre). La FFT ne le fait pas redescendre.</li>" +
+      "<li>Touche un joueur pour sa fiche.</li>" + (t.to || t.dl ? "" : "<li>Indique la date limite (Modifier, en haut) pour ne voir que les dates encore jouables.</li>") + "</ul></details>";
+    return '<div class="card pt-card bx">' + head + sub + poolProgHtml(t) + grid + (body ? '<div class="bz-d">' + body + "</div>" : "") + HOW + "</div>";
   }
   function dm(d) { return d.getDate() + " " + MOIS[d.getMonth()]; }
   // 3.55.3 : la meilleure date pour un adversaire : cases (maintenant, chaque sortie jusqu'à la fin de la poule), la meilleure, le conseil, les alertes
@@ -1700,7 +1760,7 @@
     }).sort(function (a, b) { return (b.p - a.p) || (b.v - a.v) || (b.sd - a.sd) || (b.gd - a.gd); });
     var tieUsed = st.some(function (x, i) { var y = st[i + 1]; return y && x.p === y.p; });
     var sgn = function (x) { return (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x); };
-    var s = '<div class="card pl-st"><span class="eyebrow">Le classement</span>' + st.map(function (x, i) {
+    var s = '<div class="card pl-st"><span class="eyebrow">Le classement</span>' + poolProgHtml(t) + st.map(function (x, i) {
       return '<div class="pl-r' + (x.m.me ? " me" : "") + (!x.m.me && x.m.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.m.tid) + '" role="button' : "") + '"><b class="pl-k' + (i < (t.qual || 1) ? " q" : "") + '">' + (i + 1) + "</b><b>" + esc(x.m.me ? "Toi" : trNm(x.m.name)) + (x.m.rank ? ' <span class="muted">· ' + esc(x.m.rank) + "</span>" : "") + (!x.m.me && x.m.age ? '<span class="muted pl-age"> · ' + x.m.age + " ans</span>" : "") + (x.scN ? '<small class="pl-tb">sets ' + sgn(x.sd) + " · jeux " + sgn(x.gd) + "</small>" : "") + '</b><span class="pl-d">' + x.res.map(function (r) { return '<i class="' + (r === "V" ? "v" : r === "D" ? "d" : "") + '"></i>'; }).join("") + '</span><b class="pl-vd">' + x.v + "-" + x.d + '<small class="pl-pt">' + plural(x.p, "pt", "pts") + "</small></b></div>";
     }).join("") + '<span class="small">Classement aux points : victoire 2 pts, défaite 1 pt, pas encore joué 0.' + (tieUsed ? " À égalité de points : départage aux sets gagnés − perdus, puis aux jeux." + (games.some(function (gm) { return !gm.sc; }) ? " Il manque des scores : ajoute-les pour un départage juste." : "") : "") + "</span>" + (NATIVE ? "" : '<span class="small">Les matchs des autres se lisent sur Ten\'Up depuis l\'appli iPhone ou Android.</span>') + "</div>";
     var played = games.slice().sort(function (a, b) { return (b.me ? 1 : 0) - (a.me ? 1 : 0); });
@@ -1773,8 +1833,8 @@
           [[A2.a, A2.pA], [A2.b, A2.pB]].map(function (z) { return '<span class="tq-alt"><span>' + esc((trNm(z[0].name) || "Un joueur") + (z[0].rank ? " · " + z[0].rank : "")) + "</span><b>" + (z[1] != null ? z[1] + " %" : "–") + "</b></span>"; }).join("") : "") +
         (g != null && !r.res ? '<span class="tq-g">' + (g > 0 ? "+" + g + " pts si tu gagnes" : "Une victoire ne changerait pas ton bilan") + "</span>" : "") +
         (!r.res && past && !done ? '<span class="tq-res"><button class="chip" data-a="trRes" data-v="V" data-i="' + i + '">J\'ai gagné</button><button class="chip" data-a="trRes" data-v="D" data-i="' + i + '">J\'ai perdu</button></span>' : "") +
-        (!r.res && !done ? '<button class="linkbtn tq-ed" data-a="trRound" data-i="' + i + '">Modifier ce tour</button>' : "") +
-        (r.res && !done ? '<button class="linkbtn tq-ed" data-a="trUndo" data-i="' + i + '">Corriger le résultat</button>' : "") +
+        (!r.res && !done ? '<button class="linkbtn tq-edl" data-a="trRound" data-i="' + i + '">Modifier ce tour</button>' : "") +
+        (r.res && !done ? '<button class="linkbtn tq-edl" data-a="trUndo" data-i="' + i + '">Corriger le résultat</button>' : "") +
         "</span></div>";
     });
     return s;
@@ -1818,7 +1878,7 @@
           var rt = route(); if (rt.indexOf("equipe") === 0) render();
           return go(r.job);
         }
-        delete r.job; delete r.trace; delete r.partial; r.qv = 7; S.teams = r; UI.tmErr = null; save(); done();
+        delete r.job; delete r.trace; delete r.partial; r.qv = 7; S.teams = r; UI.tmErr = null; save(); try { scheduleTeamsNotif(); } catch (e) {} done();
       });
     };
     go(null);
@@ -1837,9 +1897,12 @@
   function tmReportText() {
     var tr = S.teamsTrace || {}, t = S.teams || {}, L = ["Rapport équipes Montée " + CONFIG.VERSION + " · " + (window.Capacitor && Capacitor.getPlatform ? Capacitor.getPlatform() : "web") + " · " + new Date().toISOString().slice(0, 16).replace("T", " "),
       "Club : " + ((t.club && t.club.nom) || "?") + " · lecture " + (tr.at ? new Date(tr.at).toISOString().slice(0, 16).replace("T", " ") : "jamais") + " en " + (tr.calls || 0) + " appel(s)" + (tr.err ? " · ERREUR : " + tr.err : "") + (tr.partial ? " · incomplète" : "")];
-    ((tr.last && tr.last.champs) || []).forEach(function (c) { L.push("- " + (c.nom || c.id) + " (" + c.id + ") : " + c.trouve + (c.fini ? "" : " · pas finie") + " · " + c.poules + " poules, " + c.pages + " pages, " + c.feuilles + " feuilles, " + Math.round((c.ms || 0) / 1000) + " s, " + (c.err || 0) + " erreur(s), reste " + c.reste); });
+    ((tr.last && tr.last.champs) || []).forEach(function (c) { L.push("- " + (c.nom || c.id) + " (" + c.id + ") : " + c.trouve + (c.fini ? "" : " · pas finie") + " · " + c.poules + " poules, " + c.pages + " pages, " + c.feuilles + " feuilles, " + Math.round((c.ms || 0) / 1000) + " s, " + (c.err || 0) + " erreur(s), reste " + c.reste + " · jours " + ((c.dates || []).join(",") || "?") + (c.sh ? " · feuilles : " + c.sh.n + " lues, " + c.sh.p + " avec joueurs, champs " + (c.sh.k || []).join("/") : "") + (c.ex ? " · équipes vues : " + c.ex.join(" ; ") : "")); });
     L.push("Équipes retenues :");
     ((t.champs || []).filter(function (c) { return c.me; })).forEach(function (c) { var m = (c.teams || []).filter(function (x) { return x.id === c.me.mine; })[0]; L.push("- " + (c.nom || c.id) + " · " + (c.div || "") + " · " + (c.poule || "") + " · " + (m ? m.nom : "?") + " · jours " + ((c.me.days || []).join(", ") || "?") + (c.me.sure ? " (feuille)" : " (déduit)")); });
+    // 3.72 : la lecture des équipes du club (si l'interrupteur est activé)
+    var ct = S.clubTrace; if (clubOn() || ct) { L.push("Équipes du club : " + (clubOn() ? "activé" : "désactivé") + " · " + (ct ? (ct.err ? "ERREUR " + ct.err : (ct.partial ? "incomplet · " : "") + ct.calls + " appel(s)") : "jamais lu") + " · " + clubTeams().length + " équipe(s)");
+      if (ct && ct.last) { (ct.last.src || []).forEach(function (x) { L.push("  source " + x); }); (ct.last.champs || []).forEach(function (c) { L.push("  - " + (c.nom || c.id) + " (" + c.id + ") : " + c.equipes + " équipe(s) · " + c.poules + " poules, " + c.pages + " pages" + (c.fini ? "" : " · pas fini") + (c.err ? " · " + c.err + " erreur(s)" : "")); }); } }
     L.push("Matchs par équipes dans l'app : " + S.matches.filter(function (m) { return m.kind === "equipes"; }).map(function (m) { return m.date; }).sort().join(", "));
     return L.join("\n");
   }
@@ -1864,7 +1927,10 @@
     var w = function (x) { return String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter(function (y) { return y.length >= 5 && !/^(tennis|club|sporting|association|union)$/.test(y); }); };
     var wa = w(club), wb = w(team); return wa.some(function (y) { return wb.indexOf(y) >= 0; });
   }
+  // 3.72 : une équipe à toi, ou une équipe du club (S.club, mode responsable sportif)
+  function tmFind(id) { id = String(id); return ((S.teams && S.teams.champs) || []).filter(function (x) { return x.id === id; })[0] || ((S.club && S.club.champs) || []).filter(function (x) { return x.id === id; })[0]; }
   function tmMine(c, r) {
+    if (c.cl) return { s: [], d: [] }; // équipe du club où tu ne joues pas : pas de « tes matchs »
     var me = c.me.mine, vs = r.a === me ? r.bn : r.an;
     // 3.62 : équipe trouvée par la feuille de match → seulement les rencontres de tes jours à toi dans CETTE équipe
     if (c.me.sure && c.me.days && !c.me.days.some(function (d) { return Math.abs(dGap(d) - dGap(r.d)) <= 2; })) return { s: [], d: [] };
@@ -1912,9 +1978,114 @@
   function teamsTabHtml() {
     var L = myTeams(true), on = L.filter(function (c) { return !c.cloture; }).sort(tmOrdOn), off = L.filter(function (c) { return c.cloture; }).sort(function (a, b) { return a.last < b.last ? 1 : -1; });
     var s = teamSeasonHtml();
-    if (on.length) s += '<h2 class="tm-gh">En cours</h2><div class="blk">' + on.map(teamRow).join("") + "</div>";
-    if (off.length) s += '<h2 class="tm-gh">Terminés</h2><div class="blk">' + off.map(teamRow).join("") + "</div>";
+    if (on.length) s += '<h2 class="tm-gh">Tes équipes</h2><div class="blk">' + on.map(teamRow).join("") + "</div>";
+    if (off.length) s += '<h2 class="tm-gh">Tes championnats terminés</h2><div class="blk">' + off.map(teamRow).join("") + "</div>";
+    if (s) s += clubHtml();
     return (s || '<div class="card"><span class="small">Montée lit tes championnats sur Ten\'Up…</span></div>');
+  }
+  // 3.72 (Yann, responsable sportif, maquette equipes-club v2 validée) : les autres équipes du club, derrière un interrupteur.
+  // Le week-end du club en un coup d'œil, tes équipes suivies (★) en haut, le reste groupé par championnat (repliable, filtres).
+  function clubOn() { return !!(S.prefs || {}).clubOn; }
+  function clubFol(id) { return !!(((S.prefs || {}).clubFol) || {})[id]; }
+  // les équipes du club hors les tiennes (même championnat et même équipe que l'une des tiennes = déjà en haut)
+  function clubTeams() {
+    var mine = {}; myTeams(true).forEach(function (c) { mine[String(c.cid || c.id) + "~" + c.me.mine] = 1; });
+    return (((S.club || {}).champs) || []).filter(function (c) { return c.me && c.teams && !mine[String(c.cid) + "~" + c.me.mine]; });
+  }
+  function clubCat(c) { var n = String(c.nom || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); return /\+\s?\d\d|veteran|senior\s*\+/.test(n) ? "plus" : /jeune|\d+\s*-\s*\d+\s*ans|\bu\d\d|\d+\s*ans|garcon|fille|enfant|poussin|benjamin|minime|cadet|junior/.test(n) ? "jeu" : /dame|femme|feminin/.test(n) ? "dam" : "mes"; }
+  var CLUB_CAT = { mes: "Messieurs", dam: "Dames", jeu: "Jeunes", plus: "+35 et plus" };
+  // la dernière rencontre jouée d'une équipe : { r, res, a, b } (score côté équipe)
+  function clubLast(c, from) { var me = c.me.mine, r = (c.renc || []).filter(function (x) { return (x.a === me || x.b === me) && x.st === "T" && (!from || String(x.d).slice(0, 10) >= from); }).sort(function (a, b) { return a.d < b.d ? 1 : -1; })[0]; if (!r) return null; var a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1; return { r: r, a: a, b: b, res: a > b ? "v" : a < b ? "d" : "n" }; }
+  function clubRow(c, top) {
+    var me = tmOf(c, c.me.mine) || {}, n = (c.teams || []).length, L = clubLast(c), nx = !c.cloture && tmNext(c), f = clubFol(c.id);
+    var sub = [top ? CLUB_CAT[clubCat(c)] : "", tmDiv(c.div), top ? "" : tmDiv(c.poule)].filter(Boolean).join(" · ") + (top ? (nx ? " · " + dayLab(String(nx.d).slice(0, 10)) + " contre " + tmNm(nx.a === me.id ? nx.bn : nx.an) : " · pas de rencontre prévue") : "");
+    return '<div class="ce-r"><button class="ce-st' + (f ? " on" : "") + '" data-a="ceFol" data-id="' + esc(c.id) + '" aria-pressed="' + f + '" aria-label="' + (f ? "Ne plus suivre " : "Suivre ") + esc(tmNm(me.nom)) + '">' + (f ? "★" : "☆") + "</button>" +
+      '<a class="ce-a" href="#/equipe/' + esc(c.id) + '"><span class="n"><b>' + esc(tmNm(me.nom || c.nom)) + "</b><small>" + esc(sub) + "</small></span>" +
+      (L ? '<span class="ce-sc ' + L.res + '">' + L.res.toUpperCase() + " " + L.a + "–" + L.b + "</span>" : "<span></span>") +
+      (me.cl ? '<span class="ce-pl ' + tmRkC(me.cl, n) + '">' + me.cl + "<sup>" + (me.cl === 1 ? "er" : "e") + "</sup><small>sur " + n + "</small></span>" : "<span></span>") + "</a></div>";
+  }
+  function clubHtml() {
+    if (!NATIVE && !S.club) return "";
+    var on = clubOn(), CL = on ? clubTeams() : [], nm = tmNm(((S.teams || {}).club || {}).nom || "ton club");
+    var nCh = {}; CL.forEach(function (c) { if (!c.cloture) nCh[c.cid] = 1; });
+    var s = '<div class="card ce-sw"><span class="grow"><b>Équipes du club</b><small>' + (!on ? "Voir toutes les équipes de " + esc(nm) + ", choisir celles que tu suis." : UI.clubBusy && !CL.length ? "Lecture des équipes du club sur Ten'Up…" : CL.length ? plural(CL.length, "autre équipe", "autres équipes") + " · " + plural(Object.keys(nCh).length, "championnat en cours", "championnats en cours") : "Aucune autre équipe trouvée pour l'instant.") +
+      '</small></span><button class="ce-tg' + (on ? " on" : "") + '" data-a="clubTg" role="switch" aria-checked="' + on + '" aria-label="Équipes du club"></button></div>';
+    if (!on) return s;
+    if (UI.clubBusy && CL.length) s += '<span class="small ce-ld"><span class="spin"></span> Mise à jour des équipes du club…</span>';
+    if (!CL.length) return s;
+    // le week-end du club : les rencontres jouées depuis samedi dernier (7 jours au plus), tes équipes comprises
+    var td = today(), back = (td.getDay() + 1) % 7, sat = E.iso(new Date(td.getTime() - back * 864e5)), sun = E.iso(new Date(td.getTime() - (back - 1) * 864e5));
+    var all = myTeams(true).concat(CL), W = []; all.forEach(function (c) { var L = clubLast(c, sat); if (L) W.push(L); });
+    var nx7 = E.iso(new Date(td.getTime() + 7 * 864e5)), nxt = 0; all.forEach(function (c) { if (!c.cloture) nxt += (c.renc || []).filter(function (r) { var d = String(r.d).slice(0, 10); return (r.a === c.me.mine || r.b === c.me.mine) && r.st !== "T" && d >= E.iso(td) && d <= nx7; }).length; });
+    if (W.length) {
+      var cnt = function (k) { return W.filter(function (x) { return x.res === k; }).length; }, ds = E.parseDate(sat);
+      s += '<div class="card ce-we"><span class="eyebrow">' + (back <= 1 ? "Ce week-end" : "Le week-end") + " au club · " + ds.getDate() + "-" + E.parseDate(sun).getDate() + " " + MOIS[E.parseDate(sun).getMonth()] + '</span><div class="ce-big"><span class="v">' + cnt("v") + '<small>V</small></span><span class="n">' + cnt("n") + '<small>N</small></span><span class="d">' + cnt("d") + "<small>D</small></span></div>" +
+        '<div class="ce-sq" aria-hidden="true">' + W.map(function (x) { return '<i class="' + (x.res === "v" ? "" : x.res) + '"></i>'; }).join("") + "</div>" +
+        '<div class="ce-lk"><button data-a="sheet" data-k="clubWe" data-v="' + sat + '">' + plural(W.length, "score", "scores").replace(/^(\d+) /, "Les $1 ") + " ›</button>" + (nxt ? '<button data-a="sheet" data-k="clubNx" data-v="' + nx7 + '">7 prochains jours : ' + plural(nxt, "rencontre", "rencontres") + " ›</button>" : "") + "</div></div>";
+    }
+    var fol = CL.filter(function (c) { return clubFol(c.id) && !c.cloture; });
+    if (fol.length) s += '<h2 class="tm-gh ce-h">Suivies <small>' + fol.length + '</small></h2><div class="blk ce-g">' + fol.map(function (c) { return clubRow(c, true); }).join("") + "</div>";
+    var rest = CL.filter(function (c) { return !c.cloture && !clubFol(c.id); }), ended = CL.filter(function (c) { return c.cloture; });
+    var cats = {}; rest.forEach(function (c) { cats[clubCat(c)] = 1; }); var cat = (S.prefs || {}).clubCat; if (!cats[cat]) cat = "";
+    if (rest.length) {
+      s += '<h2 class="tm-gh ce-h">Le club <small>' + plural(rest.length, "équipe", "équipes") + "</small></h2>";
+      if (Object.keys(cats).length > 1) s += '<div class="ce-chips" role="group" aria-label="Filtrer">' + [""].concat(["mes", "dam", "jeu", "plus"].filter(function (k) { return cats[k]; })).map(function (k) { return '<button class="' + (cat === k ? "on" : "") + '" data-a="clubCat" data-v="' + k + '" aria-pressed="' + (cat === k) + '">' + (k ? CLUB_CAT[k] : "Toutes") + "</button>"; }).join("") + "</div>";
+      s += clubGroups(rest.filter(function (c) { return !cat || clubCat(c) === cat; }), sat);
+    }
+    if (ended.length) {
+      var eo = !!UI.clubEnd;
+      s += '<button class="card ce-end" data-a="clubEnd" aria-expanded="' + eo + '"><span class="grow"><b>Terminés</b><small>' + plural(Object.keys(ended.reduce(function (a, c) { a[c.cid] = 1; return a; }, {})).length, "championnat", "championnats") + " · " + plural(ended.length, "équipe", "équipes") + "</small></span>" + (eo ? CHEV_DN : I.next) + "</button>";
+      if (eo) s += clubGroups(ended, sat);
+    }
+    return s;
+  }
+  function clubListSheet(v, past) {
+    var td = E.iso(today()), all = myTeams(true).concat(clubOn() ? clubTeams() : []), L = [];
+    all.forEach(function (c) { var me = c.me.mine; (c.renc || []).forEach(function (r) { var d = String(r.d).slice(0, 10); if (!(r.a === me || r.b === me)) return; if (past ? r.st === "T" && d >= v && d <= td : r.st !== "T" && d >= td && d <= v) L.push({ c: c, r: r, d: d, me: me }); }); });
+    L.sort(function (a, b) { return a.d === b.d ? 0 : (a.d < b.d) === past ? 1 : -1; });
+    var rows = L.map(function (x) {
+      var r = x.r, t = tmOf(x.c, x.me) || {}, vs = tmNm(r.a === x.me ? r.bn : r.an), a = r.a === x.me ? r.s1 : r.s2, b = r.a === x.me ? r.s2 : r.s1, res = a > b ? "v" : a < b ? "d" : "n", home = r.dom === x.me;
+      return '<a class="row ce-lr" href="#/rencontre/' + esc(x.c.id) + "/" + esc(r.id) + '"><span class="grow"><span class="t">' + esc(tmNm(t.nom)) + (x.c.cl ? "" : ' <span class="ce-me">toi</span>') + '</span><span class="s">' + esc(dayLab(x.d) + " · " + (home ? "contre " : "chez ") + vs + " · " + [CLUB_CAT[clubCat(x.c)], tmDiv(x.c.div)].join(" · ")) + "</span></span>" + (past ? '<span class="ce-sc ' + res + '">' + res.toUpperCase() + " " + a + "–" + b + "</span>" : "") + I.next + "</a>";
+    }).join("");
+    return { title: past ? "Les scores du club" : "Les 7 prochains jours", sub: plural(L.length, "rencontre", "rencontres") + (past ? " depuis samedi" : ""), body: rows ? '<div class="ce-list">' + rows + "</div>" : '<span class="small">Rien pour l\'instant.</span>' };
+  }
+  function clubGroups(L, sat) {
+    var G = []; L.forEach(function (c) { var g = G.filter(function (x) { return x.k === String(c.cid); })[0]; if (!g) G.push(g = { k: String(c.cid), c: c, L: [] }); g.L.push(c); });
+    var td = E.iso(today()), op = UI.clubOpen || {};
+    return G.map(function (g, gi) {
+      var c = g.c, cal = c.cal || [], jd = cal.filter(function (x) { return x.d <= td; }).length, open = op[g.k] != null ? op[g.k] : G.length === 1;
+      g.L.sort(function (a, b) { return String((tmOf(a, a.me.mine) || {}).nom) < String((tmOf(b, b.me.mine) || {}).nom) ? -1 : 1; });
+      var mini = g.L.map(function (x) { return clubLast(x, sat); }).filter(Boolean).map(function (x) { return '<i class="' + (x.res === "v" ? "" : x.res) + '"></i>'; }).join("");
+      var sub = plural(g.L.length, "équipe", "équipes") + " · " + (c.cloture ? "terminé" : cal.length && jd === 0 && cal[0] ? "commence le " + fdate(cal[0].d) : cal.length ? "journée " + Math.max(1, Math.min(jd, cal.length)) + " sur " + cal.length : tmDiv(c.phase));
+      var all = (UI.clubAll || {})[g.k], rows = all ? g.L : g.L.slice(0, 4);
+      return '<div class="blk ce-g' + (open ? " op" : "") + '"><button class="ce-gh" data-a="clubGrp" data-v="' + esc(g.k) + '" aria-expanded="' + open + '"><span class="grow"><b>' + esc(champNm(c)) + "</b><small>" + esc(sub) + '</small></span><span class="mini" aria-hidden="true">' + mini + "</span>" + CHEV_DN + "</button>" +
+        (open ? rows.map(function (x) { return clubRow(x, false); }).join("") + (g.L.length > rows.length ? '<button class="ce-more" data-a="clubAll" data-v="' + esc(g.k) + '">+ ' + plural(g.L.length - rows.length, "autre équipe", "autres équipes") + "</button>" : "") : "") + "</div>";
+    }).join("");
+  }
+  // lecture des équipes du club (même recherche que les tiennes, en mode « club ») : toutes les 12 h, complète une fois par semaine
+  function clubRefresh(force) {
+    if (!NATIVE || !S.tenup.linked || UI.clubBusy || UI.tmBusy || !clubOn()) return;
+    var c0 = S.club; if (!force && c0 && c0.qv === 1 && Date.now() - c0.at < 12 * 3600e3) return;
+    var full = force || !c0 || !c0.full || Date.now() - c0.full > 7 * 864e5;
+    var known = {}; ((c0 && c0.champs) || []).forEach(function (c) { if (c.path && c.path.q) { var k = String(c.cid); (known[k] = known[k] || []).some(function (p) { return p.q === c.path.q; }) || known[k].push(c.path); } });
+    var cids = myTeams(true).map(function (c) { return { id: String(c.cid || c.id), nom: c.nom }; }).concat(((c0 && c0.champs) || []).map(function (c) { return { id: String(c.cid), nom: c.nom }; }));
+    var t = S.teams || {}, args = { all: 1, full: full ? 1 : 0, club: (t.club && t.club.code) || S.tenup.clubCode || "", nomClub: (t.club && t.club.nom) || "", pid: t.pid || "", cids: cids, known: full ? {} : known };
+    UI.clubBusy = true; var calls = 0;
+    var done = function () { UI.clubBusy = false; if (route().indexOf("tournoi") === 0) render(); };
+    var go = function (job) {
+      calls++;
+      tenupQuery("equipes", job ? Object.assign({}, args, { job: job }) : args).then(function (r) {
+        if (!r || r.error || !r.champs) { S.clubTrace = { at: Date.now(), calls: calls, err: (r && r.error) || "Ten'Up n'a pas répondu" }; save(); return done(); }
+        S.clubTrace = { at: Date.now(), calls: calls, partial: !!r.partial, last: r.trace };
+        var fin = {}; r.champs.forEach(function (c) { fin[String(c.cid)] = 1; });
+        var old = ((S.club && S.club.champs) || []).filter(function (c) { return !fin[String(c.cid)]; });
+        S.club = { at: r.partial ? ((S.club && S.club.at) || 0) : Date.now(), qv: 1, full: full && !r.partial ? Date.now() : (S.club && S.club.full) || 0, champs: r.champs.concat(old) }; save();
+        if (route().indexOf("tournoi") === 0 && !r.partial) render();
+        if (r.partial && r.job && calls < 12) return go(r.job);
+        done();
+      });
+    };
+    go(null);
   }
   // 3.50.4 (Yann) : ton impact dans un championnat : l'équipe avec toi / sans toi, tes matchs, ta part des matchs gagnés
   function teamImpactHtml(c) {
@@ -1964,13 +2135,14 @@
     return '<div class="blk"><div class="blk-h"><span class="eyebrow"><span class="tm-tag">Équipes</span>' + esc(tmNm(S.teams.club.nom)) + '</span><span class="small">' + L.length + "</span></div>" + L.map(teamRow).join("") + "</div>";
   }
   V.equipe = function (id) {
-    var c = ((S.teams && S.teams.champs) || []).filter(function (x) { return x.id === String(id); })[0];
+    var c = tmFind(id);
     teamsRefresh();
     var s = '<div class="screen tm-scr">' + topbar("", backLab("Mes épreuves"), syPill("team")); setTimeout(function () { try { teamsRefresh(); } catch (e) {} }, 0); // 3.67 : relue si plus de 6 h
     if (!c || !c.teams) return s + '<div class="card"><b>Équipe introuvable</b><span class="small">Montée relit tes championnats sur Ten\'Up : reviens dans un instant.</span></div></div>';
     var me = c.me.mine, mt = tmOf(c, me) || {}, td = E.iso(today()), cal = c.cal || [], jDone = cal.filter(function (x) { return x.d <= td; }).length;
     var live = (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && tmLive(r) && (r.c1 || r.c2); })[0];
     s += '<h1 class="tm-h">' + esc(tmNm(mt.nom || c.nom)) + '</h1><p class="tm-sub">' + esc([champNm(c), tmDiv(c.div), tmDiv(c.poule)].filter(Boolean).join(" · ") + (cal.length ? " · journée " + Math.max(1, Math.min(jDone, cal.length)) + " sur " + cal.length : "")) + "</p>";
+    if (c.cl) { var fo = clubFol(c.id); s += '<div class="ce-tags"><span class="ce-pill">Équipe du club · tu n\'y joues pas</span><button class="ce-fl' + (fo ? " on" : "") + '" data-a="ceFol" data-id="' + esc(c.id) + '" aria-pressed="' + fo + '">' + (fo ? "★ Suivie" : "☆ Suivre") + "</button></div>"; }
     // Le classement (ton équipe en évidence)
     var T2 = (c.teams || []).slice().sort(function (a, b) { return (a.cl || 99) - (b.cl || 99); });
     s += '<div class="card tm-cl"><div class="tm-ch"><span class="eyebrow">Classement</span>' + (live ? '<span class="tm-live">En direct</span>' : "") + "</div>" +
@@ -1979,7 +2151,7 @@
       }).join("") + "</table>" +
       '<span class="small">Victoire ' + c.pts.v + " pts, nul " + c.pts.n + ", défaite " + c.pts.d + ". " + (c.cloture ? "Championnat terminé." : "Mis à jour " + agoLab(S.teams.at) + (UI.tmBusy ? " · lecture de Ten'Up…" : "") + ".") + "</span></div>";
     // 3.50.4 (Yann) : ton impact sur l'équipe : avec toi / sans toi, tes matchs, ta part des matchs gagnés
-    s += teamImpactHtml(c);
+    if (!c.cl) s += teamImpactHtml(c);
     // Les rencontres par JOURNÉE (date prévue par la FFT), avec la date réelle quand elle a été décalée ; lecture en deux lignes
     var jOf = function (r) { var k = r.dt || r.d, j = cal.filter(function (x) { return x.d === k; })[0]; return j ? j.j : null; };
     var tm = function (r) {
@@ -2034,9 +2206,9 @@
       var plT = pl ? (pl === 1 ? "1re" : pl + "e") : "";
       var mine = played ? '<span class="tf-ml"><span class="tf-toi">TOI</span>' + s1.map(function (m) { return '<span class="tf-m"><i class="s ' + m.result + '"></i>Simple ' + m.result + "</span>"; }).join("") + d1.map(function (m) { return '<span class="tf-m"><i class="d ' + m.result + '"></i>Double ' + m.result + "</span>"; }).join("") + "</span>" : "";
       return '<a class="tf-it" href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"><span class="tf-d">' + (j ? "J" + j.j : "") + "<small>" + d.getDate() + "/" + (d.getMonth() + 1) + '</small></span><span class="tf-rl"><span class="tf-dot ' + res + '">' + res + '</span></span><span class="tf-bx' + (played ? " me" : "") + '"><span class="tf-r1"><span>' + (home ? "contre " : "à ") + esc(opp) + (home ? ' <i class="tm-dom" title="reçoit">⌂</i>' : "") + '</span><b class="tf-sc ' + res + '">' + (r.f ? "forfait" : (a != null ? a : "") + "–" + (b != null ? b : "")) + "</b></span>" + mine +
-        (plT || !played ? '<small class="tf-pl">' + (played ? "Après la journée : " : "Tu n'as pas joué" + (plT ? " · " : "")) + (plT ? "<b>" + plT + "</b>" + arrow : "") + "</small>" : "") + "</span></a>";
+        (plT || !played ? '<small class="tf-pl">' + (played || c.cl ? "Après la journée : " : "Tu n'as pas joué" + (plT ? " · " : "")) + (plT ? "<b>" + plT + "</b>" + arrow : "") + "</small>" : "") + "</span></a>";
     }).join("");
-    return '<div class="card tf"><span class="eyebrow">Ta saison, journée par journée</span><div class="tf-l">' + items + "</div>" +
+    return '<div class="card tf"><span class="eyebrow">' + (c.cl ? "La saison, journée par journée" : "Ta saison, journée par journée") + '</span><div class="tf-l">' + items + "</div>" +
       '<span class="small">Point de couleur : le résultat de la rencontre. Encadré : tu as joué ce jour-là (carré : simple, rond : double). Place de l\'équipe après la journée' + (nT ? " (sur " + nT + ")" : "") + ", recalculée depuis les résultats ; la dernière est celle de Ten'Up. Touche une journée : la feuille de match.</span></div>";
   }
   // 3.50 : la feuille de match d'une rencontre. Ten'Up ne documente pas son format : on reconnaît les matchs à leurs joueurs
@@ -2103,7 +2275,7 @@
     });
   }
   V.rencontre = function (cid, rid) {
-    var c = ((S.teams && S.teams.champs) || []).filter(function (x) { return x.id === String(cid); })[0], r = c && (c.renc || []).filter(function (x) { return String(x.id) === String(rid); })[0];
+    var c = tmFind(cid), r = c && (c.renc || []).filter(function (x) { return String(x.id) === String(rid); })[0];
     var s = '<div class="screen tm-scr">' + topbar("", backLab(c ? tmNm((tmOf(c, c.me.mine) || {}).nom || "Ton équipe") : "Ton équipe"), syPill("team")); setTimeout(function () { try { teamsRefresh(); } catch (e) {} }, 0);
     if (!c || !r) return s + '<div class="card"><b>Rencontre introuvable</b></div></div>';
     var me = c.me.mine, mySide = r.b === me ? 2 : 1, lv = tmLive(r), sc = tmScore(r), jn = (c.cal || []).filter(function (x) { return x.d === r.d; })[0];
@@ -2156,7 +2328,7 @@
         (v || d ? '<span class="tl-vd"><b>' + v + " V · " + d + " D</b>" + (pts ? '<small>+' + pts + " pts</small>" : "") + "</span>" : "") + I.next + "</a>";
     };
     if (!UI.insTried) { UI.insTried = true; setTimeout(function () { insRefresh(); }, 50); }
-    teamsRefresh(); var tb = teamsBlk();
+    teamsRefresh(); setTimeout(function () { try { clubRefresh(); } catch (e) {} }, 0); var tb = teamsBlk();
     var syncH = NATIVE && S.tenup && S.tenup.linked ? '<div class="ins-bar"><span>' + (UI.insBusy ? "Lecture de Ten'Up…" : UI.insErr ? "Ten'Up : " + esc(UI.insErr) : S.insAt ? "Ten'Up lu " + agoLab(S.insAt) : "Tes inscriptions Ten'Up") + '</span><button class="ins-go' + (UI.insBusy ? " busy" : "") + '" data-a="insSync">' + REFRESH_IC + "Actualiser</button></div>" : "";
     // 3.50.3 (maquette validée) : deux onglets, « Toi » (tournois, indivs) et « Mes équipes »
     // 3.50.4 (Yann) : les onglets toujours là (sauf si tu as caché tes équipes dans Réglages), avec un « viduel » quand c'est vide
@@ -2446,7 +2618,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var nErr = ppl.filter(function (x) { return x.st === "err"; }).length;
     s += (P.fmt === "poule" ? (P.pdfN ? '<div class="ti-pdfok">' + I.check + "<span>PDF lu : « Qui reçoit » rempli pour " + plural(P.pdfN, "match", "matchs") + (P.hostGuess ? " (le joueur de gauche reçoit : règle habituelle, vérifie)" : "") + ".</span></div>" :
         '<label class="btn soft small ti-pdf">' + (I0.pdfBusy ? '<span class="spin"></span> Lecture du PDF…' : CLIP_IC + " Joindre le PDF de la poule") + '<input type="file" accept="application/pdf,.pdf" data-a="trImpPdf" hidden></label>' + (P.hostLeft ? '<span class="small">Ton mail dit que le joueur de ' + (P.hostLeft > 0 ? "gauche" : "droite") + " de la poule reçoit : avec le PDF, Montée remplit « Qui reçoit » tout seul.</span>" : "")) : "");
-    s += '<div class="card ti-l"><span class="eyebrow">' + plural(ppl.length, "adversaire") + (!NATIVE ? "" : nBusy ? " · recherche sur Ten'Up (" + (ppl.length - nBusy) + "/" + ppl.length + ")" : " · " + nOk + " retrouvé" + (nOk > 1 ? "s" : "") + " sur Ten'Up") + "</span>" + ppl.map(function (x) {
+    s += '<div class="card ti-l"><span class="eyebrow">' + plural(ppl.length, "adversaire") + (!NATIVE ? "" : nBusy ? " · recherche sur Ten'Up (" + (ppl.length - nBusy) + "/" + ppl.length + ")" : " · " + nOk + " retrouvé" + (nOk > 1 ? "s" : "") + " sur Ten'Up") + "</span>" + (NATIVE && nBusy ? '<span class="ti-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + ppl.length + '" aria-valuenow="' + (ppl.length - nBusy) + '"><i style="width:' + Math.max(6, Math.round(100 * (ppl.length - nBusy) / ppl.length)) + '%"></i></span>' : "") + ppl.map(function (x) {
       var j = P.ppl.indexOf(x), right = x.auto && x.st === "ok" ? '<span class="ti-auto"><span class="tq-rk">' + esc(x.rank || "") + '</span><button class="linkbtn" data-a="trImpOpen" data-v="' + j + '">changer</button></span>' : x.st === "busy" ? '<span class="ti-busy"><i></i>Ten\'Up…</span>' : x.rank ? '<span class="tq-rk">' + esc(x.rank) + "</span>" : x.st === "many" ? '<button class="ti-q" data-a="trImpOpen" data-v="' + j + '">Lequel ? ' + I.next + "</button>" : '<button class="linkbtn ti-w" data-a="trImpOpen" data-v="' + j + '">Choisir ›</button>';
       var open = I0.open === j, sub = (x.auto && x.club ? clubCase(x.club) + " · choisi d'après le club" : "") || (x.club ? clubCase(x.club) : "") || (x.st === "busy" ? "" : x.st === "err" ? (/connecte/.test(x.err || "") ? "Ta session Ten'Up a expiré" : /maintenance/.test(x.err || "") ? "Ten'Up est en maintenance" : "Ten'Up n'a pas répondu") : x.st === "none" ? "Pas trouvé sur Ten'Up : choisis son classement" : x.st === "many" ? x.hits.length + " joueurs à ce nom sur Ten'Up" : NATIVE || x.rank ? "" : "Classement à choisir");
       var r = '<div class="ti-r"><span class="tq-av">' + esc(initials(x.name)) + '</span><span class="grow"><b>' + esc(trNm(x.name)) + "</b><small>" + esc([sub, telFmt(x.tel)].filter(Boolean).join(" · ")) + "</small></span>" + right + "</div>";
@@ -2463,7 +2635,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       (P.resUrl ? '<div class="card ti-u"><span class="eyebrow">Lien pour envoyer tes résultats</span><span class="ti-uv">' + esc(P.resUrl.replace(/^https?:\/\//, "")) + '</span><span class="small">Montée le garde dans ton épreuve : un tap pour l\'ouvrir après chaque match.</span></div>' : "") +
       (nErr && !nBusy ? '<button class="btn small" data-a="trImpRetry">Relancer la recherche Ten\'Up (' + nErr + ")</button>" : "") +
       (me ? '<span class="small">✓ Toi (' + esc(trNm(me.name)) + ") retiré de la liste. Les numéros restent sur ton téléphone.</span>" : '<span class="small">Les numéros restent sur ton téléphone.</span>') +
-      '<button class="linkbtn" data-a="trImpBack" style="align-self:center">‹ Revenir au mail</button><div class="spacer"></div><button class="btn primary" data-a="trImpCreate">' + (I0.into ? "Remplir ma poule" : P.fmt === "poule" ? "Créer ma poule" : "Créer l'épreuve") + "</button></div>";
+      '<button class="linkbtn" data-a="trImpBack" style="align-self:center">‹ Revenir au mail</button><div class="spacer"></div>' +
+      // 3.70.8 (Yann) : pas de poule remplie avant la fin de la recherche Ten'Up (sinon les adversaires restent sans fiche : ni résultats, ni projection)
+      (NATIVE && nBusy ? '<button class="btn primary" disabled aria-disabled="true"><span class="spin"></span> Recherche sur Ten\'Up… ' + (ppl.length - nBusy) + "/" + ppl.length + "</button>" :
+        '<button class="btn primary" data-a="trImpCreate">' + (I0.into ? "Remplir ma poule" : P.fmt === "poule" ? "Créer ma poule" : "Créer l'épreuve") + "</button>") + "</div>";
     return s;
   }
   var CLIP_IC = svg('<path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/>', 2);
@@ -2820,9 +2995,33 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.58 (Yann) : le lendemain d'un match, le salut en parle
     var hier = null, gt = null; if (!jm) try { var yd = E.iso(new Date(today().getTime() - 864e5)); hier = knownMatches(false).filter(function (m) { return m.date === yd && !m.wo && (m.result === "V" || m.result === "D"); })[0]; } catch (e) {}
     if (hier) { gt = hier.result === "V" ? "Bien joué !" : "On repart"; dLine = (hier.result === "V" ? "Victoire hier" : "Défaite hier") + (hier.score ? " · " + hier.score : ""); }
-    var dl0 = (S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small">' + esc(dLine) + "</span>"), sy0 = syPill("me"); // 3.67 : la pastille « dernière synchro »
-    s += '<div class="topbar"><div class="title">' + (sy0 ? '<span class="sy-row">' + dl0 + sy0 + "</span>" : dl0) + '<span style="font-size:28px;font-weight:600;letter-spacing:-.03em">' + (jm ? '<span style="white-space:nowrap;font-size:26px">Jour de match</span>' : gt ? esc(gt) : S.profile.name ? "Salut " + esc(S.profile.name) : "Salut") + "</span></div>" +
-      '<span class="top-actions"><button class="mechip' + (S.ahead ? " up" : "") + '" data-a="goProfil" aria-label="Mon profil, classement ' + esc(effRank() || "?") + '">' + (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })() + '<span class="rk">' + esc(effRank() || "?") + (S.ahead && S.ahead.release ? '<small class="rk-d">' + aheadDay() + "</small>" : "") + "</span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + '</button><button class="iconbtn gearbtn" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></span></div>";
+    // 3.70.8 (Yann, maquette C validée) : l'en-tête de l'accueil en une barre de profil (avatar, salut, classement à la balle jaune,
+    // état de la synchro en petit) ; la date au-dessus. Avant : date, pastille de synchro, salut, profil et réglages mal alignés.
+    var dl0 = S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small hd-d">' + esc(dLine) + "</span>";
+    var hiT = jm ? "Jour de match" : gt ? gt : S.profile.name ? "Salut " + S.profile.name : "Salut", rk0 = effRank() || "";
+    // 3.72.0 (Yann, maquette v4 validée) : jour de match, victoire de la veille ou montée détectée mettent la barre en avant
+    // (contour couleur, pastille sur l'avatar, surtitre, action à droite) ; la ligne du haut redevient la date.
+    var spK = null, spH = "";
+    try {
+      var NX = svg('<path d="M9 6l6 6-6 6"/>', 2.4), cta = function (t, a, h) { return '<span class="hd-cta" role="button" data-a="' + a + '"' + (h ? ' data-h="' + esc(h) + '"' : "") + ">" + t + NX + "</span>"; };
+      if (jm) {
+        var shN = function (n) { n = nameCase(n); return n.length > 18 ? n.replace(/^(\S)[^\s-]*(-(\S)[^\s-]*)?\s+/, function (z, a, b, c) { return a + "." + (c ? "-" + c + "." : "") + " "; }) : n; }, jt = shN(String(jm.title || "").replace(/ · .*/, "")); var jr = (String(jm.title || "").match(/ · (.+)$/) || [])[1] || "", jst = jm.st && /%$/.test(jm.st) ? jm.st.replace(" %", " %") + " de chances" : "";
+        spK = { c: "var(--balle)", i: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/>' };
+        spH = '<span class="hd-k">Jour de match' + (jm.time ? " · " + esc(jm.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h")) : "") + '</span><b class="hd-2' + (jt.length > 20 ? " lg" : "") + '">Contre ' + esc(jt) + "</b><small>" + (jr ? '<span class="rk-tag">' + esc(jr) + "</span>" : "") + (jst ? '<span class="hd-x">' + (jr ? "· " : "") + esc(jst) + "</span>" : "") + "</small></span>" + (jm.href ? cta("Plan", "hdGo", jm.href) : "");
+      } else if (hier && hier.result === "V") {
+        spK = { c: "var(--gazon)", i: '<path d="M5 12l5 5 9-10"/>' };
+        var shN2 = function (n) { n = nameCase(n); return n.length > 18 ? n.replace(/^(\S)[^\s-]*(-(\S)[^\s-]*)?\s+/, function (z, a, b, c) { return a + "." + (c ? "-" + c + "." : "") + " "; }) : n; };
+        spH = '<span class="hd-k">Victoire hier' + (hier.score ? " · " + esc(hier.score) : "") + '</span><b>Bien joué !</b><small><span class="hd-o">' + esc(shN2(hier.opp || "")) + "</span>" + (hier.oppRank ? '<span class="rk-tag">' + esc(hier.oppRank) + "</span>" : "") + "</small></span>" + (hier.id ? cta("Noter", "hdGo", "#/match/" + hier.id) : "");
+      } else if (S.ahead && S.ahead.rank && S.ahead.release) {
+        spK = { c: "var(--balle)", i: '<path d="M12 19V5M5 12l7-7 7 7"/>' };
+        spH = '<span class="hd-k">Montée détectée</span><span class="hd-big">Tu montes <span class="rk-tag">' + esc(S.ahead.rank) + "</span></span><small>à la sortie du " + aheadDay() + "</small></span>" + cta("Partager", "shareMontee");
+      }
+    } catch (e) { spK = null; }
+    if (spK && !S.demo) dl0 = '<span class="small hd-d">' + esc(flong(d).replace(/^./, function (x) { return x.toUpperCase(); })) + "</span>";
+    var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })();
+    // 3.70.9 (Yann, maquette 1) : la roue des réglages, discrète, en face de la date ; la barre de profil prend toute la largeur
+    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + dl0 + '<button class="iconbtn gearbtn hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + ' data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div></div></div></div>" : av0 +
+      '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div></div></div></div>");
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
     if (!S.matches.length) {
@@ -3862,7 +4061,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var lim = UI.fafHits && !UI.fafAll && !k ? 5 : 1e9;
     var rows = list.slice(0, lim).map(function (x) {
       var fid = x.oid ? String(x.oid) : "", fon = fid && (S.follow || {})[fid];
-      return '<button class="row" data-a="fafKnown" data-v="' + esc(x.key) + '"><span class="ini">' + esc(initials(x.name)) + '</span><span class="grow"><span class="t">' + hl(x.name) + ' <span class="muted" style="font-weight:400">· ' + esc(x.rank || "") + '</span></span><span class="s">' + (x.oyear ? (today().getFullYear() - x.oyear) + " ans · " : "") + (x.v ? x.v + " V" : "") + (x.v && x.d ? " · " : "") + (x.d ? x.d + " D" : "") + (x.last ? " · dernier match en " + MOIS[E.parseDate(x.last).getMonth()] : "") + "</span></span>" + (fid ? folStar(fon, 'data-a="followKnown" data-v="' + esc(x.key) + '"') : I.next) + "</button>";
+      return '<button class="row" data-a="fafKnown" data-v="' + esc(x.key) + '"><span class="ini">' + esc(initials(x.name)) + '</span><span class="grow"><span class="t">' + hl(x.name) + ' <span class="rk-tag">' + esc(x.rank || "") + '</span></span><span class="s">' + (x.oyear ? (today().getFullYear() - x.oyear) + " ans · " : "") + (x.v ? x.v + " V" : "") + (x.v && x.d ? " · " : "") + (x.d ? x.d + " D" : "") + (x.last ? " · dernier match en " + MOIS[E.parseDate(x.last).getMonth()] : "") + "</span></span>" + (fid ? folStar(fon, 'data-a="followKnown" data-v="' + esc(x.key) + '"') : I.next) + "</button>";
     }).join("");
     // 3.44.3 (Yann) : plus de ligne « Chercher … sur Ten'Up » (doublon du bouton) ; la recherche regarde aussi tes suivis et tes récents
     var cta = "";
@@ -3872,7 +4071,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var fo = Object.keys(S.follow || {}).map(function (id) { return S.follow[id]; }).filter(function (f) { return f && mt(f.name) && !seenK[nameKey(f.name)]; });
       fo.forEach(function (f) { seenK[nameKey(f.name)] = 1; });
       var re = Object.keys(S.scout || {}).map(function (id) { var sc = S.scout[id], pr = (sc && sc.profil) || {}; return { id: id, nm: [pr.prenom, pr.nom].filter(Boolean).join(" "), rk: pr.classement || "" }; }).filter(function (x) { return x.nm && mt(x.nm) && !seenK[nameKey(x.nm)] && !(S.follow || {})[x.id]; }).slice(0, 5);
-      if (fo.length) cta += '<div class="blk-h"><span class="eyebrow">Dans tes suivis</span><span class="cnt">' + fo.length + "</span></div>" + fo.map(function (f) { var nm = nameCase(f.name); return '<button class="row" data-a="folOpen" data-id="' + esc(f.id) + '"><span class="ini">' + esc(initials(nm)) + '</span><span class="grow"><span class="t">' + hl(nm) + (f.rank ? ' <span class="muted" style="font-weight:400">· ' + esc(f.rank) + "</span>" : "") + '</span><span class="s">Suivi</span></span>' + I.next + "</button>"; }).join("");
+      if (fo.length) cta += '<div class="blk-h"><span class="eyebrow">Dans tes suivis</span><span class="cnt">' + fo.length + "</span></div>" + fo.map(function (f) { var nm = nameCase(f.name); return '<button class="row" data-a="folOpen" data-id="' + esc(f.id) + '"><span class="ini">' + esc(initials(nm)) + '</span><span class="grow"><span class="t">' + hl(nm) + (f.rank ? '  <span class="rk-tag">' + esc(f.rank) + "</span>" : "") + '</span><span class="s">Suivi</span></span>' + I.next + "</button>"; }).join("");
       if (re.length) cta += '<div class="blk-h"><span class="eyebrow">Dans tes recherches récentes</span><span class="cnt">' + re.length + "</span></div>" + re.map(function (x) { var nm = nameCase(x.nm); return '<button class="row" data-a="recOpen" data-id="' + esc(x.id) + '"><span class="ini">' + esc(initials(nm)) + '</span><span class="grow"><span class="t">' + hl(nm) + (x.rk ? ' <span class="muted" style="font-weight:400">· ' + esc(T.normRank(x.rk) || x.rk) + "</span>" : "") + "</span></span>" + I.next + "</button>"; }).join("");
     }
     var head = '<div class="blk-h"><span class="eyebrow">' + (k ? "Dans tes adversaires" : "Tes adversaires") + '</span><span class="cnt">' + (lim < list.length ? '<button class="linkbtn" data-a="fafAll" style="padding:0;min-height:0;font-size:inherit">' + list.length + " · voir tout ›</button>" : list.length) + "</span></div>";
@@ -4822,7 +5021,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var a = x.mine.result === "V", b = x.his.result === "V", sym = a && !b ? "+" : !a && b ? "−" : "=", cls = a && !b ? "g" : !a && b ? "o" : "n";
       var cap = a && b ? "Vous l'avez battu tous les deux" : a && !b ? "Tu l'as battu, lui non : avantage toi" : !a && b ? "Il l'a battu, pas toi" : "Il vous a battus tous les deux";
       var box = function (who, m) { return '<div><small>' + who + '</small><b class="' + (m.result === "V" ? "good" : "bad") + '">' + m.result + "</b> " + esc(m.score || "") + (m.date ? " · " + esc(ffMonth(m.date)) : "") + "</div>"; };
-      return '<details class="cx"><summary><span class="cx-s ' + cls + '">' + sym + '</span><span class="grow"><b>' + esc(x.name) + " · " + esc(x.rank || "?") + "</b><small>" + cap + '</small></span><span class="cx-r"><b class="' + (a ? "good" : "bad") + '">' + (a ? "V" : "D") + '</b> · <b class="' + (b ? "good" : "bad") + '">' + (b ? "V" : "D") + "</b></span></summary>" +
+      return '<details class="cx"><summary><span class="cx-s ' + cls + '">' + sym + '</span><span class="grow"><b>' + esc(x.name) + (x.rank ? ' <span class="rk-tag">' + esc(x.rank) + "</span>" : " · ?") + "</b><small>" + cap + '</small></span><span class="cx-r"><b class="' + (a ? "good" : "bad") + '">' + (a ? "V" : "D") + '</b> · <b class="' + (b ? "good" : "bad") + '">' + (b ? "V" : "D") + "</b></span></summary>" +
         '<div class="cx-d">' + box("Toi", x.mine) + box(esc(D.first), x.his) + "</div>" + (x.his.oid ? '<button class="linkbtn cx-go" data-a="scoutOpp" data-id="' + esc(x.his.oid) + '" data-v="' + esc(x.name) + '">Voir sa fiche ›</button>' : "") + "</details>";
     }).join("") + "</div>";
   }
@@ -7015,7 +7214,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var row = function (r, k, first) {
       var ph = r.me ? myPhoto() : ""; // 3.59 (Yann) : ta photo à la place de ton initiale
       return '<div class="lgc' + (r.me ? " me" : "") + (first ? " f" : "") + '"><span class="lg-k">' + (k + 1) + '</span><span class="ini' + (r.me ? " me" : "") + (ph ? " ph" : "") + '"' + (ph ? ' style="background-image:url(\'' + esc(ph) + '\')"' : "") + ">" + (ph ? "" : esc(r.me ? initials(S.profile.name || "Toi") : initials(r.name))) + "</span>" +
-        '<span class="grow"><span class="lgc-n"><b>' + esc(r.name) + "</b><small>" + esc(r.rank) + '</small></span><span class="lgc-nw">' + raceNews(r) + "</span></span><em>+" + r.pts + "<small>pts</small></em></div>";
+        '<span class="grow"><span class="lgc-n"><b>' + esc(r.name) + '</b><small><span class="rk-tag">' + esc(r.rank) + '</span></small></span><span class="lgc-nw">' + raceNews(r) + "</span></span><em>+" + r.pts + "<small>pts</small></em></div>";
     };
     var body;
     if (open || R.length <= 3) body = R.map(function (r, k) { return row(r, k, !k); }).join("");
@@ -9369,7 +9568,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       E.ECHELONS.slice(0, 22).map(function (e) { return '<option' + (m.oppRank === e ? " selected" : "") + ">" + e + "</option>"; }).join("") + '<option value="N°"' + (/^N°/.test(m.oppRank) ? " selected" : "") + ">Numéroté</option>";
     var c = ctx(), pts = countedMap(c.proj.next)[m.id];
     var s = '<div class="screen">' + topbar(isNew ? "Nouveau match" : "", isNew ? "" : (annotated(m) ? "Fiche du match" : "À annoter"),
-      isNew || !isManual(m) ? "" : (UI.mEdit ? "" : '<button class="iconbtn" data-a="mEdit" aria-label="Modifier le match" style="margin-right:6px">' + I.edit + "</button>") + '<button class="iconbtn" data-a="delMatch" aria-label="Supprimer ce match">' + I.trash + "</button>");
+      (!isNew && m.result === "V" && !m.wo ? '<button class="iconbtn" data-a="shareWin" aria-label="Partager ma victoire" style="margin-right:6px">' + I.share + "</button>" : "") + (isNew || !isManual(m) ? "" : (UI.mEdit ? "" : '<button class="iconbtn" data-a="mEdit" aria-label="Modifier le match" style="margin-right:6px">' + I.edit + "</button>") + '<button class="iconbtn" data-a="delMatch" aria-label="Supprimer ce match">' + I.trash + "</button>"));
     var official = !isNew && !isManual(m);
     var mA = isNew ? null : (S.matches.filter(function (x) { return x.id === m.id; })[0] || m), anA = null;
     if (mA && !mA.wo && (mA.result === "V" || mA.result === "D")) { try { anA = analyse(mA); } catch (e) {} }
@@ -10763,12 +10962,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
           '<p class="small pf-ed">Tu pourras le modifier avant de l\'envoyer.</p><div class="pf-send"><button class="go-pill" data-a="profSend" data-v="sms">Messages</button><button class="go-pill" data-a="profSend" data-v="wa">WhatsApp</button><button class="go-pill" data-a="profSend" data-v="mail">Mail</button><button class="go-pill" data-a="profCopy">Copier</button></div>' };
     },
     h2hm: function (k) { return h2hSheet(k); },
+    // 3.72 : les scores du week-end au club / les rencontres des 7 prochains jours (tes équipes et celles du club)
+    clubWe: function (v) { return clubListSheet(v, true); },
+    clubNx: function (v) { return clubListSheet(v, false); },
     // 3.63 : la feuille de partage (aperçu de l'image, format, partager)
     shv: function () {
       var V = UI.shv; if (!V) return null; var f = UI.shvF || "45";
       var seg = [["45", "Carré 4:5"], ["916", "Story 9:16"], ["txt", "Texte"]].map(function (x) { return '<button class="' + (f === x[0] ? "on" : "") + '" data-a="shvFmt" data-v="' + x[0] + '" aria-pressed="' + (f === x[0]) + '">' + x[1] + "</button>"; }).join("");
       var prev = f === "txt" ? '<p class="shv-txt">' + esc(V.text || V.title) + "</p>" : '<img class="shv-img' + (f === "916" ? " st" : "") + '" alt="Aperçu de l\'image partagée" src="' + shvDraw(V, f).toDataURL("image/png") + '">';
-      return { title: "Partager", sub: f === "txt" ? "Le texte seul, pour ton prof ou un groupe d'équipe." : "Une image prête pour Instagram, WhatsApp ou Messages.", body: '<div class="shv">' + prev + '<div class="seg shv-seg" role="group" aria-label="Format">' + seg + '</div><button class="btn primary" data-a="shvGo">Partager ' + I.next + "</button></div>" };
+      var sSeg = V.stys && f !== "txt" ? '<div class="seg shv-seg" role="group" aria-label="Style">' + V.stys.map(function (x, i) { var on = (V.stys.indexOf(UI.shvS) >= 0 ? UI.shvS : V.stys[0]) === x; return '<button class="' + (on ? "on" : "") + '" data-a="shvSty" data-v="' + x + '" aria-pressed="' + on + '">' + ({ balle: "Balle", affiche: "Affiche", tableau: "Tableau" })[x] + "</button>"; }).join("") + "</div>" : "";
+      return { title: "Partager", sub: f === "txt" ? "Le texte seul, pour ton prof ou un groupe d'équipe." : "Une image prête pour Instagram, WhatsApp ou Messages.", body: '<div class="shv">' + prev + '<div class="seg shv-seg" role="group" aria-label="Format">' + seg + '</div>' + sSeg + '<button class="btn primary" data-a="shvGo">Partager ' + I.next + "</button></div>" };
     },
     badge: function (v) { return badgeSheet(v); }, // 3.59 : un badge, ouvert // 3.59 (Yann) : tous les matchs d'un face-à-face
     // 3.59 (Yann, maquette L5) : qui court avec toi. Sortir de la course ne retire pas des suivis.
@@ -10795,7 +10998,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var R = leagueRows(); if (R.length < 2) return null;
       var body = '<div class="list">' + R.map(function (r) {
         var d = r.W.length ? r.W.map(function (w) { return "V contre un " + esc(w.m.oppRank) + " le " + E.parseDate(w.m.date).getDate() + " : +" + w.pts; }).join(" · ") : r.D ? "Pas encore de victoire ce mois-ci" : "Pas encore joué ce mois-ci";
-        return '<div class="row"><span class="grow"><span class="t">' + esc(r.name) + ' <span class="muted" style="font-weight:400">· ' + esc(r.rank) + " · +" + r.pts + ' pts</span></span><span class="s">' + d + "</span></span>" + "</div>";
+        return '<div class="row"><span class="grow"><span class="t">' + esc(r.name) + ' <span class="rk-tag">' + esc(r.rank) + '</span><span class="muted" style="font-weight:400"> · +' + r.pts + ' pts</span></span><span class="s">' + d + "</span></span>" + "</div>";
       }).join("") + "</div>" +
         '<p class="small" style="margin-top:12px">Chaque victoire du mois rapporte les points du barème FFT, comptés depuis le classement que vise le joueur (l\'échelon au-dessus du sien) : 60 contre un joueur de ce classement, 90 contre un échelon au-dessus, 120 contre deux ou plus ; en dessous, 30, 20, 15, puis 0. Une perf, c\'est une victoire contre mieux classé que soi. Les WO et les doubles ne comptent pas. Les matchs des joueurs suivis sont lus dans Ten\'Up à chaque synchro. Remise à zéro le 1er de chaque mois. Rien n\'est publié : toi seul vois ta course, sauf si tu la partages. Retirer un joueur de la course ne l\'empêche pas d\'être suivi.</p>';
       return { title: "Course de " + MOIS_L[today().getMonth()], sub: "Points gagnés ce mois-ci par chacun, victoire par victoire.", body: body };
@@ -11697,7 +11900,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var M = sjMtStart(L), s = '<div class="card sj-duel"><div class="hd"><span class="t df">Montante</span><span class="small">Match ' + (M.n + 1) + " · les gagnants montent, les perdants descendent</span></div>";
     if (M.last && M.last.losers.length && M.last.gage && !M.gd) s += sjGageHtml(M.last.losers.join(", "), M.last.gage) + '<button class="btn soft" data-a="sjMtGage">Gages faits</button>';
     s += '<span class="mk-lbl">Qui a gagné ? Tape les gagnants</span>';
-    s += M.courts.map(function (c, i) { return '<div class="mt-c"><span class="k">Terrain ' + (i + 1) + (i === 0 && M.courts.length > 1 ? " · le haut" : "") + '</span><div class="mt-p">' + c.map(function (n) { var on = (M.pick[i] || []).indexOf(n) >= 0; return '<button class="' + (on ? "on" : "") + '" data-a="sjMtPick" data-c="' + i + '" data-v="' + esc(n) + '" aria-pressed="' + on + '">' + esc(n) + "</button>"; }).join("") + "</div></div>"; }).join("");
+    s += M.courts.map(function (c, i) { return '<div class="sj-ct"><span class="k">Terrain ' + (i + 1) + (i === 0 && M.courts.length > 1 ? " · le haut" : "") + '</span><div class="sj-pk">' + c.map(function (n) { var on = (M.pick[i] || []).indexOf(n) >= 0; return '<button class="' + (on ? "on" : "") + '" data-a="sjMtPick" data-c="' + i + '" data-v="' + esc(n) + '" aria-pressed="' + on + '">' + esc(n) + "</button>"; }).join("") + "</div></div>"; }).join("");
     s += '<button class="btn primary" data-a="sjMtOk"' + (M.pick.some(function (x) { return x && x.length; }) ? "" : " disabled") + ">Valider le match</button>";
     if (M.n) s += '<span class="mk-lbl">Le classement · victoire 2, défaite 1</span><div class="sj-rk">' + sjRank(M.pts).map(function (x, i) { return "<div><b>" + (i + 1) + "</b><span>" + esc(x.n) + "</span><em>" + x.p + "</em></div>"; }).join("") + "</div>";
     return s + "</div>";
@@ -13739,45 +13942,164 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var out = [], line = ""; String(txt || "").split(/\s+/).forEach(function (w) { var t = line ? line + " " + w : w; if (g.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; });
     if (line) out.push(line); return out;
   }
-  function shvDraw(V, fmt) {
+  // 3.72.0 (Yann, maquettes partage-cartes : A partout, B pour la montée) : affiche sombre avec terrain en perspective, gros chiffres,
+  // pied « Calcule ta montée · gratuit… » pour donner envie de rejoindre. V en plus : sty ("balle"), path [ancien, nouveau, note],
+  // sets [[a,b]…], opp {n, rk}, badge, stats [[valeur, libellé]…], ball (balle à côté du gros chiffre), cta.
+  function shvBall(g, cx, cy, r, fill, seam) {
+    g.save(); g.fillStyle = fill; g.beginPath(); g.arc(cx, cy, r, 0, 6.3); g.fill(); g.clip();
+    g.strokeStyle = seam; g.lineWidth = Math.max(3, r * .1);
+    g.beginPath(); g.arc(cx - r * 1.32, cy, r * .95, -1.1, 1.1); g.stroke(); g.beginPath(); g.arc(cx + r * 1.32, cy, r * .95, Math.PI - 1.1, Math.PI + 1.1); g.stroke();
+    g.restore();
+  }
+  function shvRR(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
+  function shvSp(g, v) { try { g.letterSpacing = v; } catch (e) {} }
+  function shvFoot(g, W, H, fmt, V, ink, mut, dot) {
+    var X = 84, fy = H - (fmt === "916" ? 150 : 90);
+    g.fillStyle = dot; g.beginPath(); g.arc(X + 20, fy - 14, 20, 0, 6.3); g.fill();
+    g.fillStyle = ink; g.font = "800 50px " + SHV_F; g.fillText("Montée", X + 56, fy);
+    g.textAlign = "right"; g.font = "800 36px " + SHV_F; g.fillText(V.cta || "Calcule ta montée", W - X, fy - 34);
+    g.fillStyle = mut; g.font = "700 31px " + SHV_F; g.fillText("gratuit · App Store et Google Play", W - X, fy + 10); g.textAlign = "left";
+  }
+  var SHV_F = "MonteeCard, Figtree, system-ui, sans-serif";
+  function shvDrawBalle(V, fmt) {
     var W = 1080, H = fmt === "916" ? 1920 : 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
-    var g = cv.getContext("2d"), F = "MonteeCard, Figtree, system-ui, sans-serif", X = 90, MW = W - 180, col = V.col || "#D4E64A";
-    g.fillStyle = "#16181B"; g.fillRect(0, 0, W, H);
-    var gr = g.createRadialGradient(W, 0, 0, W, 0, 1200); gr.addColorStop(0, shvHex(col, .28)); gr.addColorStop(1, shvHex(col, 0)); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-    var y = fmt === "916" ? 300 : 120;
-    g.textBaseline = "alphabetic";
-    g.fillStyle = col; g.beginPath(); g.arc(X + 14, y - 12, 14, 0, 6.3); g.fill();
-    g.font = "800 34px " + F; g.fillText(String(V.eb || "").toUpperCase(), X + 44, y); y += 40;
-    g.fillStyle = "#F4F2EE"; g.font = "800 92px " + F;
-    shvWrap(g, V.title, MW).slice(0, 3).forEach(function (l) { y += 100; g.fillText(l, X, y); });
-    if (V.big && V.big.length) {
-      y += 60; var bs = V.big.length > 1 ? 250 : 220; g.font = "800 " + bs + "px " + F; var x = X; y += bs * .8;
-      V.big.forEach(function (b, i) {
-        if (i && V.sep) { g.fillStyle = "#77756F"; g.font = "700 " + Math.round(bs * .55) + "px " + F; g.fillText(V.sep, x + 10, y - bs * .18); x += g.measureText(V.sep).width + 30; g.font = "800 " + bs + "px " + F; }
-        g.fillStyle = b[1] || "#F4F2EE"; g.fillText(String(b[0]), x, y); x += g.measureText(String(b[0])).width + 20;
+    var g = cv.getContext("2d"), X = 84, ink = "#16181B", k = H / 1920;
+    g.fillStyle = "#D4E64A"; g.fillRect(0, 0, W, H);
+    var R = 640 * Math.max(k, .8), cx = W + 20, cy = 1010 * k;
+    g.save(); g.fillStyle = "#E3F25B"; g.beginPath(); g.arc(cx, cy, R, 0, 6.3); g.fill(); g.clip();
+    g.strokeStyle = "#F7FBE0"; g.lineWidth = 42; g.beginPath(); g.arc(cx - R * 1.3, cy, R * .95, -1.1, 1.1); g.stroke(); g.restore();
+    var y = fmt === "916" ? 230 : 140;
+    g.fillStyle = ink; shvSp(g, "5px"); g.font = "800 39px " + SHV_F; g.fillText(String(V.eb || "").toUpperCase(), X, y); shvSp(g, "0px");
+    g.font = "800 " + (fmt === "916" ? 186 : 150) + "px MonteeSerif, Georgia, serif"; var lh = fmt === "916" ? 170 : 140;
+    (V.bTitle || ["C'est", "officiel."]).forEach(function (l) { y += lh; g.fillText(l, X - 6, y); });
+    var rs = fmt === "916" ? 400 : 300; g.font = "800 " + rs + "px " + SHV_F; shvSp(g, "-18px");
+    var rk = String((V.big && V.big[0] && V.big[0][0]) || ""), mw = g.measureText(rk).width; if (mw > W - 2 * X) { rs = Math.floor(rs * (W - 2 * X) / mw); g.font = "800 " + rs + "px " + SHV_F; }
+    y += rs * .95 + 40; g.fillText(rk, X - 12, y); shvSp(g, "0px");
+    var bb = V.bBadge || V.badge; if (bb) { y += 70; g.font = "800 45px " + SHV_F; var bw = g.measureText(bb).width + 96; g.fillStyle = ink; shvRR(g, X, y, bw, 100, 50); g.fill(); g.fillStyle = "#D4E64A"; g.fillText(bb, X + 48, y + 66); y += 100; }
+    if (V.line) { y += 40; g.fillStyle = ink; g.font = "600 45px " + SHV_F; shvWrap(g, V.line, W - 2 * X - 200).slice(0, 3).forEach(function (l) { y += 62; g.fillText(l, X, y); }); }
+    shvFoot(g, W, H, fmt, V, ink, "rgba(22,24,27,.72)", ink);
+    return cv;
+  }
+  // 3.72.0 : style « tableau d'affichage » (terrain vu du dessus, tuiles ancien → nouveau classement, tableau de chiffres)
+  function shvDrawTableau(V, fmt) {
+    var W = 1080, H = fmt === "916" ? 1920 : 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    var g = cv.getContext("2d"), F = SHV_F, ink = "#F4F2EE", acc = "#D4E64A", k = fmt === "916" ? 1 : .72;
+    var bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#0E3B2A"); bg.addColorStop(1, "#0A2C20"); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    var fyb = H - (fmt === "916" ? 290 : 200);
+    g.strokeStyle = "rgba(255,255,255,.18)"; g.lineWidth = 6; g.strokeRect(78, 78, W - 156, fyb - 78);
+    g.beginPath(); g.moveTo(78, (78 + fyb) / 2); g.lineTo(W - 78, (78 + fyb) / 2); g.stroke();
+    var y = fmt === "916" ? 230 : 170; g.textAlign = "center";
+    g.fillStyle = acc; shvSp(g, "6px"); g.font = "800 39px " + F; g.fillText("MONTÉE DÉTECTÉE", W / 2, y); shvSp(g, "0px");
+    y += 100; g.fillStyle = ink; g.font = "800 84px " + F; g.fillText(V.tTitle || V.title, W / 2, y);
+    var o = V.path ? V.path[0] : "", n = V.path ? V.path[1] : ((V.big || [[""]])[0][0]);
+    g.font = "800 " + Math.round(170 * k) + "px " + F; var nw = g.measureText(n).width + 80; g.font = "800 " + Math.round(92 * k) + "px " + F; var ow = o ? g.measureText(o).width + 64 : 0;
+    var aw = o ? 110 : 0, tot = ow + aw + nw, x0 = (W - tot) / 2, th = Math.round(250 * k), ty = y + (fmt === "916" ? 150 : 80);
+    var tile = function (x, w, h, t, size, col) {
+      g.fillStyle = "rgba(0,0,0,.35)"; shvRR(g, x, ty + (th - h) / 2 + 18, w, h, 30); g.fill();
+      g.fillStyle = "#111"; shvRR(g, x, ty + (th - h) / 2, w, h, 30); g.fill();
+      g.fillStyle = col; g.font = "800 " + size + "px " + F; g.fillText(t, x + w / 2, ty + th / 2 + size * .36);
+      g.fillStyle = "#000"; g.fillRect(x, ty + th / 2 - 3, w, 6);
+    };
+    if (o) { tile(x0, ow, Math.round(th * .62), o, Math.round(92 * k), "#8C8A84"); g.fillStyle = acc; g.font = "800 90px " + F; g.fillText("→", x0 + ow + aw / 2, ty + th / 2 + 30); }
+    tile(x0 + ow + aw, nw, th, n, Math.round(170 * k), acc);
+    y = Math.max(ty + th + 70, (78 + fyb) / 2 + (fmt === "916" ? 90 : 50)); g.textAlign = "left";
+    var rows = (V.stats || []).slice(0, 3);
+    if (rows.length) {
+      var bx = 120, bw = W - 240, rh = Math.round(96 * k + 10), bh = rows.length * rh + 40; g.fillStyle = "rgba(0,0,0,.28)"; shvRR(g, bx, y, bw, bh, 42); g.fill();
+      rows.forEach(function (r, i) {
+        var ry = y + 20 + i * rh; if (i) { g.fillStyle = "rgba(255,255,255,.1)"; g.fillRect(bx + 48, ry, bw - 96, 3); }
+        g.fillStyle = ink; g.font = "700 42px " + F; g.fillText(String(r[2] || r[1]).replace(/^./, function (c) { return c.toUpperCase(); }), bx + 48, ry + rh / 2 + 15);
+        g.textAlign = "right"; g.fillStyle = acc; g.font = "800 46px " + F; g.fillText(String(r[0]), bx + bw - 48, ry + rh / 2 + 16); g.textAlign = "left";
       });
+      y += bh;
+    }
+    if (V.when) { g.textAlign = "center"; g.fillStyle = "#CFE3D8"; g.font = "500 39px " + F; g.fillText(V.when, W / 2, fmt === "916" ? fyb - 110 : Math.min(fyb - 50, y + 90)); g.textAlign = "left"; }
+    shvFoot(g, W, H, fmt, V, ink, "#B8CFC3", acc);
+    return cv;
+  }
+  function shvDraw(V, fmt) {
+    var sty = V.stys ? (V.stys.indexOf(UI.shvS) >= 0 ? UI.shvS : V.stys[0]) : V.sty;
+    if (sty === "balle") return shvDrawBalle(V, fmt);
+    if (sty === "tableau") return shvDrawTableau(V, fmt);
+    var W = 1080, H = fmt === "916" ? 1920 : 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    var g = cv.getContext("2d"), F = SHV_F, X = 84, MW = W - 2 * X, col = V.col || "#D4E64A", ink = "#F4F2EE", mut = "#B9B7B0";
+    g.fillStyle = "#14161A"; g.fillRect(0, 0, W, H);
+    // terrain en perspective, très discret
+    g.strokeStyle = "rgba(255,255,255,.09)"; g.lineWidth = 6; var ty = H * .4;
+    g.beginPath(); g.moveTo(180, H); g.lineTo(390, ty); g.lineTo(690, ty); g.lineTo(900, H);
+    g.moveTo(285, H); g.lineTo(435, ty); g.moveTo(795, H); g.lineTo(645, ty);
+    var sy = ty + (H - ty) * .52, sx = function (x0, x1) { return x0 + (x1 - x0) * .52; };
+    g.moveTo(sx(435, 285), sy); g.lineTo(sx(645, 795), sy); g.moveTo(540, sy); g.lineTo(540, H); g.stroke();
+    var gr = g.createRadialGradient(W / 2, H * .17, 0, W / 2, H * .17, W * .85); gr.addColorStop(0, shvHex(col, .32)); gr.addColorStop(1, shvHex(col, 0)); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    var y = fmt === "916" ? 230 : 140;
+    g.textBaseline = "alphabetic";
+    g.fillStyle = col; shvSp(g, "5px"); g.font = "800 39px " + F; g.fillText(String(V.eb || "").toUpperCase(), X, y); shvSp(g, "0px");
+    g.fillStyle = ink; var tf = V.title && V.title.length > 26 ? 80 : 96; g.font = "800 " + tf + "px " + F;
+    shvWrap(g, V.title, MW).slice(0, 3).forEach(function (l, i) { y += i ? tf * 1.05 : tf * 1.15; g.fillText(l, X, y); });
+    if (V.big && V.big.length) {
+      y += 40; var bs = V.big.length > 1 ? 260 : (fmt === "916" ? 340 : 280); g.font = "800 " + bs + "px " + F; shvSp(g, "-12px");
+      var tw = 0; V.big.forEach(function (b) { tw += g.measureText(String(b[0])).width + 30; }); if (V.ball) tw += bs * .5;
+      if (tw > MW) { bs = Math.floor(bs * MW / tw); g.font = "800 " + bs + "px " + F; }
+      var x = X - 6; y += bs * .78;
+      V.big.forEach(function (b, i) {
+        if (i && V.sep) { shvSp(g, "0px"); g.fillStyle = "#77756F"; g.font = "700 " + Math.round(bs * .55) + "px " + F; g.fillText(V.sep, x + 10, y - bs * .18); x += g.measureText(V.sep).width + 30; g.font = "800 " + bs + "px " + F; shvSp(g, "-12px"); }
+        g.fillStyle = b[1] || ink; g.fillText(String(b[0]), x, y); x += g.measureText(String(b[0])).width + 30;
+      });
+      shvSp(g, "0px");
+      if (V.ball) shvBall(g, Math.min(W - X - bs * .2, x + bs * .2), y - bs * .62, bs * .2, "#D4E64A", "#14161A");
+    }
+    if (V.sets && V.sets.length) {
+      var sk = fmt === "916" ? 1 : .72; y += 50 * sk; var tw2 = Math.round(210 * sk), th = Math.round(300 * sk);
+      V.sets.forEach(function (st, i) {
+        var tx = X + i * (tw2 + 30); g.fillStyle = "#22252B"; shvRR(g, tx, y, tw2, th, 40); g.fill();
+        g.textAlign = "center"; g.fillStyle = ink; g.font = "800 " + Math.round(130 * sk) + "px " + F; g.fillText(String(st[0]), tx + tw2 / 2, y + 150 * sk);
+        g.fillStyle = "#8C8A84"; g.font = "800 " + Math.round(84 * sk) + "px " + F; g.fillText(String(st[1]), tx + tw2 / 2, y + 255 * sk); g.textAlign = "left";
+      });
+      y += th;
+    }
+    if (V.path) {
+      y += 110; g.font = "800 54px " + F; var px = X;
+      g.fillStyle = "rgba(244,242,238,.5)"; g.fillText(V.path[0], px, y); px += g.measureText(V.path[0]).width + 26;
+      g.fillStyle = ink; g.fillText("→", px, y); px += g.measureText("→").width + 26;
+      g.fillStyle = col; g.fillText(V.path[1], px, y); px += g.measureText(V.path[1]).width + 30;
+      if (V.path[2]) { g.fillStyle = mut; g.font = "700 39px " + F; g.fillText(V.path[2], px, y); }
+    }
+    if (V.opp) {
+      y += 110; g.fillStyle = mut; shvSp(g, "4px"); g.font = "700 40px " + F; g.fillText("CONTRE", X, y); shvSp(g, "0px");
+      y += 90; g.fillStyle = ink; g.font = "800 76px " + F; var on = V.opp.n; while (g.measureText(on).width > MW - 280 && on.length > 4) on = on.slice(0, -2) + "…"; g.fillText(on, X, y);
+      if (V.opp.rk) { var ox = X + g.measureText(on).width + 40; shvBall(g, ox + 22, y - 24, 22, "#D4E64A", "#14161A"); g.font = "800 66px " + F; g.fillText(V.opp.rk, ox + 58, y); }
+    }
+    if (V.badge) {
+      y += 70; g.font = "800 42px " + F; var bw = g.measureText(V.badge).width + 84; g.strokeStyle = col; g.lineWidth = 6; shvRR(g, X + 3, y, bw, 96, 48); g.stroke();
+      g.fillStyle = col; g.fillText(V.badge, X + 45, y + 63); y += 96;
+    }
+    if (V.stats && V.stats.length) {
+      y += 70; var cw = MW / V.stats.length; g.fillStyle = "rgba(255,255,255,.15)"; g.fillRect(X, y, MW, 3); g.fillRect(X, y + 210, MW, 3);
+      V.stats.forEach(function (st, i) {
+        g.fillStyle = ink; g.font = "800 92px " + F; g.fillText(String(st[0]), X + i * cw, y + 115);
+        g.fillStyle = mut; shvSp(g, "3px"); g.font = "700 33px " + F; g.fillText(String(st[1]).toUpperCase(), X + i * cw, y + 170); shvSp(g, "0px");
+      });
+      y += 213;
     }
     if (V.sq && V.sq.length) {
-      y += 60; var n = V.sq.length, per = Math.min(n, 8), gap = 20, sz = Math.min(110, Math.floor((MW - gap * (per - 1)) / per));
+      y += 70; var n = V.sq.length, per = Math.min(n, 8), gap = 22, sz = Math.min(80, Math.floor((MW - gap * (per - 1)) / per));
       V.sq.forEach(function (r, i) {
         var cx = X + (i % per) * (sz + gap), cy = y + Math.floor(i / per) * (sz + gap);
-        g.fillStyle = r === "V" ? "#5DB582" : "#9E5F48"; g.beginPath(); if (g.roundRect) g.roundRect(cx, cy, sz, sz, sz * .24); else g.rect(cx, cy, sz, sz); g.fill();
-        if (i === n - 1) { g.strokeStyle = "#D4E64A"; g.lineWidth = 7; g.beginPath(); if (g.roundRect) g.roundRect(cx - 10, cy - 10, sz + 20, sz + 20, sz * .3); else g.rect(cx - 10, cy - 10, sz + 20, sz + 20); g.stroke(); }
+        g.fillStyle = r === "V" ? "#5DB582" : "#9E5F48"; shvRR(g, cx, cy, sz, sz, sz * .24); g.fill();
+        if (i === n - 1) { g.strokeStyle = "#D4E64A"; g.lineWidth = 8; shvRR(g, cx - 11, cy - 11, sz + 22, sz + 22, sz * .32); g.stroke(); }
       });
       y += Math.ceil(n / per) * (sz + gap);
     }
     if (V.rows && V.rows.length) {
-      y += 50; g.font = "700 50px " + F;
+      y += 30; g.font = "700 50px " + F;
       V.rows.slice(0, 5).forEach(function (r, i) {
-        y += 84; g.fillStyle = r[2] ? "#D4E64A" : "#F4F2EE"; g.textAlign = "left"; g.fillText((i + 1) + ". " + r[0], X, y);
+        y += 84; g.fillStyle = r[2] ? "#D4E64A" : ink; g.textAlign = "left"; g.fillText((i + 1) + ". " + r[0], X, y);
         g.textAlign = "right"; g.fillStyle = r[2] ? "#D4E64A" : "#C9C7C1"; g.fillText(r[1], W - X, y); g.textAlign = "left";
       });
     }
-    if (V.line) { y += 80; g.fillStyle = "#C9C7C1"; g.font = "500 44px " + F; shvWrap(g, V.line, MW).slice(0, 4).forEach(function (l) { y += 58; g.fillText(l, X, y); }); }
-    var fy = H - (fmt === "916" ? 220 : 100);
-    g.fillStyle = "#D4E64A"; g.beginPath(); g.arc(X + 16, fy - 13, 16, 0, 6.3); g.fill();
-    g.fillStyle = "#F4F2EE"; g.font = "800 40px " + F; g.fillText("Montée", X + 48, fy);
-    if (V.foot) { g.textAlign = "right"; g.fillStyle = "#9A9892"; g.font = "700 36px " + F; g.fillText(V.foot, W - X, fy); g.textAlign = "left"; }
+    var fTop = H - (fmt === "916" ? 150 : 90) - 110;
+    if (V.line) { y += 50; g.fillStyle = mut; g.font = "500 42px " + F; shvWrap(g, V.line, MW).slice(0, 4).forEach(function (l) { if (y + 58 > fTop) return; y += 58; g.fillText(l, X, y); }); }
+    shvFoot(g, W, H, fmt, V, ink, mut, "#D4E64A");
     return cv;
   }
   function shareVisual(V) { UI.shv = V; if (!UI.shvF) UI.shvF = "45"; loadCardFonts().then(function () { UI.sheet = { k: "shv", v: V.key || "1" }; render(); }); }
@@ -13882,13 +14204,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var bgScript = T.nativeScriptBg ? T.nativeScriptBg(S.profile.licence || "", S.tenup.id || "", tenupWho(), bgIds.concat(folIds.filter(function (id) { return !bgIds.some(function (w) { return w.id === id; }); }).map(function (id) { return { id: id, hit: S.follow[id].hit }; }))) : nativeScript();
     Tenup.setState({ state: JSON.stringify(st), script: bgScript }).catch(function () {});
     scheduleReleaseNotif();
+    try { scheduleTeamsNotif(); schedulePoolNotif(); } catch (e) {}
     try { scheduleCoachNotif(); } catch (e) {}
   }
   // 3.49 (maquette validée) : chaque notification se règle dans Réglages › Notifications
-  var NP_DEF = { hom: 1, poule: 1, avant: 1, sortie: 1, coach: 1, jalons: 1, fol: 1, insc: 1, seance: 1 };
+  var NP_DEF = { hom: 1, poule: 1, avant: 1, apres: 1, eq: 1, sortie: 1, coach: 1, jalons: 1, fol: 1, insc: 1, seance: 1 };
   function np(k) { var p = S.notifP || {}; if (k === "lvl") return p.lvl || "norm"; return p[k] == null ? !!NP_DEF[k] : !!p[k]; }
   function npKey(date, a, b) { var tk = function (n) { return String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z]+/).filter(function (t) { return t.length >= 3; }).join(" "); }; return date ? date + "|" + [tk(a), tk(b)].sort().join("|") : ""; }
-  function npApply() { lastPlanKey = ""; lastTimingKey = ""; lastSjKey = ""; try { scheduleSjNotif(); } catch (e) {} try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
+  function npApply() { lastPlanKey = ""; lastTimingKey = ""; lastTeamNotifKey = ""; lastPoolNotifKey = ""; lastSjKey = ""; try { scheduleSjNotif(); } catch (e) {} try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
   // 3.49 (Montée+) : le lundi du coach, 8 h 30 : tes chances qui bougent et le match qui compte cette semaine
   var lastCoachKey = "";
   function scheduleCoachNotif(force) {
@@ -13944,6 +14267,41 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (list.length) return LN.schedule({ notifications: list });
     }).catch(function () {});
   }
+  // 3.69 : rencontre par équipes (la veille à 19 h, ou le jour même à 9 h) : contre qui, à domicile ou à l'extérieur, où en est ton équipe
+  var lastTeamNotifKey = "";
+  function scheduleTeamsNotif() {
+    if (!NATIVE || !S.notif || !LN) return;
+    var now = new Date(), L = [];
+    if (np("eq")) myTeams().forEach(function (c) {
+      var r = tmNext(c); if (!r || r.rep) return; var d = E.parseDate(r.d); if (!d) return;
+      var me = tmOf(c, c.me.mine) || {}, eve = new Date(d.getTime()), morn = new Date(d.getTime()); eve.setDate(eve.getDate() - 1); eve.setHours(19, 0, 0, 0); morn.setHours(9, 0, 0, 0);
+      var at = eve > now ? eve : morn > now ? morn : null; if (!at) return;
+      var vs = r.a === me.id ? r.bn : r.an, home = r.dom === me.id, n = (c.teams || []).length;
+      L.push({ at: at, c: c, n: { title: (at === eve ? "Demain : " : "Aujourd'hui : ") + tmNm(me.nom || "ton équipe") + " contre " + tmNm(vs), body: (home ? "À domicile" : "À l'extérieur") + " · " + champNm(c) + (me.cl ? " · ton équipe est " + me.cl + (me.cl === 1 ? "re" : "e") + " sur " + n : "") + ".", schedule: { at: at }, extra: { url: "montee://open/equipe/" + c.id } } });
+    });
+    L.sort(function (a, b) { return a.at - b.at; }); L = L.slice(0, 4);
+    var list = L.map(function (x, i) { x.n.id = 1800 + i; return x.n; }), key = JSON.stringify(list.map(function (n) { return [n.id, n.title, n.schedule.at.getTime()]; }));
+    if (key === lastTeamNotifKey) return; lastTeamNotifKey = key;
+    LN.cancel({ notifications: [{ id: 1800 }, { id: 1801 }, { id: 1802 }, { id: 1803 }] }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
+  }
+  // 3.69 : date limite de poule : 7 jours puis 2 jours avant, seulement s'il reste des matchs à jouer (18 h 30)
+  var lastPoolNotifKey = "";
+  function schedulePoolNotif() {
+    if (!NATIVE || !S.notif || !LN) return;
+    var now = new Date(), list = [];
+    if (np("poule")) toursOpen().filter(function (t) { return t.fmt === "poule" || t.kind === "champ"; }).slice(0, 3).forEach(function (t, ti) {
+      var dl = t.dl || t.to, dd = dl ? E.parseDate(dl) : null; if (!dd) return;
+      var left = (t.pool || []).filter(function (x) { return !x.res; }); if (!left.length) return;
+      var nm = left.slice(0, 2).map(function (x) { return trNm(x.name).split(" ")[0]; }).join(" et "), more = left.length > 2 ? " et " + (left.length - 2) + " autre" + (left.length > 3 ? "s" : "") : "";
+      [7, 2].forEach(function (k, ki) {
+        var at = new Date(dd.getTime()); at.setDate(at.getDate() - k); at.setHours(18, 30, 0, 0); if (at <= now) return;
+        list.push({ id: 1900 + ti * 2 + ki, title: "Plus que " + plural(left.length, "match") + " avant le " + dm(dd), body: "Date limite de ta poule dans " + k + " jours. Il te reste " + nm + more + " à jouer.", schedule: { at: at }, extra: { url: "montee://open/tournoi/" + t.id } });
+      });
+    });
+    var key = JSON.stringify(list.map(function (n) { return [n.id, n.title, n.schedule.at.getTime()]; }));
+    if (key === lastPoolNotifKey) return; lastPoolNotifKey = key;
+    LN.cancel({ notifications: [1900, 1901, 1902, 1903, 1904, 1905].map(function (i) { return { id: i }; }) }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
+  }
   // Match programmé : un rappel la veille à 19 h (ou le matin même à 9 h si on programme pour aujourd'hui)
   var lastPlanKey = "";
   function schedulePlanNotif() {
@@ -13966,7 +14324,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (n) list.push({ id: 1100 + i, title: n.t, body: rv ? "Il t'a battu " + rvW + (rv.score ? ", " + rv.score : "") + ". Ta revanche est prête" + (pl.p != null ? " · " + pl.p + " % de chances." : ".") : (pl.hom ? "Match homologué" : "Match libre") + odds + tip + " Ton plan de jeu est prêt.", schedule: { at: n.at }, extra: { url: "montee://open/joueur/" + pl.id } });
     });
     if (!np("avant")) list = [];
-    LN.cancel({ notifications: [{ id: 1100 }, { id: 1101 }, { id: 1102 }, { id: 1103 }] }).catch(function () {}).then(function () {
+    // 3.69 : le lendemain du match prévu, 9 h : « comment ça s'est passé ? » (score + ressenti), sinon le bilan du coach n'a rien à lire
+    var after = [];
+    if (np("apres")) pls.forEach(function (pl, i) { var d = E.parseDate(pl.day); if (!d) return; var nx = new Date(d.getTime()); nx.setDate(nx.getDate() + 1); nx.setHours(9, 0, 0, 0); if (nx > now) after.push({ id: 1110 + i, title: "Ton match contre " + (pl.name || "ton adversaire") + " : comment ça s'est passé ?", body: "Ajoute le score et ton ressenti en 20 secondes : ton bilan du coach se met à jour.", schedule: { at: nx }, extra: { url: "montee://open/" } }); });
+    list = list.concat(after);
+    LN.cancel({ notifications: [{ id: 1100 }, { id: 1101 }, { id: 1102 }, { id: 1103 }, { id: 1110 }, { id: 1111 }, { id: 1112 }, { id: 1113 }] }).catch(function () {}).then(function () {
       if (list.length) return LN.schedule({ notifications: list });
     }).catch(function () {});
   }
@@ -15239,16 +15601,22 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   };
   // 3.59 (Yann : « je reçois les notifs seulement quand j'ouvre l'appli ») : on montre si iOS laisse Montée vérifier en arrière-plan
   function bgStatusHtml() {
-    if (!IOS || !Tenup || typeof Tenup.bgStatus !== "function") return "";
+    if (!NATIVE || !Tenup || typeof Tenup.bgStatus !== "function") return "";
     if (!UI.bgSt) { UI.bgSt = { wait: 1 }; Promise.resolve(Tenup.bgStatus()).then(function (r) { UI.bgSt = r || {}; if (route() === "notifs") render(); }, function () { UI.bgSt = {}; }); return ""; }
     var B = UI.bgSt; if (B.wait) return "";
-    var ok = B.refresh === "available", last = B.last ? new Date(B.last * 1000) : null, h = last ? Math.round((Date.now() - last.getTime()) / 3600e3) : null;
+    // 3.69 : journal des passages (iPhone et Android) : « heure|résultat », pour savoir POURQUOI peu de notifications arrivent
+    var LG = (B.log || []).map(function (x) { var q = String(x).split("|"); return { t: +q[0] * 1000, r: q[1] || "" }; }).filter(function (x) { return x.t > 0; }).reverse();
+    var RL = { rien: "rien de nouveau", deconnecte: "Ten'Up déconnecté : reconnecte-toi", timeout: "Ten'Up trop lent, réessayé plus tard", maintenance: "Ten'Up en maintenance", erreur: "erreur de lecture", interrompu: "arrêté par le téléphone (temps écoulé)", "sans-lecture": "rien à lire pour l'instant" };
+    var ok = IOS ? B.refresh === "available" : true, lastT = B.last ? B.last * 1000 : LG.length ? LG[0].t : 0, last = lastT ? new Date(lastT) : null, h = last ? Math.round((Date.now() - lastT) / 3600e3) : null;
     var when = last ? (h < 1 ? "il y a moins d'une heure" : h < 48 ? "il y a " + h + " h" : "le " + fdate(E.iso(last)).replace(/\.$/, "")) : "jamais pour l'instant";
     var tips = [];
-    if (!ok) tips.push(B.refresh === "restricted" ? "Le mode économie d'énergie ou un contrôle parental bloque l'actualisation en arrière-plan." : "Réglages de l'iPhone › Général › Actualisation en arrière-plan › active Montée.");
-    if (B.notif === "denied") tips.push("Réglages de l'iPhone › Notifications › Montée › Autoriser les notifications.");
-    tips.push("Ne ferme pas Montée en la balayant vers le haut : iOS ne la réveille plus jusqu'à ta prochaine ouverture.");
+    if (IOS && !ok) tips.push(B.refresh === "restricted" ? "Le mode économie d'énergie ou un contrôle parental bloque l'actualisation en arrière-plan." : "Réglages de l'iPhone › Général › Actualisation en arrière-plan › active Montée.");
+    if (B.notif === "denied") tips.push(IOS ? "Réglages de l'iPhone › Notifications › Montée › Autoriser les notifications." : "Réglages Android › Applications › Montée › Notifications : autorise-les.");
+    if (!IOS && B.battery === "optimized") tips.push("Réglages Android › Applications › Montée › Batterie › Sans restriction : sinon certains téléphones coupent la vérification quand l'écran est éteint.");
+    if (IOS) tips.push("Ne ferme pas Montée en la balayant vers le haut : iOS ne la réveille plus jusqu'à ta prochaine ouverture.");
+    var rows = LG.slice(0, 6).map(function (x) { var d = new Date(x.t), m = /^notif:(\d+)$/.exec(x.r), lab2 = m ? plural(+m[1], "notification") + " envoyée" + (+m[1] > 1 ? "s" : "") : RL[x.r] || x.r; return '<div class="nf-lg"><span>' + esc(fdate(E.iso(d)).replace(/\.$/, "") + " · " + String(d.getHours()).padStart(2, "0") + " h " + String(d.getMinutes()).padStart(2, "0")) + "</span><b>" + esc(lab2) + "</b></div>"; }).join("");
     return '<h2 class="nf-gh">Vérification en arrière-plan</h2><div class="nf-grp nf-bg"><div class="nf-row"><span class="nf-r"><b>' + (ok ? "Active" : "Coupée") + "</b><small>Dernière vérification : " + esc(when) + '</small></span><span class="nf-dot ' + (ok && h != null && h < 24 ? "ok" : "ko") + '"></span></div>' +
+      (rows ? '<div class="nf-log"><small>Les derniers passages</small>' + rows + "</div>" : "") +
       '<div class="nf-tips">' + tips.map(function (t) { return '<span class="small">' + esc(t) + "</span>"; }).join("") + "</div></div>";
   }
   V.notifs = function () {
@@ -15261,7 +15629,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return '<label class="nf-row"><span class="nf-r"><b>' + t + (plus ? " " + pill : "") + "</b><small>" + sub + '</small></span><input type="checkbox" role="switch" data-a="npSet" data-k="' + k + '"' + (np(k) ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>";
     };
     var grp = function (h, rows) { return '<h2 class="nf-gh">' + h + '</h2><div class="nf-grp' + (S.notif ? "" : " off") + '">' + rows.join("") + "</div>"; };
-    s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche avec Montée+" : ", avec ta revanche s'il t'a battu"))]);
+    s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche avec Montée+" : ", avec ta revanche s'il t'a battu")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
     s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Le coach", "Le lundi : tes chances qui bougent, le match qui compte. Et quand une consigne est remplie", true), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
     var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
     if (HC_OK && hcOn()) oth.push('<label class="nf-row"><span class="nf-r"><b>Séances de la montre</b><small>Une nouvelle séance à enregistrer</small></span><input type="checkbox" role="switch" data-a="hcNotify"' + (S.health.notify !== false ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>");
@@ -15963,6 +16331,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       shareVisual({ key: "badge-" + b.k, eb: "Badge Montée", col: "#E8B64A", title: b.t, big: b.x > 1 ? [["×" + b.x, "#E8B64A"]] : null, line: (b.x > 1 ? "Obtenu " + b.x + " fois. " : "") + plural(G.got, "badge") + " à mon actif.", foot: "saison " + seasonY(),
         text: "Badge Montée : « " + b.t + " »" + (b.x > 1 ? ", obtenu " + b.x + " fois" : "") + ". " + plural(G.got, "badge") + " à mon actif." }); },
     shvFmt: function (el) { UI.shvF = el.dataset.v; render(); },
+    shvSty: function (el) { UI.shvS = el.dataset.v; render(); },
     shvGo: function () { shvSend(); },
     h2hShare: function (el) {
       var key = el.dataset.v, ms = knownMatches(false).filter(function (m) { return m.opp && !isAnon(m.opp) && nameKey(m.opp) === key && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
@@ -16234,7 +16603,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     plDel: function (el) {
       var t = tourOf(route().split("/")[1]), i = +el.dataset.i, x = t && (t.pool || [])[i]; if (!x) return;
       if (!askOk("Retirer " + (trNm(x.name) || "ce joueur") + " de la poule ?" + (x.res ? " Le match déclaré quitte aussi ton palmarès." : ""))) return;
-      if (x.res) { x.res = null; trMatchSync(t, x, true); }
+      if (x.res) { x.res = null; x.noAuto = 1; trMatchSync(t, x, true); }
       if (x.tid) S.plans = (S.plans || []).filter(function (y) { return y.id !== String(x.tid); });
       t.pool.splice(i, 1); t.poolAt = 0; t.poolX = (t.poolX || []).filter(function (g) { return !sameName(g.a, x.name) && !sameName(g.b, x.name); });
       save(); haptic("light"); toast((trNm(x.name) || "Joueur") + " retiré de la poule."); render();
@@ -16253,6 +16622,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     trImpRk: function (el) { var x = UI.trImp.p.ppl[+el.dataset.v]; if (!x) return; x.rank = el.dataset.k; UI.trImp.open = null; render(); },
     trImpCreate: function () {
       var P = UI.trImp && UI.trImp.p; if (!P) return;
+      if (NATIVE && P.ppl.some(function (x) { return !x.me && x.st === "busy"; })) return; // 3.70.8 : recherche Ten'Up pas finie
       var ppl = P.ppl.filter(function (x) { return !x.me; });
       // 3.45.7 : le mail complète l'épreuve existante (venue de Ten'Up ou créée avant) au lieu d'en créer une 2e
       var into = UI.trImp.into ? tourOf(UI.trImp.into) : UI.trImp.noAuto ? null : toursAll().filter(function (y) { return y.tuid && !tourOver(y) && !(y.pool || []).length && insSame(y, { name: P.name, from: E.iso(today()) }, P.kind, null) || (y.tuid && !tourOver(y) && !(y.pool || []).length && P.kind === "champ" && y.kind === "champ" && insKey(y.name).s && insKey(P.name).s === insKey(y.name).s); })[0];
@@ -16367,7 +16737,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     trUndo: function (el) {
       var t = tourOf(route().split("/")[1]); if (!t) return;
       var pool = el.dataset.k === "pool", list = pool ? t.pool : t.rounds, i = +el.dataset.i, r = (list || [])[i]; if (!r || !r.res) return;
-      var was = r.res; r.res = null; r.pts = null; trMatchSync(t, r, pool);
+      var was = r.res; r.res = null; r.pts = null; if (pool) r.noAuto = 1; trMatchSync(t, r, pool);
       if (pool) { UI.trR = null; }
       else if (was === "D") { if (i === t.rounds.length - 1 && t.cut && t.cut.length) t.rounds = t.rounds.concat(t.cut); t.cut = null; t.endedAt = null; }
       else if (i === t.rounds.length - 2 && !t.rounds[i + 1].res && !t.rounds[i + 1].opp && !(t.rounds[i + 1].alt || []).length) t.rounds.pop();
@@ -16621,8 +16991,27 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
     shareMontee: function () {
       if (!S.ahead) return;
-      shareVisual({ key: "je-monte-" + S.ahead.rank.replace("/", "-"), eb: "Je monte", col: "#D4E64A", title: "Je monte " + S.ahead.rank + " !", big: [[S.ahead.rank, "#D4E64A"]], line: "À la sortie du classement du " + flong(E.parseDate(S.ahead.release)) + ".", foot: "calculé avec Montée",
-        text: "Je monte " + S.ahead.rank + " à la sortie du classement du " + flong(E.parseDate(S.ahead.release)) + " ! Calculé avec Montée." });
+      var old = S.profile.rank && S.profile.rank !== S.ahead.rank ? S.profile.rank : "", y1 = E.iso(new Date(today().getTime() - 365 * 864e5)), nv = 0;
+      try { nv = knownMatches(false).filter(function (m) { return m.result === "V" && !m.wo && m.date >= y1; }).length; } catch (e) {}
+      var rel = flong(E.parseDate(S.ahead.release)).replace(/ 1 /, " 1er ");
+      // 3.72.0 (Yann) : la montée a sa carte « balle » (fond jaune), les autres partages l'affiche sombre
+      var ci = E.idx(S.profile.rank), np = 0, tot = null; try { np = knownMatches(false).filter(function (m) { return m.result === "V" && !m.wo && m.date >= y1 && ci != null && E.idx(m.oppRank) > ci; }).length; } catch (e) {}
+      try { var pr = ctx().proj, hb = pr && (pr.steps || []).filter(function (x) { return x.calc === pr.projected; })[0]; if (hb) tot = hb.total; } catch (e) {}
+      var stats = [[nv, "victoires", "victoires de la saison"], [np, "perfs", "perfs de la saison"]]; if (tot != null) stats.push([tot, "points", "bilan (points)"]);
+      shareVisual({ key: "je-monte-" + S.ahead.rank.replace("/", "-"), stys: ["balle", "affiche", "tableau"], ball: true, eb: "Je monte", path: old ? [old, S.ahead.rank, "+" + plural(Math.max(1, E.idx(S.ahead.rank) - ci), "échelon", "échelons")] : null, stats: stats,
+        tTitle: S.profile.name ? S.profile.name + " monte" : "Je monte", when: "Sortie du classement le " + rel, eb: "Je monte", col: "#D4E64A", title: S.profile.name ? S.profile.name + " passe" : "Je passe", big: [[S.ahead.rank]],
+        bBadge: (old ? old + " → " + S.ahead.rank : "Je monte " + S.ahead.rank) + (nv ? " · " + plural(nv, "victoire", "victoires") : ""), line: "Calculé avec Montée, à la sortie du classement du " + rel + ".", cta: "Et toi, tu montes ?",
+        text: "Je monte " + S.ahead.rank + " à la sortie du classement du " + rel + " ! Calculé avec Montée." });
+    },
+    shareWin: function () {
+      var m = UI.draft && S.matches.filter(function (x) { return x.id === UI.draft.id; })[0] || UI.draft; if (!m || m.result !== "V") return;
+      var gap = 0; try { var oi = E.idx(m.oppRank), ci = E.idx(S.profile.rank); if (oi != null && ci != null) gap = oi - ci; } catch (e) {}
+      var sq = []; try { sq = knownMatches(false).filter(function (x) { return !x.wo && (x.result === "V" || x.result === "D") && x.date <= m.date; }).sort(byDateDesc).slice(0, 6).reverse().map(function (x) { return x.result; }); } catch (e) {}
+      var nvq = sq.filter(function (r) { return r === "V"; }).length, on = nameCase(m.opp || "ton adversaire").replace(/^(\S+)\s+(\S)\S*$/, "$1 $2.");
+      shareVisual({ key: "victoire-" + m.id, eb: "Victoire" + (m.comp ? " · " + String(m.comp).slice(0, 28) : ""), col: "#6FC28F", title: S.profile.name ? "Bien joué, " + S.profile.name + "." : "Victoire !",
+        sets: setsOf(m.score).slice(0, 3), opp: { n: on, rk: m.oppRank || "" }, badge: gap > 0 ? "Perf · +" + plural(gap, "échelon", "échelons") : "", sq: sq.length >= 3 ? sq : null,
+        line: sq.length >= 3 ? plural(nvq, "victoire", "victoires") + " sur les " + sq.length + " derniers matchs" : "", cta: "Suis ta saison",
+        text: "Victoire " + (m.score || "") + " contre " + on + (m.oppRank ? " (" + m.oppRank + ")" : "") + " ! Suivi avec Montée." });
     },
     don: function () {
       UI.menu = false;
@@ -16666,6 +17055,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     goRaquettes: function () { UI.menu = false; go("materiel"); },
     goProfil: function () { UI.menu = false; go("profil"); },
+    clubTg: function () { S.prefs = S.prefs || {}; S.prefs.clubOn = !S.prefs.clubOn; save(); render(); if (S.prefs.clubOn) clubRefresh(!S.club); },
+    ceFol: function (el) { S.prefs = S.prefs || {}; var f = S.prefs.clubFol = S.prefs.clubFol || {}, id = el.dataset.id; if (f[id]) delete f[id]; else f[id] = 1; save(); render(); },
+    clubCat: function (el) { S.prefs = S.prefs || {}; S.prefs.clubCat = el.dataset.v; save(); render(); },
+    clubGrp: function (el) { UI.clubOpen = UI.clubOpen || {}; var k = el.dataset.v, cur = el.getAttribute("aria-expanded") === "true"; UI.clubOpen[k] = !cur; render(); },
+    clubAll: function (el) { UI.clubAll = UI.clubAll || {}; UI.clubAll[el.dataset.v] = 1; render(); },
+    clubEnd: function () { UI.clubEnd = !UI.clubEnd; render(); },
+    hdGo: function (el) { if (el.dataset.h) location.hash = el.dataset.h; },
     goReglages: function () { UI.menu = false; go("reglages"); },
     setTheme: function (el) {
       if (PLUS_THEMES[el.dataset.v] && !isSup()) { if (PLUS) { UI.supFrom = "theme"; go("soutenir"); } return; }

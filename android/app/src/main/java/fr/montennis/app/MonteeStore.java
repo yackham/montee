@@ -28,4 +28,14 @@ final class MonteeStore {
     static void flag(Context ctx, String key, boolean value) {
         prefs(ctx).edit().putBoolean(key, value).apply();
     }
+
+    /** 3.69 : journal des passages d'arrière-plan (« heure|résultat »), les 12 derniers : sert à comprendre pourquoi peu de notifications arrivent. */
+    static void log(Context ctx, String result) {
+        String old = get(ctx, "bgLog");
+        java.util.List<String> l = new java.util.ArrayList<>();
+        if (old != null && !old.isEmpty()) for (String x : old.split("\n")) if (!x.isEmpty()) l.add(x);
+        l.add(System.currentTimeMillis() / 1000 + "|" + result);
+        while (l.size() > 12) l.remove(0);
+        put(ctx, "bgLog", android.text.TextUtils.join("\n", l));
+    }
 }

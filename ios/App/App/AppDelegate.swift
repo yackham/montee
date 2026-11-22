@@ -671,6 +671,7 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
                 let last = UserDefaults.standard.double(forKey: "montee.bgLast")
                 var out: [String: Any] = ["refresh": r, "notif": a]
                 if last > 0 { out["last"] = last }
+                out["log"] = UserDefaults.standard.stringArray(forKey: "montee.bgLog") ?? []
                 call.resolve(out)
             }
         }
@@ -1023,17 +1024,26 @@ enum MonteeBackground {
         try? BGTaskScheduler.shared.submit(request)
     }
 
+    /// 3.69 : journal des passages (« heure|résultat »), les 12 derniers : sert à comprendre pourquoi peu de notifications arrivent.
+    static func log(_ result: String) {
+        var l = UserDefaults.standard.stringArray(forKey: "montee.bgLog") ?? []
+        l.append("\(Int(Date().timeIntervalSince1970))|\(result)")
+        if l.count > 12 { l.removeFirst(l.count - 12) }
+        UserDefaults.standard.set(l, forKey: "montee.bgLog")
+    }
+
     static func handle(task: BGAppRefreshTask) {
         schedule()
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "montee.bgLast") // 3.59 : affiché dans Réglages › Notifications
         guard let script = MonteeStore.script, MonteeStore.state != nil else {
+            log("sans-lecture")
             task.setTaskCompleted(success: true)
             return
         }
         var completed = false
         task.expirationHandler = {
             DispatchQueue.main.async {
-                if !completed { completed = true; task.setTaskCompleted(success: false) }
+                if !completed { completed = true; log("interrompu"); task.setTaskCompleted(success: false) }
             }
         }
         TenupSilentRefresh.run(script: script, timeout: 22) { text in
@@ -1043,12 +1053,19 @@ enum MonteeBackground {
                 if text.hasPrefix("MONTEE1") {
                     // 3.43.2 : une relance « joueurs suivis » n'écrase pas un palmarès pas encore importé
                     if !(text.contains("\"folOnly\":true") && MonteeStore.pending != nil) { MonteeStore.pending = text }
-                    for note in MonteeSummary.compute(payload: text, state: MonteeStore.state ?? "{}") {
+                    let notes = MonteeSummary.compute(payload: text, state: MonteeStore.state ?? "{}")
+                    for note in notes {
                         notify(title: note.title, body: note.body)
                     }
-                } else if text.contains("connecte-toi") && !MonteeStore.expiredNotified {
-                    MonteeStore.expiredNotified = true
-                    notify(title: "Ten'Up t'a déconnecté", body: "Ouvre Montée et reconnecte-toi pour suivre tes nouveaux matchs.")
+                    log(notes.isEmpty ? "rien" : "notif:\(notes.count)")
+                } else if text.contains("connecte-toi") {
+                    log("deconnecte")
+                    if !MonteeStore.expiredNotified {
+                        MonteeStore.expiredNotified = true
+                        notify(title: "Ten'Up t'a déconnecté", body: "Ouvre Montée et reconnecte-toi pour suivre tes nouveaux matchs.")
+                    }
+                } else {
+                    log(text.contains("délai") ? "timeout" : text.contains("maintenance") ? "maintenance" : "erreur")
                 }
                 task.setTaskCompleted(success: true)
             }

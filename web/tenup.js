@@ -267,13 +267,15 @@
       var T0 = Date.now(), BUDGET = +A.budget || 14000, late = function () { return Date.now() - T0 > BUDGET; };
       var dayN = function (x) { var t = Date.parse(String(x || "").slice(0, 10) + "T12:00:00Z"); return isNaN(t) ? null : Math.floor(t / 864e5); }; // floor : avant, round décalait les jours rendus d'un jour
       var iso = function (x) { return new Date(x * 864e5).toISOString().slice(0, 10); };
-      var ME = { id: "", lic: String(A.lic || "").replace(/\D/g, ""), nm: nrm(A.nm) };
+      var ME = { id: "", lic: String(A.lic || "").replace(/\D/g, ""), nm: nrm(A.nm), tk: String(A.nm || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter(function (x) { return x.length >= 2; }) };
       var isMe = function (o) {
         if (!o || typeof o !== "object") return false;
         var ids = [o.id, o.idPersonne, o.idCrm, o.personneId, o.idJoueur].filter(function (x) { return x != null; }).map(String);
         if (ME.id && (o.nom || o.prenom || o.numeroLicence || o.licence) && ids.indexOf(ME.id) >= 0) return true;
         var lc = String(o.numeroLicence || o.licence || "").replace(/\D/g, ""); if (ME.lic && lc && lc === ME.lic) return true;
-        if (ME.nm && (o.nom || o.prenom)) { var a = nrm(String(o.prenom || "") + String(o.nom || "")), b = nrm(String(o.nom || "") + String(o.prenom || "")); if (a === ME.nm || b === ME.nm) return true; }
+        if (ME.nm && (o.nom || o.prenom)) { var a = nrm(String(o.prenom || "") + String(o.nom || "")), b = nrm(String(o.nom || "") + String(o.prenom || "")); if (a === ME.nm || b === ME.nm) return true;
+          // 3.68.3 : prénom composé, nom d'usage, ordre ou accents différents entre ton profil et la feuille : tous les mots de ton nom s'y retrouvent
+          if (ME.tk.length >= 2) { var full = nrm(String(o.prenom || "") + " " + String(o.nom || "")), wr = (String(o.prenom || "") + " " + String(o.nom || "")).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/); if (ME.tk.every(function (w) { return wr.indexOf(w) >= 0; }) && full) return true; } }
         return false;
       };
       var findMe = function (x, path, d) { if (!x || typeof x !== "object" || d > 9) return null; if (!Array.isArray(x) && isMe(x)) return path || "-"; var ks = Object.keys(x); for (var i = 0; i < ks.length; i++) { var f = findMe(x[ks[i]], path + "." + ks[i], d + 1); if (f) return f; } return null; };
@@ -293,7 +295,15 @@
         var path = function (v, d, p, q) { return v + "/" + base + (d ? "/divisions/" + d : "") + (d && p ? "/phases/" + p : "") + (d && p && q ? "/poules/" + q : ""); };
         var get = function (d, p, q) { cs.n++; return jg(path("v2", d, p, q)).catch(function () { return jg(path("v1", d, p, q)); }); };
         var sheet = function (cx, rid) { return jg("v2/" + base + "/divisions/" + cx.d + "/phases/" + cx.p + "/poules/" + cx.q + "/rencontres/" + rid).catch(function () { return jg("v1/" + base + "/rencontres/" + rid); }).catch(function () { return null; }); };
-        var isMine = function (det) { return ((det && det.poule && det.poule.equipes) || []).filter(function (e) { return nrm(e.nom).indexOf(nrm(club)) === 0; }).map(function (e) { return e.id; }); };
+        // 3.68.3 : le nom de l'équipe commence par celui du club ; sinon (« TC GRANDVILLARS » / « GRANDVILLARS TC », entente…) tous les mots du club s'y trouvent
+        var cw = String(club || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter(function (x) { return x.length >= 4; });
+        var isMine = function (det) {
+          var eq = (det && det.poule && det.poule.equipes) || [];
+          if (!cs.ex && eq.length) cs.ex = eq.slice(0, 3).map(function (e) { return String(e.nom || "").replace(/\s+\d+\s*$/, ""); });
+          var a = eq.filter(function (e) { return nrm(e.nom).indexOf(nrm(club)) === 0; });
+          if (!a.length && cw.length) a = eq.filter(function (e) { var nn = String(e.nom || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); return cw.every(function (w) { return nn.indexOf(w) >= 0; }); });
+          return a.map(function (e) { return e.id; });
+        };
         var playedBy = function (det, ids) { return ids.filter(function (t) { return ((det.poule || {}).rencontres || []).some(function (r) { var d = rDay(r); return (r.idEquipe1 === t || r.idEquipe2 === t) && d != null && myDays.some(function (x) { return Math.abs(x - d) <= 2; }); }); }); };
         // 3.68 : une équipe du club « couvre » un de tes jours si elle a joué ce jour-là (± 2 j) contre le club de tes adversaires
         // du palmarès (ou, sans club connu, simplement ce jour-là). Plusieurs équipes peuvent couvrir des jours différents.
@@ -317,7 +327,14 @@
             var d = rDay(r), md = myDays.filter(function (x) { return !cs.done[x] && Math.abs(x - d) <= 2; });
             if (!md.length || cs.nF >= 60) return; cs.nF++;
             return sheet(cx, r.id).then(function (j) {
-              var at = j && findMe(j, "", 0); if (!at) return;
+              // 3.68.3 : forme des feuilles lues (nombre, avec joueurs, noms des champs, sans aucun nom), pour comprendre pourquoi ton nom n'y est pas
+              var sh = cs.sh = cs.sh || { n: 0, p: 0, k: {} }; sh.n++;
+              var pe = []; (function wk(x, d) { if (!x || typeof x !== "object" || d > 9 || pe.length > 40) return; if (!Array.isArray(x) && (x.nom || x.prenom)) { pe.push(x); Object.keys(x).slice(0, 20).forEach(function (k) { sh.k[k] = 1; }); return; } Object.keys(x).forEach(function (k) { wk(x[k], d + 1); }); })(j, 0);
+              if (pe.length) sh.p++;
+              var at = j && findMe(j, "", 0);
+              // 3.68.3 (Davy : « TC 3 le 4 oct. » alors qu'il n'a pas joué) : une feuille qui liste des joueurs SANS toi prouve que tu n'étais
+              // pas dans cette équipe ce jour-là : on ne la déduit plus du club d'en face (avant, seules les feuilles vides laissaient la déduction).
+              if (!at) { if (pe.length >= 2) { cs.neg = cs.neg || {}; [r.idEquipe1, r.idEquipe2].forEach(function (tt) { if (ids.indexOf(tt) >= 0) md.forEach(function (x) { cs.neg[String(tt) + "|" + x] = 1; }); }); } return; }
               var i1 = ids.indexOf(r.idEquipe1) >= 0, i2 = ids.indexOf(r.idEquipe2) >= 0, t = i1 && !i2 ? r.idEquipe1 : i2 && !i1 ? r.idEquipe2 : null;
               if (t == null) { // le club contre lui-même (équipe 2 contre équipe 3) : le côté de la feuille où tu es inscrit
                 var dom = r.idEquipeDomicileReelle || r.idEquipeDomicileTheorique, oth = dom === r.idEquipe1 ? r.idEquipe2 : r.idEquipe1;
@@ -333,11 +350,13 @@
         var step = function (det, cx) {
           var key = cx.d + "/" + cx.p + "/" + cx.q; if (cs.seen[key]) return Promise.resolve(); cs.seen[key] = 1;
           var ids = isMine(det); if (!ids.length) return Promise.resolve();
+          // 3.72 (Yann, responsable sportif) : mode « club » : on garde TOUTES les équipes du club de chaque poule lue, sans chercher la tienne
+          if (cs.all) { ids.forEach(function (t) { var k = cs.id + "~" + t; if (!cs.cl[k]) cs.clk.push(k); cs.cl[k] = pick(det, ids, cx, t); }); return Promise.resolve(); }
           return chk(det, ids, cx).then(function () {
             if (allDone()) { cs.fin = true; return; }
             if (!myDays.length) { if (!cs.best) cs.best = pick(det, ids, cx); cs.fin = true; return; }
             ids.forEach(function (t) {
-              var ds = myDays.filter(function (x) { return !cs.done[x] && !cs.cov[x] && covers(det, t, x); }); if (!ds.length) return;
+              var ds = myDays.filter(function (x) { return !cs.done[x] && !cs.cov[x] && !(cs.neg && cs.neg[String(t) + "|" + x]) && covers(det, t, x); }); if (!ds.length) return;
               var k = String(t); if (!cs.alt[k]) { cs.alt[k] = { o: pick(det, ids, cx, t), days: [] }; cs.ak.push(k); }
               ds.forEach(function (x) { cs.cov[x] = 1; cs.alt[k].days.push(x); });
             });
@@ -349,7 +368,7 @@
         // Une page lue : sa poule, puis les poules, phases et divisions qu'elle fait découvrir (toutes, plus de plafond à 24 pages).
         var grow = function (det, dv) {
           var dId = (det.division || {}).id || dv.d, pId = (det.phase || {}).id || dv.p, qId = (det.poule || {}).id, dn = dv.dn || (det.division || {}).nom || "";
-          var add = function (tk, key) { cs.qd = cs.qd || {}; if (cs.seen[key] || cs.qd[key]) return; cs.qd[key] = 1; cs.q.push(tk); };
+          var add = function (tk, key) { if (cs.only) return; cs.qd = cs.qd || {}; if (cs.seen[key] || cs.qd[key]) return; cs.qd[key] = 1; cs.q.push(tk); };
           ((det.phase || {}).poules || []).forEach(function (q) { if (q.id !== qId && dId && pId) add({ k: "poule", d: dId, p: pId, q: q.id, dn: dn }, dId + "/" + pId + "/" + q.id); });
           ((det.division || {}).phases || []).forEach(function (p) { if (p && p.id && p.id !== pId && dId) add({ k: "phase", d: dId, p: p.id, dn: dn }, dId + "/" + p.id); });
           return qId && dId && pId ? step(det, { d: dId, p: pId, q: qId, dn: dn }) : Promise.resolve();
@@ -379,14 +398,15 @@
         var E = {}, K = [], add = function (k, o, days, sure) { if (!E[k]) { E[k] = o; o.me.days = []; o.me.sure = sure; K.push(k); } else if (!sure) E[k].me.sure = E[k].me.sure && sure; days.forEach(function (x) { var d = iso(x); if (E[k].me.days.indexOf(d) < 0) E[k].me.days.push(d); }); };
         cs.ck.forEach(function (k) { add(k, cs.conf[k].o, cs.conf[k].days, true); });
         // 3.68 : jours sans feuille lisible (pas encore saisie) : avant on les jetait dès qu'une feuille avait parlé ; on garde l'équipe qui colle
-        cs.ak.forEach(function (k) { var ds = cs.alt[k].days.filter(function (x) { return !cs.done[x]; }); if (ds.length) add(k, cs.alt[k].o, ds, !!E[k]); });
+        cs.ak.forEach(function (k) { var ds = cs.alt[k].days.filter(function (x) { return !cs.done[x] && !(cs.neg && cs.neg[k + "|" + x]); }); if (ds.length) add(k, cs.alt[k].o, ds, !!E[k]); });
         var left = myDays.filter(function (x) { return !cs.done[x] && !cs.cov[x]; }), alt = cs.fw || cs.fb;
+        if (alt) left = left.filter(function (x) { return !(cs.neg && cs.neg[String(alt.me.mine) + "|" + x]); });
         if (left.length && alt && (K.length || alt)) add(String(alt.me.mine), alt, K.length ? left : [], !!E[String(alt.me.mine)]);
         if (K.length) { out = K.map(function (k) { var o = E[k]; o.me.days.sort(); if (!o.me.days.length) delete o.me.days; return o; }); if (out.length > 1) out.forEach(function (o) { o.cid = cs.id; o.id = cs.id + "~" + o.me.mine; }); }
         else out = [cs.best || { id: cs.id, nom: (cs.d0 || {}).nom || cs.nom, none: true }];
         return out.map(function (x) { var dd = x.me && x.me.days && x.me.days.length ? x.me.days : cs.dates; x.dates = dd; x.last = dd.slice().sort().pop() || cs.last; return x; });
       };
-      var trace = function (job) { return job.cs.map(function (cs) { return { id: cs.id, nom: cs.nom, pages: cs.n, feuilles: cs.nF, poules: Object.keys(cs.seen).length, reste: cs.q.length, fini: cs.fin, trouve: cs.ck.length ? "feuille" : cs.ak.length ? "club" : cs.fw || cs.fb || cs.best ? "jour" : "rien", ms: cs.ms, err: cs.err || 0 }; }); };
+      var trace = function (job) { return job.cs.map(function (cs) { return { id: cs.id, nom: cs.nom, pages: cs.n, feuilles: cs.nF, poules: Object.keys(cs.seen).length, reste: cs.q.length, fini: cs.fin, trouve: cs.ck.length ? "feuille" : cs.ak.length ? "club" : cs.fw || cs.fb || cs.best ? "jour" : "rien", ms: cs.ms, err: cs.err || 0, dates: cs.dates.slice(0, 8), sh: cs.sh ? { n: cs.sh.n, p: cs.sh.p, k: Object.keys(cs.sh.k).slice(0, 14) } : null, ex: cs.ex || null }; }); };
       var start = function () {
         if (A.job && A.job.cs) return Promise.resolve(A.job);
         var lim = new Date(); lim.setDate(lim.getDate() - 400); var limI = lim.toISOString().slice(0, 10);
@@ -401,6 +421,33 @@
           });
         });
       };
+      // 3.72 : les championnats du club. Ceux où tu joues (A.cids, déjà connus), plus ceux que Ten'Up liste pour le club (deux adresses
+      // essayées ; laquelle répond est notée dans le rapport). Relecture courte : seulement les poules déjà connues (A.known), sauf A.full.
+      var startClub = function () {
+        if (A.job && A.job.cs) return Promise.resolve(A.job);
+        return who().then(function (u) {
+          var C = {}, src = [], add = function (id, nom, from) { id = String(id || ""); if (!/^\d+$/.test(id)) return; if (!C[id]) { C[id] = { id: id, nom: nom || "", dates: [], last: "", opp: [] }; if (from && src.indexOf(from) < 0) src.push(from); } else if (!C[id].nom && nom) C[id].nom = nom; };
+          (A.cids || []).forEach(function (c) { add(c.id, c.nom, "toi"); });
+          var walk = function (o, d, from) { if (!o || typeof o !== "object" || d > 7) return; if (Array.isArray(o)) return o.forEach(function (x) { walk(x, d + 1, from); });
+            if (o.idChampionnat || o.championnatId) add(o.idChampionnat || o.championnatId, o.nomChampionnat || o.libelleChampionnat || "", from);
+            if (o.championnat && typeof o.championnat === "object" && o.championnat.id) add(o.championnat.id, o.championnat.nom || o.championnat.libelle || "", from);
+            Object.keys(o).forEach(function (k) { if (k !== "championnat") walk(o[k], d + 1, from); }); };
+          var code = String(u.code || A.club || ""), tries = code ? ["v1/championnats-equipes/clubs/" + code, "v1/clubs/" + code + "/equipes", "v1/clubs/" + code + "/championnats-equipes"] : [];
+          return tries.reduce(function (ch, t) { return ch.then(function () { return jg(t).then(function (j) { var n0 = Object.keys(C).length; walk(j, 0, t); src.push(t + " : " + (Object.keys(C).length - n0) + " en plus"); }, function (e) { src.push(t + " : " + String(e && e.message || e)); }); }); }, Promise.resolve()).then(function () {
+            var K = A.known || {}, L = Object.keys(C).map(function (k) { return C[k]; }).slice(0, 16);
+            return { u: u, calls: 0, club: 1, src: src, cs: L.map(function (c) { var cs = mkCs(c, K[String(c.id)]); if (!A.full && K[String(c.id)] && K[String(c.id)].length) { cs.q = cs.q.filter(function (x) { return x.k !== "root"; }); cs.only = true; } cs.all = true; cs.cl = {}; cs.clk = []; return cs; }) };
+          });
+        });
+      };
+      if (A.all) return startClub().then(function (job) {
+        job.calls = (job.calls || 0) + 1;
+        return Promise.all(job.cs.filter(function (cs) { return !cs.fin; }).map(function (cs) { return scan(cs, job.u.nom); })).then(function () {
+          var done = job.cs.every(function (cs) { return cs.fin; });
+          var champs = [].concat.apply([], job.cs.filter(function (cs) { return done || cs.fin; }).map(function (cs) { return cs.clk.map(function (k) { var o = cs.cl[k]; o.id = k; o.cid = cs.id; o.cl = 1; o.me.sure = false; return o; }); }));
+          return ok({ at: Date.now(), club: { code: job.u.code, nom: job.u.nom }, champs: champs, job: done ? null : job, partial: !done,
+            trace: { calls: job.calls, src: job.src, champs: job.cs.map(function (cs) { return { id: cs.id, nom: (cs.d0 || {}).nom || cs.nom, pages: cs.n, poules: Object.keys(cs.seen).length, equipes: cs.clk.length, reste: cs.q.length, fini: cs.fin, err: cs.err || 0 }; }) } });
+        });
+      }).catch(err);
       return start().then(function (job) {
         job.calls = (job.calls || 0) + 1; ME.id = String(job.u.id || "");
         var todo = job.cs.filter(function (cs) { return !cs.fin; });
