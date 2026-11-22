@@ -331,7 +331,10 @@
               var sh = cs.sh = cs.sh || { n: 0, p: 0, k: {} }; sh.n++;
               var pe = []; (function wk(x, d) { if (!x || typeof x !== "object" || d > 9 || pe.length > 40) return; if (!Array.isArray(x) && (x.nom || x.prenom)) { pe.push(x); Object.keys(x).slice(0, 20).forEach(function (k) { sh.k[k] = 1; }); return; } Object.keys(x).forEach(function (k) { wk(x[k], d + 1); }); })(j, 0);
               if (pe.length) sh.p++;
-              var at = j && findMe(j, "", 0); if (!at) return;
+              var at = j && findMe(j, "", 0);
+              // 3.68.3 (Davy : « TC 3 le 4 oct. » alors qu'il n'a pas joué) : une feuille qui liste des joueurs SANS toi prouve que tu n'étais
+              // pas dans cette équipe ce jour-là : on ne la déduit plus du club d'en face (avant, seules les feuilles vides laissaient la déduction).
+              if (!at) { if (pe.length >= 2) { cs.neg = cs.neg || {}; [r.idEquipe1, r.idEquipe2].forEach(function (tt) { if (ids.indexOf(tt) >= 0) md.forEach(function (x) { cs.neg[String(tt) + "|" + x] = 1; }); }); } return; }
               var i1 = ids.indexOf(r.idEquipe1) >= 0, i2 = ids.indexOf(r.idEquipe2) >= 0, t = i1 && !i2 ? r.idEquipe1 : i2 && !i1 ? r.idEquipe2 : null;
               if (t == null) { // le club contre lui-même (équipe 2 contre équipe 3) : le côté de la feuille où tu es inscrit
                 var dom = r.idEquipeDomicileReelle || r.idEquipeDomicileTheorique, oth = dom === r.idEquipe1 ? r.idEquipe2 : r.idEquipe1;
@@ -351,7 +354,7 @@
             if (allDone()) { cs.fin = true; return; }
             if (!myDays.length) { if (!cs.best) cs.best = pick(det, ids, cx); cs.fin = true; return; }
             ids.forEach(function (t) {
-              var ds = myDays.filter(function (x) { return !cs.done[x] && !cs.cov[x] && covers(det, t, x); }); if (!ds.length) return;
+              var ds = myDays.filter(function (x) { return !cs.done[x] && !cs.cov[x] && !(cs.neg && cs.neg[String(t) + "|" + x]) && covers(det, t, x); }); if (!ds.length) return;
               var k = String(t); if (!cs.alt[k]) { cs.alt[k] = { o: pick(det, ids, cx, t), days: [] }; cs.ak.push(k); }
               ds.forEach(function (x) { cs.cov[x] = 1; cs.alt[k].days.push(x); });
             });
@@ -393,8 +396,9 @@
         var E = {}, K = [], add = function (k, o, days, sure) { if (!E[k]) { E[k] = o; o.me.days = []; o.me.sure = sure; K.push(k); } else if (!sure) E[k].me.sure = E[k].me.sure && sure; days.forEach(function (x) { var d = iso(x); if (E[k].me.days.indexOf(d) < 0) E[k].me.days.push(d); }); };
         cs.ck.forEach(function (k) { add(k, cs.conf[k].o, cs.conf[k].days, true); });
         // 3.68 : jours sans feuille lisible (pas encore saisie) : avant on les jetait dès qu'une feuille avait parlé ; on garde l'équipe qui colle
-        cs.ak.forEach(function (k) { var ds = cs.alt[k].days.filter(function (x) { return !cs.done[x]; }); if (ds.length) add(k, cs.alt[k].o, ds, !!E[k]); });
+        cs.ak.forEach(function (k) { var ds = cs.alt[k].days.filter(function (x) { return !cs.done[x] && !(cs.neg && cs.neg[k + "|" + x]); }); if (ds.length) add(k, cs.alt[k].o, ds, !!E[k]); });
         var left = myDays.filter(function (x) { return !cs.done[x] && !cs.cov[x]; }), alt = cs.fw || cs.fb;
+        if (alt) left = left.filter(function (x) { return !(cs.neg && cs.neg[String(alt.me.mine) + "|" + x]); });
         if (left.length && alt && (K.length || alt)) add(String(alt.me.mine), alt, K.length ? left : [], !!E[String(alt.me.mine)]);
         if (K.length) { out = K.map(function (k) { var o = E[k]; o.me.days.sort(); if (!o.me.days.length) delete o.me.days; return o; }); if (out.length > 1) out.forEach(function (o) { o.cid = cs.id; o.id = cs.id + "~" + o.me.mine; }); }
         else out = [cs.best || { id: cs.id, nom: (cs.d0 || {}).nom || cs.nom, none: true }];
