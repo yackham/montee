@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.67.1",
+    VERSION: "3.68.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1618,13 +1618,39 @@
   function teamsRefresh(force) {
     if (!NATIVE || !S.tenup.linked || UI.tmBusy) return;
     var t = S.teams, live = t && myTeams().some(function (c) { return (c.renc || []).some(tmLive); });
-    if (!force && t && t.qv === 6 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe ; 5 = 3.58.1, le club d'en face ; 6 = 3.62, ton nom sur la feuille de match, plusieurs équipes possibles)
+    if (!force && t && t.qv === 7 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe ; 5 = 3.58.1, le club d'en face ; 6 = 3.62, ton nom sur la feuille de match ; 7 = 3.68, recherche découpée en plusieurs lectures)
     UI.tmBusy = true;
-    tenupQuery("equipes", { club: (t && t.club && t.club.code) || S.tenup.clubCode || "", pid: (t && t.pid) || "", nomClub: (t && t.club && t.club.nom) || "", lic: S.profile.licence || "", nm: S.profile.name || "" }).then(function (r) {
-      UI.tmBusy = false;
-      if (r && !r.error && r.champs) { r.qv = 6; S.teams = r; if (r.club && r.club.code && !S.tenup.clubCode) S.tenup.clubCode = r.club.code; UI.tmErr = null; save(); } else UI.tmErr = (r && r.error) || "Ten'Up n'a pas répondu";
-      var rt = route(); if (rt === "" || rt.indexOf("tournoi") === 0 || rt.indexOf("equipe") === 0 || rt.indexOf("rencontre") === 0) render();
-    });
+    // 3.68 : les poules où tes équipes ont déjà été trouvées sont relues en premier (une lecture courte suffit le plus souvent)
+    var known = {}; ((t && t.champs) || []).forEach(function (c) { if (!c.none && !c.err && c.path && c.path.q && c.me && c.me.mine) { var k = String(c.cid || c.id); (known[k] = known[k] || []).push(c.path); } });
+    var args = { club: (t && t.club && t.club.code) || S.tenup.clubCode || "", pid: (t && t.pid) || "", nomClub: (t && t.club && t.club.nom) || "", lic: S.profile.licence || "", nm: S.profile.name || "", known: known };
+    var calls = 0, done = function () { UI.tmBusy = false; var rt = route(); if (rt === "" || rt.indexOf("tournoi") === 0 || rt.indexOf("equipe") === 0 || rt.indexOf("rencontre") === 0 || rt.indexOf("reglages") === 0) render(); };
+    var go = function (job) {
+      calls++;
+      tenupQuery("equipes", job ? Object.assign({}, args, { job: job }) : args).then(function (r) {
+        if (!r || r.error || !r.champs) { UI.tmErr = (r && r.error) || "Ten'Up n'a pas répondu"; S.teamsTrace = { at: Date.now(), calls: calls, err: UI.tmErr, last: S.teamsTrace && S.teamsTrace.last }; save(); return done(); }
+        S.teamsTrace = { at: Date.now(), calls: calls, partial: !!r.partial, last: r.trace };
+        if (r.club && r.club.code && !S.tenup.clubCode) S.tenup.clubCode = r.club.code;
+        if (r.partial && r.job && calls < 8) {
+          // lecture coupée : on garde déjà les championnats finis (avec les anciens pour les autres), et on relance la suite
+          var fin = {}; r.champs.forEach(function (c) { fin[String(c.cid || c.id)] = 1; });
+          var old = ((t && t.champs) || []).filter(function (c) { return !fin[String(c.cid || c.id)]; });
+          S.teams = { at: (t && t.at) || 0, qv: t && t.qv, club: r.club, pid: r.pid, champs: r.champs.concat(old) }; save();
+          var rt = route(); if (rt.indexOf("equipe") === 0) render();
+          return go(r.job);
+        }
+        delete r.job; delete r.trace; delete r.partial; r.qv = 7; S.teams = r; UI.tmErr = null; save(); done();
+      });
+    };
+    go(null);
+  }
+  // 3.68 (Davy) : comment Montée a cherché tes équipes, pour comprendre (et nous envoyer) ce qui coince sans deviner
+  function tmTraceHtml() {
+    var tr = S.teamsTrace; if (!NATIVE || !tr) return "";
+    var L = (tr.last && tr.last.champs) || [], W = { feuille: "trouvée sur la feuille de match", club: "trouvée par le club d'en face", jour: "trouvée par le jour du match", rien: "pas trouvée" };
+    var rows = L.map(function (c) { return '<div class="tm-trr"><b>' + esc(c.nom || "Championnat " + c.id) + "</b><span>" + esc((W[c.trouve] || "") + (c.fini ? "" : " · recherche pas finie")) + " · " + plural(c.poules, "poule") + " lue" + (c.poules > 1 ? "s" : "") + ", " + plural(c.feuilles, "feuille") + " de match · " + Math.round((c.ms || 0) / 1000) + " s" + (c.err ? " · " + plural(c.err, "erreur") : "") + "</span></div>"; }).join("");
+    var head = UI.tmBusy ? "Recherche en cours…" : tr.err ? "Dernière recherche : " + tr.err : "Dernière recherche " + agoLab(tr.at) + " en " + plural(tr.calls, "lecture");
+    return '<details class="tm-tr"><summary>Comment Montée a cherché tes équipes</summary><span class="small">' + esc(head) + "</span>" + (rows || '<span class="small">Aucune rencontre par équipes dans ton palmarès Ten\'Up des 13 derniers mois.</span>') +
+      (UI.tmBusy ? "" : '<button class="linkbtn" data-a="syTap" data-k="team">Relancer la recherche</button>') + "</details>";
   }
   function teamRow(c) {
     var me = tmOf(c, c.me.mine) || {}, nx = !c.cloture && tmNext(c), n = (c.teams || []).length;
@@ -1947,7 +1973,7 @@
     var tabs = showEq ? '<div class="seg ep-tabs"><button data-a="epTab" data-v="toi" class="' + (tab === "toi" ? "on" : "") + '">Toi</button><button data-a="epTab" data-v="eq" class="' + (tab === "eq" ? "on" : "") + '">Mes équipes</button></div>' : "";
     var seas = (function () { var y = today().getMonth() >= 8 ? today().getFullYear() : today().getFullYear() - 1; return "saison " + y + "-" + String(y + 1).slice(2); })();
     if (tab === "eq") return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs + (myTeams(true).length ? teamsTabHtml() :
-      viduel("eq", "Pas encore de rencontre par équipes", "Montée suit ton palmarès Ten'Up : dès ta première rencontre avec ton club, ton équipe s'affiche ici avec son classement et ses résultats.", [S.teams && S.teams.club && S.teams.club.nom ? tmNm(S.teams.club.nom) : "", seas].filter(Boolean).join(" · "))) + "</div>";
+      viduel("eq", "Pas encore de rencontre par équipes", "Montée suit ton palmarès Ten'Up : dès ta première rencontre avec ton club, ton équipe s'affiche ici avec son classement et ses résultats.", [S.teams && S.teams.club && S.teams.club.nom ? tmNm(S.teams.club.nom) : "", seas].filter(Boolean).join(" · "))) + tmTraceHtml() + "</div>";
     return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs +
       (!all.length ? viduel("toi", "Aucun tournoi ni indivs cette saison", "Dès que tu t'inscris sur Ten'Up, ton tournoi ou ta poule d'indivs arrive ici tout seul : tableau, adversaires, tes chances.", "Ta " + seas) : "") +
 sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
