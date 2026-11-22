@@ -60,13 +60,23 @@ struct RingPill: View {
     let text: String
     let label: String
     let color: Color
+    var num: Int? = nil        // 3.71 : pourcentage à faire défiler (nil = texte fixe, ex. « 15/1 »)
+    var delay: Double = 0
+    // 3.71 : une seule fois par lancement, pas à chaque retour sur l'accueil (batterie)
+    static var played = Set<String>()
+    @Environment(\.accessibilityReduceMotion) private var reduce
+    @Environment(\.isLuminanceReduced) private var dim
+    @State private var k: Double = 1
     var body: some View {
         VStack(spacing: 4) {
             ZStack {
                 Circle().stroke(color.opacity(0.22), lineWidth: 5.5)
-                Circle().trim(from: 0, to: CGFloat(max(0.02, min(1, value))))
+                Circle().trim(from: 0, to: CGFloat(max(0.02, min(1, value * k))))
                     .stroke(color, style: StrokeStyle(lineWidth: 5.5, lineCap: .round)).rotationEffect(.degrees(-90))
-                Text(text).font(.system(size: 14, weight: .heavy)).minimumScaleFactor(0.6).lineLimit(1).padding(.horizontal, 6)
+                Group {
+                    if let n = num { CountText(v: Double(n) * k) } else { Text(text).opacity(k < 0.5 ? 0.4 : 1) }
+                }
+                .font(.system(size: 14, weight: .heavy)).minimumScaleFactor(0.6).lineLimit(1).padding(.horizontal, 6)
             }.frame(width: 50, height: 50)
             Text(label).font(.system(size: 10.5, weight: .heavy)).foregroundColor(color).lineLimit(1).minimumScaleFactor(0.8)
         }
@@ -75,10 +85,22 @@ struct RingPill: View {
         .background(LinearGradient(colors: [color.opacity(0.22), color.opacity(0.05)], startPoint: .top, endPoint: .bottom))
         .overlay(Capsule().stroke(color.opacity(0.28), lineWidth: 1))
         .clipShape(Capsule())
+        .onAppear {
+            guard !reduce, !dim, !RingPill.played.contains(label) else { return }
+            RingPill.played.insert(label)
+            k = 0
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.72).delay(delay)) { k = 1 }
+        }
     }
 }
 
-/// Bouton pleine largeur, même hauteur partout ; couleur au choix
+/// 3.71 : un pourcentage qui défile jusqu'à sa valeur (suit l'animation de l'anneau)
+struct CountText: View, Animatable {
+    var v: Double
+    var animatableData: Double { get { v } set { v = newValue } }
+    var body: some View { Text("\(Int(max(0, v).rounded()))%").monospacedDigit() }
+}
+
 struct Wide: ButtonStyle {
     var bg: Color = .card
     var fg: Color = .white
@@ -264,11 +286,11 @@ struct HomeView: View {
                     HStack(spacing: 5) {
                         if let r = c.rings {
                             // 3.32 : comme sur l'iPhone : Victoires et Niveau = une page, Forme = une fiche par le bas
-                            NavigationLink { VictoiresDetail() } label: { RingPill(value: Double(r.win) / 100, text: "\(r.win)%", label: "Victoires", color: .gazon) }.buttonStyle(.plain)
-                            Button { forme = true } label: { RingPill(value: Double(r.form) / 100, text: "\(r.form)%", label: "Forme", color: .balle) }.buttonStyle(.plain)
-                            NavigationLink { if r.hasLvl == false { VictoiresDetail() } else { NiveauDetail() } } label: { RingPill(value: Double(r.lvlPct) / 100, text: r.lvl, label: r.lvlLabel, color: Color(red: 0.56, green: 0.66, blue: 1)) }.buttonStyle(.plain)
+                            NavigationLink { VictoiresDetail() } label: { RingPill(value: Double(r.win) / 100, text: "\(r.win)%", label: "Victoires", color: .gazon, num: r.win) }.buttonStyle(.plain)
+                            Button { forme = true } label: { RingPill(value: Double(r.form) / 100, text: "\(r.form)%", label: "Forme", color: .balle, num: r.form, delay: 0.09) }.buttonStyle(.plain)
+                            NavigationLink { if r.hasLvl == false { VictoiresDetail() } else { NiveauDetail() } } label: { RingPill(value: Double(r.lvlPct) / 100, text: r.lvl, label: r.lvlLabel, color: Color(red: 0.56, green: 0.66, blue: 1), delay: 0.18) }.buttonStyle(.plain)
                         } else {
-                            NavigationLink { MonteeDetail() } label: { RingPill(value: Double(c.pct ?? 0) / 100, text: "\(c.pct ?? 0)%", label: "Montée", color: .balle) }.buttonStyle(.plain)
+                            NavigationLink { MonteeDetail() } label: { RingPill(value: Double(c.pct ?? 0) / 100, text: "\(c.pct ?? 0)%", label: "Montée", color: .balle, num: c.pct ?? 0) }.buttonStyle(.plain)
                             NavigationLink { FormeDetail() } label: {
                                 RingPill(value: (c.form ?? []).isEmpty ? 0 : Double(formV) / Double((c.form ?? []).count), text: (c.form ?? []).isEmpty ? "–" : "\(formV)/\((c.form ?? []).count)", label: "Forme", color: .gazon)
                             }.buttonStyle(.plain)
@@ -1277,17 +1299,30 @@ struct ScoreHeader: View {
 struct ScoreLine: View {
     let M: MatchState
     let who: Int
+    // 3.71 : le point glisse quand il change ; jeu gagné = le chiffre gonfle et la ligne s'éclaire (avec la vibration existante)
+    @Environment(\.accessibilityReduceMotion) private var reduce
+    @Environment(\.isLuminanceReduced) private var dim
+    @State private var pop: CGFloat = 0
     var body: some View {
+        let col: Color = who == 0 ? .gazon : .terre
         HStack(spacing: 7) {
-            Text(who == 0 ? "TOI" : "LUI").font(.system(size: 10.5, weight: .heavy)).foregroundColor(who == 0 ? .gazon : .terre)
+            Text(who == 0 ? "TOI" : "LUI").font(.system(size: 10.5, weight: .heavy)).foregroundColor(col)
                 .frame(width: 24, alignment: .trailing)
             ForEach(Array(M.sets.enumerated()), id: \.offset) { _, s in
                 Text("\(who == 0 ? s.a : s.b)").font(.system(size: 15, weight: .heavy)).foregroundColor(.secondary)
             }
-            if !M.inTB || !M.superTB { Text("\(M.games[who])").font(.system(size: 15, weight: .heavy)) }
+            if !M.inTB || !M.superTB { Text("\(M.games[who])").font(.system(size: 15, weight: .heavy)).scaleEffect(1 + 0.45 * pop) }
             Text(M.pointText(who)).font(.system(size: 30, weight: .heavy)).monospacedDigit()
+                .contentTransition(.numericText())
+                .animation(reduce || dim ? nil : .snappy(duration: 0.22), value: M.pointText(who))
                 .frame(minWidth: 44)
             Circle().fill(Color.balle).frame(width: 7, height: 7).opacity(M.server == who ? 1 : 0)
+        }
+        .background(RoundedRectangle(cornerRadius: 12).fill(col.opacity(0.28 * pop)).padding(.horizontal, -6))
+        .onChange(of: M.games[who]) { old, new in
+            guard new > old, !reduce, !dim else { return }
+            pop = 1
+            withAnimation(.easeOut(duration: 0.4)) { pop = 0 }
         }
     }
 }
@@ -1783,6 +1818,29 @@ struct StatsView: View {
 
 // MARK: - Fin du match
 
+/// 3.71 : l'anneau de victoire se ferme puis la coche se trace (en même temps que la double vibration « succès »)
+struct VictoryMark: View {
+    @Environment(\.accessibilityReduceMotion) private var reduce
+    @State private var ring: CGFloat = 1
+    @State private var tick: CGFloat = 1
+    var body: some View {
+        ZStack {
+            Circle().stroke(Color.gazon.opacity(0.2), lineWidth: 4)
+            Circle().trim(from: 0, to: ring).stroke(Color.gazon, style: StrokeStyle(lineWidth: 4, lineCap: .round)).rotationEffect(.degrees(-90))
+            Path { p in p.move(to: CGPoint(x: 9, y: 17)); p.addLine(to: CGPoint(x: 14, y: 22)); p.addLine(to: CGPoint(x: 24, y: 11)) }
+                .trim(from: 0, to: tick).stroke(Color.gazon, style: StrokeStyle(lineWidth: 3.5, lineCap: .round, lineJoin: .round))
+        }
+        .frame(width: 33, height: 33)
+        .accessibilityHidden(true)
+        .onAppear {
+            guard !reduce else { return }
+            ring = 0; tick = 0
+            withAnimation(.easeOut(duration: 0.6)) { ring = 1 }
+            withAnimation(.easeOut(duration: 0.3).delay(0.45)) { tick = 1 }
+        }
+    }
+}
+
 struct EndView: View {
     let M: MatchState
     @ObservedObject var vm = MatchVM.shared
@@ -1791,7 +1849,10 @@ struct EndView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
-                Text(won ? "Victoire" : "Défaite").font(.system(size: 13, weight: .heavy)).foregroundColor(won ? .balle : .terre)
+                HStack(spacing: 8) {
+                    if won { VictoryMark() }
+                    Text(won ? "Victoire" : "Défaite").font(.system(size: won ? 17 : 13, weight: .heavy)).foregroundColor(won ? .balle : .terre)
+                }
                 Text(scoreLine).font(.system(size: 24, weight: .heavy)).minimumScaleFactor(0.6).lineLimit(1)
                 Text("contre " + (vm.live?.name ?? "")).font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary).lineLimit(1)
                 kv("Durée" + (w.avg > 0 ? " · cardio" : ""), vm.elapsed() + (w.avg > 0 ? " · \(Int(w.avg))" : ""))
