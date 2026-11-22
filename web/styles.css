@@ -5959,3 +5959,10 @@ textarea, input:not([type=checkbox]):not([type=radio]) { max-width: 100%; box-si
 .bz-how summary svg { width: 15px; height: 15px; }
 .bz-how ul { margin: 8px 0 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.4; color: var(--muted); }
 .bz-how li b { color: var(--ink); }
+/* 3.70.6 (Yann) : la recherche Ten'Up des adversaires se voit avancer */
+.ti-prog { display: block; height: 4px; border-radius: 2px; background: var(--chip); overflow: hidden; margin: 2px 0 4px; }
+.ti-prog i { display: block; height: 100%; border-radius: 2px; background: var(--gazon); transition: width .35s ease; position: relative; overflow: hidden; }
+.ti-prog i::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); transform: translateX(-100%); animation: tiSh 1.2s ease-in-out infinite; }
+@keyframes tiSh { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .ti-prog i::after { animation: none; } }
+.btn.primary[disabled] { opacity: .75; cursor: default; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
