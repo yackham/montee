@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.69.0",
+    VERSION: "3.69.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1661,7 +1661,7 @@
   function tmReportText() {
     var tr = S.teamsTrace || {}, t = S.teams || {}, L = ["Rapport équipes Montée " + CONFIG.VERSION + " · " + (window.Capacitor && Capacitor.getPlatform ? Capacitor.getPlatform() : "web") + " · " + new Date().toISOString().slice(0, 16).replace("T", " "),
       "Club : " + ((t.club && t.club.nom) || "?") + " · lecture " + (tr.at ? new Date(tr.at).toISOString().slice(0, 16).replace("T", " ") : "jamais") + " en " + (tr.calls || 0) + " appel(s)" + (tr.err ? " · ERREUR : " + tr.err : "") + (tr.partial ? " · incomplète" : "")];
-    ((tr.last && tr.last.champs) || []).forEach(function (c) { L.push("- " + (c.nom || c.id) + " (" + c.id + ") : " + c.trouve + (c.fini ? "" : " · pas finie") + " · " + c.poules + " poules, " + c.pages + " pages, " + c.feuilles + " feuilles, " + Math.round((c.ms || 0) / 1000) + " s, " + (c.err || 0) + " erreur(s), reste " + c.reste); });
+    ((tr.last && tr.last.champs) || []).forEach(function (c) { L.push("- " + (c.nom || c.id) + " (" + c.id + ") : " + c.trouve + (c.fini ? "" : " · pas finie") + " · " + c.poules + " poules, " + c.pages + " pages, " + c.feuilles + " feuilles, " + Math.round((c.ms || 0) / 1000) + " s, " + (c.err || 0) + " erreur(s), reste " + c.reste + " · jours " + ((c.dates || []).join(",") || "?") + (c.sh ? " · feuilles : " + c.sh.n + " lues, " + c.sh.p + " avec joueurs, champs " + (c.sh.k || []).join("/") : "") + (c.ex ? " · équipes vues : " + c.ex.join(" ; ") : "")); });
     L.push("Équipes retenues :");
     ((t.champs || []).filter(function (c) { return c.me; })).forEach(function (c) { var m = (c.teams || []).filter(function (x) { return x.id === c.me.mine; })[0]; L.push("- " + (c.nom || c.id) + " · " + (c.div || "") + " · " + (c.poule || "") + " · " + (m ? m.nom : "?") + " · jours " + ((c.me.days || []).join(", ") || "?") + (c.me.sure ? " (feuille)" : " (déduit)")); });
     L.push("Matchs par équipes dans l'app : " + S.matches.filter(function (m) { return m.kind === "equipes"; }).map(function (m) { return m.date; }).sort().join(", "));

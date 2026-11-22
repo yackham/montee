@@ -267,13 +267,15 @@
       var T0 = Date.now(), BUDGET = +A.budget || 14000, late = function () { return Date.now() - T0 > BUDGET; };
       var dayN = function (x) { var t = Date.parse(String(x || "").slice(0, 10) + "T12:00:00Z"); return isNaN(t) ? null : Math.floor(t / 864e5); }; // floor : avant, round décalait les jours rendus d'un jour
       var iso = function (x) { return new Date(x * 864e5).toISOString().slice(0, 10); };
-      var ME = { id: "", lic: String(A.lic || "").replace(/\D/g, ""), nm: nrm(A.nm) };
+      var ME = { id: "", lic: String(A.lic || "").replace(/\D/g, ""), nm: nrm(A.nm), tk: String(A.nm || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter(function (x) { return x.length >= 2; }) };
       var isMe = function (o) {
         if (!o || typeof o !== "object") return false;
         var ids = [o.id, o.idPersonne, o.idCrm, o.personneId, o.idJoueur].filter(function (x) { return x != null; }).map(String);
         if (ME.id && (o.nom || o.prenom || o.numeroLicence || o.licence) && ids.indexOf(ME.id) >= 0) return true;
         var lc = String(o.numeroLicence || o.licence || "").replace(/\D/g, ""); if (ME.lic && lc && lc === ME.lic) return true;
-        if (ME.nm && (o.nom || o.prenom)) { var a = nrm(String(o.prenom || "") + String(o.nom || "")), b = nrm(String(o.nom || "") + String(o.prenom || "")); if (a === ME.nm || b === ME.nm) return true; }
+        if (ME.nm && (o.nom || o.prenom)) { var a = nrm(String(o.prenom || "") + String(o.nom || "")), b = nrm(String(o.nom || "") + String(o.prenom || "")); if (a === ME.nm || b === ME.nm) return true;
+          // 3.68.3 : prénom composé, nom d'usage, ordre ou accents différents entre ton profil et la feuille : tous les mots de ton nom s'y retrouvent
+          if (ME.tk.length >= 2) { var full = nrm(String(o.prenom || "") + " " + String(o.nom || "")), wr = (String(o.prenom || "") + " " + String(o.nom || "")).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/); if (ME.tk.every(function (w) { return wr.indexOf(w) >= 0; }) && full) return true; } }
         return false;
       };
       var findMe = function (x, path, d) { if (!x || typeof x !== "object" || d > 9) return null; if (!Array.isArray(x) && isMe(x)) return path || "-"; var ks = Object.keys(x); for (var i = 0; i < ks.length; i++) { var f = findMe(x[ks[i]], path + "." + ks[i], d + 1); if (f) return f; } return null; };
@@ -293,7 +295,15 @@
         var path = function (v, d, p, q) { return v + "/" + base + (d ? "/divisions/" + d : "") + (d && p ? "/phases/" + p : "") + (d && p && q ? "/poules/" + q : ""); };
         var get = function (d, p, q) { cs.n++; return jg(path("v2", d, p, q)).catch(function () { return jg(path("v1", d, p, q)); }); };
         var sheet = function (cx, rid) { return jg("v2/" + base + "/divisions/" + cx.d + "/phases/" + cx.p + "/poules/" + cx.q + "/rencontres/" + rid).catch(function () { return jg("v1/" + base + "/rencontres/" + rid); }).catch(function () { return null; }); };
-        var isMine = function (det) { return ((det && det.poule && det.poule.equipes) || []).filter(function (e) { return nrm(e.nom).indexOf(nrm(club)) === 0; }).map(function (e) { return e.id; }); };
+        // 3.68.3 : le nom de l'équipe commence par celui du club ; sinon (« TC GRANDVILLARS » / « GRANDVILLARS TC », entente…) tous les mots du club s'y trouvent
+        var cw = String(club || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter(function (x) { return x.length >= 4; });
+        var isMine = function (det) {
+          var eq = (det && det.poule && det.poule.equipes) || [];
+          if (!cs.ex && eq.length) cs.ex = eq.slice(0, 3).map(function (e) { return String(e.nom || "").replace(/\s+\d+\s*$/, ""); });
+          var a = eq.filter(function (e) { return nrm(e.nom).indexOf(nrm(club)) === 0; });
+          if (!a.length && cw.length) a = eq.filter(function (e) { var nn = String(e.nom || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); return cw.every(function (w) { return nn.indexOf(w) >= 0; }); });
+          return a.map(function (e) { return e.id; });
+        };
         var playedBy = function (det, ids) { return ids.filter(function (t) { return ((det.poule || {}).rencontres || []).some(function (r) { var d = rDay(r); return (r.idEquipe1 === t || r.idEquipe2 === t) && d != null && myDays.some(function (x) { return Math.abs(x - d) <= 2; }); }); }); };
         // 3.68 : une équipe du club « couvre » un de tes jours si elle a joué ce jour-là (± 2 j) contre le club de tes adversaires
         // du palmarès (ou, sans club connu, simplement ce jour-là). Plusieurs équipes peuvent couvrir des jours différents.
@@ -317,6 +327,10 @@
             var d = rDay(r), md = myDays.filter(function (x) { return !cs.done[x] && Math.abs(x - d) <= 2; });
             if (!md.length || cs.nF >= 60) return; cs.nF++;
             return sheet(cx, r.id).then(function (j) {
+              // 3.68.3 : forme des feuilles lues (nombre, avec joueurs, noms des champs, sans aucun nom), pour comprendre pourquoi ton nom n'y est pas
+              var sh = cs.sh = cs.sh || { n: 0, p: 0, k: {} }; sh.n++;
+              var pe = []; (function wk(x, d) { if (!x || typeof x !== "object" || d > 9 || pe.length > 40) return; if (!Array.isArray(x) && (x.nom || x.prenom)) { pe.push(x); Object.keys(x).slice(0, 20).forEach(function (k) { sh.k[k] = 1; }); return; } Object.keys(x).forEach(function (k) { wk(x[k], d + 1); }); })(j, 0);
+              if (pe.length) sh.p++;
               var at = j && findMe(j, "", 0); if (!at) return;
               var i1 = ids.indexOf(r.idEquipe1) >= 0, i2 = ids.indexOf(r.idEquipe2) >= 0, t = i1 && !i2 ? r.idEquipe1 : i2 && !i1 ? r.idEquipe2 : null;
               if (t == null) { // le club contre lui-même (équipe 2 contre équipe 3) : le côté de la feuille où tu es inscrit
@@ -386,7 +400,7 @@
         else out = [cs.best || { id: cs.id, nom: (cs.d0 || {}).nom || cs.nom, none: true }];
         return out.map(function (x) { var dd = x.me && x.me.days && x.me.days.length ? x.me.days : cs.dates; x.dates = dd; x.last = dd.slice().sort().pop() || cs.last; return x; });
       };
-      var trace = function (job) { return job.cs.map(function (cs) { return { id: cs.id, nom: cs.nom, pages: cs.n, feuilles: cs.nF, poules: Object.keys(cs.seen).length, reste: cs.q.length, fini: cs.fin, trouve: cs.ck.length ? "feuille" : cs.ak.length ? "club" : cs.fw || cs.fb || cs.best ? "jour" : "rien", ms: cs.ms, err: cs.err || 0 }; }); };
+      var trace = function (job) { return job.cs.map(function (cs) { return { id: cs.id, nom: cs.nom, pages: cs.n, feuilles: cs.nF, poules: Object.keys(cs.seen).length, reste: cs.q.length, fini: cs.fin, trouve: cs.ck.length ? "feuille" : cs.ak.length ? "club" : cs.fw || cs.fb || cs.best ? "jour" : "rien", ms: cs.ms, err: cs.err || 0, dates: cs.dates.slice(0, 8), sh: cs.sh ? { n: cs.sh.n, p: cs.sh.p, k: Object.keys(cs.sh.k).slice(0, 14) } : null, ex: cs.ex || null }; }); };
       var start = function () {
         if (A.job && A.job.cs) return Promise.resolve(A.job);
         var lim = new Date(); lim.setDate(lim.getDate() - 400); var limI = lim.toISOString().slice(0, 10);
