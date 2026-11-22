@@ -5970,3 +5970,24 @@ textarea, input:not([type=checkbox]):not([type=radio]) { max-width: 100%; box-si
 .ps-prog { display: flex; flex-direction: column; gap: 6px; }
 .ps-prog .small { display: flex; align-items: center; gap: 8px; color: var(--muted); }
 .ps-prog .spin { width: 13px; height: 13px; border-width: 2px; border-color: var(--line); border-top-color: var(--gazon); flex: none; }
+/* 3.70.8 (Yann, maquette C) : en-tête de l'accueil en barre de profil */
+.topbar.hd { display: block; }
+.hd-col { display: flex; flex-direction: column; gap: 10px; }
+.hd-d { font-size: 15px; }
+.hd-r { display: flex; align-items: center; gap: 8px; }
+.hd-id { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 12px 8px 8px; border-radius: 32px; background: var(--card); color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.hd-id > svg { flex: none; width: 18px; height: 18px; margin-left: auto; color: var(--muted); }
+.hd-av { flex: none; width: 46px; height: 46px; border-radius: 23px; overflow: hidden; background: var(--solid); color: var(--on-solid); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; }
+.hd-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hd-t { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.hd-t > b { font-size: 21px; font-weight: 650; letter-spacing: -.025em; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd-t small { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); font-weight: 600; }
+.hd-t small .rk-tag { font-size: 14px; }
+.hd-ah { font-size: 11.5px; font-weight: 800; color: var(--gazon); }
+.hd-sy { display: inline-flex; align-items: center; gap: 5px; padding: 4px 0; }
+.hd-sy i { width: 7px; height: 7px; border-radius: 4px; background: var(--gazon); }
+.hd-sy.old i { background: var(--balle); } .hd-sy.old { color: var(--ink); }
+.hd-sy.err i { background: var(--terre); } .hd-sy.err { color: var(--terre); }
+.hd-sy.run i { background: var(--muted); animation: tiP 1s ease-in-out infinite; }
+.hd .gearbtn { flex: none; }
+.hd .demo-pill { align-self: flex-start; }

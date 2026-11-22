@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.70.7",
+    VERSION: "3.70.8",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1122,7 +1122,7 @@
   // 3.44 : la poule (indivs). Tes matchs dans t.pool ; les matchs des autres, lus sur leurs fiches Ten'Up (t.poolX)
   function ageOfX(x) { if (!x) return null; var h = x.hit || {}, sc = x.tid && S.scout && S.scout[x.tid]; return h.age || (sc && sc.profil && sc.profil.age) || null; }
   function poolMembers(t) { return [{ me: true, name: "Toi", rank: lab(curIdx() < 0 ? 0 : curIdx()) }].concat((t.pool || []).map(function (x) { return { name: x.name, rank: x.rank, tid: x.tid, hit: x.hit, age: ageOfX(x) }; })); }
-  // 3.70.7 (Yann : les matchs de poule de Davy homologués sur Ten'Up, dans son palmarès, mais 0-0 dans la poule) : un match de ton palmarès
+  // 3.70.8 (Yann : les matchs de poule de Davy homologués sur Ten'Up, dans son palmarès, mais 0-0 dans la poule) : un match de ton palmarès
   // pendant la poule, contre un joueur de la poule, dans cette épreuve, compte dans la poule. Avant, seul le résultat noté à la main
   // dans la poule (ou un match saisi dans Montée et rattaché) comptait : un match importé de Ten'Up n'y entrait jamais.
   function poolAutoLink(t) {
@@ -1207,6 +1207,13 @@
     return dd === -1 ? "hier " + d.getHours() + " h" : "il y a " + Math.max(2, -dd) + " j";
   }
   function syMin(L) { var m = null; L.forEach(function (v) { v = v || 0; if (m == null || v < m) m = v; }); return m || 0; }
+  // 3.70.8 : l'état de la synchro dans la barre de profil de l'accueil : un point et l'heure, touchable pour relire
+  function syMini() {
+    if (!NATIVE || !S.tenup.linked) return "";
+    var at = S.tenup.lastAuto || (S.tenup.lastImport ? E.parseDate(S.tenup.lastImport).getTime() : 0), run = !!UI.loading, err = (S.tenup.fails || 0) > 0, old = !at || Date.now() - at > 864e5;
+    var txt = run ? "lecture…" : err ? "échec · réessayer" : !at ? "pas encore lu" : (old ? "lu " : "à jour ") + syWhen(at);
+    return '<span class="hd-sy' + (run ? " run" : err ? " err" : old ? " old" : "") + '" data-a="syTap" data-k="me" data-v="" role="button" aria-label="Actualiser tes matchs Ten\'Up"><i></i>' + txt + "</span>";
+  }
   function syPill(k, v) {
     if (!NATIVE) return "";
     var at = 0, run = false, err = false, lab = "À jour", what = "tes matchs Ten'Up";
@@ -1269,7 +1276,7 @@
     });
     if (!mem.length) return;
     UI.psBusy[t.id] = 1; if (force) { t.poolAt = now; save(); }
-    UI.psProg = UI.psProg || {}; UI.psProg[t.id] = { n: mem.length, d: 0, nm: "" }; // 3.70.7 (Yann) : la lecture des fiches se voit avancer
+    UI.psProg = UI.psProg || {}; UI.psProg[t.id] = { n: mem.length, d: 0, nm: "" }; // 3.70.8 (Yann) : la lecture des fiches se voit avancer
     var lo = t.from ? E.iso(new Date(E.parseDate(t.from).getTime() - 7 * 864e5)) : "", got = {}, chain = Promise.resolve();
     var show = function () { var r0 = route(); if (r0 === "tournoi/" + t.id || r0 === "") render(); };
     mem.forEach(function (x) {
@@ -1296,7 +1303,7 @@
           // 3.46.4 (retour testeur) : seulement les matchs de CETTE épreuve (indivs de la même série), et le bon joueur (pas un simple prénom en commun)
           if (!poolRowFits(t, row)) return;
           var o = (t.pool || []).filter(function (y) { return y !== x && ((row.oid && y.tid && String(row.oid) === String(y.tid)) || (!(row.oid && y.tid) && samePerson(y.name, row.opp))); })[0];
-          // 3.70.7 (Yann : un adversaire de poule anonyme sur Ten'Up, renommé à la main) : sa fiche est illisible, mais ses matchs sont sur
+          // 3.70.8 (Yann : un adversaire de poule anonyme sur Ten'Up, renommé à la main) : sa fiche est illisible, mais ses matchs sont sur
           // la fiche des autres, face à « Joueur anonyme ». Dans la poule, un anonyme est un joueur sans fiche Ten'Up : s'il n'y en a qu'un,
           // c'est lui ; s'il y en a plusieurs, celui qui a le classement du match ; sinon on ne devine pas.
           if (!o && (isAnon(row.opp) || /anonym/i.test(String(row.opp || "")))) {
@@ -1312,7 +1319,7 @@
       t.poolX = Object.keys(found).map(function (k) { return found[k]; }); save(); try { scheduleTimingNotif(); } catch (e) {} try { syncNative(); } catch (e) {} show();
     }, function () { UI.psBusy[t.id] = 0; delete UI.psProg[t.id]; show(); });
   }
-  // 3.70.7 (Yann) : pendant la lecture des fiches de la poule, une barre qui avance et qui est lu
+  // 3.70.8 (Yann) : pendant la lecture des fiches de la poule, une barre qui avance et qui est lu
   function poolProgHtml(t) {
     var pg = UI.psProg && UI.psProg[t.id]; if (!NATIVE || !pg || !pg.n || !(UI.psBusy && UI.psBusy[t.id])) return "";
     return '<div class="ps-prog"><span class="small"><span class="spin"></span>Lecture des fiches Ten\'Up · ' + Math.min(pg.d + 1, pg.n) + "/" + pg.n + (pg.nm ? " · " + esc(pg.nm) : "") + "</span>" +
@@ -1430,7 +1437,7 @@
           var x = q.z.x, G = function (c) { return c.g == null ? -1 : c.g; }, bG = G(q.cells[q.best]);
           var mj = -1; if (x.day && dGap(x.day) >= 0) cols.forEach(function (c, j) { if (j === 0 || c.dI <= x.day) mj = j; });
           var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : "";
-          // 3.70.7 (Yann, maquette B validée) : sous le prénom, son classement (balle jaune) ; un joueur sans enjeu tient sur une case large ;
+          // 3.70.8 (Yann, maquette B validée) : sous le prénom, son classement (balle jaune) ; un joueur sans enjeu tient sur une case large ;
           // le conseil et l'alerte s'affichent juste sous sa ligne (plus de liste dessous qui répète la grille)
           var rkNow = q.z.sp && q.z.sp.cur ? lab(q.z.sp.cur) : (x.rank || "");
           var nmC = '<div class="bz-n' + tap + '"><span class="tq-av">' + esc(initials(trNm(x.name))) + "</span><b>" + esc(trNm(x.name).split(" ")[0]) + "</b>" + (rkNow ? '<span class="rk-tag">' + esc(rkNow) + "</span>" : "") + "</div>";
@@ -2341,7 +2348,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       (nErr && !nBusy ? '<button class="btn small" data-a="trImpRetry">Relancer la recherche Ten\'Up (' + nErr + ")</button>" : "") +
       (me ? '<span class="small">✓ Toi (' + esc(trNm(me.name)) + ") retiré de la liste. Les numéros restent sur ton téléphone.</span>" : '<span class="small">Les numéros restent sur ton téléphone.</span>') +
       '<button class="linkbtn" data-a="trImpBack" style="align-self:center">‹ Revenir au mail</button><div class="spacer"></div>' +
-      // 3.70.7 (Yann) : pas de poule remplie avant la fin de la recherche Ten'Up (sinon les adversaires restent sans fiche : ni résultats, ni projection)
+      // 3.70.8 (Yann) : pas de poule remplie avant la fin de la recherche Ten'Up (sinon les adversaires restent sans fiche : ni résultats, ni projection)
       (NATIVE && nBusy ? '<button class="btn primary" disabled aria-disabled="true"><span class="spin"></span> Recherche sur Ten\'Up… ' + (ppl.length - nBusy) + "/" + ppl.length + "</button>" :
         '<button class="btn primary" data-a="trImpCreate">' + (I0.into ? "Remplir ma poule" : P.fmt === "poule" ? "Créer ma poule" : "Créer l'épreuve") + "</button>") + "</div>";
     return s;
@@ -2700,9 +2707,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.58 (Yann) : le lendemain d'un match, le salut en parle
     var hier = null, gt = null; if (!jm) try { var yd = E.iso(new Date(today().getTime() - 864e5)); hier = knownMatches(false).filter(function (m) { return m.date === yd && !m.wo && (m.result === "V" || m.result === "D"); })[0]; } catch (e) {}
     if (hier) { gt = hier.result === "V" ? "Bien joué !" : "On repart"; dLine = (hier.result === "V" ? "Victoire hier" : "Défaite hier") + (hier.score ? " · " + hier.score : ""); }
-    var dl0 = (S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small">' + esc(dLine) + "</span>"), sy0 = syPill("me"); // 3.67 : la pastille « dernière synchro »
-    s += '<div class="topbar"><div class="title">' + (sy0 ? '<span class="sy-row">' + dl0 + sy0 + "</span>" : dl0) + '<span style="font-size:28px;font-weight:600;letter-spacing:-.03em">' + (jm ? '<span style="white-space:nowrap;font-size:26px">Jour de match</span>' : gt ? esc(gt) : S.profile.name ? "Salut " + esc(S.profile.name) : "Salut") + "</span></div>" +
-      '<span class="top-actions"><button class="mechip' + (S.ahead ? " up" : "") + '" data-a="goProfil" aria-label="Mon profil, classement ' + esc(effRank() || "?") + '">' + (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })() + '<span class="rk">' + esc(effRank() || "?") + (S.ahead && S.ahead.release ? '<small class="rk-d">' + aheadDay() + "</small>" : "") + "</span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + '</button><button class="iconbtn gearbtn" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></span></div>";
+    // 3.70.8 (Yann, maquette C validée) : l'en-tête de l'accueil en une barre de profil (avatar, salut, classement à la balle jaune,
+    // état de la synchro en petit) ; la date au-dessus. Avant : date, pastille de synchro, salut, profil et réglages mal alignés.
+    var dl0 = S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small hd-d">' + esc(dLine) + "</span>";
+    var hiT = jm ? "Jour de match" : gt ? gt : S.profile.name ? "Salut " + S.profile.name : "Salut", rk0 = effRank() || "";
+    var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })();
+    s += '<div class="topbar hd"><div class="hd-col">' + dl0 + '<div class="hd-r"><div class="hd-id' + (S.ahead ? " up" : "") + '" data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + av0 +
+      '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div>" +
+      '<button class="iconbtn gearbtn" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div></div></div>";
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
     if (!S.matches.length) {
@@ -16177,7 +16189,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     trImpRk: function (el) { var x = UI.trImp.p.ppl[+el.dataset.v]; if (!x) return; x.rank = el.dataset.k; UI.trImp.open = null; render(); },
     trImpCreate: function () {
       var P = UI.trImp && UI.trImp.p; if (!P) return;
-      if (NATIVE && P.ppl.some(function (x) { return !x.me && x.st === "busy"; })) return; // 3.70.7 : recherche Ten'Up pas finie
+      if (NATIVE && P.ppl.some(function (x) { return !x.me && x.st === "busy"; })) return; // 3.70.8 : recherche Ten'Up pas finie
       var ppl = P.ppl.filter(function (x) { return !x.me; });
       // 3.45.7 : le mail complète l'épreuve existante (venue de Ten'Up ou créée avant) au lieu d'en créer une 2e
       var into = UI.trImp.into ? tourOf(UI.trImp.into) : UI.trImp.noAuto ? null : toursAll().filter(function (y) { return y.tuid && !tourOver(y) && !(y.pool || []).length && insSame(y, { name: P.name, from: E.iso(today()) }, P.kind, null) || (y.tuid && !tourOver(y) && !(y.pool || []).length && P.kind === "champ" && y.kind === "champ" && insKey(y.name).s && insKey(P.name).s === insKey(y.name).s); })[0];
