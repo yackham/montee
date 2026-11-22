@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.67.0",
+    VERSION: "3.67.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -70,7 +70,8 @@
   if (S.tenup && S.tenup.cred) { delete S.tenup.cred; try { localStorage.setItem("montee.v1", JSON.stringify(S)); } catch (e) {} }
   // 3.62 (Davy : un match de plus de 12 mois ne s'ouvrait pas) : l'identifiant des matchs des saisons passées contenait le classement
   // (« 15/5 ») : le « / » coupait l'adresse #/match/… et l'écran retombait sur l'Activité. On le remplace une fois pour toutes.
-  (function () { var fx = function (L) { (L || []).forEach(function (m) { if (m && typeof m.id === "string" && m.id.indexOf("/") >= 0) m.id = m.id.replace(/\//g, "_"); }); }; fx(S.histMatches); fx(S.matches); fx(S.doubles); })();
+  (function () { var fx = function (L) { (L || []).forEach(function (m) { if (m && typeof m.id === "string" && m.id.indexOf("/") >= 0) m.id = m.id.replace(/\//g, "_"); }); }; fx(S.histMatches); fx(S.matches); fx(S.doubles);
+    (S.tours || []).forEach(function (t) { (t.pool || []).concat(t.rounds || []).forEach(function (r) { if (r && typeof r.twin === "string" && r.twin.indexOf("/") >= 0) r.twin = r.twin.replace(/\//g, "_"); }); }); })(); // 3.67.1 : les liens poule/tableau → match suivent
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(S)); }
     catch (e) {
@@ -1124,9 +1125,29 @@
   function poolGames(t) {
     var g = [];
     // 3.47 : le score saisi dans la fiche du match (« Ajouter le score ») sert au départage
-    (t.pool || []).forEach(function (x) { if (x.res) { var mm = S.matches.filter(function (m) { return m.id === "tr" + x.id || (x.twin && m.id === x.twin); })[0]; g.push({ a: "Toi", b: x.name, w: x.res === "V" ? "a" : "b", sc: x.score || (mm && mm.score) || "", me: true, mid: mm ? mm.id : "" }); } });
+    (t.pool || []).forEach(function (x) { if (x.res) { var mm = poolMyMatch(t, x); g.push({ a: "Toi", b: x.name, w: x.res === "V" ? "a" : "b", sc: x.score || (mm && mm.score) || poolScoreFromHim(t, x) || "", me: true, mid: mm ? mm.id : "" }); } });
     (t.poolX || []).forEach(function (x) { g.push(x); });
     return g;
+  }
+  // 3.67.1 (testeur : « V » sans score dans les matchs de la poule) : ton match contre lui. Avant, seulement par l'identifiant
+  // retenu (x.twin) : un identifiant changé (3.62 : plus de « / » dans les ids Ten'Up) ou un match relu par Ten'Up sous un autre id
+  // ne le retrouvait plus. Maintenant : l'id, sinon le même adversaire avec le même résultat pendant la poule (avec score d'abord).
+  function poolMyMatch(t, x) {
+    var L = S.matches || [], tw = x.twin ? String(x.twin).replace(/\//g, "_") : "";
+    var mm = L.filter(function (m) { return m.id === "tr" + x.id || (tw && m.id === tw); })[0];
+    if (mm && mm.score) return mm;
+    var lo = t.from ? E.iso(new Date(E.parseDate(t.from).getTime() - 7 * 864e5)) : "", ref = x.day ? E.parseDate(x.day).getTime() : 0;
+    var C = L.filter(function (m) { return m !== mm && m.date && m.date >= lo && m.result === x.res && !m.dbl && !m.wo && (x.tid && m.oid ? String(m.oid) === String(x.tid) : !!(m.opp && nameTokens(m.opp).length >= 2 && samePerson(m.opp, trNm(x.name)))); }) // nom complet seulement (pas « T. Martin » pour un autre Martin)
+      .sort(function (a, b) { return (b.score ? 1 : 0) - (a.score ? 1 : 0) || (ref ? Math.abs(E.parseDate(a.date).getTime() - ref) - Math.abs(E.parseDate(b.date).getTime() - ref) : (a.date < b.date ? 1 : -1)); });
+    return C[0] && (C[0].score || !mm) ? C[0] : mm || null;
+  }
+  // Pas encore dans ton palmarès : le score lu sur sa fiche Ten'Up (de son côté, donc retourné)
+  function poolScoreFromHim(t, x) {
+    var sc = x.tid && (S.scout || {})[String(x.tid)]; if (!sc || !sc.rows) return "";
+    var me = S.tenup && S.tenup.id ? String(S.tenup.id) : "", myN = [(S.tenup.me || {}).prenom, (S.tenup.me || {}).nom].filter(Boolean).join(" ") || S.profile.name || "";
+    var lo = t.from ? E.iso(new Date(E.parseDate(t.from).getTime() - 7 * 864e5)) : "", want = x.res === "V" ? "D" : "V";
+    var r = sc.rows.filter(function (row) { return row.date && row.date >= lo && row.result === want && row.score && !row.dbl && ((me && row.oid && String(row.oid) === me) || (myN && row.opp && samePerson(row.opp, myN))); })[0];
+    return r ? String(r.score).replace(/(\d{1,2})\s*([-\/])\s*(\d{1,2})/g, "$3$2$1") : "";
   }
   function poolRowFits(t, row) {
     var c = String(row.comp || ""); if (!c) return true;
