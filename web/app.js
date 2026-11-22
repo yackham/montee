@@ -11080,7 +11080,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     save(); haptic("light"); render(); if (foc) setTimeout(function () { var x = document.getElementById("sjg-add"); if (x) x.focus(); }, 50);
   }
   function sjVenu(n) { return (S.sjHist || []).filter(function (h) { return (h.p || []).indexOf(n) >= 0; }).length; }
-  // Les équipes d'un terrain, dans l'ordre du tirage : à 4 un double (2 contre 2), à 5 ou 6 des triples, à 3 ou 2 tout le terrain ensemble
+  // Les équipes d'un terrain, dans l'ordre du tirage : à 4 un double (2 contre 2), à 5 ou 6 deux équipes de 3 (ou 3 et 2) qui jouent en double tournant, à 3 ou 2 tout le terrain ensemble
   function sjTeams(cl) { var z = cl.length; return z >= 5 ? [cl.slice(0, 3), cl.slice(3)] : z === 4 ? [cl.slice(0, 2), cl.slice(2)] : [cl.slice()]; }
   function sjPairs(order, sizes) {
     var out = [], k = 0;
@@ -11137,9 +11137,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var real = function (x) { return !/^Joueur [A-Z]$/.test(x); }, k = 0, nw = {}, big = G.cs.sizes.some(function (z) { return z >= 5; });
     var nm = function (x, t) { var isNew = t.length === 2 && real(x) && t.some(function (y) { return y !== x && real(y) && H.length && !seen[[x, y].sort().join("|")]; }); return isNew ? '<span class="sjg-new">' + esc(x) + "</span>" : esc(x); };
     var cells = G.cs.sizes.map(function (z, i) {
-      var cl = D.order.slice(k, k + z); k += z; var T = sjTeams(cl), lab = z >= 5 ? "triples" : z === 4 ? "double" : z === 3 ? "à 3" : "simple";
+      var cl = D.order.slice(k, k + z); k += z; var T = sjTeams(cl), lab = z >= 5 ? "équipes de 3" : z === 4 ? "double" : z === 3 ? "à 3" : "simple";
       var body = T.length === 2 ? T.map(function (t) { return "<span>" + t.map(function (x) { return nm(x, t); }).join(z >= 5 ? ", " : " et ") + "</span>"; }).join('<span class="sjg-vs">contre</span>') : "<span>" + cl.map(function (x) { return nm(x, cl); }).join(z === 2 ? " contre " : "<br>") + "</span>";
-      var ex = z >= 5 ? '<span class="small">Premier roi : ' + esc(cl[z - 1]) + ". Premiers arbitres : " + esc(cl[z - 2]) + (z === 6 ? " et " + esc(cl[z - 3]) : "") + ".</span>" : z === 3 ? '<span class="small">Le 3e tourne toutes les 2 min.</span>' : "";
+      var ex = z >= 5 ? '<span class="small">Sur le court au départ : ' + esc(cl[0]) + " et " + esc(cl[1]) + " contre " + esc(cl[3]) + " et " + esc(cl[4]) + ". Entre" + (z === 6 ? "nt" : "") + " au 1er point : " + esc(cl[2]) + (z === 6 ? " et " + esc(cl[5]) : "") + ".</span>" : z === 3 ? '<span class="small">Le 3e tourne toutes les 2 min.</span>' : "";
       return '<div class="sjg-c"><span class="k">Terrain ' + (i + 1) + " · " + lab + '</span><span class="sjg-tm">' + body + "</span>" + ex + "</div>";
     }).join("");
     var bench = G.cs.bench ? D.order.slice(k) : [];
@@ -11200,7 +11200,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // 3.62 (Yann : « attente : 2 joueurs en appui à tour de rôle » n'est pas compris) : dire qui joue, qui attend, combien de temps
   function sjWaitTxt(n, c, rot) {
     var cs = sjCourts(n, c), on = cs.sizes.reduce(function (a, z) { return a + z; }, 0), nt = cs.sizes.length;
-    if (!cs.bench && Math.max.apply(null, cs.sizes) >= 5) return "<b>Tout le monde joue</b> : des jeux faits pour " + Math.max.apply(null, cs.sizes) + " sur un court (relais, roi du court, triples), et un rôle pour ceux qui sortent quelques minutes."; // 3.69
+    if (!cs.bench && Math.max.apply(null, cs.sizes) >= 5) return "<b>Tout le monde joue</b> : des jeux faits pour " + Math.max.apply(null, cs.sizes) + " sur un court (roi du court en double, double tournant) : on joue à 2 contre 2 et on tourne à chaque point, personne n'attend plus d'un point."; // 3.69
     if (!cs.bench) return "<b>Personne n'attend</b> : " + (nt > 1 ? "les " + n + " jouent tout le temps, et chacun passe sur tous les terrains." : "les " + n + " jouent tout le temps.");
     var r = rot ? Math.round(rot) : sjRotM();
     return "<b>" + on + " jouent, " + cs.bench + " à l'atelier physique</b> au bord du court. Toutes les " + r + " min, " + (nt > 1 ? "1 joueur par terrain sort et " : "") + (cs.bench > 1 && nt > 1 ? "ceux de l'atelier rentrent" : "1 joueur rentre") + " : chacun passe " + r + " min à l'atelier toutes les " + (r * Math.ceil(n / Math.min(cs.bench, nt))) + " min environ" + (nt > 1 ? ", et passe sur tous les terrains." : ".");
@@ -11258,7 +11258,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (G && b.k !== "game") return;
       var x = SJ_DF[b.g] || null, short = Math.min(5, Math.max(3, Math.round(b.min / 3))), df;
       if (G && b.mt) df = { t: "Montante : matchs de 6 min. Les gagnants montent d'un terrain, les perdants descendent.", to: 0, m: b.min, grp: 1 };
-      else if (G) df = { t: (b.six ? "Première équipe à 10 points." : "Le match du groupe : jeu décisif en 10 points."), to: 10, m: b.min, team: 1 }; // 3.69 : un seul terrain ou des triples
+      else if (G) df = { t: (b.six ? "Double tournant : première équipe à 10 points." : "Le match du groupe : jeu décisif en 10 points."), to: 10, m: b.min, team: 1 }; // 3.69 : un seul terrain ou du double tournant
       else if (mode === "solo") { if (b.k !== "ax" || !b.cnt || !b.n) return; var r = sjRecord(b.g, b.n); df = { t: (r.rec ? "Égale ton record : " : "Atteins ") + r.to + " " + b.cnt.toLowerCase() + ".", to: r.to, m: b.min, solo: 1 }; }
       else if (b.k === "game") df = { t: "Le match de la séance : jeu décisif en 10 points.", to: 10, m: b.min };
       else df = { t: x ? x.t : "Points à 7.", to: x ? x.to : 7, m: short };
@@ -11312,7 +11312,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (mode === "grp") G = { n: o.n || 6, c: o.c || 2, cs: sjCourts(o.n || 6, o.c || 2) };
     var big = G ? Math.max.apply(null, G.cs.sizes) : 0; if (big < 5) big = 0; // 3.69 : 5 ou 6 sur un terrain, des jeux où tout le monde joue
     var gTxt = function (f) { return G ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + " · " + z, x: f(z) }; }) : null; };
-    B.push({ k: "warm", cat: "cor", t: "Échauffement", min: warm, x: mode === "solo" ? "Footing, pas chassés, puis contre le mur : près, puis de plus en plus loin. Petits pas entre chaque frappe." : "Mini-tennis 4 min, puis milieu de court, puis fond. Petits pas entre chaque frappe.", obj: "Replacé avant chaque frappe", six: big || null, ct: gTxt(function (z) { return z >= 5 ? "Mini-tennis 3 contre 3 en relais : tu frappes, tu files derrière ton équipe. 10 échanges sans faute, puis on recule au fond" : z >= 4 ? "Mini-tennis croisé, puis fond de court" : z === 3 ? "Mini-tennis à 3, le 3e tourne toutes les 2 min" : "Mini-tennis, puis fond de court"; }) });
+    B.push({ k: "warm", cat: "cor", t: "Échauffement", min: warm, x: mode === "solo" ? "Footing, pas chassés, puis contre le mur : près, puis de plus en plus loin. Petits pas entre chaque frappe." : "Mini-tennis 4 min, puis milieu de court, puis fond. Petits pas entre chaque frappe.", obj: "Replacé avant chaque frappe", six: big || null, ct: gTxt(function (z) { return z >= 5 ? "Mini-tennis 2 contre 2 : à chaque faute, celui qui l'a faite sort et celui qui attend entre. 10 échanges sans faute, puis on recule au fond" : z >= 4 ? "Mini-tennis croisé, puis fond de court" : z === 3 ? "Mini-tennis à 3, le 3e tourne toutes les 2 min" : "Mini-tennis, puis fond de court"; }) });
     if (chB) B.push(chB);
     var used3 = sjExUsed(99);
     ax.forEach(function (id, i) {
@@ -11326,12 +11326,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (game) {
       var g0 = goalOf(ax[0]), gcat = ax.length > 1 ? "tet" : (g0 ? g0.cat : "tet"), mt = G && G.cs.sizes.length > 1 && !big;
       if (G && big) {
-        // 3.69 : roi du court puis triples (Yann : ludique, ça tourne vite, personne n'attend)
+        // 3.69 : roi du court en double puis double tournant (Yann : on ne joue pas à 3 d'un côté, et personne ne fait la queue)
         var roi = Math.max(5, Math.round(game / 2 / 5) * 5), tri = game - roi; if (tri < 5) { tri = 5; roi = game - 5; }
-        B.push({ k: "fmt", cat: "sol", t: "Roi du court", min: roi, six: big, x: "1 joueur défend son côté, les autres font la file en face. Duel sur 1 point, après un échange de 3 balles. Le gagnant reste roi, le perdant retourne au bout de la file" + (sjDefs().on && sjDefs().gage ? " après un sprint jusqu'au filet." : "."), obj: "Rester roi 3 points de suite", outK: "La file", out: "pas de temps mort : chaque point dure 20 secondes.",
-          ct: G.cs.sizes.length > 1 ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + " · " + z, x: z >= 5 ? "Roi du court : le gagnant reste, le perdant au bout de la file" : z === 4 ? "Roi du court en double : la paire qui gagne reste" : "Roi du court : le gagnant reste" }; }) : null });
-        B.push({ k: "game", g: ax[0], cat: gcat, t: "Triples, 3 contre 3", min: tri, six: big, x: "Court entier, 1 au filet et 2 au fond de chaque côté. Après chaque point, chacun avance d'une place. Première équipe à 10.", obj: "Le thème jusqu'au bout", outK: "Personne", out: "tout le monde joue. Les équipes sont celles du tirage.",
-          ct: G.cs.sizes.length > 1 ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + " · " + z, x: z >= 5 ? "Triples : 1 au filet, 2 au fond, on avance d'une place à chaque point" : z === 4 ? "Double, on change de place à chaque point" : "À 3, le 3e tourne à chaque point" }; }) : null });
+        B.push({ k: "fmt", cat: "sol", t: "Roi du court", min: roi, six: big, x: (big === 6 ? "En double, 3 paires. La paire roi défend son côté, une paire l'attaque, la 3e attend un seul point. La paire qui gagne est roi, la perdante sort et rentre au point suivant" : "En double, 2 paires et 1 joueur qui attend. La paire qui gagne est roi. Dans la paire perdante, un joueur sort (chacun son tour) et celui qui attend rentre") + (sjDefs().on && sjDefs().gage ? ", après un sprint jusqu'au filet." : ".") + " Point lancé à la main, après 3 balles d'échange. On change les paires à mi-temps.", obj: "Rester roi 3 points de suite", outK: "Qui attend", out: "un seul point, 20 secondes : on ramasse et on annonce le score.",
+          ct: G.cs.sizes.length > 1 ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + " · " + z, x: z >= 5 ? "Roi du court en double : la paire qui gagne reste, la perdante sort 1 point" : z === 4 ? "Roi du court en double : la paire qui gagne reste" : "Roi du court : le gagnant reste" }; }) : null });
+        B.push({ k: "game", g: ax[0], cat: gcat, t: "Double tournant", min: tri, six: big, x: "Les équipes du tirage. On joue en double, 2 contre 2. Après chaque point, dans chaque équipe, celui qui joue depuis le plus longtemps sort et le 3e entre" + (big === 5 ? " (à 5, l'équipe de 2 joue tous les points)" : "") + ". Première équipe à 10.", obj: "Le thème jusqu'au bout", outK: "Qui attend", out: "un seul point, derrière le fond de court : on ramasse et on annonce le score.",
+          ct: G.cs.sizes.length > 1 ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + " · " + z, x: z >= 5 ? "Double tournant : 2 contre 2, le 3e de chaque équipe entre à chaque point" : z === 4 ? "Double, on change de place à chaque point" : "À 3, le 3e tourne à chaque point" }; }) : null });
       } else B.push({ k: "game", mt: mt ? 1 : 0, g: ax[0], cat: gcat, t: mt ? "Montante-descendante" : G ? "Le match du groupe" : "Jeu à thème", min: game,
         // 3.69 : avec un seul terrain, plus de « montent d'un terrain » (il n'y en a qu'un)
         x: SJ_EX[ax[0]].game + (mt ? " Matchs de 6 min : les gagnants montent d'un terrain, les perdants descendent." : G ? " Jeux décisifs, on change les équipes à chaque jeu." : ""), obj: G ? "Le thème jusqu'au bout" : SJ_EX[ax[0]].obj,
