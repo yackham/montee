@@ -451,6 +451,12 @@
     }).join(" et ");
   }
   function easiest(pl) { return pl.list[0] || null; }
+  // 3.71.5 (Yann) : « au bilan 15/3 » laissait croire que l'app te classait déjà 15/3 : la règle FFT dite en clair
+  function whyAtLevel(label, keep) {
+    return '<details class="pj-how"><summary>Pourquoi compté en ' + esc(label) + ' ?</summary><span class="small">' + (keep ?
+      "Pour savoir si tu restes " + esc(label) + ", la FFT recalcule ton bilan à ce classement : il doit atteindre la norme." :
+      "C'est la règle FFT : pour savoir si tu montes " + esc(label) + ", ton bilan est recalculé comme si tu étais déjà " + esc(label) + ". Tes victoires y valent un peu moins et la norme est plus haute. Tu restes classé à ton niveau actuel jusqu'à la sortie.") + "</span></details>";
+  }
   // Plus haut classement contre lequel tu gagnes au moins un match sur deux (2 matchs minimum)
   function plafondIdx(c) {
     var by = {};
@@ -7182,21 +7188,23 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       prev = b;
     });
     var bf = prev, up = after.projected > cur && after.status === "montee", down = after.status === "descente";
-    var head = up ? "Tu montes" : down ? "Descente" : danger ? "Tu te maintiens" : "Maintien";
+    // 3.71.5 (Yann) : « 15/4 → 15/4 Maintien » se lisait « rien ne bouge » : tant que tu ne montes pas, on montre l'objectif et ce qu'il manque
+    var aim = !up && !down && !danger, miss = Math.max(0, bf.norme - bf.total);
+    var head = up ? "Tu montes" : down ? "Descente" : danger ? "Tu te maintiens" : miss ? "Il manque " + plural(miss, "pt") : "Il manque 1 victoire";
     var s = '<div class="screen">' + topbar("Et si…", "Sortie du " + flong(rel));
     s += '<p class="small" style="margin-top:-6px">Ajoute des matchs imaginaires : ta projection bouge en direct. Rien n\'est enregistré.</p>';
     // Projection après les matchs imaginaires
     var pc = Math.max(3, Math.min(100, Math.round(bf.total / Math.max(1, bf.norme) * 100)));
-    s += '<div class="card simu-top"><div class="sp-row"><span class="sp-r muted">' + esc(lab(cur)) + '</span><span class="sp-a">→</span><span class="sp-r ' + (up ? "up" : down ? "dn" : "") + '">' + esc(lab(after.projected)) + '</span><span class="badge2 ' + (up ? "b-me" : down ? "b-him" : "b-eq") + '">' + head + "</span></div>" +
+    s += '<div class="card simu-top"><div class="sp-row"><span class="sp-r muted">' + esc(lab(cur)) + '</span><span class="sp-a">→</span><span class="sp-r ' + (up ? "up" : down ? "dn" : "") + '">' + esc(aim ? bf.label : lab(after.projected)) + '</span><span class="badge2 ' + (up ? "b-me" : down ? "b-him" : "b-eq") + '">' + head + "</span></div>" +
       '<div class="sp-bar"><i class="' + (bf.total >= bf.norme ? "ok" : "") + '" style="width:' + pc + '%"></i></div>' +
-      '<span class="small"><b>' + bf.total + " pts</b> au bilan " + esc(bf.label) + ", il en faut " + bf.norme +
-      (bf.total >= bf.norme ? ' : <b class="pos">+' + (bf.total - bf.norme) + " de marge</b>" : ' : <b class="neg">il manque ' + (bf.norme - bf.total) + "</b>") +
+      '<span class="small">' + (danger ? "Pour rester " : "Pour monter ") + esc(bf.label) + " : <b>" + bf.total + " pts</b> sur " + bf.norme +
+      (bf.total >= bf.norme ? ', <b class="pos">+' + (bf.total - bf.norme) + " de marge</b>" : aim ? "" : ', <b class="neg">il manque ' + (bf.norme - bf.total) + "</b>") +
       (!danger && bf.total >= bf.norme && !bf.winAtLevel ? ", et une victoire contre un " + esc(bf.label) + " ou mieux" : "") + "." +
-      (fakes.length ? " Sans ces matchs : " + b0.total + "." : "") + "</span></div>";
+      (fakes.length ? " Sans ces matchs : " + b0.total + "." : "") + "</span>" + whyAtLevel(bf.label, danger) + "</div>";
     // Le conseil qui va droit au but
     if (!fakes.length) {
       var mw = minWinToRise(c);
-      if (mw !== null && mw !== undefined) s += '<div class="card menthe simu-tip">' + I.spark + "<span><b>Une victoire contre un " + esc(lab(mw)) + " ou mieux suffit</b> pour monter à cette sortie.</span></div>";
+      if (mw !== null && mw !== undefined) s += '<div class="card simu-tip">' + I.spark + "<span><b>Une victoire contre un " + esc(lab(mw)) + " ou mieux suffit</b> pour monter à cette sortie.</span></div>";
     }
     // Les matchs imaginaires
     if (rows.length) {
@@ -8234,7 +8242,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var hb = p.status === "descente" ? p.here : nx;
     // 3.34 : barre à balle sous le titre
     s += '<div class="pj-bar">' + ballBar(hb.norme ? Math.min(100, hb.total * 100 / hb.norme) : 0, hb.total + " sur " + hb.norme, p.status === "descente" ? "var(--terre)" : "var(--hacc3)") +
-      '<div class="pj-leg"><span><b>' + hb.total + "</b> / " + hb.norme + " au bilan " + esc(hb.label) + "</span><span>" + plural(hb.n, "victoire comptée", "victoires comptées") + "</span></div></div>";
+      '<div class="pj-leg"><span>' + (p.status === "descente" ? "Pour rester " : "Pour monter ") + esc(hb.label) + " : <b>" + hb.total + "</b> / " + hb.norme + " pts</span><span>" + plural(hb.n, "victoire comptée", "victoires comptées") + "</span></div>" + whyAtLevel(hb.label, p.status === "descente") + "</div>";
 
     // simulateur
     var lv = levelsAround(c.cur), danger = p.status === "descente";
@@ -8307,7 +8315,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var badge = x === ez ? "Le plus accessible" : x.p < 0.45 && ez && x.top > ez.top ? "Plus ambitieux" : x.k === 1 ? "Une victoire suffit aussi" : "Sans jouer plus fort que " + lab(x.top);
       var mine = cap != null && x.top <= cap && x.top >= (c.cur < 0 ? 0 : c.cur); // inutile de le dire contre des moins bien classés
       var mineTxt = !mine ? "" : x.top === cap ? " · <strong>dans tes cordes</strong> : tu bats régulièrement les " + esc(lab(cap)) : " · <strong>dans tes cordes</strong> : tu bats régulièrement des joueurs mieux classés (jusqu'à " + esc(lab(cap)) + ")";
-      return '<div class="pj-p' + (x === ez ? " best" : "") + '"><span class="pj-n">' + x.levels.length + '</span><span class="grow"><b>' + esc(/ et /.test(pisteLabel(x)) ? pisteLabel(x) : pisteLabel(x).replace(/^\d+\s*/, "")) + "</b>" +
+      return '<div class="pj-p' + (x === ez ? " best" : "") + '"><span class="grow"><b>' + esc(pisteLabel(x)) + "</b>" +
         '<span class="small">' + (x.p >= 0.45 ? "À ta portée" : x.p >= 0.2 ? "Jouable" : "Ambitieux") + " · bilan " + x.after.total + " / " + x.after.norme + mineTxt + "</span></span>" + (x === ez ? '<span class="pj-b">Le plus<br>accessible</span>' : "") + "</div>";
     }).join("");
     return s + '<details class="pj-how"><summary>Comment c\'est calculé</summary><span class="small">Calculé comme ton bilan : une nouvelle victoire remplace ta plus faible victoire comptée, elle ne rapporte donc que la différence. Pistes classées de la plus probable à la moins probable, d\'après tes résultats contre chaque classement' + (pl.maxBeaten != null ? ", sans adversaire plus fort que ton meilleur succès (" + lab(pl.maxBeaten) + ")" : "") + ".</span></details></div>";

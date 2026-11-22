@@ -1607,7 +1607,7 @@ html.ios .screen.has-tabs { padding-bottom: calc(90px + max(8px, env(safe-area-i
 .hc-new .hc-ign { align-self: center; background: transparent; padding: 6px 10px; min-height: 0; font-size: 14px; color: var(--muted); }
 /* 3.20 · Simulateur « Et si… » */
 .simu-top { gap: 10px; }
-.simu-top .sp-row { display: flex; align-items: center; gap: 12px; }
+.simu-top .sp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .simu-top .sp-r { font-size: 42px; font-weight: 800; letter-spacing: -.03em; } .simu-top .sp-r.muted { color: var(--muted); } .simu-top .sp-r.up { color: var(--gazon); } .simu-top .sp-r.dn { color: var(--terre); }
 .simu-top .sp-a { font-size: 26px; color: var(--acc-ink); font-weight: 800; } .simu-top .badge2 { margin-left: auto; align-self: center; }
 .simu-top .sp-bar { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; } .simu-top .sp-bar i { display: block; height: 100%; border-radius: 99px; background: var(--terre); } .simu-top .sp-bar i.ok { background: var(--gazon); }
@@ -2497,7 +2497,7 @@ button.pdj { font: inherit; color: var(--ink); background: none; border: 0; bord
 .pj-res small { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; } .pj-res b { font-size: 22px; letter-spacing: -.02em; } .pj-res b em { font-style: normal; font-size: 14px; color: var(--muted); }
 .pj-res span { font-size: 11.5px; color: var(--muted); font-weight: 700; line-height: 1.3; } .pj-res > i { font-style: normal; color: var(--muted); font-weight: 800; }
 .pj-p { display: flex; gap: 12px; align-items: center; padding: 11px 12px; border-radius: 16px; background: var(--chip); }
-.pj-p.best { background: linear-gradient(135deg, color-mix(in srgb, var(--hacc3) 18%, transparent), color-mix(in srgb, var(--hacc3) 3%, transparent)); }
+.pj-p.best { background: var(--chip); } /* 3.71.5 : plus de fond teinté, l'accent reste dans « Le plus accessible » */
 .pj-n { flex: none; width: 34px; height: 34px; border-radius: 17px; background: color-mix(in srgb, var(--ink) 14%, transparent); display: flex; align-items: center; justify-content: center; font-weight: 800; }
 .pj-p.best .pj-n { background: var(--hacc3); color: var(--card); }
 .pj-p .grow { display: flex; flex-direction: column; min-width: 0; } .pj-p .grow b { font-size: 15px; }
