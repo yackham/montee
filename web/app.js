@@ -1650,7 +1650,17 @@
     var rows = L.map(function (c) { return '<div class="tm-trr"><b>' + esc(c.nom || "Championnat " + c.id) + "</b><span>" + esc((W[c.trouve] || "") + (c.fini ? "" : " · recherche pas finie")) + " · " + plural(c.poules, "poule") + " lue" + (c.poules > 1 ? "s" : "") + ", " + plural(c.feuilles, "feuille") + " de match · " + Math.round((c.ms || 0) / 1000) + " s" + (c.err ? " · " + plural(c.err, "erreur") : "") + "</span></div>"; }).join("");
     var head = UI.tmBusy ? "Recherche en cours…" : tr.err ? "Dernière recherche : " + tr.err : "Dernière recherche " + agoLab(tr.at) + " en " + plural(tr.calls, "lecture");
     return '<details class="tm-tr"><summary>Comment Montée a cherché tes équipes</summary><span class="small">' + esc(head) + "</span>" + (rows || '<span class="small">Aucune rencontre par équipes dans ton palmarès Ten\'Up des 13 derniers mois.</span>') +
-      (UI.tmBusy ? "" : '<button class="linkbtn" data-a="syTap" data-k="team">Relancer la recherche</button>') + "</details>";
+      (UI.tmBusy ? "" : '<button class="linkbtn" data-a="syTap" data-k="team">Relancer la recherche</button>') + '<button class="linkbtn" data-a="tmReport">Envoyer le rapport à Yann</button>' + "</details>";
+  }
+  // 3.68 : rapport de diagnostic des équipes à envoyer (aucun mot de passe, aucun nom de joueur : championnats, équipes, nombres)
+  function tmReportText() {
+    var tr = S.teamsTrace || {}, t = S.teams || {}, L = ["Rapport équipes Montée " + CONFIG.VERSION + " · " + (window.Capacitor && Capacitor.getPlatform ? Capacitor.getPlatform() : "web") + " · " + new Date().toISOString().slice(0, 16).replace("T", " "),
+      "Club : " + ((t.club && t.club.nom) || "?") + " · lecture " + (tr.at ? new Date(tr.at).toISOString().slice(0, 16).replace("T", " ") : "jamais") + " en " + (tr.calls || 0) + " appel(s)" + (tr.err ? " · ERREUR : " + tr.err : "") + (tr.partial ? " · incomplète" : "")];
+    ((tr.last && tr.last.champs) || []).forEach(function (c) { L.push("- " + (c.nom || c.id) + " (" + c.id + ") : " + c.trouve + (c.fini ? "" : " · pas finie") + " · " + c.poules + " poules, " + c.pages + " pages, " + c.feuilles + " feuilles, " + Math.round((c.ms || 0) / 1000) + " s, " + (c.err || 0) + " erreur(s), reste " + c.reste); });
+    L.push("Équipes retenues :");
+    ((t.champs || []).filter(function (c) { return c.me; })).forEach(function (c) { var m = (c.teams || []).filter(function (x) { return x.id === c.me.mine; })[0]; L.push("- " + (c.nom || c.id) + " · " + (c.div || "") + " · " + (c.poule || "") + " · " + (m ? m.nom : "?") + " · jours " + ((c.me.days || []).join(", ") || "?") + (c.me.sure ? " (feuille)" : " (déduit)")); });
+    L.push("Matchs par équipes dans l'app : " + S.matches.filter(function (m) { return m.kind === "equipes"; }).map(function (m) { return m.date; }).sort().join(", "));
+    return L.join("\n");
   }
   function teamRow(c) {
     var me = tmOf(c, c.me.mine) || {}, nx = !c.cloture && tmNext(c), n = (c.teams || []).length;
@@ -15813,6 +15823,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       else if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast("Copié : colle-le dans ta conversation avec Claude."); });
     },
     tsxTg: function () { S.prefs = S.prefs || {}; S.prefs.tsxOpen = !S.prefs.tsxOpen; save(); render(); },
+    tmReport: function () { sharePlain(tmReportText()); },
     epTab: function (el) { S.prefs = S.prefs || {}; S.prefs.epTab = el.dataset.v; save(); render(); window.scrollTo(0, 0); },
     fdmDiag: function (el) {
       var F = (UI.fdm || {})[el.dataset.v] || {}, raw = F.raw || {};
