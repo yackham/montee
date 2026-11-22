@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.68.2",
+    VERSION: "3.70.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -11065,14 +11065,130 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Les joueurs du groupe : 2 à 4 par terrain ; au-delà, un joueur « en appui » (arbitre, ramasseur) qui tourne
   function sjCourts(n, c) {
     c = Math.max(1, Math.min(c, Math.floor(n / 2) || 1));
-    var sizes = [], left = n; for (var i = 0; i < c; i++) { var k = Math.round(left / (c - i)); sizes.push(Math.min(4, k)); left -= Math.min(4, k); }
+    // 3.69 (Yann : « les joueurs préfèrent du ludique qui tourne vite ») : jusqu'à 6 par terrain avec des jeux où tout le monde joue ;
+    // l'atelier physique seulement au-delà, ou si tu demandes une séance plus physique (4 par terrain au plus)
+    var cap = S.sjPhys ? 4 : 6, sizes = [], left = n; for (var i = 0; i < c; i++) { var k = Math.round(left / (c - i)); sizes.push(Math.min(cap, k)); left -= Math.min(cap, k); }
     return { sizes: sizes.sort(function (a, b) { return b - a; }), bench: Math.max(0, left) };
   }
+  // 3.69 (Yann, maquettes validées 22/11) : ton groupe enregistré une fois. Tu coches qui est là, Montée tire les terrains
+  // et les équipes au hasard, sans refaire les duos des 3 dernières séances. Ce n'est jamais toi qui choisis.
+  function sjGrps() {
+    if (!S.grps || !S.grps.length) { var nm = ((S.sjGrp && S.sjGrp.names) || []).filter(Boolean); S.grps = [{ id: "g1", t: "Ton groupe", m: nm.map(function (n) { return { n: n }; }), last: nm.slice() }]; }
+    return S.grps;
+  }
+  function sjGrpCur() { var G = sjGrps(); return G.filter(function (g) { return g.id === S.grpCur; })[0] || G[0]; }
+  function sjNameOk(n) { return String(n || "").replace(/\s+/g, " ").trim().slice(0, 16); }
+  function sjGAddN(nm, foc) {
+    var g = sjGrpCur(), n = sjNameOk(nm); if (!n || n.toLowerCase() === "toi") return;
+    if ((g.m || []).some(function (m) { return m.n.toLowerCase() === n.toLowerCase(); })) { toast(n + " est déjà dans le groupe."); return; }
+    g.m = (g.m || []).concat([{ n: n }]).slice(0, 40); if (UI.sjG) UI.sjG.add = ""; if (UI.sjSet && UI.sjSet.pres) UI.sjSet.pres.push(n);
+    save(); haptic("light"); render(); if (foc) setTimeout(function () { var x = document.getElementById("sjg-add"); if (x) x.focus(); }, 50);
+  }
+  function sjVenu(n) { return (S.sjHist || []).filter(function (h) { return (h.p || []).indexOf(n) >= 0; }).length; }
+  // Les équipes d'un terrain, dans l'ordre du tirage : à 4 un double (2 contre 2), à 5 ou 6 deux équipes de 3 (ou 3 et 2) qui jouent en double tournant, à 3 ou 2 tout le terrain ensemble
+  function sjTeams(cl) { var z = cl.length; return z >= 5 ? [cl.slice(0, 3), cl.slice(3)] : z === 4 ? [cl.slice(0, 2), cl.slice(2)] : [cl.slice()]; }
+  function sjPairs(order, sizes) {
+    var out = [], k = 0;
+    sizes.forEach(function (z) { var cl = order.slice(k, k + z); k += z; sjTeams(cl).forEach(function (t) { for (var i = 0; i < t.length; i++) for (var j = i + 1; j < t.length; j++) out.push([t[i], t[j]].sort().join("|")); }); });
+    return out;
+  }
+  function sjHistBefore() { var td = E.iso(today()); return (S.sjHist || []).filter(function (h) { return h.d < td && (!h.g || h.g === sjGrpCur().id); }).slice(-3); }
+  function sjLvOf(n) { if (n === "Toi") return curIdx(); var m = (sjGrpCur().m || []).filter(function (x) { return x.n === n; })[0]; var i = m && m.lv ? E.idx(m.lv) : null; return i == null ? null : i; }
+  // Le tirage : 400 mélanges au hasard, on garde celui qui refait le moins de duos récents (le plus récent pèse le plus)
+  function sjDrawMake(names, sizes, avoid) {
+    var H = sjHistBefore(), w = {}, bal = !!S.sjBal;
+    H.forEach(function (h, i) { (h.pairs || []).forEach(function (p) { w[p] = (w[p] || 0) + i + 1; }); });
+    var lastToi = H.length ? H[H.length - 1].toi : -1, best = null, bs = 1e9;
+    for (var t = 0; t < 400; t++) {
+      var o = names.slice();
+      for (var i = o.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), x = o[i]; o[i] = o[j]; o[j] = x; }
+      var sc = sjPairs(o, sizes).reduce(function (a, p) { return a + (w[p] || 0) * 10; }, 0) + Math.random();
+      var k = 0, ti = -1; sizes.forEach(function (z, c) { if (o.slice(k, k + z).indexOf("Toi") >= 0) ti = c; k += z; }); if (ti === lastToi && sizes.length > 1) sc += 3;
+      if (bal) { k = 0; sizes.forEach(function (z) { var T = sjTeams(o.slice(k, k + z)); k += z; if (T.length === 2) { var lv = T.map(function (tm) { var v = tm.map(sjLvOf).filter(function (y) { return y != null; }); return v.length ? v.reduce(function (a, y) { return a + y; }, 0) / v.length : null; }); if (lv[0] != null && lv[1] != null) sc += Math.abs(lv[0] - lv[1]) * 4; } }); }
+      if (avoid && o.join(",") === avoid) sc += 1e6;
+      if (sc < bs) { bs = sc; best = o; }
+    }
+    return best;
+  }
+  // Le tirage du jour : fait au réglage de la séance (ou à la première ouverture du plan), gardé pour éviter les redites la fois suivante
+  function sjDrawFor(n, c) {
+    var td = E.iso(today()), D = S.sjDraw, sizes = sjCourts(n, c).sizes, key = n + "/" + sizes.join("-");
+    if (D && D.d === td && D.key === key && D.order && D.order.length === n) return D;
+    var g = sjGrpCur(), memN = (g.m || []).map(function (m) { return m.n; }), pres = D && D.d === td && D.pres ? D.pres : (g.last || []).filter(function (x) { return memN.indexOf(x) >= 0; }); // sinon les présents de la dernière fois
+    if (!pres.length && !(D && D.d === td)) pres = memN.length ? memN : ((S.sjGrp && S.sjGrp.names) || []);
+    var names = ["Toi"].concat((pres || []).slice(0, n - 1));
+    for (var i = 0; names.length < n; i++) names.push("Joueur " + String.fromCharCode(66 + i));
+    var cs = sjCourts(n, c), on = cs.sizes.reduce(function (a, z) { return a + z; }, 0);
+    var order = sjDrawMake(names, cs.sizes.concat(cs.bench ? [cs.bench] : []));
+    S.sjDraw = { d: td, g: g.id, key: key, n: n, order: order, pres: pres || [], re: D && D.d === td ? D.re || 0 : 0 };
+    sjHistPut(S.sjDraw, cs.sizes); void on;
+    return S.sjDraw;
+  }
+  function sjHistPut(D, sizes) {
+    var td = E.iso(today()), real = D.order.filter(function (x) { return !/^Joueur [A-Z]$/.test(x); });
+    S.sjHist = (S.sjHist || []).filter(function (h) { return h.d !== td; }).concat([{ d: td, g: D.g, p: real.filter(function (x) { return x !== "Toi"; }), pairs: sjPairs(D.order, sizes).filter(function (p) { return !/Joueur [A-Z]/.test(p); }), toi: (function () { var k = 0, ti = -1; sizes.forEach(function (z, c) { if (D.order.slice(k, k + z).indexOf("Toi") >= 0) ti = c; k += z; }); return ti; })() }]).slice(-60);
+  }
   function sjNames(n) {
+    var D = S.sjDraw;
+    if (D && D.d === E.iso(today()) && D.order && D.order.length === n) return D.order.slice();
     var L = (S.sjGrp && S.sjGrp.names || []).filter(Boolean), out = ["Toi"];
     for (var i = 0; out.length < n; i++) out.push(L[i] || "Joueur " + String.fromCharCode(66 + out.length - 1));
     return out.slice(0, n);
   }
+  // La carte « Le tirage » : qui joue où au départ, les équipes, les duos nouveaux soulignés
+  function sjDrawHtml(P) {
+    var G = P.grp; if (!G || !S.sjDraw || S.sjDraw.d !== E.iso(today()) || S.sjDraw.order.length !== G.n) return "";
+    var D = S.sjDraw, H = sjHistBefore(), seen = {}; H.forEach(function (h) { (h.pairs || []).forEach(function (p) { seen[p] = 1; }); });
+    var real = function (x) { return !/^Joueur [A-Z]$/.test(x); }, k = 0, nw = {}, big = G.cs.sizes.some(function (z) { return z >= 5; });
+    var nm = function (x, t) { var isNew = t.length === 2 && real(x) && t.some(function (y) { return y !== x && real(y) && H.length && !seen[[x, y].sort().join("|")]; }); return isNew ? '<span class="sjg-new">' + esc(x) + "</span>" : esc(x); };
+    var cells = G.cs.sizes.map(function (z, i) {
+      var cl = D.order.slice(k, k + z); k += z; var T = sjTeams(cl), lab = z >= 5 ? "équipes de 3" : z === 4 ? "double" : z === 3 ? "à 3" : "simple";
+      var body = T.length === 2 ? T.map(function (t) { return "<span>" + t.map(function (x) { return nm(x, t); }).join(z >= 5 ? ", " : " et ") + "</span>"; }).join('<span class="sjg-vs">contre</span>') : "<span>" + cl.map(function (x) { return nm(x, cl); }).join(z === 2 ? " contre " : "<br>") + "</span>";
+      var ex = z >= 5 ? '<span class="small">Sur le court au départ : ' + esc(cl[0]) + " et " + esc(cl[1]) + " contre " + esc(cl[3]) + " et " + esc(cl[4]) + ". Entre" + (z === 6 ? "nt" : "") + " au 1er point : " + esc(cl[2]) + (z === 6 ? " et " + esc(cl[5]) : "") + ".</span>" : z === 3 ? '<span class="small">Le 3e tourne toutes les 2 min.</span>' : "";
+      return '<div class="sjg-c"><span class="k">Terrain ' + (i + 1) + " · " + lab + '</span><span class="sjg-tm">' + body + "</span>" + ex + "</div>";
+    }).join("");
+    var bench = G.cs.bench ? D.order.slice(k) : [];
+    var lastP = H.length ? (H[H.length - 1].pairs || []).filter(function (p) { return p.split("|").indexOf("Toi") >= 0; }).map(function (p) { return p.split("|").filter(function (x) { return x !== "Toi"; })[0]; }) : [];
+    var myT = null; k = 0; G.cs.sizes.forEach(function (z) { var cl = D.order.slice(k, k + z); k += z; sjTeams(cl).forEach(function (t) { if (t.indexOf("Toi") >= 0) myT = t; }); });
+    var apart = lastP.filter(function (x) { return D.order.indexOf(x) >= 0 && myT && myT.indexOf(x) < 0; })[0];
+    var tp = sjPairs(D.order, G.cs.sizes).filter(function (p) { return !/Joueur [A-Z]/.test(p); }), redo = tp.filter(function (p) { return seen[p]; }).length, dbl = G.cs.sizes.some(function (z) { return z === 4; });
+    var why = (H.length ? (dbl ? "Souligné : <b>jamais ensemble</b> ces " + plural(H.length, "dernière séance", "dernières séances") + ". " : "") + (redo ? plural(redo, "duo refait", "duos refaits") + " : pas d'autre choix avec les présents." : "<b>Aucun duo</b> des " + plural(H.length, "dernière séance", "dernières séances") + " n'est refait.") : "Au hasard parmi les présents. Dès la prochaine fois, Montée évite les mêmes duos.") + (apart ? " " + esc(apart) + ", ton partenaire de la dernière fois, n'est pas avec toi." : "");
+    void nw;
+    return '<div class="card sjg"><div class="sjg-hd"><span class="grow"><span class="eyebrow">Le tirage du jour</span><b class="sjg-t">Montée a tiré ' + (big ? "les équipes" : "les terrains") + '</b></span><button class="go-pill" data-a="sjRedraw"' + (D.re ? " disabled" : "") + ' aria-label="Refaire le tirage, une seule fois">' + svg('<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 9h.01M15 15h.01M15 9h.01M9 15h.01M12 12h.01" stroke-width="3.2"/>', 2) + (D.re ? " Déjà retiré" : " Retirer") + "</button></div>" +
+      '<div class="sjg-g">' + cells + "</div>" + (bench.length ? '<span class="small">À l\'atelier au départ : ' + bench.map(esc).join(", ") + ".</span>" : "") +
+      '<div class="sjg-why"><span>' + why + '</span><button class="linkbtn" data-a="sheet" data-k="sjRule" data-v="1">Comment ' + I.next + "</button></div></div>";
+  }
+  DET.sjRule = function () {
+    var H = sjHistBefore(), cnt = {}; H.forEach(function (h) { (h.pairs || []).forEach(function (p) { cnt[p] = (cnt[p] || 0) + 1; }); });
+    var D = S.sjDraw && S.sjDraw.d === E.iso(today()) ? S.sjDraw : null, G = D ? sjCourts(D.order.length, (sjCfg().c || 1)) : null, today2 = D ? sjPairs(D.order, G.sizes) : [];
+    var top = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 6);
+    var b = '<div class="sjg-rl">' + [["Au hasard parmi les présents", "Les absents ne comptent pas, un invité entre dans le tirage."], ["Pas les mêmes partenaires", "Un duo des 3 dernières séances n'est refait que s'il n'y a pas d'autre choix."], ["Pas toujours le même terrain", "Et jamais deux fois de suite à l'atelier quand il y en a un."], ["Équipes équilibrées, si tu le demandes", "Avec les niveaux notés dans Ton groupe. Sinon, pur hasard."]].map(function (x, i) { return "<div><i>" + (i + 1) + "</i><span><b>" + x[0] + "</b><small>" + x[1] + "</small></span></div>"; }).join("") + "</div>";
+    if (top.length) b += '<span class="mk-lbl">Les duos des ' + plural(H.length, "dernière séance", "dernières séances") + '</span><div class="sjg-dl">' + top.map(function (p) { var two = p.split("|"); return '<div><span class="grow"><b>' + esc(two.join(" et ")) + "</b><small>" + (D ? (today2.indexOf(p) >= 0 ? "ensemble aujourd'hui, pas d'autre choix" : D.order.indexOf(two[0]) >= 0 && D.order.indexOf(two[1]) >= 0 ? "séparés aujourd'hui" : "pas tous les deux là aujourd'hui") : "") + '</small></span><span class="sjg-n">' + plural(cnt[p], "fois", "fois") + "</span></div>"; }).join("") + "</div>";
+    b += '<span class="mk-lbl">Les équipes</span><div class="seg sj-seg"><button data-a="sjBal" data-v="0" class="' + (S.sjBal ? "" : "on") + '">Au hasard<small>par défaut</small></button><button data-a="sjBal" data-v="1" class="' + (S.sjBal ? "on" : "") + '">Équilibrées<small>avec les niveaux</small></button></div>';
+    if (S.sjBal && !(sjGrpCur().m || []).some(function (m) { return m.lv; })) b += '<span class="small">Note le niveau de chacun dans Ton groupe pour que ça compte.</span>';
+    return { title: "Comment Montée tire", sub: "Ce n'est jamais toi qui choisis : la même règle pour tout le monde, à chaque séance.", body: b };
+  };
+  // Ton groupe : les prénoms enregistrés une fois, le niveau facultatif, combien de fois venu
+  DET.sjGrp = function () {
+    var G = sjGrps(), g = sjGrpCur(), U = UI.sjG || (UI.sjG = { add: "", lv: null, lvTxt: "" });
+    var b = "";
+    if (G.length > 1 || UI.sjGNew) b += '<div class="sj-dur">' + G.map(function (x) { return '<button class="sj-chip' + (x.id === g.id ? " on" : "") + '" data-a="sjGPick" data-v="' + esc(x.id) + '">' + esc(x.t) + "</button>"; }).join("") + "</div>";
+    if (G.length > 1) b += '<label class="mk-lbl" for="sjg-name">Nom du groupe</label><input class="input" id="sjg-name" data-a="sjGName" maxlength="24" value="' + esc(g.t) + '">';
+    b += '<div class="sjg-in"><input class="input" id="sjg-add" data-a="sjGAddT" maxlength="16" placeholder="Ajouter un prénom" value="' + esc(U.add) + '" enterkeyhint="done"><button class="btn primary small" data-a="sjGAdd">Ajouter</button></div>';
+    if (!(g.m || []).length) b += '<span class="small">Personne pour l\'instant. Tape les prénoms des gens avec qui tu t\'entraînes : tu n\'auras plus qu\'à cocher les présents.</span>';
+    b += '<div class="sjg-dl">' + (g.m || []).map(function (m) {
+      var v = sjVenu(m.n), lvE = U.lv === m.n;
+      return '<div><span class="sjg-av" aria-hidden="true">' + esc(m.n.charAt(0).toUpperCase()) + '</span><span class="grow"><b>' + esc(m.n) + "</b><small>" + (v ? "venu" + " " + plural(v, "fois", "fois") : "pas encore venu") + "</small></span>" +
+        (lvE ? '<input class="input sjg-lvi" data-a="sjGLvT" maxlength="6" placeholder="15/2" value="' + esc(U.lvTxt) + '" aria-label="Niveau de ' + esc(m.n) + '"><button class="go-pill" data-a="sjGLvOk">OK</button>' : '<button class="sjg-rk' + (m.lv ? " set" : "") + '" data-a="sjGLv" data-v="' + esc(m.n) + '">' + (m.lv ? esc(m.lv) : "+ niveau") + "</button>") +
+        '<button class="iconbtn sm" data-a="sjGDel" data-v="' + esc(m.n) + '" aria-label="Retirer ' + esc(m.n) + ' du groupe">' + I.cross + "</button></div>";
+    }).join("") + "</div>";
+    var have = (g.m || []).map(function (m) { return m.n.toLowerCase(); }), sug = [];
+    (S.doubles || []).slice().sort(function (a, c) { return (c.date || "") > (a.date || "") ? 1 : -1; }).forEach(function (m) { var dm = dblMate(m), pw = dm && dm.n ? nameCase(dm.n).split(" ") : [], p = pw.length ? sjNameOk(pw[0].length <= 2 ? pw.join(" ") : pw[0] + (pw[1] ? " " + pw[pw.length - 1].charAt(0).toUpperCase() + "." : "")) : ""; if (p && have.indexOf(p.toLowerCase()) < 0 && sug.indexOf(p) < 0 && sug.length < 4) sug.push(p); });
+    if (sug.length) b += '<span class="mk-lbl">Déjà dans Montée · tes partenaires de double</span><div class="sj-dur">' + sug.map(function (p) { return '<button class="sj-chip" data-a="sjGSug" data-v="' + esc(p) + '">+ ' + esc(p) + "</button>"; }).join("") + "</div>";
+    b += '<span class="small">Le niveau est facultatif : il sert seulement si tu demandes des équipes équilibrées.</span>';
+    b += '<button class="linkbtn" data-a="sjGNew">+ Un autre groupe</button>';
+    return { title: G.length > 1 ? "Tes groupes" : "Ton groupe", sub: "", body: b };
+  };
   // Rotations : à chaque changement, un joueur par terrain passe au terrain suivant (et l'appui reprend une place)
   function sjRot(n, c, rounds) {
     var C = sjCourts(n, c), nm = sjNames(n), k = 0, courts = C.sizes.map(function (z) { var a = nm.slice(k, k + z); k += z; return a; }), bench = nm.slice(k), out = [];
@@ -11089,6 +11205,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // 3.62 (Yann : « attente : 2 joueurs en appui à tour de rôle » n'est pas compris) : dire qui joue, qui attend, combien de temps
   function sjWaitTxt(n, c, rot) {
     var cs = sjCourts(n, c), on = cs.sizes.reduce(function (a, z) { return a + z; }, 0), nt = cs.sizes.length;
+    if (!cs.bench && Math.max.apply(null, cs.sizes) >= 5) return "<b>Tout le monde joue</b> : des jeux faits pour " + Math.max.apply(null, cs.sizes) + " sur un court (roi du court en double, double tournant) : on joue à 2 contre 2 et on tourne à chaque point, personne n'attend plus d'un point."; // 3.69
     if (!cs.bench) return "<b>Personne n'attend</b> : " + (nt > 1 ? "les " + n + " jouent tout le temps, et chacun passe sur tous les terrains." : "les " + n + " jouent tout le temps.");
     var r = rot ? Math.round(rot) : sjRotM();
     return "<b>" + on + " jouent, " + cs.bench + " à l'atelier physique</b> au bord du court. Toutes les " + r + " min, " + (nt > 1 ? "1 joueur par terrain sort et " : "") + (cs.bench > 1 && nt > 1 ? "ceux de l'atelier rentrent" : "1 joueur rentre") + " : chacun passe " + r + " min à l'atelier toutes les " + (r * Math.ceil(n / Math.min(cs.bench, nt))) + " min environ" + (nt > 1 ? ", et passe sur tous les terrains." : ".");
@@ -11145,7 +11262,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (b.k !== "ax" && b.k !== "game") return;
       if (G && b.k !== "game") return;
       var x = SJ_DF[b.g] || null, short = Math.min(5, Math.max(3, Math.round(b.min / 3))), df;
-      if (G) df = { t: "Montante : matchs de 6 min. Les gagnants montent d'un terrain, les perdants descendent.", to: 0, m: b.min, grp: 1 };
+      if (G && b.mt) df = { t: "Montante : matchs de 6 min. Les gagnants montent d'un terrain, les perdants descendent.", to: 0, m: b.min, grp: 1 };
+      else if (G) df = { t: (b.six ? "Double tournant : première équipe à 10 points." : "Le match du groupe : jeu décisif en 10 points."), to: 10, m: b.min, team: 1 }; // 3.69 : un seul terrain ou du double tournant
       else if (mode === "solo") { if (b.k !== "ax" || !b.cnt || !b.n) return; var r = sjRecord(b.g, b.n); df = { t: (r.rec ? "Égale ton record : " : "Atteins ") + r.to + " " + b.cnt.toLowerCase() + ".", to: r.to, m: b.min, solo: 1 }; }
       else if (b.k === "game") df = { t: "Le match de la séance : jeu décisif en 10 points.", to: 10, m: b.min };
       else df = { t: x ? x.t : "Points à 7.", to: x ? x.to : 7, m: short };
@@ -11197,19 +11315,34 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var rest = min - warm - cool - game - (chB ? chB.min : 0); while (ax.length > 1 && rest / ax.length < 10) ax.pop();
     var per = Math.floor(rest / ax.length / 5) * 5, extra = rest - per * ax.length, B = [], G = null;
     if (mode === "grp") G = { n: o.n || 6, c: o.c || 2, cs: sjCourts(o.n || 6, o.c || 2) };
+    var big = G ? Math.max.apply(null, G.cs.sizes) : 0; if (big < 5) big = 0; // 3.69 : 5 ou 6 sur un terrain, des jeux où tout le monde joue
     var gTxt = function (f) { return G ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + " · " + z, x: f(z) }; }) : null; };
-    B.push({ k: "warm", cat: "cor", t: "Échauffement", min: warm, x: mode === "solo" ? "Footing, pas chassés, puis contre le mur : près, puis de plus en plus loin. Petits pas entre chaque frappe." : "Mini-tennis 4 min, puis milieu de court, puis fond. Petits pas entre chaque frappe.", obj: "Replacé avant chaque frappe", ct: gTxt(function (z) { return z >= 4 ? "Mini-tennis croisé, puis fond de court" : z === 3 ? "Mini-tennis à 3, le 3e tourne toutes les 2 min" : "Mini-tennis, puis fond de court"; }) });
+    B.push({ k: "warm", cat: "cor", t: "Échauffement", min: warm, x: mode === "solo" ? "Footing, pas chassés, puis contre le mur : près, puis de plus en plus loin. Petits pas entre chaque frappe." : "Mini-tennis 4 min, puis milieu de court, puis fond. Petits pas entre chaque frappe.", obj: "Replacé avant chaque frappe", six: big || null, ct: gTxt(function (z) { return z >= 5 ? "Mini-tennis 2 contre 2 : à chaque faute, celui qui l'a faite sort et celui qui attend entre. 10 échanges sans faute, puis on recule au fond" : z >= 4 ? "Mini-tennis croisé, puis fond de court" : z === 3 ? "Mini-tennis à 3, le 3e tourne toutes les 2 min" : "Mini-tennis, puis fond de court"; }) });
     if (chB) B.push(chB);
     var used3 = sjExUsed(99);
     ax.forEach(function (id, i) {
       // 3.64 : la variante du jour (« Changer d'exo », et pas deux fois le même exo de suite), et le « comment on joue »
       var g = goalOf(id), v = sjVar(id), x = sjXof(id, v), m = per + (i === 0 ? extra : 0);
-      B.push({ k: "ax", g: id, v: v, nw: (S.seances || []).length && !used3[id + ":" + v] ? 1 : 0, cat: g ? g.cat : "tac", t: x.t, min: m, x: sjExOf(x, mode, 2), obj: x.obj, cnt: x.cnt, n: x.n, np: mode === "solo" ? 1 : G ? (G.cs.sizes[0] || 4) : 2, how: { z: x.z, st: x.st, k: x.k, e: x.e, h: x.h }, ct: gTxt(function (z) { return sjExOf(x, "grp", z); }) });
+      B.push({ k: "ax", g: id, v: v, nw: (S.seances || []).length && !used3[id + ":" + v] ? 1 : 0, cat: g ? g.cat : "tac", t: x.t, min: m, x: sjExOf(x, mode, 2), obj: x.obj, cnt: x.cnt, n: x.n, np: mode === "solo" ? 1 : G ? (G.cs.sizes[0] || 4) : 2, how: { z: x.z, st: x.st, k: x.k, e: x.e, h: x.h }, ct: gTxt(function (z) { return z >= 5 ? (/^2 contre 2/.test(sjExOf(x, "grp", 4)) ? "" : "2 contre 2 : ") + sjExOf(x, "grp", 4) + " Les autres arbitrent et ramassent." : sjExOf(x, "grp", z); }) });
+      if (big) { B[B.length - 1].outK = "Ceux qui sortent"; B[B.length - 1].out = "arbitrent, comptent les points et ramassent. Toutes les 3 min, 2 d'entre eux rentrent."; }
       // 3.62 : aussi sur un seul terrain quand des joueurs attendent (6 sur 1 terrain) ; 3.64 : toutes les 4, 6 ou 8 min
       var bb = B[B.length - 1], rm = sjRotM(); if (G && (G.cs.sizes.length > 1 || G.cs.bench) && m >= rm * 2) { bb.rounds = Math.max(2, Math.round(m / rm)); bb.rot = m / bb.rounds; bb.bench = G.cs.bench; }
     });
-    if (game) { var g0 = goalOf(ax[0]); B.push({ k: "game", g: ax[0], cat: ax.length > 1 ? "tet" : (g0 ? g0.cat : "tet"), t: G ? "Montante-descendante" : "Jeu à thème", min: game, x: SJ_EX[ax[0]].game + (G ? " Matchs de 6 min : les gagnants montent d'un terrain, les perdants descendent." : ""), obj: G ? "Le thème jusqu'au bout" : SJ_EX[ax[0]].obj, ct: G ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + (i === 0 ? " · le haut" : i === G.cs.sizes.length - 1 ? " · le bas" : ""), x: z >= 4 ? "Jeux décisifs en double" : z === 3 ? "Jeux décisifs à 3, le 3e arbitre" : "Jeux décisifs en simple" }; }) : null }); }
-    B.push({ k: "cool", cat: "cor", t: "Retour au calme", min: cool, x: "Échanges lents au centre, puis étirements des épaules et des mollets." + (G ? " Qui a gagné la montante ?" : ""), obj: "" });
+    if (game) {
+      var g0 = goalOf(ax[0]), gcat = ax.length > 1 ? "tet" : (g0 ? g0.cat : "tet"), mt = G && G.cs.sizes.length > 1 && !big;
+      if (G && big) {
+        // 3.69 : roi du court en double puis double tournant (Yann : on ne joue pas à 3 d'un côté, et personne ne fait la queue)
+        var roi = Math.max(5, Math.round(game / 2 / 5) * 5), tri = game - roi; if (tri < 5) { tri = 5; roi = game - 5; }
+        B.push({ k: "fmt", cat: "sol", t: "Roi du court", min: roi, six: big, x: (big === 6 ? "En double, 3 paires. La paire roi défend son côté, une paire l'attaque, la 3e attend un seul point. La paire qui gagne est roi, la perdante sort et rentre au point suivant" : "En double, 2 paires et 1 joueur qui attend. La paire qui gagne est roi. Dans la paire perdante, un joueur sort (chacun son tour) et celui qui attend rentre") + (sjDefs().on && sjDefs().gage ? ", après un sprint jusqu'au filet." : ".") + " Point lancé à la main, après 3 balles d'échange. On change les paires à mi-temps.", obj: "Rester roi 3 points de suite", outK: "Qui attend", out: "un seul point, 20 secondes : on ramasse et on annonce le score.",
+          ct: G.cs.sizes.length > 1 ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + " · " + z, x: z >= 5 ? "Roi du court en double : la paire qui gagne reste, la perdante sort 1 point" : z === 4 ? "Roi du court en double : la paire qui gagne reste" : "Roi du court : le gagnant reste" }; }) : null });
+        B.push({ k: "game", g: ax[0], cat: gcat, t: "Double tournant", min: tri, six: big, x: "Les équipes du tirage. On joue en double, 2 contre 2. Après chaque point, dans chaque équipe, celui qui joue depuis le plus longtemps sort et le 3e entre" + (big === 5 ? " (à 5, l'équipe de 2 joue tous les points)" : "") + ". Première équipe à 10.", obj: "Le thème jusqu'au bout", outK: "Qui attend", out: "un seul point, derrière le fond de court : on ramasse et on annonce le score.",
+          ct: G.cs.sizes.length > 1 ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + " · " + z, x: z >= 5 ? "Double tournant : 2 contre 2, le 3e de chaque équipe entre à chaque point" : z === 4 ? "Double, on change de place à chaque point" : "À 3, le 3e tourne à chaque point" }; }) : null });
+      } else B.push({ k: "game", mt: mt ? 1 : 0, g: ax[0], cat: gcat, t: mt ? "Montante-descendante" : G ? "Le match du groupe" : "Jeu à thème", min: game,
+        // 3.69 : avec un seul terrain, plus de « montent d'un terrain » (il n'y en a qu'un)
+        x: SJ_EX[ax[0]].game + (mt ? " Matchs de 6 min : les gagnants montent d'un terrain, les perdants descendent." : G ? " Jeux décisifs, on change les équipes à chaque jeu." : ""), obj: G ? "Le thème jusqu'au bout" : SJ_EX[ax[0]].obj,
+        ct: G ? G.cs.sizes.map(function (z, i) { return { k: "Terrain " + (i + 1) + (mt && i === 0 ? " · le haut" : mt && i === G.cs.sizes.length - 1 ? " · le bas" : ""), x: z >= 4 ? "Jeux décisifs en double" : z === 3 ? "Jeux décisifs à 3, le 3e arbitre" : "Jeux décisifs en simple" }; }) : null });
+    }
+    B.push({ k: "cool", cat: "cor", t: "Retour au calme", min: cool, x: "Échanges lents au centre, puis étirements des épaules et des mollets." + (G ? (big ? " Qui est resté roi le plus longtemps ?" : G.cs.sizes.length > 1 ? " Qui a gagné la montante ?" : " Qui a gagné le match du groupe ?") : ""), obj: "" });
     var t = 0; B.forEach(function (b) { b.at = t; t += b.min; });
     sjAddDefis(B, mode, G);
     var tt = (ax.length > 1 ? sjShort(ax[0]) + " et " + sjShort(ax[1]).replace(/^./, function (c) { return c.toLowerCase(); }) : sjShort(ax[0])) + (G ? " pour le groupe" : "");
@@ -11281,10 +11414,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var st = live == null ? "" : i < live ? " ok" : i === live ? " on" : "";
     // 3.64 (maquette G1) : dans le plan, chaque exercice dit comment on joue, ce qui compte, et se change
     var rich = live == null && b.how && (b.k === "ax" || b.k === "ch");
-    return '<div class="sq-b' + st + (rich ? " rich" : "") + '"><span class="sq-m">' + Math.floor(b.at / 60) + ":" + ("0" + (b.at % 60)).slice(-2) + '</span><div class="sq-c"><div class="hd">' + catLab(b.cat) + '<span class="du">' + esc(fmtDur(b.min)) + "</span>" + (rich && b.nw ? '<span class="sj-new">Nouveau pour toi</span>' : "") + "</div><b>" + esc(b.t) + "</b>" +
+    return '<div class="sq-b' + st + (rich ? " rich" : "") + '"><span class="sq-m">' + Math.floor(b.at / 60) + ":" + ("0" + (b.at % 60)).slice(-2) + '</span><div class="sq-c"><div class="hd">' + catLab(b.cat) + (b.six ? '<span class="sjg-six" title="Tout le monde joue">À ' + b.six + "</span>" : "") + '<span class="du">' + esc(fmtDur(b.min)) + "</span>" + (rich && b.nw ? '<span class="sj-new">Nouveau pour toi</span>' : "") + "</div><b>" + esc(b.t) + "</b>" +
       (rich ? sjHowHtml(b, i) : b.ct ? '<div class="ct2">' + b.ct.map(function (x) { return '<div><span class="k">' + esc(x.k) + '</span><span class="y">' + esc(x.x) + "</span></div>"; }).join("") + "</div>" : "<p>" + esc(b.x) + "</p>") +
       (b.rot ? '<span class="ob">Toutes les <b>' + fmtDur(Math.round(b.rot)) + "</b> : " + (b.bench ? (b.ct && b.ct.length === 1 ? "des joueurs sortent à l'atelier, ceux de l'atelier rentrent." : "1 joueur par terrain sort à l'atelier, ceux de l'atelier rentrent.") : b.ct && b.ct.length === 1 ? "1 joueur sort, 1 joueur du bord rentre." : "1 joueur par terrain change de terrain.") + "</span>" : "") + // 3.62
       (b.obj && !rich ? '<span class="ob">Objectif : <b>' + esc(b.obj) + "</b></span>" : "") +
+      (b.out ? '<div class="sjg-out"><span class="k">' + esc(b.outK || "") + "</span><span>" + esc(b.out) + "</span></div>" : "") + // 3.69
       (b.df ? '<div class="sj-df"><div class="l"><span class="t df">Défi</span><span>' + esc((b.df.m < b.min ? "Les " + b.df.m + " dernières minutes : " : "") + b.df.t) + "</span></div>" + (b.df.gage ? '<div class="l"><span class="t gg">Gage</span><span>' + esc(b.df.gage.t + (b.df.gage.s ? ", " + b.df.gage.s : "") + (b.df.grp ? " (les perdants de chaque match)" : b.df.solo ? " (si tu ne l'as pas)" : "")) + "</span></div>" : "") + "</div>" : "") + "</div></div>";
   }
   function sjRotHtml(P) {
@@ -11303,6 +11437,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (sub === "live") return sjLiveView();
     if (sub === "fin") return sjEndView();
     var c = sjCfg(), P = sjBuild(c), grp = c.mode === "grp";
+    if (grp) { var D0 = S.sjDraw; sjDrawFor(P.grp.n, P.grp.c); if (S.sjDraw !== D0) save(); } // 3.69 : le tirage du jour
     var s = '<div class="screen sj-scr">' + topbar("", (grp ? "Séance de groupe · " : "Séance du jour · ") + fmtDur(P.min));
     s += '<h1 class="sj-h1">' + esc(P.title) + '</h1><p class="small sj-sub">' + esc(plural(P.blocks.length, "étape") + " · " + (grp ? plural(P.grp.n, "joueur") + " · " + plural(P.grp.cs.sizes.length, "terrain") : c.mode === "solo" ? "seul" : "avec un partenaire")) + ' · <button class="linkbtn" data-a="sheet" data-k="sjSet" data-v="1">Changer</button></p>';
     if (grp) { var rb0 = P.blocks.filter(function (x) { return x.rot; })[0]; s += sjRotCard(P) || '<div class="sj-wait">' + svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', 2.2) + "<span>" + sjWaitTxt(P.grp.n, P.grp.c, rb0 && rb0.rot) + "</span></div>"; }
@@ -11310,7 +11445,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var DF = sjDefs();
     s += '<div class="sj-dfl"><span class="small">' + (DF.on ? (DF.gage ? "Défis et gages pour le perdant" : "Défis, sans gage") : "Sans défis") + (c.mode === "duo" && DF.on ? " · avec " + esc(sjMate()) : "") + '</span><button class="linkbtn" data-a="sheet" data-k="sjDef" data-v="1">Régler</button></div>';
     s += '<div class="sq">' + P.blocks.map(function (b, i) { return sjBlockHtml(b, i, null); }).join("") + "</div>";
-    s += sjAtHtml(P) + sjRotHtml(P);
+    s += sjAtHtml(P) + sjDrawHtml(P) + sjRotHtml(P);
     s += '<button class="linkbtn sj-nx" data-a="sheet" data-k="sjNext" data-v="1">Tes prochaines séances ' + I.next + "</button>";
     var w = sjWatchOk() && !grp;
     s += '<div class="sj-acts">' + (grp ? '<button class="btn primary" data-a="sjGo" data-v="phone">' + svg('<path d="M8 5v14l11-7z"/>', 2) + " Lancer le minuteur du groupe</button>" :
@@ -11331,6 +11466,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (P.grp && P.grp.cs.sizes.length > 1) {
       var b = P.blocks.filter(function (x) { return x.rot; })[0];
       if (b) { L.push("", "Qui joue où :"); sjRot(P.grp.n, P.grp.c, b.rounds).rounds.forEach(function (r, k) { var t = Math.round(b.at + k * b.rot); L.push(Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2) + " · " + r.courts.map(function (cl, i) { return "T" + (i + 1) + " " + cl.join(", "); }).join(" | ")); }); }
+    }
+    if (P.grp && S.sjDraw && S.sjDraw.d === E.iso(today()) && S.sjDraw.order.length === P.grp.n) {
+      var kk = 0; L.push("", "Le tirage :"); P.grp.cs.sizes.forEach(function (z, i) { var cl = S.sjDraw.order.slice(kk, kk + z); kk += z; L.push("T" + (i + 1) + " · " + sjTeams(cl).map(function (t) { return t.join(z === 4 ? " et " : ", "); }).join(" contre ")); });
     }
     L.push("", "Préparée avec Montée");
     return L.join("\n");
@@ -11370,10 +11508,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function sjGageN(i) { var D = sjDefs(), g = SJ_GAGES[(Math.floor(today().getTime() / 864e5) + i) % SJ_GAGES.length]; return { t: g.t[D.lvl] || g.t[1], s: g.s, k: g.k }; }
   function sjDuRes(L, k) {
     var b = L.P.blocks[k], d = (L.du || {})[k]; if (!b || !b.df || !d || d.w == null || d.w < -1) return "";
-    var mate = sjMate(), s = '<div class="card sj-duel"><div class="hd"><span class="t df">Défi</span><span class="small">' + esc(b.t) + "</span></div>";
+    var tm = b.df.team, mate = tm ? "L'équipe d'en face" : sjMate(), s = '<div class="card sj-duel"><div class="hd"><span class="t df">Défi</span><span class="small">' + esc(b.t) + "</span></div>";
     if (b.df.solo) s += '<b class="du-res">' + (d.w === 0 ? "Réussi : " : "Raté : ") + d.a + " / " + b.df.to + "</b>";
-    else s += '<b class="du-res">' + (d.w === -1 ? "Égalité " : d.w === 0 ? "Tu gagnes " : esc(mate) + " gagne ") + Math.max(d.a, d.b) + " – " + Math.min(d.a, d.b) + "</b>";
-    var loser = b.df.solo ? (d.w === 1 ? "toi" : null) : d.w === 0 ? mate : d.w === 1 ? "toi" : null;
+    else s += '<b class="du-res">' + (d.w === -1 ? "Égalité " : d.w === 0 ? (tm ? "Ton équipe gagne " : "Tu gagnes ") : esc(mate) + " gagne ") + Math.max(d.a, d.b) + " – " + Math.min(d.a, d.b) + "</b>";
+    var loser = b.df.solo ? (d.w === 1 ? "toi" : null) : d.w === 0 ? (tm ? "l'équipe d'en face" : mate) : d.w === 1 ? (tm ? "ton équipe" : "toi") : null;
     if (loser && b.df.gage) s += sjGageHtml(loser, b.df.gage) + (d.gd ? '<span class="small">Gage fait ✓</span>' : '<button class="btn soft" data-a="sjGage" data-v="' + k + '">Gage fait</button>');
     return s + "</div>";
   }
@@ -11395,10 +11533,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var d = (L.du || {})[k] || { a: 0, b: 0, w: null };
     if (d.w != null) return s + sjDuRes(L, k);
     if (!sjDfPhase(L, k)) return s + '<div class="sj-dfnext"><span class="t df">Défi</span><span>' + esc((b.df.m < b.min ? "Les " + b.df.m + " dernières minutes : " : "") + b.df.t) + "</span></div>";
-    var mate = sjMate();
+    var mate = b.df.team ? "En face" : sjMate();
     s += '<div class="card sj-duel"><div class="hd"><span class="t df">Défi</span><span class="small">' + esc(b.df.t) + "</span></div>";
-    s += '<div class="du-w"><button class="me" data-a="sjDu" data-v="0"><small>Toi</small><b>' + d.a + '</b></button><button data-a="sjDu" data-v="1"><small>' + esc(mate) + "</small><b>" + d.b + "</b></button></div>";
-    s += '<div class="du-f"><span class="small">Premier à ' + b.df.to + ", tape celui qui marque.</span>" + (d.a || d.b ? '<button class="linkbtn" data-a="sjDuUndo">Annuler</button>' : D.adv ? '<button class="linkbtn" data-a="sjDuAdv" data-v="0">+2 toi</button><button class="linkbtn" data-a="sjDuAdv" data-v="1">+2 ' + esc(mate) + "</button>" : "") + "</div>";
+    s += '<div class="du-w"><button class="me" data-a="sjDu" data-v="0"><small>' + (b.df.team ? "Ton équipe" : "Toi") + '</small><b>' + d.a + '</b></button><button data-a="sjDu" data-v="1"><small>' + esc(mate) + "</small><b>" + d.b + "</b></button></div>";
+    s += '<div class="du-f"><span class="small">Premier à ' + b.df.to + ", tape celui qui marque.</span>" + (d.a || d.b ? '<button class="linkbtn" data-a="sjDuUndo">Annuler</button>' : D.adv ? '<button class="linkbtn" data-a="sjDuAdv" data-v="0">+2 ' + (b.df.team ? "ton équipe" : "toi") + '</button><button class="linkbtn" data-a="sjDuAdv" data-v="1">+2 ' + esc(mate) + "</button>" : "") + "</div>";
     if (b.df.gage) s += '<span class="small">Le perdant : <b>' + esc(b.df.gage.t.toLowerCase()) + "</b>" + (b.df.gage.s ? ", " + esc(b.df.gage.s) : "") + "</span>";
     return s + "</div>";
   }
@@ -11882,15 +12020,34 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // ----- Réglages (feuille) -----
   DET.sjSet = function () {
-    var c = sjCfg(), U = UI.sjSet || (UI.sjSet = { min: c.min, mode: c.mode, ax: c.ax.slice(), n: c.n || (S.sjGrp && S.sjGrp.n) || 6, c: c.c || (S.sjGrp && S.sjGrp.c) || 2, names: ((S.sjGrp && S.sjGrp.names) || []).join(", "), mate: S.sjMate || "" });
+    var c = sjCfg(), U = UI.sjSet || (UI.sjSet = { min: c.min, mode: c.mode, ax: c.ax.slice(), n: c.n || (S.sjGrp && S.sjGrp.n) || 6, c: c.c || (S.sjGrp && S.sjGrp.c) || 2, mate: S.sjMate || "" });
+    // 3.69 : les présents de la dernière fois pré-cochés
+    var gg = sjGrpCur(), mem = gg.m || [], memN = mem.map(function (m) { return m.n; });
+    if (!U.pres) { U.pres = (gg.last || []).filter(function (n) { return memN.indexOf(n) >= 0; }); if (!U.pres.length) U.pres = memN.slice(); U.inv = []; }
+    U.pres = U.pres.filter(function (n) { return memN.indexOf(n) >= 0; });
+    if (U.mode === "grp" && mem.length) U.n = Math.max(2, 1 + U.pres.length + U.inv.length);
     var A = sjAxes(), grp = U.mode === "grp";
     var chip = function (m) { return '<button class="sj-chip' + (U.min === m ? " on" : "") + '" data-a="sjSetMin" data-v="' + m + '">' + esc(fmtDur(m)) + "</button>"; };
     var b = '<span class="mk-lbl">Avec qui ?</span><div class="seg sj-seg">' + [["solo", "Seul", "panier, mur"], ["duo", "À deux", "un partenaire"], ["grp", "En groupe", "sans prof"]].map(function (o) { return '<button data-a="sjSetMode" data-v="' + o[0] + '" class="' + (U.mode === o[0] ? "on" : "") + '">' + o[1] + "<small>" + o[2] + "</small></button>"; }).join("") + "</div>";
     b += '<span class="mk-lbl">Combien de temps ?</span><div class="sj-dur">' + (grp ? [60, 90, 120] : [30, 45, 60, 90, 120]).map(chip).join("") + "</div>";
     if (grp) {
       var stp = function (k, t, sub, v, lo, hi) { return '<div class="stp"><span class="grow"><b>' + t + "</b><small>" + sub + '</small></span><span class="pm"><button data-a="sjSetN" data-k="' + k + '" data-v="-1"' + (v <= lo ? " disabled" : "") + ' aria-label="Moins">−</button><b>' + v + '</b><button data-a="sjSetN" data-k="' + k + '" data-v="1"' + (v >= hi ? " disabled" : "") + ' aria-label="Plus">+</button></span></div>'; };
-      b += stp("n", "Joueurs", "toi compris", U.n, 2, 16) + stp("c", "Terrains", "disponibles", U.c, 1, 6);
+      // 3.69 (maquette 1) : qui est là ? Les prénoms de ton groupe à cocher, « Toi » toujours, un invité pour ce soir
+      var CK = svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 2.8);
+      b += '<div class="sjg-hd2"><span class="mk-lbl">Qui est là ?</span>' + (sjGrps().length > 1 ? '<button class="linkbtn" data-a="sjGCycle">' + esc(gg.t) + " ⌄</button>" : "") + "</div>";
+      if (mem.length) {
+        b += '<div class="sjg-names"><span class="sjg-p on me">' + CK + "Toi</span>" + mem.map(function (m) { var on = U.pres.indexOf(m.n) >= 0; return '<button class="sjg-p' + (on ? " on" : "") + '" data-a="sjPres" data-v="' + esc(m.n) + '" aria-pressed="' + on + '">' + (on ? CK : "") + esc(m.n) + "</button>"; }).join("") +
+          U.inv.map(function (n) { return '<button class="sjg-p on inv" data-a="sjInvDel" data-v="' + esc(n) + '" aria-label="Retirer l\'invité ' + esc(n) + '">' + CK + esc(n) + "</button>"; }).join("") +
+          '<button class="sjg-p add" data-a="sjInvAdd">+ Invité</button><button class="sjg-p add" data-a="sjGOpen">' + svg('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>', 2) + "Le groupe</button></div>";
+        if (U.invOpen) b += '<div class="sjg-in"><input class="input" id="sjg-inv" data-a="sjInvT" maxlength="16" placeholder="Prénom de l\'invité" value="' + esc(U.invTxt || "") + '"><button class="btn primary small" data-a="sjInvOk">Ajouter</button></div>';
+        b += '<span class="small sjg-sum"><b>' + plural(U.n, "présent") + "</b>, toi compris. Montée fait les terrains et les équipes au hasard, sans reprendre les mêmes duos que les dernières fois.</span>";
+        b += stp("c", "Terrains", "disponibles", U.c, 1, 6);
+      } else {
+        b += '<button class="btn soft" data-a="sjGOpen">Enregistrer les prénoms de ton groupe</button><span class="small">Une seule fois : ensuite tu coches les présents, et Montée tire les terrains.</span>';
+        b += stp("n", "Joueurs", "toi compris", U.n, 2, 16) + stp("c", "Terrains", "disponibles", U.c, 1, 6);
+      }
       b += '<span class="small sj-wt">' + sjWaitTxt(U.n, U.c, null) + "</span>"; // 3.62
+      if (U.n > 4 * Math.min(U.c, Math.floor(U.n / 2) || 1)) b += '<label class="nf-row"><span class="nf-r"><b>Séance plus physique</b><small>4 par terrain au plus, les autres à l\'atelier physique</small></span><input type="checkbox" role="switch" data-a="sjPhys"' + (S.sjPhys ? " checked" : "") + "></label>";
     }
     var all = A.ids.concat(GOALS.map(function (g) { return g[0]; }).filter(function (id) { return A.ids.indexOf(id) < 0 && SJ_EX[id]; })), th = SJ_TH.map(function (x) { return x[0]; }).filter(function (id) { return A.ids.indexOf(id) < 0; });
     var max = grp ? 2 : 3;
@@ -11900,7 +12057,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     b += '<div class="sj-axg">' + A.ids.map(axC).join("") + th.map(function (id) { return axC(id, 99); }).join("") + "</div>";
     b += '<span class="mk-lbl sj-lbl3">Ou un objectif de jeu</span><div class="sj-axg">' + all.slice(A.ids.length).map(function (id) { return axC(id, 99); }).join("") + "</div>";
     if (U.mode === "duo") b += '<label class="mk-lbl" for="sj-mate">Ton partenaire <span class="sj-lbl2">· facultatif, pour les défis</span></label><input class="input" id="sj-mate" data-a="sjSetMate" maxlength="14" placeholder="Lucas" value="' + esc(U.mate || "") + '">';
-    if (grp) b += '<label class="mk-lbl" for="sj-names">Les prénoms <span class="sj-lbl2">· facultatif, pour les rotations</span></label><input class="input" id="sj-names" data-a="sjSetNames" placeholder="Julien, Thomas, Léa…" value="' + esc(U.names) + '">';
     b += '<button class="btn primary" data-a="sjSetOk"' + (U.ax.length ? "" : " disabled") + ">" + (grp ? "Faire la séance du groupe" : "Faire ma séance") + "</button>";
     return { title: "Ta séance", sub: "", body: b };
   };
@@ -11922,10 +12078,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Ce que la montre reçoit : les étapes, 3 mots, la couleur, et ce qu'on compte
   function sjWatchJson(P) {
     var words = function (b) { var g = b.g ? goalOf(b.g) : null; return b.k === "warm" ? "Petits pas, ça monte doucement." : b.k === "cool" ? "Lent, et on s'étire." : (g ? g.w + ". " : "") + (b.obj ? b.obj + "." : ""); };
-    var G = P.grp, rb = P.blocks.filter(function (x) { return x.rot; })[0], R = G ? sjRot(G.n, G.c, rb ? rb.rounds : 1) : null;
-    return JSON.stringify({ id: P.id, t: P.title, day: P.date, mode: P.mode, mate: P.mode === "duo" ? sjMate() : null, adv: sjDefs().adv, steps: P.blocks.map(function (b) {
+    var G = P.grp;
+    // 3.70 : le tirage du jour sur la montre (les prénoms du groupe, les équipes de chaque terrain) ; d'abord, pour que les rotations le suivent
+    if (G) { var D1 = S.sjDraw; sjDrawFor(G.n, G.c); if (S.sjDraw !== D1) save(); } // même tirage sur l'iPhone et au poignet
+    var rb = P.blocks.filter(function (x) { return x.rot; })[0], R = G ? sjRot(G.n, G.c, rb ? rb.rounds : 1) : null;
+    var tg = null, D = S.sjDraw;
+    if (G && D && D.d === E.iso(today()) && D.order && D.order.length === G.n) { var kk = 0; tg = G.cs.sizes.map(function (z, i) { var cl = D.order.slice(kk, kk + z); kk += z; return "T" + (i + 1) + " · " + sjTeams(cl).map(function (t) { return t.join(z === 4 ? " et " : ", "); }).join(" contre "); }); if (G.cs.bench) tg.push("Atelier · " + D.order.slice(kk).join(", ")); }
+    return JSON.stringify({ id: P.id, t: P.title, day: P.date, mode: P.mode, mate: P.mode === "duo" ? sjMate() : null, adv: sjDefs().adv, tg: tg, steps: P.blocks.map(function (b) {
       var o = { t: b.t, min: b.min, x: b.ct ? b.ct.map(function (z) { return z.k + " : " + z.x; }).join("\n") : (b.x || ""), cue: words(b), col: ({ tac: "#F2C14E", sol: "#E88A5E", cor: "#4CC9C0", tet: "#A98BFF" })[b.cat] || "#D4E64A", cnt: b.cnt || null, n: b.n || null };
-      if (b.df) o.df = { t: b.df.t, to: b.df.to || 0, m: b.df.m, solo: b.df.solo ? true : false, grp: b.df.grp ? true : false, g: b.df.gage ? b.df.gage.t : null, gs: b.df.gage ? b.df.gage.s : null, gl: b.df.grp && b.df.gage ? [0, 1, 2, 3, 4, 5, 6, 7].map(function (i) { return sjGageN(i).t; }) : null };
+      if (b.df) o.df = { t: b.df.t, to: b.df.to || 0, m: b.df.m, solo: b.df.solo ? true : false, grp: b.df.grp ? true : false, team: b.df.team ? true : false, g: b.df.gage ? b.df.gage.t : null, gs: b.df.gage ? b.df.gage.s : null, gl: b.df.grp && b.df.gage ? [0, 1, 2, 3, 4, 5, 6, 7].map(function (i) { return sjGageN(i).t; }) : null };
       if (b.rot && R) { o.rot = R.rounds.map(function (r) { return r.courts; }); o.rotMin = b.rot; o.mv = R.rounds.map(function (r) { return r.mv || []; }); }
       if (b.df && b.df.grp && R) o.mt = R.rounds[R.rounds.length - 1].courts;
       return o;
@@ -15439,6 +15600,30 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     sjSetMin: function (el) { if (UI.sjSet) UI.sjSet.min = +el.dataset.v; render(); },
     sjSetMode: function (el) { var U = UI.sjSet; if (!U) return; U.mode = el.dataset.v; if (U.mode === "grp" && U.ax.length > 2) U.ax = U.ax.slice(0, 2); if (U.mode === "grp" && U.min < 60) U.min = 90; render(); },
     sjSetN: function (el) { var U = UI.sjSet; if (!U) return; var k = el.dataset.k; U[k] = Math.max(k === "n" ? 2 : 1, Math.min(k === "n" ? 16 : 6, U[k] + (+el.dataset.v))); render(); },
+    // 3.69 : ton groupe, les présents, l'invité, le tirage
+    sjPres: function (el) { var U = UI.sjSet; if (!U) return; var n = el.dataset.v, i = U.pres.indexOf(n); if (i >= 0) U.pres.splice(i, 1); else U.pres.push(n); haptic("light"); render(); },
+    sjInvAdd: function () { var U = UI.sjSet; if (!U) return; U.invOpen = true; U.invTxt = ""; render(); setTimeout(function () { var x = document.getElementById("sjg-inv"); if (x) x.focus(); }, 50); },
+    sjInvOk: function () { var U = UI.sjSet; if (!U) return; var n = sjNameOk(U.invTxt); if (n && n !== "Toi" && U.inv.indexOf(n) < 0 && U.pres.indexOf(n) < 0) U.inv.push(n); U.invOpen = false; U.invTxt = ""; render(); },
+    sjInvDel: function (el) { var U = UI.sjSet; if (!U) return; U.inv = U.inv.filter(function (n) { return n !== el.dataset.v; }); render(); },
+    sjGOpen: function () { UI.sjG = null; UI.sheet = { k: "sjGrp", v: 1, back: UI.sheet && UI.sheet.k === "sjSet" ? "sjSet" : null }; render(); },
+    sjGCycle: function () { var G = sjGrps(), i = G.indexOf(sjGrpCur()); S.grpCur = G[(i + 1) % G.length].id; save(); if (UI.sjSet) UI.sjSet.pres = null; render(); },
+    sjGPick: function (el) { S.grpCur = el.dataset.v; save(); if (UI.sjSet) UI.sjSet.pres = null; UI.sjG = null; render(); },
+    sjGNew: function () { var G = sjGrps(), id = "g" + uid(); G.push({ id: id, t: "Groupe " + (G.length + 1), m: [], last: [] }); S.grpCur = id; UI.sjGNew = 1; save(); if (UI.sjSet) UI.sjSet.pres = null; render(); },
+    sjGAdd: function () { sjGAddN(UI.sjG && UI.sjG.add, true); },
+    sjGSug: function (el) { sjGAddN(el.dataset.v, false); },
+    sjGDel: function (el) { var g = sjGrpCur(), n = el.dataset.v; g.m = (g.m || []).filter(function (m) { return m.n !== n; }); g.last = (g.last || []).filter(function (x) { return x !== n; }); if (UI.sjSet && UI.sjSet.pres) UI.sjSet.pres = UI.sjSet.pres.filter(function (x) { return x !== n; }); save(); toast(n + " retiré du groupe."); render(); },
+    sjGLv: function (el) { var m = (sjGrpCur().m || []).filter(function (x) { return x.n === el.dataset.v; })[0]; UI.sjG = UI.sjG || { add: "" }; UI.sjG.lv = el.dataset.v; UI.sjG.lvTxt = m && m.lv || ""; render(); setTimeout(function () { var x = document.querySelector(".sjg-lvi"); if (x) x.focus(); }, 50); },
+    sjGLvOk: function () {
+      var U = UI.sjG; if (!U || !U.lv) return; var m = (sjGrpCur().m || []).filter(function (x) { return x.n === U.lv; })[0], r = String(U.lvTxt || "").trim().toUpperCase().replace(/\s+/g, ""), nr = r ? T.normRank(r) || r : "";
+      if (nr && E.idx(nr) == null) { toast("Classement inconnu : écris-le comme 15/2, 30 ou NC."); return; }
+      if (m) { if (nr) m.lv = nr; else delete m.lv; } U.lv = null; save(); render();
+    },
+    sjRedraw: function () {
+      var D = S.sjDraw; if (!D || D.re || D.d !== E.iso(today())) return; var c = sjCfg(), cs = sjCourts(D.order.length, c.c || 1);
+      D.order = sjDrawMake(D.order.slice(), cs.sizes.concat(cs.bench ? [cs.bench] : []), D.order.join(",")); D.re = 1; sjHistPut(D, cs.sizes);
+      save(); haptic("success"); toast("Nouveau tirage. C'était le seul du jour."); render();
+    },
+    sjBal: function (el) { S.sjBal = el.dataset.v === "1"; save(); haptic("light"); render(); },
     sjSetAx: function (el) { var U = UI.sjSet; if (!U) return; var id = el.dataset.v, i = U.ax.indexOf(id), max = U.mode === "grp" ? 2 : 3; if (i >= 0) U.ax.splice(i, 1); else { if (U.ax.length >= max) U.ax.shift(); U.ax.push(id); } haptic("light"); render(); },
     sjDu: function (el) {
       var L = S.sjLive; if (!L) return; var k = sjStep(L).k, b = L.P.blocks[k]; if (!b || !b.df) return;
@@ -15462,7 +15647,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var U = UI.sjSet; if (!U || !U.ax.length) return;
       S.sjPref = { d: E.iso(today()), min: U.min, mode: U.mode, ax: U.ax.slice(), n: U.n, c: U.c };
       if (U.mode === "duo") S.sjMate = String(U.mate || "").trim().slice(0, 14);
-      if (U.mode === "grp") S.sjGrp = { n: U.n, c: U.c, names: String(U.names || "").split(/[,;\n]+/).map(function (x) { return x.trim().slice(0, 16); }).filter(Boolean).slice(0, 15) };
+      if (U.mode === "grp") {
+        // 3.69 : les présents (gardés pour la prochaine fois) et le tirage du jour
+        var g = sjGrpCur(), td = E.iso(today()), D0 = S.sjDraw; if ((g.m || []).length) g.last = U.pres.slice();
+        S.sjGrp = { n: U.n, c: U.c, names: (g.m || []).length ? U.pres.concat(U.inv) : (S.sjGrp && S.sjGrp.names) || [] };
+        S.sjDraw = { d: td, pres: (g.m || []).length ? U.pres.concat(U.inv) : S.sjGrp.names.slice(), re: D0 && D0.d === td ? D0.re || 0 : 0 };
+        sjDrawFor(U.n, U.c);
+      }
       save(); UI.sjSet = null; UI.sheet = null; go("seance");
     },
     // ----- Santé connectée -----
@@ -16777,7 +16968,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (el.dataset.f === "profile.name") { S.profile.name = el.value.trim().slice(0, 30); save(); }
     else if (el.dataset.f === "profile.licence") { S.profile.licence = el.value.replace(/\s+/g, "").toUpperCase().slice(0, 12); save(); }
     else if (el.dataset.f === "importText") UI.importText = el.value;
-    else if (el.dataset.a === "sjSetNames" && UI.sjSet) UI.sjSet.names = el.value;
+    else if (el.dataset.a === "sjInvT" && UI.sjSet) UI.sjSet.invTxt = el.value;
+    else if (el.dataset.a === "sjGAddT") { UI.sjG = UI.sjG || { add: "" }; UI.sjG.add = el.value; }
+    else if (el.dataset.a === "sjGLvT" && UI.sjG) UI.sjG.lvTxt = el.value;
+    else if (el.dataset.a === "sjGName") { var gq = sjGrpCur(); gq.t = el.value.trim().slice(0, 24) || gq.t; save(); }
     else if (el.dataset.a === "sjSetMate" && UI.sjSet) UI.sjSet.mate = el.value;
     else if ((el.dataset.a === "chOwnT" || el.dataset.a === "chOwnX") && UI.chS) { UI.chS[el.dataset.a === "chOwnT" ? "t" : "test"] = el.value; var gb = document.querySelector('[data-a="chGo"]'); if (gb) gb.disabled = !(UI.chS.t.trim() && UI.chS.test.trim()); var sm = document.querySelector(".chs-r small"); if (sm && el.dataset.a === "chOwnX") sm.textContent = el.value || "Écris ton test au-dessus."; }
     else if (el.dataset.d && el.type !== "checkbox" && el.tagName !== "SELECT") {
@@ -16853,6 +17047,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       S.health.notify = el.checked; save(); hcSync(); if (el.checked && LN && LN.requestPermissions) LN.requestPermissions().catch(function () {});
     } else if (el.dataset.a === "teamsToggle") {
       S.prefs = S.prefs || {}; S.prefs.teamsOff = !el.checked; save();
+    } else if (el.dataset.a === "sjPhys") {
+      S.sjPhys = el.checked; S.sjDraw && (S.sjDraw.key = ""); save(); render();
     } else if (el.dataset.a === "sjDefSw") {
       var D0 = sjDefs(); D0[el.dataset.k] = el.checked; S.sjDef = { on: D0.on ? 1 : 0, gage: D0.gage ? 1 : 0, lvl: D0.lvl, adv: D0.adv ? 1 : 0 }; save(); render();
     } else if (el.dataset.a === "npSet") {
