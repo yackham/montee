@@ -6166,3 +6166,22 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .hd-sy .rally-l, .sy .rally-l { margin-right: 0; }
 .hd-sy.run .rally-l i, .sy.run .rally-l i { width: 6px; height: 6px; border-radius: 50%; background: var(--balle); animation: rlX 1.1s ease-in-out infinite alternate; }
 @media (prefers-reduced-motion: reduce) { .hd-sy.run .rally-l i, .sy.run .rally-l i { animation: none; left: 14px; } }
+/* 3.73.1 : Ace, réponse « Ton portrait » : fleur + titre, puis les chiffres en barres face à l'attendu (lignes à plat) */
+.acp-hero { display: flex; align-items: center; gap: 16px; }
+.acp-fl { flex: none; width: 92px; }
+.acp-hero > span:last-child { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.acp-hero > span:last-child > b { font-size: 24px; line-height: 1.2; letter-spacing: -.01em; }
+.acp-hero small { font-size: 15px; color: var(--muted); } .acp-hero small b { color: var(--ink); }
+.acp-l0 { display: flex; flex-direction: column; }
+.acp-r { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.acp-r:last-child { border-bottom: 0; }
+.acp-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .acp-l b { font-size: 16px; }
+.acp-st { font-style: normal; font-size: 12.5px; font-weight: 800; color: var(--muted); }
+.acp-st.fort { color: var(--gazon); } .acp-st.faible, .acp-st.surv { color: var(--terre); }
+.acp-n { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; } .acp-n b { font-size: 17px; } .acp-n small { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.acp-bar { grid-column: 1 / -1; position: relative; height: 8px; border-radius: 99px; background: var(--line); }
+.acp-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: var(--muted); }
+.acp-bar.fort i { background: var(--gazon); } .acp-bar.faible i, .acp-bar.surv i { background: var(--terre); }
+.acp-bar em, .acp-how i { position: absolute; top: -4px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); }
+.acp-how { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-top: -4px; }
+.acp-how i { position: static; display: inline-block; margin: 0; height: 12px; }

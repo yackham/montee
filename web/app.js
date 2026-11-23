@@ -8645,7 +8645,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function coLeaks(d) { var l = d.leaks.filter(function (x) { return !x.fallback && x.pts; }); return { l: l, sum: l.reduce(function (a, x) { return a + x.pts; }, 0) }; }
   function coOrders(d) { var cap = null, o = []; try { cap = capData(d.c); } catch (e) {} try { o = capOrders(d, cap); } catch (e) {} if (!o.length && d.plan.length) o = d.plan.map(function (x) { return { t: x.t, s: x.s }; }); return o; }
   function coAnswer(c, q) {
-    var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], mood = "repos", pl = null, k = q.split(":");
+    var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], XH = "", mood = "repos", pl = null, k = q.split(":");
     try { pl = pistes(c); } catch (e) {}
     var ez = pl && pl.list && pl.list[0], rel = p.release ? fdate(p.release).replace(/\.$/, "") : "";
     var routeLine = function () { return ez ? esc(pisteLabel(ez)) + (pl.goal === "keep" ? " et tu restes " : " et tu montes ") + esc(lab(pl.target)) + "." : ""; };
@@ -8717,17 +8717,19 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var d = coD(), sup = isSup(), PL = function (what) { if (!sup) { A.push('<span class="ace-pl">Montée+</span> ' + what); F.push(["Découvrir Montée+", "", "#/coach"]); } };
       if (!d) A.push("Encore quelques matchs sur 12 mois et je te fais ce bilan.");
       else if (k[0] === "profil") {
-        var P = d.P, perf = P.R.perf && P.R.perf.g, solid = P.R.solid && P.R.solid.g, mx = P.R.mental && P.R.mental.g; mood = "joie";
-        A.push("<b>" + esc(P.title) + "</b>" + (d.lv && d.lv.ms ? " Tu joues au niveau " + esc(lab(Math.round(d.lv.mean))) + "." : ""));
+        var P = d.P; mood = "joie";
+        // 3.73.1 (Yann : « ça pourrait être mieux présenté ») : la fleur + le titre, puis chaque chiffre en barre face à l'attendu
+        var lv = d.lv && d.lv.ms ? lab(Math.round(d.lv.mean)) : "";
+        XH = '<div class="acp-hero"><span class="acp-fl">' + compFlower(P, 92) + '</span><span><b>' + esc(P.title) + "</b>" + (lv ? "<small>Tu joues au niveau <b>" + esc(lv) + "</b></small>" : "") + "</span></div>";
         if (sup) {
-          if (solid && solid.n >= 4) X.push(["Contre moins bien classé", solid.v + " sur " + solid.n]);
-          if (perf && perf.n >= 3) X.push(["Contre mieux classé", perf.v + " sur " + perf.n]);
-          if (mx && mx.n >= 4 && (P.R.mental.st === "faible" || cpSurv(P.R.mental))) X.push(["Après un 1er set perdu", mx.v + " sur " + mx.n]);
-          var fo = d.strong.slice(0, 2).map(function (x) { return x.t; }), fa = P.faibs.slice(0, 2).map(function (x) { return CP_LAB[x]; });
-          if (fo.length) A.push("Tes atouts : <b>" + fo.map(esc).join("</b>, <b>") + "</b>.");
-          if (fa.length) A.push("À travailler : <b>" + fa.map(esc).join("</b>, <b>") + "</b>.");
-          F.push(["Voir mon profil de compétiteur", "", "#/competiteur"]); F.push(["Mon bilan complet", "", "#/coach"]);
-        } else PL("ajoute tes chiffres face à chaque classement, tes atouts et ce qu'il faut travailler.");
+          var RL = { perf: "Contre mieux classé", solid: "Contre moins bien classé", mental: "Après un 1er set perdu", endu: "En 3 sets", rythme: "En reprise" };
+          var rows = Object.keys(RL).filter(function (kk) { var x = P.R[kk]; return x && x.g && x.st !== "lock" && x.g.n; }).map(function (kk) {
+            var x = P.R[kk], g = x.g, cl = cpStCl(x), pv = Math.min(100, Math.round(100 * g.v / g.n)), pe = Math.min(100, Math.round(100 * g.e / g.n));
+            return '<div class="acp-r"><span class="acp-l"><b>' + esc(RL[kk]) + '</b><em class="acp-st ' + cl + '">' + esc(cpStLab(x)) + '</em></span><span class="acp-n"><b>' + g.v + " sur " + g.n + "</b><small>un " + esc(P.curL) + " : ≈ " + String(Math.round(g.e * 10) / 10).replace(".", ",") + '</small></span><span class="acp-bar ' + cl + '"><i style="width:' + pv + '%"></i><em style="left:' + pe + '%"></em></span></div>';
+          }).join("");
+          if (rows) XH += '<span class="ace-k">Tes chiffres sur 12 mois</span><div class="acp-l0">' + rows + '</div><span class="acp-how"><i></i>ce que ferait un ' + esc(P.curL) + " face aux mêmes adversaires</span>";
+          F.push(["Voir mon profil de compétiteur", "", "#/competiteur"]); F.push(["Mon bilan complet", "", "#/coach"]); F.push(["Où je perds des points ?", "leaks"]);
+        } else PL("ajoute tes chiffres face à chaque classement, ce qui est un point fort et ce qu'il faut travailler.");
       } else if (k[0] === "leaks") {
         var lk = coLeaks(d), nx = d.c.proj.next || {}, base0 = nx.total || 0, norm0 = nx.norme || 0, acc = base0, pass = -1; mood = "reflexion";
         if (lk.sum < 5) { A.push("<b>Rien de flagrant.</b> Tu gagnes ce qu'un " + esc(d.P.curL) + " doit gagner. Pour monter, il faut aller chercher les perfs."); F.push(["Comment je monte ?", "up"]); }
@@ -8766,7 +8768,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }
     }
     if (k[0] === "up" && isSup()) { var dU = coD(); if (dU && dU.ch && dU.ch.up.length) X.push([dU.ch.down ? "Te maintenir" : "Être " + lab(dU.ch.target), Math.round(dU.ch.p * 100) + " % de chances"]); }
-    return { a: A, f: F, facts: X, mood: mood };
+    return { a: A, f: F, facts: X, x: XH, mood: mood };
   }
   // L'écran d'Ace : les sujets en tuiles, puis une réponse en gros texte, ses chiffres et les suites (maquette v2 validée)
   function aceHtml() {
@@ -8784,10 +8786,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     } else {
       var an = coAnswer(c, q);
       s += top('<span class="ace-ctx">' + coBall("ace:" + q, an.mood, "xs") + "<span>" + esc(ask[3]) + " · " + esc(ask[4]) + "</span></span>");
-      s += '<div class="ace-me">' + esc(ask[2]) + '</div><div class="ace-a">' + an.a.map(function (x) { return "<p>" + x + "</p>"; }).join("") + "</div>";
+      s += '<div class="ace-me">' + esc(ask[2]) + "</div>" + (an.x || "") + (an.a.length ? '<div class="ace-a">' + an.a.map(function (x) { return "<p>" + x + "</p>"; }).join("") + "</div>" : "");
       if (an.facts && an.facts.length) s += '<div class="ace-fact">' + an.facts.map(function (f) { return "<span><em>" + esc(f[0]) + "</em>" + esc(f[1]) + "</span>"; }).join("") + "</div>";
       var more = an.f.map(function (f) { return f[2] ? '<button data-a="coachGo" data-h="' + esc(f[2]) + '"><i>↳</i>' + esc(f[0]) + "</button>" : '<button data-a="aceQ" data-v="' + esc(f[1]) + '"><i>↳</i>' + esc(f[0]) + "</button>"; });
-      Q.filter(function (x) { return x[1] !== q && an.f.every(function (f) { return f[1] !== x[1]; }); }).slice(0, 2).forEach(function (x) { more.push('<button data-a="aceQ" data-v="' + esc(x[1]) + '"><i>↳</i>' + esc(x[2]) + "</button>"); });
+      Q.filter(function (x) { return x[1] !== q && an.f.every(function (f) { return f[1] !== x[1]; }); }).slice(0, Math.max(0, 4 - an.f.length)).forEach(function (x) { more.push('<button data-a="aceQ" data-v="' + esc(x[1]) + '"><i>↳</i>' + esc(x[2]) + "</button>"); });
       s += '<span class="ace-k">Tu peux aussi me demander</span><div class="ace-f">' + more.join("") + "</div>";
       s += '<button class="ace-bot" data-a="aceQ" data-v=""><span>Autres sujets</span><b>Tous les sujets</b></button>';
     }
