@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.92.0",
+    VERSION: "3.92.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -15466,8 +15466,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // ---------- Apple Watch : ce que la montre affiche, et les matchs qu'elle renvoie ----------
   var watchTimer = null, lastWatchJson = "";
   function watchSync(force) {
-    if (!IOS || !Tenup || typeof Tenup.watchSync !== "function" || !S.onboarded) return;
+    if (!IOS || !Tenup || typeof Tenup.watchSync !== "function") return;
     if (force) lastWatchJson = "";
+    // 3.92.1 : plus de profil sur l'iPhone (tout effacé) : la montre se vide aussi, au lieu de garder l'ancien compte
+    if (!S.onboarded) { var j0 = JSON.stringify({ v: 1, rank: "", next: "", short: "", plus: false, name: "", opps: [] }); if (j0 !== lastWatchJson) { lastWatchJson = j0; Promise.resolve(Tenup.watchSync({ json: j0 })).catch(function () {}); } return; }
     clearTimeout(watchTimer);
     watchTimer = setTimeout(function () {
       var j; try { j = JSON.stringify(watchCtx()); } catch (e) { return; }
@@ -16891,7 +16893,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function bkRestore(name) {
     return Promise.resolve().then(function () { return FSP.readFile({ path: BK_DIR + "/" + name, directory: bkDir(), encoding: "utf8" }); }).then(function (r) {
       var d = JSON.parse(r && r.data); if (!d || !Array.isArray(d.matches)) throw new Error();
-      S = Object.assign(blank(), d); S.onboarded = true; save(); UI.bkAsk = null; toast("Copie du " + dm(E.parseDate(name.match(BK_RE)[1])) + " restaurée."); go("");
+      S = Object.assign(blank(), d); S.onboarded = true; save(); UI.bkAsk = null; syncWidgets(true); watchSync(true); toast("Copie du " + dm(E.parseDate(name.match(BK_RE)[1])) + " restaurée."); go("");
     }).catch(function () { toast("Cette copie ne peut pas être lue."); });
   }
   // la dernière mise à l'abri : sauvegarde manuelle ou copie automatique
@@ -18508,7 +18510,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     exportShare: function () { backup(true); },
     wipe: function () {
       if (!askOk("Effacer tout ton palmarès, tes raquettes et ton profil de cet appareil ?")) return;
-      S = blank(); save(); UI.draft = null; go("bienvenue");
+      S = blank(); save(); UI.draft = null; watchSync(true); go("bienvenue");
     }
   };
 

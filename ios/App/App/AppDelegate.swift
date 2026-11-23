@@ -1389,7 +1389,17 @@ final class WatchLink: NSObject, WCSessionDelegate {
         guard WCSession.isSupported(), let json = lastJson else { return }
         let s = WCSession.default
         guard s.activationState == .activated, s.isPaired, s.isWatchAppInstalled else { return }
-        try? s.updateApplicationContext(["json": json, "at": Date().timeIntervalSince1970])
+        do {
+            try s.updateApplicationContext(["json": json, "at": Date().timeIntervalSince1970])
+        } catch {
+            // 3.92.1 : envoi refusé (souvent trop gros) : on renvoie sans la photo ni la séance du jour,
+            // sinon la montre garde ses anciennes données (par exemple celles d'un autre compte)
+            guard let d = json.data(using: .utf8), var o = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return }
+            o["photo"] = nil
+            o["seance"] = nil
+            guard let d2 = try? JSONSerialization.data(withJSONObject: o), let j2 = String(data: d2, encoding: .utf8) else { return }
+            try? s.updateApplicationContext(["json": j2, "at": Date().timeIntervalSince1970])
+        }
     }
 
     /// 3.55 : l'échauffement guidé. En direct si la montre est joignable, sinon en file (reçu à l'ouverture).

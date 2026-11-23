@@ -35,6 +35,35 @@ struct CCtx: Codable {
     var faf: CFaf? = nil
     var chances: CChances? = nil
 }
+
+/// 3.92.1 : lecture tolérante (un champ illisible ne bloque plus toutes les complications sur d'anciennes données)
+extension CCtx {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        rank = (try? c.decodeIfPresent(String.self, forKey: .rank)) ?? ""
+        next = (try? c.decodeIfPresent(String.self, forKey: .next)) ?? ""
+        pct = try? c.decodeIfPresent(Int.self, forKey: .pct)
+        gap = try? c.decodeIfPresent(Int.self, forKey: .gap)
+        short = (try? c.decodeIfPresent(String.self, forKey: .short)) ?? ""
+        plus = (try? c.decodeIfPresent(Bool.self, forKey: .plus)) ?? false
+        defend = try? c.decodeIfPresent(Int.self, forKey: .defend)
+        defendWhen = try? c.decodeIfPresent(String.self, forKey: .defendWhen)
+        record = try? c.decodeIfPresent(String.self, forKey: .record)
+        rel = try? c.decodeIfPresent(Int.self, forKey: .rel)
+        form = try? c.decodeIfPresent([String].self, forKey: .form)
+        streak = try? c.decodeIfPresent(String.self, forKey: .streak)
+        last = try? c.decodeIfPresent(String.self, forKey: .last)
+        racket = try? c.decodeIfPresent(CRacket.self, forKey: .racket)
+        week = try? c.decodeIfPresent(String.self, forKey: .week)
+        rings = try? c.decodeIfPresent(CRings.self, forKey: .rings)
+        weekDays = try? c.decodeIfPresent([Int].self, forKey: .weekDays)
+        defLate = try? c.decodeIfPresent(Bool.self, forKey: .defLate)
+        serve = try? c.decodeIfPresent(CServe.self, forKey: .serve)
+        opps = (try? c.decodeIfPresent([COpp].self, forKey: .opps)) ?? []
+        faf = try? c.decodeIfPresent(CFaf.self, forKey: .faf)
+        chances = try? c.decodeIfPresent(CChances.self, forKey: .chances)
+    }
+}
 struct CFaf: Codable { var n: String; var when: String; var v: Int; var d: Int; var seq: String }
 struct CChances: Codable { var p: Int; var t: String; var down: Bool? = nil; var rel: String; var delta: Int? = nil }
 struct CRings: Codable { var win: Int; var form: Int; var lvlPct: Int }
