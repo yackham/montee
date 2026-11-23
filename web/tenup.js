@@ -214,7 +214,7 @@
       var Bq = location.origin + "/api/back/public/", tried = [];
       var jr = function (u) { return fetch(Bq + u, { credentials: "include", headers: { "Accept": "application/json" } }).then(function (r) { tried.push(u + " " + r.status); if (!r.ok) throw 0; return r.json(); }); };
       var c = A.c, d = A.d, ph = A.p, q = A.q, rid = A.r;
-      var cands = ["v2/championnats-equipes/" + c + "/divisions/" + d + "/phases/" + ph + "/poules/" + q + "/rencontres/" + rid, "v1/championnats-equipes/" + c + "/rencontres/" + rid, "v1/championnats-equipes/rencontres/" + rid, "v1/rencontres/" + rid, "v2/rencontres/" + rid];
+      var cands = ["v1/championnats-equipes/" + c + "/divisions/" + d + "/phases/" + ph + "/poules/" + q + "/rencontres/" + rid, "v2/championnats-equipes/" + c + "/divisions/" + d + "/phases/" + ph + "/poules/" + q + "/rencontres/" + rid, "v1/championnats-equipes/" + c + "/rencontres/" + rid, "v1/championnats-equipes/rencontres/" + rid, "v1/rencontres/" + rid, "v2/rencontres/" + rid];
       var flR = function (h) { var f = "", re = /self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)/g, m; while ((m = re.exec(h))) { try { f += JSON.parse(m[1]); } catch (e) {} } return f; };
       var brR = function (t, i) { var dd = 0, qq = false, e = false; for (var k = i; k < t.length; k++) { var ch = t.charAt(k); if (qq) { if (e) e = false; else if (ch === "\\") e = true; else if (ch === '"') qq = false; continue; } if (ch === '"') qq = true; else if (ch === "{" || ch === "[") dd++; else if (ch === "}" || ch === "]") { dd--; if (!dd) return t.slice(i, k + 1); } } return null; };
       var page = function () {
@@ -294,7 +294,12 @@
         var base = "championnats-equipes/" + cs.id;
         var path = function (v, d, p, q) { return v + "/" + base + (d ? "/divisions/" + d : "") + (d && p ? "/phases/" + p : "") + (d && p && q ? "/poules/" + q : ""); };
         var get = function (d, p, q) { cs.n++; return jg(path("v2", d, p, q)).catch(function () { return jg(path("v1", d, p, q)); }); };
-        var sheet = function (cx, rid) { return jg("v2/" + base + "/divisions/" + cx.d + "/phases/" + cx.p + "/poules/" + cx.q + "/rencontres/" + rid).catch(function () { return jg("v1/" + base + "/rencontres/" + rid); }).catch(function () { return null; }); };
+        // 3.74.2 (testé en vrai sur Ten'Up) : seule l'adresse v1 complète répond (v2 et v1 courte : 404). Sans elle, aucune
+        // feuille n'était lue et l'équipe était devinée au jour : le 4 oct., deux équipes du club jouaient et l'app prenait la mauvaise.
+        // Le juge-arbitre et les arbitres sont retirés : ils ne jouent pas pour l'équipe.
+        var sheet = function (cx, rid) { var full = "/divisions/" + cx.d + "/phases/" + cx.p + "/poules/" + cx.q + "/rencontres/" + rid;
+          return jg("v1/" + base + full).catch(function () { return jg("v2/" + base + full); }).catch(function () { return jg("v1/" + base + "/rencontres/" + rid); }).then(function (j) {
+            if (j && typeof j === "object") { delete j.jugeArbitre; (j.matchs || []).forEach(function (m) { if (m) delete m.arbitre; }); } return j; }).catch(function () { return null; }); };
         // 3.68.3 : le nom de l'équipe commence par celui du club ; sinon (« TC GRANDVILLARS » / « GRANDVILLARS TC », entente…) tous les mots du club s'y trouvent
         var cw = String(club || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter(function (x) { return x.length >= 4; });
         var isMine = function (det) {
