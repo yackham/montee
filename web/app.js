@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.80.1",
+    VERSION: "3.82.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -265,10 +265,12 @@
     document.body.appendChild(t); haptic("success");
     UI.toastT = setTimeout(function () { t.remove(); }, 5200);
   }
-  function toast(msg) {
-    UI.toastMsg = msg; clearTimeout(UI.toastT); haptic("light");
+  // 3.81 : ok = « c'est enregistré » : une coche se dessine devant le message (brique B12)
+  var MX_CK = '<svg viewBox="0 0 34 34" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="17" cy="17" r="15"/><path d="M10 17.5l5 5 9-10"/></svg>';
+  function toast(msg, ok) {
+    UI.toastMsg = msg; clearTimeout(UI.toastT); haptic(ok ? "success" : "light");
     var el = document.querySelector(".toast"); if (el) el.remove();
-    var t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); t.textContent = msg; document.body.appendChild(t);
+    var t = document.createElement("div"); t.className = "toast" + (ok ? " tk-ok" : ""); t.setAttribute("role", "status"); t.textContent = msg; if (ok) t.insertAdjacentHTML("afterbegin", '<span class="mx-ck2">' + MX_CK + "</span>"); document.body.appendChild(t);
     UI.toastT = setTimeout(function () { t.remove(); }, msg.length > 60 ? 4500 : 2800);
   }
 
@@ -1019,9 +1021,56 @@
     mTw(ms || 1000, delay || 0, function (k) { b.style.left = (x0 + (x1 - x0) * k).toFixed(1) + "px"; b.style.transform = "rotate(" + (540 * k).toFixed(0) + "deg)"; }, function () { setTimeout(function () { b.style.transition = "opacity .4s"; b.style.opacity = 0; setTimeout(function () { b.remove(); }, 450); }, 2200); });
     return b;
   }
+  // 3.81 : une balle saute d'un choix à l'autre (Ton objectif) ; r0 = la place de l'ancien choix, avant la mise à jour
+  function mxJump(host, r0, land) {
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    var H = host.getBoundingClientRect(), r1 = land.getBoundingClientRect(), x0 = r0.left + r0.width / 2 - H.left, x1 = r1.left + r1.width / 2 - H.left, y0 = r0.top - H.top - 2, y1 = r1.top - H.top - 2;
+    var b = document.createElement("span"); b.className = "mx-x mx-hb"; b.setAttribute("aria-hidden", "true"); b.style.left = x0 + "px"; b.style.top = y0 + "px"; host.appendChild(b);
+    mTw(560, 0, function (k) { b.style.left = (x0 + (x1 - x0) * k).toFixed(1) + "px"; b.style.top = (y0 + (y1 - y0) * k - 34 * Math.sin(Math.PI * k)).toFixed(1) + "px"; }, function () {
+      land.classList.remove("tap-pop"); void land.offsetWidth; land.classList.add("tap-pop");
+      setTimeout(function () { b.style.transition = "opacity .3s"; b.style.opacity = 0; setTimeout(function () { b.remove(); }, 320); }, 250);
+    }, function (t) { return t; });
+  }
+  function mxWelcome(again) {
+    mxQ(".welcome .w-k, .welcome h1, .welcome .lead, .welcome .alert").forEach(function (e, i) { if (again) { e.classList.remove("mx-in"); void e.offsetWidth; } mxSet(e, "mx-in", null, 120 + i * 110); });
+  }
   function motionMore(page) {
     if (mRM()) return;
     var day = new Date().toDateString();
+    // 3.81 (2e vague, maquettes lot 3 validées le 23/11) : accueil « À faire », bilan du coach, raquette, Tes tournois, bienvenue
+    if (page === "") {
+      var td = document.querySelector(".td3");
+      if (td && mMem("tdDay") !== day) { mMem("tdDay", day); mxQ(".td3-i", td).forEach(function (e, i) { mxSet(e, "mx-in", null, 150 + Math.min(i, 8) * 110); }); }
+      return;
+    }
+    if (page === "coach") {
+      mxSet(document.querySelector(".co-arch"), "mx-in", null, 250);
+      mxQ(".co-tags > *").forEach(function (t, i) { mxSet(t, "mx-pop", Math.min(i, 8), 550); });
+      mxQ(".cap-dots i").forEach(function (t, i) { mxSet(t, "mx-pop", Math.min(i, 8), 400); });
+      var kp = document.querySelector(".co-kpis"); if (kp) mxIo([kp], function (k) { mxQ("b", k).forEach(function (b, i) { if (/^\d+ ?%$/.test(b.textContent)) mxCount(b, null, { delay: 150 + i * 100 }); }); }, 0.5);
+      var cm = mxQ(".co-m"); cm.forEach(function (m) { m.classList.add("mx-in2"); });
+      mxIo(cm, function (m) { m.classList.add("mx-on"); var p = m.querySelector(".co-pts"); if (p) mxCount(p, null, { delay: 200, ms: 600 }); }, 0.6);
+      var yr = document.querySelector(".co-yr"); if (yr) { mxQ(":scope > div", yr).forEach(function (d, i) { d.style.setProperty("--i", i); }); yr.classList.add("mx-yr"); mxIo([yr], function (y) { y.classList.add("mx-on"); }, 0.4); }
+      mxQ(".sc-ring").forEach(function (rg) {
+        var c = rg.querySelectorAll("circle")[1], da = c && (c.getAttribute("stroke-dasharray") || "").split(" "); if (!da || da.length < 2) return;
+        var L = +da[0], C = da[1]; c.setAttribute("stroke-dasharray", "0 " + C);
+        mxIo([rg], function () { mTw(800, 150, function (k) { c.setAttribute("stroke-dasharray", (L * k).toFixed(1) + " " + C); }, function () { c.setAttribute("stroke-dasharray", L + " " + C); }); }, 0.6);
+      });
+      return;
+    }
+    if (page === "raquette") {
+      var g = document.querySelector(".rf-st .mt-g svg"), arc = g && g.querySelector("circle[stroke-dashoffset]"); if (!arc) return;
+      var C = +arc.getAttribute("stroke-dasharray"), o = +arc.getAttribute("stroke-dashoffset"), f = (C - o) / C, ball = g.querySelector(".cr3-ball"), tx = g.querySelector("text"), rs = UI.mxRs; UI.mxRs = null;
+      var setR = function (x) { arc.setAttribute("stroke-dashoffset", (C * (1 - x)).toFixed(1)); if (ball) ball.style.transform = "rotate(" + (360 * x).toFixed(1) + "deg)"; };
+      if (rs && rs.id === route().split("/")[1] && rs.f > f) { // tout juste recordée : l'anneau se vide, le compteur repart à zéro
+        setR(rs.f); mTw(800, 250, function (k) { setR(rs.f + (f - rs.f) * k); }, function () { setR(f); });
+        if (tx && rs.h > 0) mxCount(tx, 0, { from: rs.h, delay: 250, ms: 800 });
+        mxSet(document.querySelector(".rf-st .mt-st"), "mx-pop", 0, 900); mxSpark(document.querySelector(".rf-st .mt-g"), 1000, 10);
+      } else if (f > 0.02) { setR(0); mTw(1000, 200, function (k) { setR(f * k); }, function () { setR(f); }); if (tx) mxCount(tx, null, { delay: 200, ms: 1000 }); }
+      return;
+    }
+    if (page === "tournois") { var ec = document.querySelector(".emp-c > svg"); if (ec) ec.classList.add("mx-trn"); return; }
+    if (page === "bienvenue") { mxWelcome(); return; }
     // Activité : la semaine, la carte 12 mois, les scores (1re fois du jour), les cartes paliers
     if (page === "palmares") {
       var n = 0; mxQ(".dstrip .ds-d").forEach(function (d) { var ic = d.querySelector(".ds-ic, .tr-ic"); if (ic && !ic.classList.contains("e")) mxSet(ic, "mx-pop", n++, 200); if (d.classList.contains("on")) d.classList.add("mx-today"); });
@@ -4128,7 +4177,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<span class="lbl">Quel classement ?</span><div class="chips">' + ranks.map(function (r) { return '<button class="chip' + (d.rank === r ? " on" : "") + '" data-a="goalRank" data-v="' + r + '" aria-pressed="' + (d.rank === r) + '">' + lab(r) + "</button>"; }).join("") + "</div>" +
       '<span class="lbl">Pour quand ?</span><div class="chips">' + opts.map(function (o) { var v = E.iso(o.d); return '<button class="chip' + (d.by === v ? " on" : "") + '" data-a="goalBy" data-v="' + v + '" aria-pressed="' + (d.by === v) + '">' + esc(o.l) + "</button>"; }).join("") + "</div>";
     var f = feasibility(c, d.rank, E.parseDate(d.by));
-    s2 += '<div class="card goal-feas ' + f.k + '"><span class="eyebrow">Faisable ?</span><b>' + f.head + '</b><span style="font-size:15px;line-height:1.45">' + f.txt + "</span></div>";
+    var fw = f.wins ? (f.wins.top != null && f.wins.top <= f.wins.n ? f.wins.top : f.wins.n) : 0;
+    s2 += '<div class="card goal-feas ' + f.k + '"><span class="eyebrow">Faisable ?</span><b>' + f.head + (fw && fw <= 5 ? pjBalls(fw) : "") + '</b><span style="font-size:15px;line-height:1.45">' + f.txt + "</span></div>";
     return s2 + '<div class="spacer"></div><button class="btn primary" data-a="goalSave">Valider mon objectif</button></div>';
   };
 
@@ -6243,7 +6293,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     Object.keys(GOAL_CAT).forEach(function (k) { body += '<h3 class="gp-h">' + catDot(k) + esc(GOAL_CAT[k][0]) + '</h3><div class="gp-l">' + GOALS.filter(function (x) { return x[1] === k && sg.ids.slice(0, 4).indexOf(x[0]) < 0; }).map(function (x) { return chip(x[0]); }).join("") + "</div>"; });
     var own = ((S.goals || {}).custom || []);
     body += '<h3>Le tien</h3><div class="gp-l">' + own.map(function (x) { return chip(x.id); }).join("") + '</div><div class="gp-own"><input id="gp-t" class="gp-in" maxlength="40" placeholder="Ex. : rester bas sur les jambes" autocomplete="off" value="' + esc(UI.gpT || "") + '"><div class="gp-l gp-cats" role="group" aria-label="Catégorie">' + Object.keys(GOAL_CAT).map(function (k) { var on = (UI.goalCat || "tac") === k; return '<button data-a="goalCat" data-v="' + k + '" class="gp-c' + (on ? " on" : "") + '" aria-pressed="' + on + '"' + (on ? ' style="box-shadow:inset 0 0 0 1.5px ' + gcol(k) + '"' : "") + ">" + catDot(k) + esc(GOAL_CAT[k][0]) + "</button>"; }).join("") + '</div><button class="btn soft small" data-a="goalAdd">Ajouter</button></div>';
-    body += '<div class="gp-f"><span class="small">' + g.length + ' sur 3</span><button class="btn primary" data-a="goalSave">C\'est bon</button></div>';
+    body += '<div class="gp-f"><span class="small">' + g.length + ' sur 3</span><button class="btn primary" data-a="goalsSave">C\'est bon</button></div>';
     return { title: "Tes objectifs de jeu", sub: "Choisis-en 3 au plus. Des choses que tu fais, pas un score.", body: body };
   };
   // Le détail d'un chiffre du plan (feuille), rempli au rendu
@@ -16679,7 +16729,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var i = S.trainings.findIndex(function (x) { return x.id === clean.id; });
       if (i >= 0) S.trainings[i] = clean; else S.trainings.push(clean);
       S.onboarded = true; save(); UI.draft = null;
-      toast(i >= 0 ? "Entraînement mis à jour." : "Entraînement ajouté : " + fmtDur(clean.minutes) + " de jeu.");
+      toast(clean.feel === 5 && jk("r-top", true) ? "Au top. Tes jambes en reparleront demain." : i >= 0 ? "Entraînement mis à jour." : "Entraînement ajouté : " + fmtDur(clean.minutes) + " de jeu.", true);
       if (i >= 0) back(); else { UI.actTab = "t"; go("palmares"); }
     },
     delTraining: function () {
@@ -16772,12 +16822,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     goalLater: function () { S.goalLater = E.iso(today()); save(); toast("Tu le retrouves dans ton profil."); render(); },
     goalEdit: function () { UI.goalEdit = true; UI.goalDraft = null; render(); },
     goalDel: function () { if (!askOk("Retirer ton objectif ?")) return; S.goal = null; UI.goalDraft = null; save(); go("profil"); },
-    goalRank: function (el) { UI.goalDraft.rank = +el.dataset.v; render(); },
+    goalRank: function (el) {
+      var a = el.parentNode.querySelector(".chip.on"), r0 = a && a !== el ? a.getBoundingClientRect() : null;
+      UI.goalDraft.rank = +el.dataset.v; render();
+      if (r0 && !mRM()) { var b = document.querySelector('.chip.on[data-a="goalRank"]'); if (b) mxJump(b.parentNode, r0, b); }
+    },
     goalBy: function (el) { UI.goalDraft.by = el.dataset.v; render(); },
     goalSave: function () {
       var d = UI.goalDraft, c = ctx(), keep = S.goal && S.goal.rank === d.rank;
       S.goal = { rank: d.rank, by: d.by, at: keep ? S.goal.at : E.iso(today()), from: keep ? S.goal.from : (c.cur < 0 ? 0 : c.cur) };
-      UI.goalEdit = false; UI.goalDraft = null; save(); haptic("success"); toast("Objectif " + lab(d.rank) + " enregistré."); render(); window.scrollTo(0, 0);
+      UI.goalEdit = false; UI.goalDraft = null; save(); haptic("success"); toast("Objectif " + lab(d.rank) + " enregistré.", true); render(); window.scrollTo(0, 0);
     },
     fafSearch: function () { UI.fafLocal = null; var inp = document.getElementById("ff-q"); if (inp) { UI.faf.q = inp.value; inp.blur(); } fafSearch(null); },
     fafClear: function () { UI.faf = { q: "" }; UI.fafHits = null; UI.fafErr = null; UI.fafLocal = null; render(); var inp = document.getElementById("ff-q"); if (inp) inp.focus(); },
@@ -17126,7 +17180,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         }, "image/png");
       });
     },
-    wNext: function () { UI.wStep = Math.min(2, (UI.wStep || 0) + 1); render(); window.scrollTo(0, 0); },
+    wNext: function () { UI.wStep = Math.min(2, (UI.wStep || 0) + 1); render(); window.scrollTo(0, 0); if (!mRM()) mxWelcome(true); },
     wSkip: function () { UI.wStep = 2; render(); },
     homeMore: function () { UI.homeMore = true; var y = window.scrollY; render(); window.scrollTo(0, y); },
     homeLess: function () { UI.homeMore = false; render(); var f = document.querySelector(".home-fold"); if (f) window.scrollTo(0, Math.max(0, f.getBoundingClientRect().top + window.scrollY - 120)); },
@@ -17262,7 +17316,22 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     insightGo: function (el) { if (el.dataset.tab) UI.whereTab = el.dataset.tab; go(el.dataset.go || "courbes"); },
     rate: function (el) {
       var arr = el.dataset.t === "t" ? (S.trainings || []) : S.matches, o = arr.filter(function (x) { return x.id === el.dataset.id; })[0];
-      if (!o) return; o.feel = +el.dataset.v; save(); toast(o.feel === 5 && el.dataset.t === "t" && jk("r-top", true) ? "Au top. Tes jambes en reparleront demain." : "Noté : " + FEEL[o.feel - 1].toLowerCase() + "."); render();
+      if (!o || UI.rateBusy) return; o.feel = +el.dataset.v; save();
+      var msg = o.feel === 5 && el.dataset.t === "t" && jk("r-top", true) ? "Au top. Tes jambes en reparleront demain." : "Noté : " + FEEL[o.feel - 1].toLowerCase() + ".";
+      var card = el.closest(".card.rate"), it = card && card.closest(".td3-i");
+      if (!card || mRM()) { toast(msg, true); render(); return; }
+      // 3.81 (maquette lot 3 validée) : la case fait un pop, la coche se dessine sur la carte, la ligne de « À faire » se replie
+      UI.rateBusy = true; haptic("success"); el.classList.add("on", "tap-pop");
+      setTimeout(function () {
+        card.insertAdjacentHTML("beforeend", '<div class="rate-ok" role="status">' + MX_CK + "<span>" + esc(msg) + "</span></div>");
+        setTimeout(function () {
+          var fin = function () { UI.rateBusy = false; var ok = card.querySelector(".rate-ok"); if (ok) ok.remove(); if (it) it.removeAttribute("style"); render(); };
+          if (!it) return fin();
+          it.style.maxHeight = it.offsetHeight + "px"; it.style.overflow = "hidden"; it.style.transition = "max-height .45s ease, opacity .3s ease, padding .45s ease";
+          requestAnimationFrame(function () { it.style.maxHeight = "0px"; it.style.opacity = "0"; it.style.paddingTop = it.style.paddingBottom = "0px"; });
+          setTimeout(fin, 480);
+        }, 1100);
+      }, 300);
     },
     rateSkip: function (el) {
       var arr = el.dataset.t === "t" ? (S.trainings || []) : S.matches, o = arr.filter(function (x) { return x.id === el.dataset.id; })[0];
@@ -17313,6 +17382,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     rfType: function (el) { var F = UI.rsFlow; F.stringType = (F.stringType || guessType(F.string)) === el.dataset.v ? "" : el.dataset.v; render(); },
     rfValidate: function () {
       var F = UI.rsFlow, r = racket(F.id); if (!r) return;
+      try { var n0 = matNeed(r), st0 = n0.st; if (st0.known && st0.min) UI.mxRs = { id: r.id, f: Math.min(1, st0.min / Math.max(60, n0.ref)), h: Math.round(st0.min / 60) }; } catch (e) {}
       if (!F.same || !r.string) {
         if (!F.string.trim() && !F.stringType) return toast("Indique au moins le type de cordage.");
         rsFill(r);
@@ -17321,7 +17391,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var d = F.date && F.date <= E.iso(today()) ? F.date : E.iso(today());
       r.restrings = (r.restrings || []).concat([d]).filter(function (v, i, a) { return a.indexOf(v) === i; }).sort(); r.brokenOpen = false;
       r.rsInfo = r.rsInfo || {}; r.rsInfo[d] = { string: r.string || "", type: stringType(r), tension: r.tension || null, tensionCross: r.tensionCross != null ? r.tensionCross : null };
-      save(); UI.rsFlow = null; toast("C'est noté : le compteur de " + r.name + " repart à zéro."); go("raquette/" + r.id);
+      save(); UI.rsFlow = null; toast("C'est noté : le compteur de " + r.name + " repart à zéro.", true); go("raquette/" + r.id);
     },
     breakNow: function (el) {
       var r = racket(el.dataset.id); if (!r) return;
@@ -17449,7 +17519,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     goalT: function (el) { var g = UI.goalPick || (UI.goalPick = goalsCur().map(function (x) { return x.id; })), i = g.indexOf(el.dataset.v); if (i >= 0) g.splice(i, 1); else if (g.length < 3) g.push(el.dataset.v); else { toast("3 objectifs au plus : retires-en un d'abord."); return; } haptic("light"); render(); },
     goalCat: function (el) { var inp = document.getElementById("gp-t"); if (inp) UI.gpT = inp.value; UI.goalCat = el.dataset.v; render(); }, // 3.61.3 : le texte tapé reste
     goalAdd: function () { var inp = document.getElementById("gp-t"), t = inp && inp.value.trim(); if (!t) return; UI.gpT = ""; S.goals = S.goals || { ids: [] }; var c = S.goals.custom = S.goals.custom || [], id = "c" + Date.now().toString(36); c.push({ id: id, t: t.slice(0, 40), cat: UI.goalCat || "tac" }); var g = UI.goalPick || (UI.goalPick = goalsCur().map(function (x) { return x.id; })); if (g.length < 3) g.push(id); save(); render(); },
-    goalSave: function () { var g = UI.goalPick || [], sg = goalSuggest(); S.goals = S.goals || {}; S.goals.ids = g.slice(0, 3); S.goals.since = E.iso(today()); S.goals.why = {}; g.forEach(function (id) { if (sg.why[id]) S.goals.why[id] = sg.why[id]; }); UI.goalPick = null; UI.sheet = null; save(); toast(g.length ? "Tes objectifs sont prêts" + (IOS ? ", aussi sur ta montre." : ".") : "Objectifs retirés."); try { watchSync(); } catch (e) {} render(); },
+    goalsSave: function () { var g = UI.goalPick || [], sg = goalSuggest(); S.goals = S.goals || {}; S.goals.ids = g.slice(0, 3); S.goals.since = E.iso(today()); S.goals.why = {}; g.forEach(function (id) { if (sg.why[id]) S.goals.why[id] = sg.why[id]; }); UI.goalPick = null; UI.sheet = null; save(); toast(g.length ? "Tes objectifs sont prêts" + (IOS ? ", aussi sur ta montre." : ".") : "Objectifs retirés."); try { watchSync(); } catch (e) {} render(); },
     goalR: function (el) { var m = S.matches.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!m) return; m.goalRes = m.goalRes || {}; var v = +el.dataset.v; if (m.goalRes[el.dataset.k] === v) delete m.goalRes[el.dataset.k]; else m.goalRes[el.dataset.k] = v; haptic("light"); save(); render(); },
     tacT: function (el) { var m = S.matches.filter(function (x) { return x.id === el.dataset.id; })[0]; if (!m) return; m.tacRes = m.tacRes || {}; var k = el.dataset.v, cur = m.tacRes[k]; m.tacRes[k] = cur === 1 ? 0 : cur === 0 ? null : 1; if (m.tacRes[k] == null) delete m.tacRes[k]; haptic("light"); save(); render(); },
     stakeOpen: function () { UI.stakeOpen = true; render(); },
@@ -17682,7 +17752,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (!S.rackets.some(function (x) { return x.main; })) S.rackets[0].main = true;
       save(); UI.racketDraft = null;
       if (UI.afterRacket && UI.draft) { UI.draft.racketId = r.id; UI.draft.string = r.string; UI.draft.tension = r.tension; UI.draft.tensionCross = r.tensionCross != null ? r.tensionCross : null; var h = UI.afterRacket; UI.afterRacket = null; location.hash = h; return; }
-      toast("Raquette enregistrée."); go(i >= 0 ? "raquette/" + r.id : "materiel");
+      toast("Raquette enregistrée.", true); go(i >= 0 ? "raquette/" + r.id : "materiel");
     },
     delRacket: function () {
       if (!askOk("Supprimer cette raquette ? Les matchs joués avec elle ne seront plus annotés.")) return;
