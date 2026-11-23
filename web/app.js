@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.0.4",
+    VERSION: "4.0.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -622,6 +622,8 @@
   document.addEventListener("focusout", function () { setTimeout(function () { if (!kbField(document.activeElement)) document.body.classList.remove("kb"); }, 80); });
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
+    // 4.0.5 (Yann) : quitter Ace par un lien garde de quoi revenir à la conversation (pastille « Revenir à Ace » sur la page suivante)
+    if (UI.ace && UI.ace.q) UI.aceBack = { q: UI.ace.q, h: location.hash }; else if (UI.aceBack && UI.aceBack.h !== location.hash) UI.aceBack = null;
     var r = route(); UI.sheet = null; UI.ace = null; UI.flAnim = true; // 3.66 : la fleur s'anime à chaque arrivée sur une page
     // 3.57.3 (testeur) : la feuille « Programmer le match » restait ouverte en quittant la poule et se rouvrait au retour
     UI.plSched = null; UI.plHost = null;
@@ -763,6 +765,7 @@
     if (UI.actPlus) html += actPlusHtml();
     if (UI.ace) html += aceHtml(); // 3.73 : Ace, le coach
     else if (parts[0] === "" && S.onboarded && S.matches.length && !S.aceSeen && !UI.sheet && !UI.notesOpen && !UI.qaSheet && !UI.actPlus) html += aceIntroHtml();
+    if (!UI.ace && UI.aceBack && !UI.sheet && html.indexOf('class="mm-pill"') < 0) { try { var abQ = coQs(ctx()).filter(function (x) { return x[1] === UI.aceBack.q; })[0]; html += '<button class="ace-back" data-a="aceBack">' + coBall("ace:back", "repos", "xs") + '<span class="grow"><b>Revenir à Ace</b>' + (abQ ? "<small>" + esc(abQ[2]) + "</small>" : "") + "</span>" + I.next + "</button>"; } catch (e) {} }
     if (!UI.sheet && !UI.leaveAsk && notesDue()) html += notesHtml();
     document.body.classList.toggle("has-pill", html.indexOf('class="mm-pill"') >= 0);
     document.body.classList.toggle("glow", ["", "bienvenue"].indexOf(parts[0]) < 0);
@@ -9266,12 +9269,33 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function acTone(pc) { return pc == null ? "" : pc >= 50 ? "g" : pc >= 25 ? "y" : "r"; }
   // une ligne : [carré V/D] libellé + sous-titre · barre · valeur ; touchable (feuille de détail ou page)
   function acRow(o) {
-    var tag = o.sheet ? 'button class="acr" data-a="sheet" data-k="' + esc(o.sheet[0]) + '" data-v="' + esc(o.sheet[1] || "") + '"' : o.href ? 'a class="acr" href="' + esc(o.href) + '"' : 'div class="acr"';
+    var tag = o.tog ? 'button class="acr' + (o.tog[2] ? " on" : "") + '" data-a="' + o.tog[0] + '" data-v="' + esc(o.tog[1]) + '" aria-expanded="' + (o.tog[2] ? "true" : "false") + '"' : o.sheet ? 'button class="acr" data-a="sheet" data-k="' + esc(o.sheet[0]) + '" data-v="' + esc(o.sheet[1] || "") + '"' : o.href ? 'a class="acr" href="' + esc(o.href) + '"' : 'div class="acr"';
     return "<" + tag + ">" + (o.sq ? '<span class="acr-sq ' + (o.sq === "V" ? "g" : "r") + '">' + o.sq + "</span>" : "") + '<span class="acr-l"><b>' + o.l + "</b>" + (o.s ? "<small" + (o.scl ? ' class="' + o.scl + '"' : "") + ">" + o.s + "</small>" : "") + "</span>" +
       (o.bar != null ? '<span aria-hidden="true" class="acr-bar ' + (o.cl || "") + '"><i style="width:' + Math.max(0, Math.min(100, o.bar)) + '%"></i>' + (o.tick != null ? '<em style="left:' + Math.max(0, Math.min(100, o.tick)) + '%"></em>' : "") + "</span>" : "") +
-      '<span class="acr-v ' + (o.cl || "") + '">' + (o.v || "") + "</span>" + (o.sheet || o.href ? '<span class="acr-go">' + I.next + "</span>" : "") + "</" + tag.split(" ")[0] + ">";
+      '<span class="acr-v ' + (o.cl || "") + '">' + (o.v || "") + "</span>" + (o.sheet || o.href || o.tog ? '<span class="acr-go' + (o.tog ? " tg" : "") + '">' + I.next + "</span>" : "") + "</" + tag.split(" ")[0] + ">";
   }
   function acBig(v, l, cl, bar, side) { return '<div class="acb"><span class="acb-n ' + (cl || "") + '">' + v + "</span>" + (side ? '<span class="acb-s">' + side + "</span>" : "") + (l ? '<small class="acb-l">' + l + "</small>" : "") + (bar != null ? '<span aria-hidden="true" class="acr-bar wide ' + (cl || "") + '"><i style="width:' + Math.max(0, Math.min(100, bar)) + '%"></i></span>' : "") + "</div>"; }
+  // 4.0.5 (Davy, Yann) : le détail d'une fuite, déplié DANS la conversation : les matchs un par un et le calcul.
+  // Chaque défaite coûte ce qu'un joueur de ton classement en aurait tiré (sa chance de la gagner × la valeur d'une victoire),
+  // chaque victoire rend ce qu'il n'aurait pas eu : la somme fait exactement l'écart affiché.
+  function acLkDetail(l, d) {
+    var W = l.w || 0, cl = esc(d.P.curL), ren = l.k === "mental", rows = [];
+    if (l.dms && l.dms.length) rows = l.dms.map(function (m) { return { m: m, p: -W, s: "5 doubles fautes ou plus" }; });
+    else if (l.ms && l.es && W) rows = l.ms.map(function (m, i) { var e = l.es[i], v = m.result === "V";
+      return { m: m, p: v ? (1 - e) * W : -e * W, s: "un " + cl + (ren ? " le renverse " : " le gagne ") + Math.max(0, Math.min(10, Math.round(e * 10))) + " fois sur 10" }; });
+    if (!rows.length) return "";
+    rows.sort(function (a, b) { return a.p - b.p; });
+    var n2 = function (x) { return String(Math.round(x * 100) / 100).replace(".", ","); }, Wr = Math.round(W);
+    var calc = l.dms ? "Chaque défaite avec 5 doubles fautes ou plus te coûte ≈ " + Wr + " pts : un tiers environ d'une de tes victoires qui comptent (" + Math.round(W / 0.35) + " pts en moyenne)."
+      : "Un " + cl + (ren ? " en renverse " : " en gagne ") + n2(l.e) + " sur " + l.n + ", toi " + l.v + ". Écart : " + n2(l.e - l.v) + " victoire" + (l.e - l.v >= 2 ? "s" : "") + " × " + Wr + " pts " +
+        (l.k === "rank" || l.k === "perf" ? "(une victoire contre un " + esc(lab(l.k === "rank" ? l.o : d.cur + 1)) + ")" : "(une de tes victoires, en moyenne)") + " = " + l.pts + " pts. Des points pas pris, pas des points retirés.";
+    var all = UI.aceLkAll === l.k, sh = all ? rows : rows.filter(function (r) { return r.p < 0; }).slice(0, 3), rest = rows.filter(function (r) { return sh.indexOf(r) < 0; });
+    var rL = rest.filter(function (r) { return r.p < 0; }), rW = rest.filter(function (r) { return r.p > 0; }), sm = function (a) { return Math.round(a.reduce(function (t, r) { return t + r.p; }, 0)); };
+    return '<div class="acx"><span class="acd-h acx-k">Match par match</span>' + sh.map(function (r, i) { var m = r.m, v = m.result === "V", p = Math.round(r.p);
+      return acRow({ sq: v ? "V" : "D", l: esc(nameCase(m.opp || "") || "Un adversaire") + acRk(m.oppRank) + (oppRealLab(m) ? ' <small class="acx-re">→ ' + esc(oppRealLab(m)) + "</small>" : ""), s: esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + "<br>" + r.s + (i === 0 && p < 0 ? " · <em>le plus cher</em>" : ""), v: p ? (p > 0 ? "+" : "−") + Math.abs(p) : "0", cl: v ? "g" : "r", href: "#/match/" + m.id }); }).join("") +
+      (rest.length ? '<button class="acx-more" data-a="aceLkAll" data-v="' + esc(l.k) + '"><span>' + [rL.length ? plural(rL.length, "autre défaite", "autres défaites") + " : −" + Math.abs(sm(rL)) : "", rW.length ? plural(rW.length, ren ? "match renversé" : "victoire", ren ? "matchs renversés" : "victoires") + " : +" + sm(rW) : ""].filter(Boolean).join(" · ") + "</span><b>Tout voir</b></button>" : "") +
+      '<span class="acd-h acx-k">Le calcul</span><p class="acx-c">' + calc + "</p></div>";
+  }
   function acRk(r) { return r ? ' <b class="rk-tag">' + esc(T.normRank(r) || r) + "</b>" : ""; }
   function coAnswer(c, q) {
     var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], XH = "", mood = "repos", pl = null, k = q.split(":");
@@ -9385,7 +9409,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         if (lk.sum < 5) { A.push("<b>Rien de flagrant.</b> Tu gagnes ce qu'un " + esc(d.P.curL) + " doit gagner. Pour monter, il faut aller chercher les perfs."); F.push(["Comment je monte ?", "up"]); }
         else {
           var mxL = lk.l[0] ? lk.l[0].pts : 1;
-          XH += acCard("Ce qui te coûte des points", acBig("≈ " + lk.sum + "<small> pts</small>", "laissés en route sur 12 mois", "r") + (sup ? lk.l.slice(0, 4) : lk.l.slice(0, 1)).map(function (l) { return acRow({ l: esc(l.t), s: esc(l.s || ""), bar: 100 * l.pts / mxL, cl: "r", v: "−" + l.pts, sheet: sup ? ["cbCard", COACH_SHEET_L[l.k] || "plafond"] : null }); }).join(""));
+          XH += acCard("Ce qui te coûte des points", acBig("≈ " + lk.sum + "<small> pts</small>", "laissés en route sur 12 mois", "r") + (sup ? lk.l.slice(0, 4) : lk.l.slice(0, 1)).map(function (l) { var on = UI.aceLk === l.k, dt = acLkDetail(l, d);
+            return acRow({ l: esc(l.t), s: esc(l.s || ""), bar: 100 * l.pts / mxL, cl: "r", v: "−" + l.pts, tog: dt ? ["aceLk", l.k, on] : null }) + (on && dt ? dt : ""); }).join(""));
           A.push("C'est ce qu'un " + esc(d.P.curL) + " moyen aurait gagné en plus de toi, face aux mêmes adversaires.");
           if (sup) {
             lk.l.slice(0, 4).forEach(function (l, i) { acc += l.pts; if (pass < 0 && norm0 && acc >= norm0) pass = i; });
@@ -10864,20 +10889,20 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var matches = counted.slice(0, 2).map(function (w) { return { m: w.m, pts: w.pts, why: why(w.m) }; }).concat(lossCost.slice(0, 2).map(function (x) { return { m: x.m, pts: -x.pts, why: why(x.m) }; }));
     // Ce qui te coûte des points
     var leaks = [];
-    var byR = {}; ms.forEach(function (m) { var o = E.idx(m.oppRank); if (o > cur) return; var r = byR[o] = byR[o] || { o: o, v: 0, n: 0, e: 0 }; r.n++; if (m.result === "V") r.v++; r.e += oppExp(m, cur); });
+    var byR = {}; ms.forEach(function (m) { var o = E.idx(m.oppRank); if (o > cur) return; var r = byR[o] = byR[o] || { o: o, v: 0, n: 0, e: 0, ms: [], es: [] }; r.n++; if (m.result === "V") r.v++; var x1 = oppExp(m, cur); r.e += x1; r.ms.push(m); r.es.push(x1); });
     Object.keys(byR).map(function (k) { return byR[k]; }).filter(function (r) { return r.n >= 4 && r.e - r.v >= 1.2; }).sort(function (a, b) { return (b.e - b.v) - (a.e - a.v); }).slice(0, 1).forEach(function (r) {
-      var miss = r.e - r.v; leaks.push({ k: "rank", o: r.o, v: r.v, n: r.n, e: r.e, t: "Tes matchs contre les " + lab(r.o), pts: Math.round(miss * Math.max(10, winPts(r.o))), s: r.v + " V – " + (r.n - r.v) + " D, un joueur classé " + P.curL + " : " + Math.round(r.e) + " V sur " + r.n, link: "courbes?to=plafond" });
+      var miss = r.e - r.v; leaks.push({ k: "rank", o: r.o, v: r.v, n: r.n, e: r.e, ms: r.ms, es: r.es, w: Math.max(10, winPts(r.o)), t: "Tes matchs contre les " + lab(r.o), pts: Math.round(miss * Math.max(10, winPts(r.o))), s: r.v + " V – " + (r.n - r.v) + " D, un joueur classé " + P.curL + " : " + Math.round(r.e) + " V sur " + r.n, link: "courbes?to=plafond" });
     });
     var LK = { perf: ["Contre les mieux classés", "courbes?to=plafond"], solid: ["Contre les moins bien classés", "courbes?to=plafond"], mental: ["Quand tu perds le 1er set", "courbes?to=gagner"], endu: ["Tes matchs en 3 sets", "courbes?to=gagner"], rythme: ["Tes retours après 3 semaines sans jouer", "palmares"] };
     Object.keys(LK).forEach(function (k) {
       var x = P.R[k]; if (!x || x.st !== "faible" || (k === "solid" && leaks.some(function (l) { return l.k === "rank"; }))) return;
       var miss = Math.max(0, x.g.e - x.g.v); if (miss < 0.8) return;
-      leaks.push({ k: k, v: x.g.v, n: x.g.n, e: x.g.e, t: LK[k][0], pts: Math.round(miss * (k === "perf" ? winPts(cur + 1) : avgW)), s: "toi " + x.g.v + " sur " + x.g.n + ", un joueur classé " + P.curL + " : " + Math.round(x.g.e) + " sur " + x.g.n, link: LK[k][1] });
+      leaks.push({ k: k, v: x.g.v, n: x.g.n, e: x.g.e, ms: x.g.ms, es: x.g.es, w: k === "perf" ? winPts(cur + 1) : avgW, t: LK[k][0], pts: Math.round(miss * (k === "perf" ? winPts(cur + 1) : avgW)), s: "toi " + x.g.v + " sur " + x.g.n + ", un joueur classé " + P.curL + " : " + Math.round(x.g.e) + " sur " + x.g.n, link: LK[k][1] });
     });
     // tes chiffres / ta montre : doubles fautes dans les défaites
     var D = ms.filter(function (m) { return m.result === "D" && (numFilled(m) || (m.serve && m.serve.me && m.serve.me.pts)); });
-    var dfD = D.filter(function (m) { return numFilled(m) ? numOf(m).df === 2 : (m.serve.me.df || 0) >= 5; }).length;
-    if (D.length >= 3 && dfD / D.length >= 0.5) leaks.push({ k: "service", v: dfD, n: D.length, bad: true, t: "Tes doubles fautes", pts: Math.round(dfD * avgW * 0.35), s: "5 doubles fautes ou plus dans " + dfD + " défaites sur " + D.length, link: "service" });
+    var dfL = D.filter(function (m) { return numFilled(m) ? numOf(m).df === 2 : (m.serve.me.df || 0) >= 5; }), dfD = dfL.length;
+    if (D.length >= 3 && dfD / D.length >= 0.5) leaks.push({ k: "service", v: dfD, n: D.length, bad: true, dms: dfL, w: avgW * 0.35, t: "Tes doubles fautes", pts: Math.round(dfD * avgW * 0.35), s: "5 doubles fautes ou plus dans " + dfD + " défaites sur " + D.length, link: "service" });
     if (P.R.service && P.R.service.st === "faible") leaks.push({ k: "service2", t: "Tes jeux de service", pts: null, s: P.R.service.me + " % tenus, tes adversaires " + P.R.service.him + " %", link: "service" });
     leaks.sort(function (a, b) { return (b.pts || 0) - (a.pts || 0); });
     // Forces
@@ -18398,7 +18423,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     ace: function (el) { var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; save(); render(); haptic("light"); },
     aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
-    aceClose: function () { UI.ace = null; render(); },
+    aceClose: function () { UI.ace = null; UI.aceBack = null; render(); },
+    aceBack: function () { var q = UI.aceBack ? UI.aceBack.q : ""; UI.aceBack = null; UI.ace = { q: q }; render(); haptic("light"); },
+    aceLk: function (el) { UI.aceLk = UI.aceLk === el.dataset.v ? null : el.dataset.v; render(); haptic("light"); },
+    aceLkAll: function (el) { UI.aceLkAll = el.dataset.v; render(); },
     // 3.75 : « Le jour J, rappelle-moi » : une notification locale le matin du match (ou 2 h avant l'heure prévue)
     aceRemind: function (el) {
       if (!NATIVE || !LN) return;
@@ -18408,7 +18436,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (LN.requestPermissions) LN.requestPermissions().then(function (p) { S.notif = p && p.display === "granted"; save(); if (S.notif) ok(); else toast("Active les notifications de Montée dans les réglages du téléphone."); }).catch(function () {});
     },
     aceIntro: function (el) { S.aceSeen = 1; save(); if (el.dataset.v === "go") UI.ace = { q: "" }; render(); },
-    coachGo: function (el) { var h = el.dataset.h || "", q = h.split("?")[1]; if (q) UI.mmTab = q; UI.sheet = null; UI.ace = null; if (location.hash === h.split("?")[0]) render(); else location.hash = h.split("?")[0]; },
+    coachGo: function (el) { var h = el.dataset.h || "", q = h.split("?")[1]; if (q) UI.mmTab = q; if (UI.ace && UI.ace.q) UI.aceBack = { q: UI.ace.q, h: h.split("?")[0] }; UI.sheet = null; UI.ace = null; if (location.hash === h.split("?")[0]) render(); else location.hash = h.split("?")[0]; },
     goSeasonCard: function (ev) { UI.cardWhich = "season"; UI.cardStyle = null; go("carte"); },
     cardWhich: function (el) { UI.cardWhich = el.dataset.v; UI.cardStyle = null; render(); },
     cardSkin: function (el) {

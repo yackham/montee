@@ -6270,6 +6270,21 @@ button.acr, a.acr { cursor: pointer; }
 .acr-v small { font-size: 12px; font-weight: 700; color: var(--muted); }
 .acr-v.g { color: var(--gazon); } .acr-v.r { color: var(--terre); }
 .acr-go { flex: none; display: flex; color: var(--muted); margin-left: -4px; } .acr-go svg { width: 14px; height: 14px; }
+/* 4.0.5 : détail d'une fuite déplié dans la conversation d'Ace (à plat, traits fins, pas d'encadré) */
+.acr-go.tg svg { transition: transform .2s; } .acr.on .acr-go.tg svg { transform: rotate(90deg); }
+.acx { display: flex; flex-direction: column; padding: 0 0 6px 12px; margin-left: 2px; border-left: 2px solid var(--line); animation: up .2s ease-out; }
+.acx .acr { padding: 7px 0; } .acx .acr-l b { font-size: 14px; } .acx .acr-v { font-size: 14.5px; }
+.acx .acr-l small em { font-style: normal; font-weight: 700; color: var(--terre); }
+.acx-k { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 8px 0 2px; }
+.acx-more { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 0; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; text-align: left; color: var(--muted); font-size: 13px; cursor: pointer; } .acx-more span { flex: 1; } .acx-more b { flex: none; color: var(--acc-ink); font-size: 13.5px; }
+.acx-re { font-size: 12px; font-weight: 600; color: var(--muted); }
+.acx-c { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .acx { animation: none; } .acr-go.tg svg { transition: none; } }
+/* 4.0.5 (Yann) : revenir à la conversation d'Ace après avoir suivi un lien */
+.ace-back { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 39; width: min(92vw, 420px); display: flex; align-items: center; gap: 10px; font: inherit; text-align: left; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 8px 12px; box-shadow: 0 10px 28px -8px rgba(0,0,0,.45); cursor: pointer; animation: up .25s ease-out; }
+.ace-back b { display: block; font-size: 14.5px; } .ace-back small { display: block; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ace-back .grow { flex: 1; min-width: 0; } .ace-back > svg { flex: none; width: 16px; height: 16px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .ace-back { animation: none; } }
 .acb { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0 10px; padding: 2px 0 8px; }
 .acb-n { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
 .acb-n small { font-size: 15px; font-weight: 700; color: var(--muted); }
