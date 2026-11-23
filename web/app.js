@@ -3347,6 +3347,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div></div></div></div>");
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
+    s += aceHomeCard(); // 3.82.1 : Ace sous le Salut
     if (!S.matches.length) {
       s += '<div class="card balle"><span class="eyebrow">Pour commencer</span><span style="font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.2">Récupère tes matchs des 12 derniers mois.</span><span style="font-size:15px">Sans eux, impossible de savoir si tu montes.</span></div>' +
         '<div class="stack"><a class="btn primary" href="#/tenup">' + I.link + " Récupérer depuis Ten'Up</a>" +
@@ -8514,6 +8515,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return out;
   }
   // Ace partout : sa pastille au-dessus des onglets (Yann, maquette v2 façon Bevel : la grosse balle prenait trop de place)
+  // 3.82.1 (maquette M1) : la phrase de l'accueil dit quoi faire (combien de victoires, contre qui), pas seulement l'écart
+  function upTipT(c, gap) {
+    var L = c.proj.next.label, base = "Il te manque " + plural(gap, "pt") + " pour " + L + ", on voit comment ?";
+    try { var tg = Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC), w = winsFor(c, tg), top = w && w.top != null && w.top <= 4 ? w.top : null, n = top || (w && w.n <= 6 ? w.n : null), lv = top ? tg : w && w.lvl; // même calcul que « Ton cap »
+      if (n && lv != null) return (n > 1 ? n + " victoires contre des " : "1 victoire contre un ") + lab(lv) + " et tu montes " + L + ". On regarde qui jouer d'abord ?"; } catch (e) {}
+    return base;
+  }
   function coHomeTip(c) {
     var tips = [], hier = null, jm = null, t0 = E.iso(today());
     try { var yd = E.iso(new Date(today().getTime() - 864e5)); hier = knownMatches(false).filter(function (m) { return (m.date === yd || m.date === t0) && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0]; } catch (e) {} // 3.74.1 : Ace réagit aussi au match saisi aujourd'hui (bulle + point rouge, sans fenêtre automatique)
@@ -8532,7 +8540,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (t.fmt === "poule") { var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }); if (left.length) tips.push({ id: "home:pl:" + t.id + ":" + left.length, t: (left.length > 1 ? left.length + " matchs de poule à caler" : "Un match de poule à caler") + ", on regarde ?", v: "poule:" + t.id }); }
       else { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r && r.day && r.day >= t0 && !(nm && nm.t === t)) tips.push({ id: "home:tb:" + t.id + ":" + r.day, t: "Ton prochain tour " + (r.day === t0 ? "aujourd'hui" : "le " + fdate(r.day).replace(/\.$/, "")) + " : on le prépare ?", v: "tour:" + t.id }); }
     });
-    if (c.proj.status !== "top" && c.proj.next) { var gap = Math.max(0, c.proj.next.norme - c.proj.next.total); tips.push({ id: "home:up:" + gap, t: c.proj.status === "montee" ? "Tu montes " + lab(c.proj.projected) + " à la sortie. On en parle ?" : gap ? "Il te manque " + plural(gap, "pt") + " pour " + c.proj.next.label + ", on voit comment ?" : "Il te manque une victoire pour " + c.proj.next.label + ", on voit laquelle ?", v: "up" }); }
+    if (c.proj.status !== "top" && c.proj.next) { var gap = Math.max(0, c.proj.next.norme - c.proj.next.total); tips.push({ id: "home:up:" + gap, t: c.proj.status === "montee" ? "Tu montes " + lab(c.proj.projected) + " à la sortie. On en parle ?" : gap ? upTipT(c, gap) : "Il te manque une victoire pour " + c.proj.next.label + ", on voit laquelle ?", v: "up" }); }
     if (!tips.length && (!hier || hier.result !== "D")) {
       var lastA = knownMatches(false).concat(S.trainings || []).map(function (x) { return x.date || ""; }).sort().pop();
       if (jm) { if (jk("h-jm")) tips.push({ id: "jk:h-jm:" + t0, t: "Jour de match. Les chaussettes porte-bonheur, c'est maintenant.", v: "" }); }
@@ -8545,11 +8553,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Accueil : Ace à côté de la roue des réglages (Yann, 23/11) : petit, il cligne des yeux ; quand il a un truc à te dire,
   // un point rouge, un petit rebond de temps en temps et sa phrase en une ligne à sa gauche
   function aceHd() {
+    UI.coHome = null;
     if (!S.onboarded || !S.matches.length) return "";
     var h = null; try { h = coHomeTip(ctx()); } catch (e) { return ""; }
     var m = coMem(), t = h.tip, dot = !!(t && !m.op[t.id]); UI.coHomeId = t ? t.id : null;
-    return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach' + (dot ? " : " + esc(t.t) : "") + '">' +
-      (dot ? '<span class="ace-bub">' + esc(t.t) + "</span>" : "") + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot ? '<span class="ace-dot"></span>' : "") + "</span></button>";
+    UI.coHome = dot ? { t: t, mood: h.mood } : null; return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot ? '<span class="ace-dot"></span>' : "") + "</span></button>";
+  }
+  // 3.82.1 (Yann, maquette M1 du tour du 23/11) : la phrase d'Ace a sa carte sous le Salut (avant : bulle coupée dans l'en-tête)
+  function aceHomeCard() {
+    var h = UI.coHome; if (!h || !h.t) return "";
+    return '<div class="card cbl ace-hc" role="note" aria-label="Ace">' + coBall("hc:" + h.t.id, h.mood) + '<div class="cbl-t"><span>' + esc(h.t.t) + '</span><div class="cbl-ac">' +
+      '<button class="cbl-go ace-hcg" data-a="ace" data-v="' + esc(h.t.v || "") + '">On en parle ›</button><button class="cbl-no" data-a="coachNo" data-id="' + esc(h.t.id) + '" data-s="home">Pas utile</button></div></div></div>';
   }
   // La présentation d'Ace, une seule fois
   function aceIntroHtml() {
@@ -10984,7 +10998,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var last = (S.matches || []).filter(function (m) { return m.date && !m.wo; }).map(function (m) { return m.date; }).sort().pop();
     if (last) { var gd = -dGap(last); if (gd >= 7) frm += " Pas joué depuis " + gd + " jours."; }
     var secs = [{ ic: "◎", col: "var(--bleu3)", t: "Ton niveau", b: niv }, { ic: "↗", col: "var(--gazon)", t: "Ta montée", b: mon }, { ic: "⛨", col: "var(--terre)", t: "Ton maintien", b: mai }, { ic: "♥", col: "var(--balle)", t: "Ta forme", b: frm }].filter(function (x) { return x.b; });
-    var text = [niv, mai].filter(Boolean).join(" "); // 3.46.5 : la montée est déjà dans la carte juste en dessous
+    var text = [niv, (p.margin != null && p.margin >= 0 && !p.kept && !z && p.status !== "descente") ? "" : mai].filter(Boolean).join(" "); // 3.82.1 : « +X pts d'avance » est déjà dans la carte Sortie ; 3.46.5 : la montée est déjà dans la carte juste en dessous
     return { ic: ic, col: col, title: title, text: text, secs: secs };
   }
   function courbesRings(c) {
@@ -17145,7 +17159,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       toast("Compris, je ne te le redis pas avant 3 semaines.");
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
-    ace: function (el) { var m = coMem(); if (UI.coHomeId && el.classList.contains("ace-hd")) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; save(); render(); haptic("light"); },
+    ace: function (el) { var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; save(); render(); haptic("light"); },
     aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
     aceClose: function () { UI.ace = null; render(); },
     // 3.75 : « Le jour J, rappelle-moi » : une notification locale le matin du match (ou 2 h avant l'heure prévue)
