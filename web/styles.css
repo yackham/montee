@@ -6644,3 +6644,4 @@ button.acr, a.acr { cursor: pointer; }
 .lc-more.lc-sh svg { width: 16px; height: 16px; }
 .lc-shp { align-self: center; margin: 14px auto 4px; }
 .screen > .lc-shp { display: flex; }
+.pj-glue { white-space: nowrap; }

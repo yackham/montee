@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.90.1",
+    VERSION: "3.90.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -438,6 +438,8 @@
     return pistesMemo.val;
   }
   // 3.75 : les victoires à aller chercher, en balles vides détourées (piste la plus accessible)
+  // Les balles restent collées au dernier mot du titre : jamais seules sur une ligne
+  function pjGlue(h, balls) { if (!balls) return h; var i = h.lastIndexOf(" "); return h.slice(0, i + 1) + '<span class="pj-glue">' + h.slice(i + 1) + balls + "</span>"; }
   function pjBalls(n) { var b = '<svg viewBox="0 0 22 22"><circle cx="11" cy="11" r="9"/><path d="M4.5 7.5c3 1 4.5 4.5 3.5 7.5M14 3.5c-1 3 .5 6.5 3.5 7.5"/></svg>', o = ""; for (var i = 0; i < Math.min(n, 5); i++) o += b.replace("<svg", '<svg style="--i:' + i + '"'); return n ? '<span class="pj-balls" aria-hidden="true">' + o + "</span>" : ""; }
   function pisteLabel(x) {
     var g = {}; x.levels.forEach(function (L) { g[L] = (g[L] || 0) + 1; });
@@ -4467,7 +4469,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<span class="lbl">Pour quand ?</span><div class="chips">' + opts.map(function (o) { var v = E.iso(o.d); return '<button class="chip' + (d.by === v ? " on" : "") + '" data-a="goalBy" data-v="' + v + '" aria-pressed="' + (d.by === v) + '">' + esc(o.l) + "</button>"; }).join("") + "</div>";
     var f = feasibility(c, d.rank, E.parseDate(d.by));
     var fw = f.wins ? (f.wins.top != null && f.wins.top <= f.wins.n ? f.wins.top : f.wins.n) : 0;
-    s2 += '<div class="card goal-feas ' + f.k + '"><span class="eyebrow">Faisable ?</span><b>' + f.head + (fw && fw <= 5 ? pjBalls(fw) : "") + '</b><span style="font-size:15px;line-height:1.45">' + f.txt + "</span></div>";
+    s2 += '<div class="card goal-feas ' + f.k + '"><span class="eyebrow">Faisable ?</span><b>' + (fw && fw <= 5 ? pjGlue(f.head, pjBalls(fw)) : f.head) + '</b><span style="font-size:15px;line-height:1.45">' + f.txt + "</span></div>";
     return s2 + '<div class="spacer"></div><button class="btn primary" data-a="goalSave">Valider mon objectif</button></div>';
   };
 
@@ -9228,7 +9230,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var badge = x === ez ? "Le plus accessible" : x.p < 0.45 && ez && x.top > ez.top ? "Plus ambitieux" : x.k === 1 ? "Une victoire suffit aussi" : "Sans jouer plus fort que " + lab(x.top);
       var mine = cap != null && x.top <= cap && x.top >= (c.cur < 0 ? 0 : c.cur); // inutile de le dire contre des moins bien classés
       var mineTxt = !mine ? "" : x.top === cap ? " · <strong>dans tes cordes</strong> : tu bats régulièrement les " + esc(lab(cap)) : " · <strong>dans tes cordes</strong> : tu bats régulièrement des joueurs mieux classés (jusqu'à " + esc(lab(cap)) + ")";
-      return '<div class="pj-p' + (x === ez ? " best" : "") + '"><span class="grow"><b>' + esc(pisteLabel(x)) + "</b>" + (x === ez ? pjBalls(x.levels.length) + (x.levels.length === 1 ? jkLine("pj-1", "Plus qu'une. Pas de pression. Enfin, un peu.") : "") : "") +
+      return '<div class="pj-p' + (x === ez ? " best" : "") + '"><span class="grow"><b>' + (x === ez ? pjGlue(esc(pisteLabel(x)), pjBalls(x.levels.length)) : esc(pisteLabel(x))) + "</b>" + (x === ez ? (x.levels.length === 1 ? jkLine("pj-1", "Plus qu'une. Pas de pression. Enfin, un peu.") : "") : "") +
         '<span class="small">' + (x.p >= 0.45 ? "À ta portée" : x.p >= 0.2 ? "Jouable" : "Ambitieux") + " · bilan " + x.after.total + " / " + x.after.norme + mineTxt + "</span></span>" + (x === ez ? '<span class="pj-b">Le plus<br>accessible</span>' : "") + "</div>";
     }).join("");
     return s + '<details class="pj-how"><summary>Comment c\'est calculé</summary><span class="small">Calculé comme ton bilan : une nouvelle victoire remplace ta plus faible victoire comptée, elle ne rapporte donc que la différence. Pistes classées de la plus probable à la moins probable, d\'après tes résultats contre chaque classement' + (pl.maxBeaten != null ? ", sans adversaire plus fort que ton meilleur succès (" + lab(pl.maxBeaten) + ")" : "") + ".</span></details></div>";
