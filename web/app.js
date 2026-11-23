@@ -4461,7 +4461,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var hl = null; try { if (hp.length >= 6) hl = levelFit(hp, o).mean; } catch (er) {}
       OPP_RL[key] = hl != null && hl - o >= 0.6 ? Math.round(hl) : null;
     }
-    var r = OPP_RL[key], sc = scoutLevel(m.oid || p.id); if (sc != null) r = sc - o >= 0.6 ? Math.round(sc) : null; // 4.0.4 : même niveau que sa fiche
+    var r = OPP_RL[key], sc = scoutLevel(m.oid || p.id, p.profil ? p : null); if (sc != null) r = sc - o >= 0.6 ? Math.round(sc) : null; // 4.0.4 : même niveau que sa fiche
     return r != null && (e == null || r > e) ? r : e;
   }
   function effMs(ms) { return (ms || []).map(function (m) { var o = E.idx(T.normRank(m.oppRank)), e = oppEffIdx(m); return e != null && o != null && e > o ? Object.assign({}, m, { oppRank: lab(e), oppRank0: m.oppRank, risen: e - o }) : m; }); }
@@ -5167,8 +5167,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return { his: his, L: hisL, pull: bestPull };
   }
   // le niveau réel d'un adversaire dont la fiche a été lue (même calcul que sa fiche), sinon null
-  function scoutLevel(id) {
-    var p = id && S.scout && S.scout[id]; if (!p || !p.rows) return null;
+  function scoutLevel(id, alt) {
+    var p = (id && S.scout && S.scout[id]) || alt; if (!p || !p.rows) return null;
     var pr = p.profil || {}, hi = E.idx(T.normRank(pr.classement)); if (hi == null) return null;
     try { return oppLevelOf(p.rows, hi, pastBest(pr, p.past), p.past).L; } catch (e) { return null; }
   }
@@ -5310,7 +5310,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var A = cmpStats(myMs, me), B = cmpStats(o.rows, hi), s = '<h2>Toi contre lui en chiffres</h2>';
     var who = function (l, r) { return '<div class="cmp-who"><span class="me">' + l + '</span><span class="him">' + r + "</span></div>"; };
     // 1. vrais niveaux
-    var ln = levelNow(c), myL = ln.ms ? ln.mean : me, hp = playedOf(o.rows), hisL = hp.length >= 6 ? levelFit(hp, hi).mean : hi, few = hp.length < 3;
+    var ln = levelNow(c), myL = ln.ms ? ln.mean : me, hp = playedOf(o.rows), hisL = o.od && o.od.hisL != null ? o.od.hisL : hp.length >= 6 ? levelFit(hp, hi).mean : hi, few = hp.length < 3; // 4.0.4 : même niveau que la carte du match
     var lo = Math.max(-1, Math.floor(Math.min(me, hi, myL, hisL)) - 1), up = Math.ceil(Math.max(me, hi, myL, hisL)) + 1, X = function (v) { return Math.max(0, Math.min(100, (v - lo) / (up - lo) * 100)); };
     var dOff = hi - me, dLv = hisL - myL, head = Math.abs(dLv) < 0.5 && Math.abs(dOff) >= 1 ? "Sur le papier, " + plural(Math.abs(dOff), "échelon") + " d'écart. En vrai, presque rien." :
       dLv > dOff + 0.5 ? "Il est plus fort que son classement : méfiance." : dLv < dOff - 0.5 ? "L'écart réel est plus petit que vos classements." : dOff === 0 ? "Même classement, même niveau : match ouvert." : "Vos niveaux collent à vos classements.";
@@ -7200,7 +7200,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var common0 = [];
     played.forEach(function (m) { var k = nameKey(m.opp); if (mineBy0[k] && !common0.some(function (c2) { return c2.k === k; })) common0.push({ k: k, name: m.opp, rank: m.oppRank, his: m, mine: mineBy0[k][0] }); });
     if (D) { D.common = common0; s += ffStatsTab(D); }
-    else s += compareHtml({ rank: pr.classement, rows: rows, first: pr.prenom ? pr.prenom.charAt(0) + pr.prenom.slice(1).toLowerCase() : "", name: name, sp: sp, common: common0 });
+    else s += compareHtml({ rank: pr.classement, rows: rows, first: pr.prenom ? pr.prenom.charAt(0) + pr.prenom.slice(1).toLowerCase() : "", name: name, sp: sp, common: common0, od: od });
     var forme = played.slice().sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; }).slice(0, 5).reverse();
     var myR = effRank(), vsMe = played.filter(function (m) { return m.oppRank === myR; }), vsV = vsMe.filter(function (m) { return m.result === "V"; }).length;
     var best = played.filter(function (m) { return m.result === "V"; }).sort(function (a, b) { return E.idx(b.oppRank) - E.idx(a.oppRank); })[0];
@@ -10268,6 +10268,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var rows = T.rows({ raw: r.raw }).map(function (x) { return { date: x.date, result: x.result, score: x.score, oppRank: x.oppRank, wo: x.wo }; });
     S.anPal[m.id] = { at: E.iso(today()), id: String(hit.id), rank: (r.profil && r.profil.classement) || m.oppRank, sim: r.sim || null, rows: rows };
     S.anPal[m.id].ts = Date.now();
+    // 4.0.4 : de quoi calculer son niveau réel comme sur sa fiche (meilleur classement, saisons passées)
+    if (r.profil) S.anPal[m.id].profil = { classement: r.profil.classement || "", meilleur: r.profil.meilleur || "", meilleurAn: r.profil.meilleurAn || "" };
+    if (r.past && r.past.length) { try { S.anPal[m.id].past = r.past.slice(0, 2).map(function (x) { return { y: x.y, cl: x.cl || "", rows: T.rows({ raw: x.raw }).filter(function (q) { return q.ok !== false && q.date; }).map(function (q) { return { date: q.date, result: q.result, oppRank: q.oppRank, wo: !!q.wo, score: q.score || "" }; }) }; }).filter(function (x) { return x.rows.length; }); } catch (e) {} }
     var tsA = function (k) { var x = S.anPal[k]; return x.ts || new Date(x.at).getTime(); };
     var ks = Object.keys(S.anPal).filter(function (k) { return k !== m.id; }).sort(function (a, b) { return tsA(b) - tsA(a); }); ks.slice(39).forEach(function (k) { delete S.anPal[k]; });
     save();
@@ -10311,7 +10314,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       lastLoss = hb.filter(function (x) { return x.result === "D"; })[0] || null;
       var hpl = playedOf(hp.map(function (x) { return { date: x.date, result: x.result, oppRank: x.oppRank, score: x.score }; }));
       if (hpl.length >= 6 && hi != null) hisL = levelFit(hpl, hi).mean;
-      var scL = scoutLevel(m.oid || pal.id); if (scL != null) hisL = scL; // 4.0.4 : même niveau que sa fiche
+      var scL = scoutLevel(m.oid || pal.id, pal.profil ? pal : null); if (scL != null) hisL = scL; // 4.0.4 : même niveau que sa fiche
       sp = simProj(pal.sim, pal.rank || m.oppRank);
       hisStats = hp; hisLosses = hp.filter(function (x) { return x.result === "D" && x.date !== m.date; });
       var vs = hb.slice(0, 8), vsW = vs.filter(function (x) { return x.result === "V"; }).length;
