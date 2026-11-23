@@ -1438,15 +1438,20 @@
   function tourNext(t) { return (t.rounds || []).filter(function (r) { return !r.res; })[0]; }
   function trLab(i) { return (i === 0 ? "1er" : (i + 1) + "e") + " tour"; }
   // 3.47.3 (Davy) : si on a lu sa fiche Ten'Up, même calcul que « Le match » de sa fiche (forme, ancien classement, face-à-face) — sinon le calcul au classement
+  // 4.0.4 (Yann : « une fonction qui fait partout pareil ») : tes matchs contre lui, et tes chances contre lui aujourd'hui,
+  // calculés une seule fois pour sa fiche, la poule, le tableau, « Ce qui arrive » et partout ailleurs.
+  function oppMine(pr) {
+    var k1 = nameKey(nameCase([pr.prenom, pr.nom].filter(Boolean).join(" "))), k2 = nameKey([pr.nom, pr.prenom].join(" "));
+    return knownMatches(false).filter(function (m) { var k = nameKey(m.opp); return m.opp && !isAnon(m.opp) && (k === k1 || k === k2) && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
+  }
+  function oppOdds(id, rank) {
+    var sc = id && (S.scout || {})[id]; if (!sc || !sc.rows || !sc.rows.length) return null;
+    var pr = sc.profil || {}, name = nameCase([pr.prenom, pr.nom].filter(Boolean).join(" "));
+    return matchOdds(hisEffRows(sc.rows, id, name), pr.classement || rank, oppMine(pr), pastBest(pr, sc.past), sc.past);
+  }
   function trP(rank, tid) {
-    var sc = tid && (S.scout || {})[tid];
-    if (sc && sc.rows && sc.rows.length) { try {
-      var pr = sc.profil || {}, k1 = nameKey([pr.prenom, pr.nom].filter(Boolean).join(" ")), k2 = nameKey([pr.nom, pr.prenom].join(" "));
-      var mine = knownMatches(false).filter(function (m) { var k = nameKey(m.opp); return m.opp && !isAnon(m.opp) && (k === k1 || k === k2) && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
-      // 3.49 (Davy : 76 % dans la poule, 65 % sur sa fiche) : ses adversaires au classement d'aujourd'hui, comme sur la fiche
-      var od = matchOdds(hisEffRows(sc.rows, tid, [pr.prenom, pr.nom].filter(Boolean).join(" ")), pr.classement || rank, mine, pastBest(pr, sc.past), sc.past);
-      if (od && od.p != null) return Math.round(od.p * 100);
-    } catch (e) {} }
+    // 4.0.4 : exactement le calcul de sa fiche (oppOdds)
+    try { var od = oppOdds(tid, rank); if (od && od.p != null) return Math.round(od.p * 100); } catch (e) {}
     var o = E.idx(T.normRank(rank || "")); return o == null ? null : Math.round(expWin(o, curIdx()) * 100);
   }
   var TR_KIND = "tournoi"; // 3.44.2 : en indivs, une victoire rapporte aussi le bonus championnat
@@ -4048,7 +4053,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return S.matches.filter(function (m) {
       var o = E.idx(m.oppRank);
       return m.date && m.result === "D" && !m.wo && !m.dbl && o != null && (!up || o > cur) && lossGames(m) != null;
-    }).map(function (m) { var o = E.idx(m.oppRank); return { m: m, g: lossGames(m), e: lossExp(o, cur) }; })
+    }).map(function (m) { var o = oppEffIdx(m); return { m: m, g: lossGames(m), e: lossExp(o, cur) }; })
       .sort(function (a, b) { return a.m.date < b.m.date ? 1 : -1; });
   }
   function fmt1(x) { return String(Math.round(x * 10) / 10).replace(".", ","); }
@@ -4325,7 +4330,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function ciRows(cur) {
     var C = S.checkin || {};
     return S.matches.filter(function (m) { return m.date && C[m.date] && !m.wo && !m.dbl && (m.result === "V" || m.result === "D") && E.idx(m.oppRank) != null; })
-      .map(function (m) { return { m: m, c: C[m.date], e: expWin(E.idx(m.oppRank), cur), v: m.result === "V" ? 1 : 0 }; });
+      .map(function (m) { return { m: m, c: C[m.date], e: oppExp(m, cur), v: m.result === "V" ? 1 : 0 }; });
   }
   var CI_TEST = [
     { k: "sl", t: "Plus de 7 h de sommeil", f: function (c) { return c.sl > 7; } },
@@ -4366,7 +4371,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var last = E.parseDate(ms[0].date); if ((today() - last) / 864e5 > 30) return null;
     var R = S.rebond || {}; if (R.hid === ms[0].id) return null;
     var L = ms.slice(0, k), cur = c.cur < 0 ? 0 : c.cur;
-    var good = L.filter(function (m) { var o = E.idx(m.oppRank), g = lossGames(m); return o != null && g != null && g >= lossExp(o, cur) - 0.5; }).length;
+    var good = L.filter(function (m) { var o = oppEffIdx(m), g = lossGames(m); return o != null && g != null && g >= lossExp(o, cur) - 0.5; }).length;
     // Tes preuves : la dernière série d'au moins 3 défaites avant celle-ci, et la suite (7 matchs au plus)
     var asc = ms.slice(k).reverse(), proof = null;
     for (var i = 0; i < asc.length; i++) {
@@ -4438,8 +4443,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var bestL = best.L; if (!perf && bestL > cur) bestL = cur; if (!contre && bestL < cur) bestL = cur;
     return { best: bestL, mean: mean, conf: best.w / tot, n: ms.length };
   }
-  // Niveau réel d'un adversaire passé : s'il est monté depuis (classement relu sur Ten'Up), on retient le plus haut.
-  // Sert à ne pas compter comme contre-perf une défaite contre un joueur qui jouait déjà au-dessus de son classement.
+  // 4.0.4 (Yann : « une fonction qui fait partout pareil ») : LE niveau d'un adversaire pour un match passé, le même sur tous les écrans
+  // (ton niveau réel, Solidité et points forts, « ce qui fait la différence », bonus/de trop, analyse du match, fiche). C'est le plus haut de :
+  // son classement au match, son classement d'aujourd'hui s'il a été relu, et le niveau réel de ses résultats (oppLevelOf, le calcul de
+  // sa fiche : résultats, saisons passées, meilleur classement), retenu dès qu'il dépasse son classement de 0,6 échelon.
+  // Sert aussi à ne pas compter comme contre-perf une défaite contre un joueur qui jouait déjà au-dessus de son classement.
   function oppEffIdx(m) {
     var o = E.idx(T.normRank(m.oppRank)), p = (S.anPal || {})[m.id];
     if (o == null) return o;
@@ -4447,23 +4455,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.47 : son classement d'aujourd'hui s'il a été lu (fiche ouverte, joueur suivi)
     var sc = m.oid && S.scout && S.scout[m.oid], fo = m.oid && S.follow && S.follow[m.oid];
     [sc && sc.profil && sc.profil.classement, fo && fo.rank].forEach(function (x) { var k = x ? E.idx(T.normRank(x)) : null; if (k != null && (r == null || k > r)) r = k; });
+    var lv = oppRealOf(m.oid || (p && p.id), p);
+    if (lv != null && lv - o >= 0.6) { var k2 = Math.round(lv); if (r == null || k2 > r) r = k2; }
     return r != null && r > o ? r : o;
   }
-  // 4.0.4 (Davy : Solidité à 82 % contre un 30 « qui joue déjà 15/4 ») : le niveau qu'avaient ses résultats, lu dans son palmarès
-  // (analyse du match), compte aussi, avec le même seuil que la carte « Il joue déjà … » de l'analyse.
-  var OPP_RL = {};
-  function oppRealIdx(m) {
-    var o = E.idx(T.normRank(m.oppRank)), e = oppEffIdx(m), p = (S.anPal || {})[m.id];
-    if (o == null || !p || !p.rows) return e;
-    var key = m.id + "|" + p.at + "|" + p.rows.length;
-    if (OPP_RL[key] === undefined) {
-      var hp = playedOf(p.rows.filter(function (x) { return !x.wo && (x.result === "V" || x.result === "D") && x.date; }).map(function (x) { return { date: x.date, result: x.result, oppRank: x.oppRank, score: x.score }; }));
-      var hl = null; try { if (hp.length >= 6) hl = levelFit(hp, o).mean; } catch (er) {}
-      OPP_RL[key] = hl != null && hl - o >= 0.6 ? Math.round(hl) : null;
-    }
-    var r = OPP_RL[key], sc = scoutLevel(m.oid || p.id, p.profil ? p : null); if (sc != null) r = sc - o >= 0.6 ? Math.round(sc) : null; // 4.0.4 : même niveau que sa fiche
-    return r != null && (e == null || r > e) ? r : e;
-  }
+  // la chance qu'un joueur de niveau cur avait de battre cet adversaire, à son niveau (oppEffIdx) ; et l'étiquette « joue 15/4 » quand il valait plus que son classement
+  function oppExp(m, cur) { var o = oppEffIdx(m); return o == null ? 0.5 : expWin(o, cur); }
+  function oppRealLab(m) { var o = E.idx(T.normRank(m.oppRank)), e = oppEffIdx(m); return e != null && o != null && e > o ? "joue " + lab(e) : ""; }
   function effMs(ms) { return (ms || []).map(function (m) { var o = E.idx(T.normRank(m.oppRank)), e = oppEffIdx(m); return e != null && o != null && e > o ? Object.assign({}, m, { oppRank: lab(e), oppRank0: m.oppRank, risen: e - o }) : m; }); }
   function levelNow(c) {
     var cur = c.cur < 0 ? 0 : c.cur, ms = playedOf(effMs(c.proj.matches));
@@ -5166,11 +5164,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (best && best.b > hisL) { var k0 = best.age == null ? 0.35 : best.age <= 1 ? 0.55 : best.age <= 2 ? 0.45 : best.age <= 4 ? 0.3 : 0.15; bestPull = Math.min(2.5, (best.b - hisL) * k0); hisL += bestPull; }
     return { his: his, L: hisL, pull: bestPull };
   }
-  // le niveau réel d'un adversaire dont la fiche a été lue (même calcul que sa fiche), sinon null
-  function scoutLevel(id, alt) {
+  // le niveau réel d'un adversaire : sa fiche lue (S.scout) sinon le palmarès lu pour l'analyse du match (S.anPal), même calcul (oppLevelOf)
+  var OPP_RL = {};
+  function oppRealOf(id, alt) {
     var p = (id && S.scout && S.scout[id]) || alt; if (!p || !p.rows) return null;
-    var pr = p.profil || {}, hi = E.idx(T.normRank(pr.classement)); if (hi == null) return null;
-    try { return oppLevelOf(p.rows, hi, pastBest(pr, p.past), p.past).L; } catch (e) { return null; }
+    var pr = p.profil || { classement: p.rank }, hi = E.idx(T.normRank(pr.classement || p.rank)); if (hi == null) return null;
+    var key = (id || "") + "|" + (p.at || "") + "|" + p.rows.length + "|" + (p.past ? p.past.length : 0) + "|" + hi;
+    if (OPP_RL[key] === undefined) { var L = null; try { L = oppLevelOf(p.rows.filter(function (x) { return !x.dbl; }), hi, pastBest(pr, p.past), p.past).L; } catch (e) {} OPP_RL[key] = L; }
+    return OPP_RL[key];
   }
   function matchOdds(rows, rank, mine, best, past) {
     var c = ctx(), me = c.cur < 0 ? 0 : c.cur, ln = levelNow(c), myL = ln.ms ? ln.mean : me, hi = E.idx(T.normRank(rank));
@@ -5310,7 +5311,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var A = cmpStats(myMs, me), B = cmpStats(o.rows, hi), s = '<h2>Toi contre lui en chiffres</h2>';
     var who = function (l, r) { return '<div class="cmp-who"><span class="me">' + l + '</span><span class="him">' + r + "</span></div>"; };
     // 1. vrais niveaux
-    var ln = levelNow(c), myL = ln.ms ? ln.mean : me, hp = playedOf(o.rows), hisL = o.od && o.od.hisL != null ? o.od.hisL : hp.length >= 6 ? levelFit(hp, hi).mean : hi, few = hp.length < 3; // 4.0.4 : même niveau que la carte du match
+    var ln = levelNow(c), myL = ln.ms ? ln.mean : me, hp = playedOf(o.rows), hisL = o.od && o.od.hisL != null ? o.od.hisL : oppLevelOf(o.rows, hi, o.best || null).L, few = hp.length < 3; // 4.0.4 : même niveau que la carte du match
     var lo = Math.max(-1, Math.floor(Math.min(me, hi, myL, hisL)) - 1), up = Math.ceil(Math.max(me, hi, myL, hisL)) + 1, X = function (v) { return Math.max(0, Math.min(100, (v - lo) / (up - lo) * 100)); };
     var dOff = hi - me, dLv = hisL - myL, head = Math.abs(dLv) < 0.5 && Math.abs(dOff) >= 1 ? "Sur le papier, " + plural(Math.abs(dOff), "échelon") + " d'écart. En vrai, presque rien." :
       dLv > dOff + 0.5 ? "Il est plus fort que son classement : méfiance." : dLv < dOff - 0.5 ? "L'écart réel est plus petit que vos classements." : dOff === 0 ? "Même classement, même niveau : match ouvert." : "Vos niveaux collent à vos classements.";
@@ -5565,7 +5566,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (hi == null || c.proj.status === "top") return null;
     var myAll = effMs(c.proj.matches), myMs = playedOf(myAll), hp = playedOf(o.rows), ln = levelNow(c);
     var D = { c: c, me: me, hi: hi, myMs: myMs, hp: hp, few: hp.length < 3, first: o.first || "Lui", name: o.name || "", rows: o.rows, sp: o.sp, common: o.common || [], mine: o.mine || [], hisG: o.hisG || {}, od: o.od };
-    D.myL = ln.ms ? ln.mean : me; D.hisL = o.od && o.od.hisL != null ? o.od.hisL : hp.length >= 6 ? levelFit(hp, hi).mean : hi; // 3.47.4 : même niveau estimé que la carte (ancien classement compris)
+    D.myL = ln.ms ? ln.mean : me; D.hisL = o.od && o.od.hisL != null ? o.od.hisL : oppLevelOf(o.rows, hi, o.best || null).L; // 3.47.4 : même niveau estimé que la carte (ancien classement compris)
     D.A = ffStats(myAll, me); D.B = ffStats(o.rows, hi);
     // Même adversité : on compare vos jeux sur les matchs contre des adversaires du même niveau
     // (de l'échelon sous le plus faible de vous deux à l'échelon au-dessus du plus fort). Sinon un joueur
@@ -6641,7 +6642,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   var DF_MIN = 4;
   function diffFactors() {
     var c = ctx(), cur = c.cur < 0 ? 0 : c.cur, ms = playedOf(c.proj.matches).filter(function (m) { return !m.dbl; });
-    var E1 = function (m) { var o = E.idx(m.oppRank), oe = oppEffIdx(m); return expWin(oe != null && o != null && oe > o ? oe : o, cur); };
+    var E1 = function (m) { return oppExp(m, cur); };
     var grp = function (list, ef) { return { n: list.length, v: list.filter(function (m) { return m.result === "V"; }).length, e: list.reduce(function (s, m) { return s + (ef ? ef(E1(m)) : E1(m)); }, 0), ms: list }; };
     // chance de gagner un set (s) déduite de la chance de gagner le match en 2 sets gagnants : p = s²(3 − 2s)
     var setP = function (p) { var lo = 0, hi = 1; for (var k = 0; k < 30; k++) { var md = (lo + hi) / 2; if (md * md * (3 - 2 * md) < p) lo = md; else hi = md; } return (lo + hi) / 2; };
@@ -7141,7 +7142,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     var pr = p.profil || {}, name = nameCase([pr.prenom, pr.nom].filter(Boolean).join(" ")), rows = p.rows || [], played = rows.filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); });
     var gkey = nameKey([pr.prenom, pr.nom].filter(Boolean).join(" ")), st = scoutStats(rows), hisG = oppGame([gkey, nameKey([pr.nom, pr.prenom].join(" "))], p.fiche), sp = simProj(p.sim, pr.classement), stip = simTip(sp, pr.prenom ? pr.prenom.charAt(0) + pr.prenom.slice(1).toLowerCase() : ""), tips = (stip ? [stip] : []).concat(gameTips(hisG, st)).concat(gamePlan(st, pr.classement)).filter(function (t, i, a) { return !t.k || a.findIndex(function (u) { return u.k === t.k; }) === i; }).slice(0, 5);
-    var k1 = nameKey(name), k2 = nameKey([pr.nom, pr.prenom].join(" ")), mine = knownMatches(false).filter(function (m) { var k = nameKey(m.opp); return m.opp && !isAnon(m.opp) && (k === k1 || k === k2) && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
+    var k1 = nameKey(name), k2 = nameKey([pr.nom, pr.prenom].join(" ")), mine = oppMine(pr);
     var notes = revNotes(name), n2 = revNotes([pr.nom, pr.prenom].join(" "));
     n2.forEach(function (x) { if (!notes.some(function (y) { return y.text === x.text && y.date === x.date; })) notes.push(x); });
     // 3.47 (Yann) : son classement en pastille sur l'avatar ; « ↘ ancien » et « joue au niveau » seulement s'il y a un écart (ligne posée plus bas, une fois ses chances calculées)
@@ -9630,7 +9631,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     });
     var el = G.filter(function (x) { return x.g.elim; }), played = [], cur = curIdx();
     el.forEach(function (x) { x.g.ms.forEach(function (m) { if (!m.wo && !m._dbl && !m.dbl) played.push(m); }); });
-    var won = played.filter(function (m) { return m.result === "V"; }).length, exp = played.reduce(function (a, m) { var o = oppEffIdx(m); return a + (o == null ? 0.5 : expWin(o, cur)); }, 0);
+    var won = played.filter(function (m) { return m.result === "V"; }).length, exp = played.reduce(function (a, m) { return a + oppExp(m, cur); }, 0);
     var far = el.slice().sort(function (a, b) { return (b.g.won ? 100 : 0) + b.v - ((a.g.won ? 100 : 0) + a.v); })[0];
     return { G: G.sort(function (a, b) { return b.pts - a.pts; }), far: far, won: el.filter(function (x) { return x.g.won; }), n: played.length, w: won, exp: exp };
   }
@@ -9684,7 +9685,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var cur = curIdx(), ms = playedWin().filter(function (m) { return !m.dbl; });
     if (ms.length < 3) return "";
     var v = ms.filter(function (m) { return m.result === "V"; }).length, B = { up: [0, 0, []], eq: [0, 0, []], dn: [0, 0, []] }, exp = 0;
-    ms.forEach(function (m) { var o = E.idx(T.normRank(m.oppRank)); if (o == null) return; var k = o > cur ? "up" : o === cur ? "eq" : "dn"; B[k][1]++; if (m.result === "V") B[k][0]++; B[k][2].push(m); var oe = oppEffIdx(m); exp += expWin(oe == null ? o : oe, cur); });
+    ms.forEach(function (m) { var o = E.idx(T.normRank(m.oppRank)); if (o == null) return; var k = o > cur ? "up" : o === cur ? "eq" : "dn"; B[k][1]++; if (m.result === "V") B[k][0]++; B[k][2].push(m); exp += oppExp(m, cur); });
     var perf = B.up[0], X = null; try { X = tourStats(); } catch (e) {}
     var far = X && X.far ? (X.far.g.won ? "Vainqueur" : X.far.res.charAt(0).toUpperCase() + X.far.res.slice(1)) : "";
     var nK = B.up[1] + B.eq[1] + B.dn[1], pv = nK ? Math.round(100 * (B.up[0] + B.eq[0] + B.dn[0]) / nK) : 0, pe = nK ? Math.round(100 * exp / nK) : 0, vd = vsVerdict(B.up[0] + B.eq[0] + B.dn[0], exp, nK);
@@ -9934,7 +9935,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var t1 = TR.reduce(function (a2, x) { return x.date && (!a2 || x.date < a2) ? x.date : a2; }, ""), cur0 = curIdx();
     var msT = ms12.filter(function (m) { return t1 && m.date >= t1; }).sort(function (x, y) { return x.date < y.date ? 1 : -1; });
     var G2 = [{ k: "a", l: "Semaine avec entraînement", ms: [] }, { k: "b", l: "Semaine sans", ms: [] }];
-    msT.forEach(function (m) { var h = loadBefore(by, E.parseDate(m.date), 7), o2 = E.idx(T.normRank(m.oppRank) || m.oppRank); (h > 0 ? G2[0] : G2[1]).ms.push({ m: m, h: h, p: o2 == null ? 0.5 : expWin(o2, cur0) }); });
+    msT.forEach(function (m) { var h = loadBefore(by, E.parseDate(m.date), 7); (h > 0 ? G2[0] : G2[1]).ms.push({ m: m, h: h, p: oppExp(m, cur0) }); });
     G2.forEach(function (g) { g.v = g.ms.filter(function (x) { return x.m.result === "V"; }).length; g.ex = g.ms.reduce(function (a2, x) { return a2 + x.p; }, 0); g.dl = g.v - g.ex; });
     var f1 = function (x) { var r = Math.round(x * 10) / 10; return (r > 0 ? "+" : r < 0 ? "−" : "") + Math.abs(r).toFixed(1).replace(".", ",").replace(",0", ""); };
     var nV = function (x) { var r = Math.abs(Math.round(x * 10) / 10); return String(r).replace(".", ",") + (r >= 2 ? " matchs" : " match"); };
@@ -10314,7 +10315,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       lastLoss = hb.filter(function (x) { return x.result === "D"; })[0] || null;
       var hpl = playedOf(hp.map(function (x) { return { date: x.date, result: x.result, oppRank: x.oppRank, score: x.score }; }));
       if (hpl.length >= 6 && hi != null) hisL = levelFit(hpl, hi).mean;
-      var scL = scoutLevel(m.oid || pal.id, pal.profil ? pal : null); if (scL != null) hisL = scL; // 4.0.4 : même niveau que sa fiche
+      var scL = oppRealOf(m.oid || pal.id, pal); if (scL != null) hisL = scL; // 4.0.4 : même niveau que sa fiche (oppLevelOf)
       sp = simProj(pal.sim, pal.rank || m.oppRank);
       hisStats = hp; hisLosses = hp.filter(function (x) { return x.result === "D" && x.date !== m.date; });
       var vs = hb.slice(0, 8), vsW = vs.filter(function (x) { return x.result === "V"; }).length;
@@ -10756,7 +10757,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var src = c.proj.matches, atI = at ? E.iso(at) : null;
     if (at) { var a0 = new Date(at); a0.setFullYear(a0.getFullYear() - 1); var a0I = E.iso(a0); src = S.matches.filter(function (m) { return m.date && m.date <= atI && m.date > a0I; }); }
     var ms = playedOf(src).filter(function (m) { return !m.dbl && !m.wo && (m.result === "V" || m.result === "D") && m.date && E.idx(m.oppRank) != null; });
-    var E1 = function (m) { var o = E.idx(m.oppRank), oe = oppRealIdx(m); return expWin(oe != null && oe > o ? oe : o, cur); };
+    var E1 = function (m) { return oppExp(m, cur); };
     var grp = function (list, ef) { var es = list.map(function (m) { return ef ? ef(E1(m)) : E1(m); }); return { ms: list, es: es, n: list.length, v: list.filter(function (m) { return m.result === "V"; }).length, e: es.reduce(function (s, x) { return s + x; }, 0) }; };
     var st = function (g, min) { if (g.n < (min || 4)) return "lock"; var vd = vsVerdict(g.v, g.e, g.n); if (vd === "par" && g.v >= 1.5 * g.e && g.v - g.e >= 0.6) vd = "above"; /* 3.55 (audit R4) : nettement au-dessus de l'attendu (2 sur 4 quand un 15/2 en gagne 1) = point fort */ return vd === "above" ? "fort" : vd === "below" ? "faible" : "norme"; };
     var s1 = function (m) { var x = setsOf(m.score); return x.length ? x[0][0] > x[0][1] : null; };
@@ -10863,7 +10864,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var matches = counted.slice(0, 2).map(function (w) { return { m: w.m, pts: w.pts, why: why(w.m) }; }).concat(lossCost.slice(0, 2).map(function (x) { return { m: x.m, pts: -x.pts, why: why(x.m) }; }));
     // Ce qui te coûte des points
     var leaks = [];
-    var byR = {}; ms.forEach(function (m) { var o = E.idx(m.oppRank); if (o > cur) return; var r = byR[o] = byR[o] || { o: o, v: 0, n: 0, e: 0 }; r.n++; if (m.result === "V") r.v++; var oe = oppEffIdx(m); r.e += expWin(oe != null && oe > o ? oe : o, cur); });
+    var byR = {}; ms.forEach(function (m) { var o = E.idx(m.oppRank); if (o > cur) return; var r = byR[o] = byR[o] || { o: o, v: 0, n: 0, e: 0 }; r.n++; if (m.result === "V") r.v++; r.e += oppExp(m, cur); });
     Object.keys(byR).map(function (k) { return byR[k]; }).filter(function (r) { return r.n >= 4 && r.e - r.v >= 1.2; }).sort(function (a, b) { return (b.e - b.v) - (a.e - a.v); }).slice(0, 1).forEach(function (r) {
       var miss = r.e - r.v; leaks.push({ k: "rank", o: r.o, v: r.v, n: r.n, e: r.e, t: "Tes matchs contre les " + lab(r.o), pts: Math.round(miss * Math.max(10, winPts(r.o))), s: r.v + " V – " + (r.n - r.v) + " D, un joueur classé " + P.curL + " : " + Math.round(r.e) + " V sur " + r.n, link: "courbes?to=plafond" });
     });
@@ -11208,7 +11209,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var body = '<div class="num-c"><div class="num-hd"><span><b class="num-big">' + g.v + " sur " + g.n + "</b><small>toi" + (mental ? ", renversés" : ", gagnés") + '</small></span><span class="r"><b>≈ ' + Math.round(g.e) + " sur " + g.n + "</b><small>un joueur classé " + esc(P.curL) + ", mêmes adversaires</small></span></div>" +
       '<div class="num-calc"><b>Le calcul.</b> ' + esc(CP_CALC[k] || "Tes matchs") + " (W.O. et doubles exclus). Pour chacun, la chance qu'un joueur classé " + esc(P.curL) + (mental ? ", mené d'un set," : "") + " gagne contre ce même adversaire (à son vrai niveau s'il joue au-dessus de son classement). On additionne" + (g.n <= 8 ? " : " + rows.map(function (r) { return String(Math.round(r.e * 100) / 100).replace(".", ","); }).join(" + ") + " = <b>" + ex + "</b>." : " : <b>" + ex + "</b>.") + "</div>" +
       '<span class="num-h">Les ' + plural(g.n, "match") + " · chance d'un " + esc(P.curL) + "</span>" +
-      rows.map(function (r) { var m = r.m; return '<a class="num-r" href="#/match/' + esc(m.id) + '"><span class="vd ' + m.result + '">' + m.result + '</span><span class="grow"><b>' + esc(nameCase(m.opp || "") || "Adversaire") + "</b> <small>· " + esc(m.oppRank || "") + (function () { var o = E.idx(m.oppRank), rx = oppRealIdx(m); return rx != null && o != null && rx > o ? " → joue " + esc(lab(rx)) : ""; })() + "</small><small class=\"d\">" + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + "</small></span><em>" + Math.round(r.e * 100) + " %</em></a>"; }).join("") +
+      rows.map(function (r) { var m = r.m; return '<a class="num-r" href="#/match/' + esc(m.id) + '"><span class="vd ' + m.result + '">' + m.result + '</span><span class="grow"><b>' + esc(nameCase(m.opp || "") || "Adversaire") + "</b> <small>· " + esc(m.oppRank || "") + (oppRealLab(m) ? " → " + esc(oppRealLab(m)) : "") + "</small><small class=\"d\">" + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + "</small></span><em>" + Math.round(r.e * 100) + " %</em></a>"; }).join("") +
       '<div class="num-rel"><span class="num-chip ' + rl.k + '">' + rl.t + "</span><small>" + esc(rl.s) + "</small></div></div>" +
       '<span class="small">Touche un match pour ouvrir sa fiche.</span>';
     return { title: CP_LAB[k] + " · " + x.what, body: body };
@@ -11335,7 +11336,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var byR = {}; focus.forEach(function (m) { byR[m.oppRank] = (byR[m.oppRank] || 0) + 1; });
       var topR = Object.keys(byR).sort(function (a3, b4) { return byR[b4] - byR[a3]; })[0];
       var three = focus.filter(function (m) { return setsOf(m.score).length >= 3; }).length, risen = focus.filter(function (m) { var o = E.idx(m.oppRank), oe = oppEffIdx(m); return oe != null && oe > o; }).length;
-      var lbl = x.st === "faible" ? ["de ces défaites contre des ", "perdues en 3 sets", "contre des joueurs montés depuis : ils comptent à leur vrai niveau"] : ["de ces victoires contre des ", "gagnées en 3 sets", "contre des joueurs montés depuis"];
+      var lbl = x.st === "faible" ? ["de ces défaites contre des ", "perdues en 3 sets", "contre des joueurs plus forts que leur classement : ils comptent à leur vrai niveau"] : ["de ces victoires contre des ", "gagnées en 3 sets", "contre des joueurs plus forts que leur classement"];
       var it = [[byR[topR], lbl[0] + topR]]; if (three) it.push([three, lbl[1]]); if (risen) it.push([risen, lbl[2]]);
       s += '<div class="card"><span class="df-h m">D\'où ça vient</span>' + it.map(function (z) { return '<div class="cp-fr"><b style="color:' + (x.st === "faible" ? "var(--terre)" : "var(--gazon)") + '">' + z[0] + "/" + focus.length + "</b><span>" + esc(z[1]) + "</span></div>"; }).join("") + "</div>";
     }
@@ -11553,7 +11554,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
           '<span class="lab">' + lab(r.o) + (me ? "<small>toi</small>" : "") + '</span><span class="fc-q">' + (n ? sqs(r, g) : '<small>aucun match</small>') + '</span><span class="fc-v">' + vt + "</span></button>";
       }).join("") + "</div>" +
       '<div class="fc-leg"><div class="fc-k"><span><i class="fc-s w"></i>Victoire</span><span><i class="fc-s wb"></i>Bonus</span><span><i class="fc-s l"></i>Défaite</span><span><i class="fc-s lt"></i>De trop</span></div>' +
-      '<span class="small">Bonus et de trop : comparé à ce qu\'un ' + esc(curL) + " gagne et perd en moyenne contre chaque classement" + (risenN ? " (adversaires montés depuis comptés à leur vrai niveau)" : "") + ". En gris (« 1 sur 2 ») : moins de 3 matchs, trop tôt pour juger, même si tu fais mieux ou moins bien que prévu. Touche une ligne pour voir ses matchs.</span></div>" +
+      '<span class="small">Bonus et de trop : comparé à ce qu\'un ' + esc(curL) + " gagne et perd en moyenne contre chaque classement" + (risenN ? " (adversaires plus forts que leur classement comptés à leur vrai niveau)" : "") + ". En gris (« 1 sur 2 ») : moins de 3 matchs, trop tôt pour juger, même si tu fais mieux ou moins bien que prévu. Touche une ligne pour voir ses matchs.</span></div>" +
       // 3.42.3 : l'analyse détaillée (point faible, contre-perfs, mieux classés) en complément, repliée (Yann)
       (CI && CI.lines && CI.lines.length ? '<button class="fc-an' + (UI.fcAn ? " on" : "") + '" data-a="fcAn" aria-expanded="' + (UI.fcAn ? "true" : "false") + '"><span>L\'analyse</span>' + (UI.fcAn ? "" : "<small>" + CI.lines.length + " point" + (CI.lines.length > 1 ? "s" : "") + "</small>") + '<i>' + (UI.fcAn ? "▴" : "▾") + "</i></button>" +
         (UI.fcAn ? '<div class="pf2-ins">' + CI.lines.map(function (x) { return '<span class="pf2-i"><i style="--c:' + x.c + '">' + x.ic + "</i><span><b>" + esc(x.t) + "</b><small>" + esc(x.s) + "</small></span></span>"; }).join("") + "</div>" : "") : "") + "</div>";
@@ -15297,7 +15298,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     if (br.length) X.push(["En bref", br]);
     if (P.M.length) X.push(["Matchs", P.M.map(function (m) {
-      var o = E.idx(m.oppRank), d = E.parseDate(m.date), f = P.fs(m), n = df(m), ch = o != null && cur >= 0 ? Math.round(expWin(o, cur) * 100) : null;
+      var o = E.idx(m.oppRank), d = E.parseDate(m.date), f = P.fs(m), n = df(m), ch = o != null && cur >= 0 ? Math.round(oppExp(m, cur) * 100) : null;
       var perf = m.result === "V" && o != null && o > cur, felt = (m.felt || []).map(function (k) { return feltLabel(m, k).toLowerCase(); });
       var L = "• " + d.getDate() + " " + MOIS[d.getMonth()].replace(/\.$/, "") + (KD[m.kind] ? " · " + KD[m.kind] : "") + " · " + m.result + (m.oppRank ? " contre un " + m.oppRank : "") +
         (ch != null ? " (" + (perf ? "perf, " : "") + "j'avais " + ch + " % de chances)" : "");
