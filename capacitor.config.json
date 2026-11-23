@@ -18,7 +18,7 @@
   "android": {
     "backgroundColor": "#F6F2EC",
     "adjustMarginsForEdgeToEdge": "auto",
-    "webContentsDebuggingEnabled": true
+    "webContentsDebuggingEnabled": false
   },
   "loggingBehavior": "production"
 }
