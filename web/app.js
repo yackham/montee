@@ -3236,10 +3236,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // Une ligne du profil lu sur Ten'Up
   function tmeRow(k, v, a, dv) { return '<button class="tme-r" data-a="' + a + '"' + (dv ? ' data-v="' + dv + '"' : "") + '><span class="grow"><span class="k">' + k + '</span><span class="v">' + v + '</span></span><span class="tme-chev" aria-hidden="true">›</span></button>'; }
-  function tmeSub(me) {
-    var a = [S.profile.sex === "F" ? "Dames" : S.profile.sex === "H" ? "Messieurs" : "", me.age ? me.age + " ans" : "", tuCat(me) ? "catégorie " + tuCat(me) : ""].filter(Boolean);
-    return a.join(" · ");
-  }
   // Licence de la saison suivante : utile seulement de juin à août (avant la nouvelle saison)
   function tmeLicRow(me) {
     var mo = today().getMonth(); if (me.licN1 == null || mo < 5 || mo > 7) return "";
@@ -3278,21 +3274,29 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (fromTenup) {
       var me = S.tenup.me || {}, full = [me.prenom, me.nom].filter(Boolean).join(" ") || p.name || "Toi", ph = myPhoto();
       var s0 = '<div class="screen">' + topbar("", "Mon profil");
-      // 3.83 (Yann, maquette validée) : le profil lu sur Ten'Up en lignes touchables, puis ta carrière saison par saison
-      var c0 = ctx(), pr0 = c0.proj, d0 = pr0.release ? esc(fdate(pr0.release).replace(/\.$/, "")) : "";
-      var AH = S.ahead && S.ahead.from === p.rank ? S.ahead : null;
-      if (AH) { pr0 = { status: "montee", projected: E.idx(AH.rank) }; d0 = esc(fdate(E.parseDate(AH.release)).replace(/\.$/, "")); }
-      var stx = pr0.status === "montee" ? '<span class="tme-ok">montée à ' + (AH ? esc(AH.rank) : lab(pr0.projected)) + "</span> le " + d0 : pr0.status === "descente" ? '<span class="tme-ko">descente</span> le ' + d0 : pr0.status === "maintien" ? "maintien le " + d0 : "";
-      var sub0 = tmeSub(me);
-      s0 += '<div class="card tme-card tme-pf"><div class="tme-id"><button class="me-av" data-a="photoMenu" aria-label="Changer ma photo">' + (ph ? '<img src="' + ph + '" alt="">' : '<span>' + esc(initials(full)) + "</span>") + '<i class="me-cam">' + I.camera + "</i></button>" +
-        '<span class="grow"><b>' + esc(full) + "</b>" + (sub0 ? "<small>" + esc(sub0) + "</small>" : "") + "</span></div>" +
-        tmeRow("Classement", '<b class="rk-tag">' + esc(p.rank) + "</b>" + (stx ? " <small>· " + stx + "</small>" : ""), "goProjection") +
-        (me.meilleur ? tmeRow("Meilleur classement", '<b class="rk-tag">' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? " <small>· atteint en " + me.meilleurAn + "</small>" : ""), "tmeCar") : "") +
-        (me.club ? tmeRow("Club", esc(me.club), "goEp") : "") +
-        tmeLicRow(me) +
-        '<div class="tme-src"><span>' + I.link + " Lu sur Ten'Up" + (me.licence ? " · licence " + esc(me.licence) : "") + (S.tenup.lastImport ? " · à jour du " + esc(fdate(S.tenup.lastImport).replace(/\.$/, "")) : "") + '</span><button class="linkbtn" data-a="profEdit">Corriger</button></div></div>';
-      s0 += careerHtml();
-      s0 += goalRow() + matRow() + semRow() + tonJeuCard();
+      s0 += '<div class="card me-card"><button class="me-av" data-a="photoMenu" aria-label="Changer ma photo">' + (ph ? '<img src="' + ph + '" alt="">' : '<span>' + esc(initials(full)) + "</span>") + '<i class="me-cam">' + I.camera + "</i></button>" +
+        '<div class="me-id"><b class="me-n">' + esc(full) + "</b>" + (me.club || tuCat(me) ? '<span class="me-club">' + esc([me.club, tuCat(me) ? "catégorie " + tuCat(me) : ""].filter(Boolean).join(" · ")) + "</span>" : "") + "</div>" +
+        (function () {
+          // Classement actuel en grand ; meilleur classement et statut à la prochaine sortie en dessous, plus discrets
+          var c0 = ctx(), pr0 = c0.proj, d0 = pr0.release ? esc(fdate(pr0.release).replace(/\.$/, "")) : "";
+          // Montée déjà acquise : ctx() calcule depuis le nouveau classement, on affiche donc la montée elle-même
+          var AH = S.ahead && S.ahead.from === p.rank ? S.ahead : null;
+          if (AH) { pr0 = { status: "montee", projected: E.idx(AH.rank) }; d0 = esc(fdate(E.parseDate(AH.release)).replace(/\.$/, "")); }
+          var to = pr0.status === "montee" || pr0.status === "descente" ? '<span class="me-to ' + pr0.status + '"><i>' + (pr0.status === "montee" ? "↗" : "↘") + "</i>" + (AH ? esc(AH.rank) : lab(pr0.projected)) + "</span>" : "";
+          var st = pr0.status === "montee" ? '<span class="me-st montee"><i>↑</i><span><b>Montée</b> le ' + d0 + "</span></span>"
+            : pr0.status === "descente" ? '<span class="me-st descente"><i>↓</i><span><b>Descente</b> le ' + d0 + "</span></span>"
+            : pr0.status === "maintien" ? '<span class="me-st maintien"><i>=</i><span><b>Maintien</b> le ' + d0 + "</span></span>" : "";
+          return '<div class="me-rk2"><span class="k">Ton classement</span><b class="me-now">' + esc(p.rank) + to + "</b>" +
+            (me.meilleur || st ? '<div class="me-sub">' + (me.meilleur ? '<span class="me-best"><span>Meilleur</span><b>' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? "<small>" + me.meilleurAn + "</small>" : "") + "</span>" : "") + st + "</div>" : "") + "</div>";
+        })() +
+        (S.ahead ? '<span class="me-ahead">' + I.check + " Montée te compte déjà " + esc(S.ahead.rank) + " pour la sortie du " + esc(fdate(S.ahead.release).replace(/\.$/, "")) + "</span>" : "") +
+        '<span class="me-foot">' + I.link + " Ten'Up" + (me.licence ? " · licence " + esc(me.licence) : "") + (S.tenup.lastImport ? " · à jour du " + esc(fdate(S.tenup.lastImport).replace(/\.$/, "")) : "") + "</span></div>";
+      // 3.83 (Yann, 23/11/2026) : la carte joueur reste compacte ; dessous, des onglets Toi · Ton jeu · Matériel et créneaux
+      var pt = UI.pfTab === "jeu" || UI.pfTab === "mat" ? UI.pfTab : "toi";
+      s0 += '<div class="seg pf-tabs" role="tablist">' + [["toi", "Toi"], ["jeu", "Ton jeu"], ["mat", "Matériel et créneaux"]].map(function (t) { return '<button role="tab" aria-selected="' + (pt === t[0]) + '" data-a="pfTab" data-v="' + t[0] + '" class="' + (pt === t[0] ? "on" : "") + '">' + t[1] + "</button>"; }).join("") + "</div>";
+      var lic0 = tmeLicRow(me);
+      s0 += pt === "jeu" ? tonJeuCard() : pt === "mat" ? matRow() + semRow() : (lic0 ? '<div class="card tme-card">' + lic0 + "</div>" : "") + careerHtml() + goalRow();
+      s0 += '<button class="linkbtn" data-a="profEdit" style="align-self:center;margin-top:6px">Corriger mon classement à la main</button>';
       if (UI.photoMenu) s0 += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="photoClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Ta photo"><b>Ta photo</b>' +
         '<button class="btn primary" data-a="photoPick">Choisir une photo</button>' +
         (S.profile.photoTU && S.profile.photo ? '<button class="btn soft" data-a="photoTenup">Reprendre celle de Ten\'Up</button>' : "") +
@@ -17494,8 +17498,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.83 : profil lu sur Ten'Up, écran « Je t'ai reconnu », carrière
     tmeOk: function () { S.tuMet = 1; save(); go(""); },
     tmeFix: function () { S.tuMet = 1; save(); UI.profEdit = true; go("profil"); },
-    tmeCar: function () { var c = document.querySelector(".crr"); if (c) c.scrollIntoView({ behavior: "smooth", block: "center" }); },
-    goEp: function () { go("tournoi"); },
+    pfTab: function (el) { UI.pfTab = el.dataset.v; render(); },
     crrY: function (el) { var y = +el.dataset.v; UI.crrY = UI.crrY === y ? null : y; render(); },
     clubRetry: function () { if (UI.clubBusy) return; S.clubTrace = null; clubRefresh(true); render(); },
     clubTg: function () { S.prefs = S.prefs || {}; S.prefs.clubOn = !S.prefs.clubOn; save(); render(); if (S.prefs.clubOn) clubRefresh(!S.club); },
