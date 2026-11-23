@@ -2840,7 +2840,7 @@
     var me = c.me.mine, mySide = r.b === me ? 2 : 1, lv = tmLive(r), sc = tmScore(r), jn = (c.cal || []).filter(function (x) { return x.d === r.d; })[0];
     var short = function (n) { return tmNm(n).replace(/\s+\d+$/, function (x) { return x; }); };
     s += '<div class="tm-vs"><b class="' + (r.a === me ? "me" : "") + '">' + esc(short(r.an)) + '</b><span class="sc' + (lv ? " lv" : "") + '">' + (sc ? esc(sc) : "–") + '</span><b class="' + (r.b === me ? "me" : "") + '">' + esc(short(r.bn)) + '</b></div><p class="tm-sub" style="text-align:center;margin:0">' + esc([jn ? "Journée " + jn.j : "", (r.dom === me ? "à domicile" : "à l'extérieur"), dayLab(r.d)].filter(Boolean).join(" · ")) + (lv ? ' <span class="tm-live">En direct</span>' : "") + "</p>";
-    if (r.st !== "T" && !lv && r.d >= E.iso(today())) s += rgBtn("eq:" + c.id, "Le format de ta rencontre, le temps, les litiges"); // 3.94
+    if (r.st !== "T" && !lv && r.d >= E.iso(today())) s += rgBtn("eq:" + c.id, "Point décisif, super jeu décisif : ce qui t'attend"); // 3.94
     if (r.st === "T" && !lv && r.w === me) s += jkLine("e-win", "Victoire de l'équipe. La buvette est au courant.");
     UI.fdm = UI.fdm || {}; var F = UI.fdm[rid] || (S.fdmCache3 || {})[rid];
     if (!F || (lv && Date.now() - (F.at || 0) > 120e3)) {
@@ -2947,7 +2947,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     else s += '<button class="linkbtn tr-del" data-a="trDel" style="align-self:center">Supprimer cette épreuve</button>';
     if (UI.trR) s += trRoundSheet(t);
     if (UI.plSched != null && (t.pool || [])[UI.plSched]) s += plSchedSheet(t);
-    if (!over) s += rgBtn("to:" + t.id, "Le format de ton épreuve, le temps, les litiges"); // 3.94
+    if (!over) s += rgBtn("to:" + t.id, "Point décisif, super jeu décisif : ce qui t'attend"); // 3.94
     return s + "</div>";
   };
   // 3.44.2 : ta poule depuis le mail du comité (texte collé) : nom, adversaires, numéros, date limite
@@ -13934,7 +13934,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     });
   }
 
-  // ---------- 6 · Les règles en poche ----------
+  // ---------- 6 · Le format de ton match (4.0.4 : Yann, les règles évidentes retirées) ----------
   // Formats de jeu : FFT, Règlements sportifs, art. 9-1 (tableau « Les formats de jeu »). Règles : FFT, Règles du jeu (règles 5, 10, 12, 22, 23, 29).
   var RG_FMT = [
     { k: "1", t: "Format 1", s: "3 manches à 6 jeux, jeu décisif à 6-6" },
@@ -13950,11 +13950,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   var RG_RULES = [
     { f: /^[3-9]$/, k: "Point décisif", t: "À égalité (40-40), un seul point décide du jeu." },
     { f: /^[2-7]$/, k: "Super jeu décisif", t: "Il remplace la 3e manche : le premier à 10 points, avec 2 points d'écart. On change de côté tous les 6 points." },
-    { k: "Jeu décisif", t: "Le premier à 7 points, avec 2 points d'écart. On change de côté tous les 6 points." },
-    { k: "Une balle sur la ligne", t: "Elle est bonne : la ligne fait partie du court." },
-    { k: "Let au service", t: "La balle touche le filet et tombe dans le bon carré : on rejoue ce service." },
-    { k: "Le temps", t: "Le jeu est continu entre les points. 90 s au plus au changement de côté, 2 min à la fin d'une manche, pas de pause après le 1er jeu d'une manche." },
-    { k: "Retard, forfait, litige", t: "C'est le juge-arbitre qui décide : appelle-le, ne règle pas ça seul avec ton adversaire." }
+    { k: "Jeu décisif", t: "Le premier à 7 points, avec 2 points d'écart. On change de côté tous les 6 points." }
   ];
   var RG_SRC = "D'après les Règles du jeu et les Règlements sportifs de la FFT. Le format de ton match est celui annoncé par l'épreuve.";
   DET.regles = function (v) {
@@ -13966,9 +13962,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         : '<button class="ob-r" data-a="rgPick"><span class="grow"><small>Le format de ton match</small><b>' + esc(F.s) + "</b><small>" + esc(F.t) + " · touche pour changer</small></span>" + OB_NX + "</button>") +
       RG_RULES.filter(function (r) { return !r.f || (F && r.f.test(F.k)); }).map(function (r) { return '<div class="ob-r"><span class="grow"><small>' + esc(r.k) + "</small><b>" + esc(r.t) + "</b></span></div>"; }).join("") + "</div>" +
       '<span class="ob-foot">' + esc(RG_SRC) + "</span>";
-    return { title: "Les règles en poche", sub: "Ce qu'il faut savoir sur le court. En cas de doute, c'est le juge-arbitre qui tranche.", body: rows };
+    return { title: "Le format de ton match", sub: "Point décisif, super jeu décisif : ce qui change selon le format annoncé.", body: rows };
   };
-  function rgBtn(key, lab) { return '<button class="row ob-rg" data-a="rgOpen" data-v="' + esc(key) + '"><span class="badge">' + svg('<path d="M5 4h11l3 3v13H5z"/><path d="M9 10h6M9 14h6"/>', 2.2) + '</span><span class="grow"><span class="t">Les règles en poche</span><span class="s">' + esc(lab) + "</span></span>" + I.next + "</button>"; }
+  function rgBtn(key, lab) { return '<button class="row ob-rg" data-a="rgOpen" data-v="' + esc(key) + '"><span class="badge">' + svg('<path d="M5 4h11l3 3v13H5z"/><path d="M9 10h6M9 14h6"/>', 2.2) + '</span><span class="grow"><span class="t">Le format de ton match</span><span class="s">' + esc(lab) + "</span></span>" + I.next + "</button>"; }
 
   // ---------- 7 · Ta saison ----------
   function saisonRowHtml() {
