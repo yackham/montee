@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.82.0",
+    VERSION: "3.83.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1041,6 +1041,9 @@
     if (page === "") {
       var td = document.querySelector(".td3");
       if (td && mMem("tdDay") !== day) { mMem("tdDay", day); mxQ(".td3-i", td).forEach(function (e, i) { mxSet(e, "mx-in", null, 150 + Math.min(i, 8) * 110); }); }
+      // 3.83 : « Cette semaine » : les pastilles V / D / séances apparaissent une à une (1re fois du jour)
+      var sem = document.querySelector(".sem3");
+      if (sem && mMem("semDay") !== day) { mMem("semDay", day); mxQ(".sem3-ic", sem).forEach(function (e, i) { e.classList.add("mx-pop2"); e.style.setProperty("--i", i); }); mxIo([sem], function (x) { x.classList.add("mx-on"); }, 0.4); }
       return;
     }
     if (page === "coach") {
@@ -1069,7 +1072,25 @@
       } else if (f > 0.02) { setR(0); mTw(1000, 200, function (k) { setR(f * k); }, function () { setR(f); }); if (tx) mxCount(tx, null, { delay: 200, ms: 1000 }); }
       return;
     }
-    if (page === "tournois") { var ec = document.querySelector(".emp-c > svg"); if (ec) ec.classList.add("mx-trn"); return; }
+    if (page === "tournois") {
+      var ec = document.querySelector(".emp-c > svg"); if (ec) { ec.classList.add("mx-trn"); return; }
+      // 3.83 : les tuiles sortent une à une (chiffres qui défilent, étincelles si tu as gagné un tournoi), les tournois arrivent et leurs barres se remplissent
+      mxQ(".ts-g .ts-t").forEach(function (t, i) { mxSet(t, "mx-pop", i, 100); var b = t.querySelector("b"); if (b && /\d/.test(b.textContent)) mxCount(b, null, { delay: 250 + i * 90, ms: 700 }); if (b && /^Vainqueur/.test(b.textContent)) mxSpark(b, 700 + i * 90); });
+      var tr = mxQ(".ts-l .ts-r"); tr.forEach(function (r, i) { r.classList.add("mx-in2"); r.style.setProperty("--i", Math.min(i, 8)); var bar = r.querySelector(".ts-bar"); if (bar) bar.classList.add("mx"); });
+      mxIo(tr, function (r) { r.classList.add("mx-on"); var p = r.querySelector(".ts-p"); if (p && /^\+\d/.test(p.textContent)) mxCount(p, null, { delay: 200, ms: 600 }); }, 0.5);
+      return;
+    }
+    // 3.83 : Toi contre toi : les deux « toi » glissent l'un vers l'autre, le VS claque, les lignes arrivent
+    if (page === "moi") {
+      var mr = document.querySelector(".mirror"), av = mr ? mxQ(".av-me", mr) : [];
+      if (av.length === 2) { mxSet(av[0], "mx-ml", null, 100); mxSet(av[1], "mx-mr", null, 100); var vs = mr.querySelector(".vs"); if (vs) { vs.classList.add("mx-vs"); vs.style.setProperty("--d", "650ms"); } }
+      var mc = mxQ(".moi-c"); mc.forEach(function (c) { mxQ(".moi-r", c).forEach(function (r, i) { r.classList.add("mx-in2"); r.style.setProperty("--i", i); }); });
+      mxIo(mc, function (c) { c.classList.add("mx-on"); mxQ(".moi-r", c).forEach(function (r) { r.classList.add("mx-on"); }); }, 0.4);
+      mxSet(document.querySelector(".moi-quote"), "mx-in", null, 0);
+      return;
+    }
+    // 3.83 : Courbes : la carte d'Ace arrive (sa pose se joue déjà quand elle se dessine)
+    if (page === "courbes") { mxSet(document.querySelector(".screen > .cbl"), "mx-in", null, 250); return; }
     if (page === "bienvenue") { mxWelcome(); return; }
     // Activité : la semaine, la carte 12 mois, les scores (1re fois du jour), les cartes paliers
     if (page === "palmares") {
@@ -8992,7 +9013,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
           { ic: "pts", ey: "Ton meilleur tournoi", t: "Les points gagnés, tour par tour", s: plural(X.G.length, "tournoi") + " classé" + (X.G.length > 1 ? "s" : "") + " par points rapportés." },
           { ic: "pct", ey: "Tes tours passés", t: "Face à ce qu'on attendait", s: "Tour par tour : ce que tu as gagné en plus, ou laissé, face à " + pwX("ton niveau") + "." }].map(pwRow).join("") + "</div>" +
         plusCta() + '<button class="linkbtn pw-all" data-a="goSoutenirComp">Voir toutes les formules ›</button></div>'; }
-    var tile = function (k, v, l, sub, col) { return '<button class="ts-t' + (UI.tsExp === k ? " on" : "") + '" data-a="tsExp" data-v="' + k + '"><b style="color:' + (col || "var(--ink)") + '">' + v + "</b><span>" + l + " <i>ⓘ</i></span><small>" + esc(sub) + "</small></button>"; };
+    var tile = function (k, v, l, sub, col) { return '<button class="ts-t' + (UI.tsExp === k ? " on" : "") + '" data-a="tsExp" data-v="' + k + '" aria-expanded="' + (UI.tsExp === k) + '"><b style="color:' + (col || "var(--ink)") + '">' + v + "</b><span>" + l + "</span><small>" + esc(sub) + '</small><i class="ts-go" aria-hidden="true">' + I.next + "</i></button>"; }; // 3.83 (Yann) : un chevron en coin plutôt qu'un ⓘ, il pivote quand l'explication est ouverte
     var mo = function (iso) { var d = E.parseDate(iso); return MOIS[d.getMonth()]; };
     var best = X.G[0], pct = X.n ? Math.round(X.w * 100 / X.n) : 0, epct = X.n ? Math.round(X.exp * 100 / X.n) : 0;
     s += '<div class="grid2 ts-g">' +
