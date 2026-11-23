@@ -2647,6 +2647,7 @@ button.pdj { font: inherit; color: var(--ink); background: none; border: 0; bord
 .ss2-r .y { width: 54px; flex: none; font-weight: 800; font-size: 15px; display: flex; flex-direction: column; }
 .ss2-r .y small { font-size: 10.5px; color: var(--acc-ink, var(--gazon)); }
 .ss2-r .b { flex: 1; font-size: 13.5px; color: var(--muted); } .ss2-r .b > b { color: var(--ink); }
+.ss2-best.na { color: var(--muted); background: none; border: 1px solid var(--line, color-mix(in srgb, var(--muted) 35%, transparent)); font-weight: 700; }
 .ss2-best { font-size: 11px; font-weight: 800; color: var(--gazon); background: color-mix(in srgb, var(--gazon) 14%, transparent); border-radius: 99px; padding: 2px 7px; margin-left: 4px; white-space: nowrap; }
 .ss2-pc { font-weight: 800; font-size: 18px; white-space: nowrap; } .ss2-pc small { font-size: 11px; color: var(--muted); }
 .ss2-pc.is-rec { color: var(--gazon); }

@@ -7338,7 +7338,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     // Les saisons en lignes compactes : bilan, meilleure perf, %
     s += '<div class="card ss2-list">' + rows.slice().reverse().map(function (r) {
-      return '<div class="ss2-r"><span class="y">' + lbl(r) + (r.now ? "<small>en cours</small>" : "") + '</span><span class="b"><b>' + r.v + " V</b> – " + r.d + " D" + (r.best != null ? ' <span class="ss2-best">★ ' + esc(lab(r.best)) + "</span>" : "") + '</span><span class="ss2-pc' + (r === rec ? " is-rec" : "") + '">' + pcOf(r) + "<small> %</small></span></div>";
+      return '<div class="ss2-r"><span class="y">' + lbl(r) + (r.now ? "<small>en cours</small>" : "") + '</span><span class="b"><b>' + r.v + " V</b> – " + r.d + " D" + (r.best != null ? ' <span class="ss2-best">★ ' + esc(lab(r.best)) + "</span>" : r.tu && r.v ? ' <span class="ss2-best na">sans détail</span>' : "") + '</span><span class="ss2-pc' + (r === rec ? " is-rec" : "") + '">' + pcOf(r) + "<small> %</small></span></div>";
     }).join("") + '</div><span class="small">Saison sportive de septembre à août, d\'après tes palmarès Ten\'Up.</span>';
     return s;
   }
@@ -14029,7 +14029,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var from = E.iso(new Date(today().getFullYear() - 1, today().getMonth(), today().getDate()));
     var L = (S.doubles || []).filter(function (m) { return m && m.date && m.date > from && !m.wo && (m.result === "V" || m.result === "D"); });
     var by = {};
-    L.forEach(function (m) { var p = dblMate(m), k = p ? nameKey(p.n) : "?"; (by[k] = by[k] || { k: k, n: p ? nameCase(p.n) : "Partenaire inconnu", r: p && p.r || "", ms: [] }).ms.push(m); if (p && p.r) by[k].r = p.r; });
+    // 4.0.4 (Davy : « Anonyme !? ») : un partenaire masqué sur Ten'Up ou absent de la feuille est nommé clairement, jamais « Joueur Anonyme »
+    L.forEach(function (m) { var p = dblMate(m), an = p && isAnon(p.n), k = !p ? "?" : an ? "anon" : nameKey(p.n); (by[k] = by[k] || { k: k, n: !p ? "un partenaire non indiqué" : an ? "un partenaire anonyme sur Ten'Up" : nameCase(p.n), r: !an && p && p.r || "", ms: [] }).ms.push(m); if (p && p.r && !an) by[k].r = p.r; });
     var P = Object.keys(by).map(function (k) { var x = by[k]; x.v = x.ms.filter(function (m) { return m.result === "V"; }).length; return x; }).sort(function (a, b) { return b.ms.length - a.ms.length || b.v - a.v; });
     return { L: L, P: P, v: L.filter(function (m) { return m.result === "V"; }).length };
   }
@@ -14037,7 +14038,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var D = dblData(); if (!D.L.length) return "";
     var lock = PLUS_LOCK(), cur = curIdx();
     var res = function (x) { var d = x.ms.length - x.v; return plural(x.ms.length, "match", "matchs") + " · " + (x.v ? '<span class="ob-up">' + plural(x.v, "victoire") + "</span>" : "") + (x.v && d ? ", " : "") + (d ? '<span class="ob-dn">' + plural(d, "défaite") + "</span>" : ""); };
-    var rows = D.P.slice(0, 4).map(function (x) { return '<button class="ob-r" data-a="sheet" data-k="dblP" data-v="' + esc(x.k) + '"><span class="grow"><small>Avec ' + esc(x.n) + " " + obRk(x.r) + "</small><b>" + res(x) + "</b></span>" + OB_NX + "</button>"; }).join("");
+    var rows = D.P.map(function (x) { return '<button class="ob-r" data-a="sheet" data-k="dblP" data-v="' + esc(x.k) + '"><span class="grow"><small>Avec ' + esc(x.n) + " " + obRk(x.r) + "</small><b>" + res(x) + "</b></span>" + OB_NX + "</button>"; }).join("");
     // Montée+ : contre des paires mieux classées que vous, et les sets serrés
     var up = [0, 0], tight = [0, 0];
     D.L.forEach(function (m) {

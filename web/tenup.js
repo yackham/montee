@@ -811,7 +811,7 @@
           return { y: y, d0: d0, n: ms.filter(function (m) { return !m.wo; }).length, v: v, cl: clOf(pal), wl: wl, keys: Object.keys(pal || {}).slice(0, 12), raw: ms };  // 3.47 : le détail de toutes les saisons (face-à-face sur plusieurs années, comparaison à date égale)
         }).catch(function () { return null; });
       };
-      var seasonsP = Promise.all([1, 2, 3, 4, 5, 6, 7, 8].map(function (k) { return season(y0 - k); }));
+      var seasonsP = Promise.all([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (k) { return season(y0 - k); })) /* 4.0.4 (Davy) : 10 saisons, comme la liste « Tes saisons » */;
       return Promise.all([
         j(b + "/palmares/tennis?millesime&mobile=false"),
         j(b + "/profil-joueur").catch(function () { return null; }),
