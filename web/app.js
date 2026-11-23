@@ -2023,7 +2023,7 @@
   function clubHtml() {
     if (!NATIVE && !S.club) return "";
     var on = clubOn(), CL = on ? clubTeams() : [], nm = tmNm(((S.teams || {}).club || {}).nom || "ton club");
-    var nCh = {}; CL.forEach(function (c) { if (!c.cloture) nCh[c.cid] = 1; });
+    var nCh = {}; CL.forEach(function (c) { if (!clubDone(c)) nCh[c.cid] = 1; });
     var s = '<div class="card ce-sw"><span class="grow"><b>Équipes du club</b><small>' + (!on ? "Voir toutes les équipes de " + esc(nm) + ", choisir celles que tu suis." : UI.clubBusy && !CL.length ? "Lecture des équipes du club sur Ten'Up…" : CL.length ? plural(CL.length, "autre équipe", "autres équipes") + " · " + plural(Object.keys(nCh).length, "championnat en cours", "championnats en cours") : !(S.tenup || {}).linked ? "Relie ton compte Ten'Up pour lire les équipes du club." : S.clubTrace && S.clubTrace.err ? "Ten'Up n'a pas répondu, réessaie plus tard." : "Aucune autre équipe trouvée pour l'instant.") +
       '</small></span><button class="ce-tg' + (on ? " on" : "") + '" data-a="clubTg" role="switch" aria-checked="' + on + '" aria-label="Équipes du club"></button></div>';
     if (!on) return s;
@@ -2035,16 +2035,16 @@
     // le week-end du club : les rencontres jouées depuis samedi dernier (7 jours au plus), tes équipes comprises
     var td = today(), back = (td.getDay() + 1) % 7, sat = E.iso(new Date(td.getTime() - back * 864e5)), sun = E.iso(new Date(td.getTime() - (back - 1) * 864e5));
     var all = myTeams(true).concat(CL), W = []; all.forEach(function (c) { var L = clubLast(c, sat); if (L) W.push(L); });
-    var nx7 = E.iso(new Date(td.getTime() + 7 * 864e5)), nxt = 0; all.forEach(function (c) { if (!c.cloture) nxt += (c.renc || []).filter(function (r) { var d = String(r.d).slice(0, 10); return (r.a === c.me.mine || r.b === c.me.mine) && r.st !== "T" && d >= E.iso(td) && d <= nx7; }).length; });
+    var nx7 = E.iso(new Date(td.getTime() + 7 * 864e5)), nxt = 0; all.forEach(function (c) { if (!clubDone(c)) nxt += (c.renc || []).filter(function (r) { var d = String(r.d).slice(0, 10); return (r.a === c.me.mine || r.b === c.me.mine) && r.st !== "T" && d >= E.iso(td) && d <= nx7; }).length; });
     if (W.length) {
       var cnt = function (k) { return W.filter(function (x) { return x.res === k; }).length; }, ds = E.parseDate(sat);
       s += '<div class="card ce-we"><span class="eyebrow">' + (back <= 1 ? "Ce week-end" : "Le week-end") + " au club · " + ds.getDate() + "-" + E.parseDate(sun).getDate() + " " + MOIS[E.parseDate(sun).getMonth()] + '</span><div class="ce-big"><span class="v">' + cnt("v") + '<small>V</small></span><span class="n">' + cnt("n") + '<small>N</small></span><span class="d">' + cnt("d") + "<small>D</small></span></div>" +
         '<div class="ce-sq" aria-hidden="true">' + W.map(function (x) { return '<i class="' + (x.res === "v" ? "" : x.res) + '"></i>'; }).join("") + "</div>" +
         '<div class="ce-lk"><button data-a="sheet" data-k="clubWe" data-v="' + sat + '">' + plural(W.length, "score", "scores").replace(/^(\d+) /, "Les $1 ") + " ›</button>" + (nxt ? '<button data-a="sheet" data-k="clubNx" data-v="' + nx7 + '">7 prochains jours : ' + plural(nxt, "rencontre", "rencontres") + " ›</button>" : "") + "</div></div>";
     }
-    var fol = CL.filter(function (c) { return clubFol(c.id) && !c.cloture; });
+    var fol = CL.filter(function (c) { return clubFol(c.id) && !clubDone(c); });
     if (fol.length) s += '<h2 class="tm-gh ce-h">Suivies <small>' + fol.length + '</small></h2><div class="blk ce-g">' + fol.map(function (c) { return clubRow(c, true); }).join("") + "</div>";
-    var rest = CL.filter(function (c) { return !c.cloture && !clubFol(c.id); }), ended = CL.filter(function (c) { return c.cloture; });
+    var rest = CL.filter(function (c) { return !clubDone(c) && !clubFol(c.id); }), ended = CL.filter(function (c) { return clubDone(c); });
     var cats = {}; rest.forEach(function (c) { cats[clubCat(c)] = 1; }); var cat = (S.prefs || {}).clubCat; if (!cats[cat]) cat = "";
     if (rest.length) {
       s += '<h2 class="tm-gh ce-h">Le club <small>' + plural(rest.length, "équipe", "équipes") + "</small></h2>";
@@ -2054,9 +2054,23 @@
     if (ended.length) {
       var eo = !!UI.clubEnd;
       s += '<button class="card ce-end" data-a="clubEnd" aria-expanded="' + eo + '"><span class="grow"><b>Terminés</b><small>' + plural(Object.keys(ended.reduce(function (a, c) { a[c.cid] = 1; return a; }, {})).length, "championnat", "championnats") + " · " + plural(ended.length, "équipe", "équipes") + "</small></span>" + (eo ? CHEV_DN : I.next) + "</button>";
-      if (eo) s += clubGroups(ended, sat);
+      // 3.74.0 (Yann) : les terminés regroupés par saison (intertitre simple, saison la plus récente d'abord)
+      if (eo) { var bySe = {}; ended.forEach(function (c) { var k = clubSeason(c); (bySe[k] = bySe[k] || []).push(c); });
+        var ks = Object.keys(bySe).sort().reverse();
+        s += ks.map(function (k) { return (ks.length > 1 ? '<h3 class="ce-se">' + (k ? "Saison " + (k - 1) + "-" + k : "Saison inconnue") + "</h3>" : "") + clubGroups(bySe[k], sat); }).join(""); }
     }
     return s;
+  }
+  // 3.74.0 : terminé = clos par Ten'Up, ou plus aucune date (rencontre ou journée) depuis 45 jours : Ten'Up oublie parfois de clore
+  function clubDone(c) {
+    if (c.cloture) return true; var d = ""; (c.renc || []).concat(c.cal || []).forEach(function (r) { var x = String(r.d || "").slice(0, 10); if (x > d) d = x; });
+    return !!d && d < E.iso(new Date(today().getTime() - 45 * 864e5));
+  }
+
+  // saison Ten'Up (millésime) d'un championnat : septembre → août, d'après sa dernière date connue
+  function clubSeason(c) {
+    var d = ""; (c.renc || []).forEach(function (r) { var x = String(r.d || "").slice(0, 10); if (x > d) d = x; }); (c.cal || []).forEach(function (j) { var x = String(j.d || "").slice(0, 10); if (x > d) d = x; });
+    if (!d) return ""; var y = +d.slice(0, 4), m = +d.slice(5, 7); return String(m >= 9 ? y + 1 : y);
   }
   function clubListSheet(v, past) {
     var td = E.iso(today()), all = myTeams(true).concat(clubOn() ? clubTeams() : []), L = [];

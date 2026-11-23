@@ -6091,6 +6091,8 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .ce-more { display: block; width: 100%; text-align: center; font: inherit; font-size: 14px; font-weight: 700; color: var(--muted); padding: 12px 0 8px; border: 0; border-top: 1px solid var(--line, rgba(127,127,127,.18)); background: transparent; cursor: pointer; }
 .ce-end { flex-direction: row; align-items: center; gap: 10px; padding: 14px 16px; width: 100%; border: 0; color: var(--ink); font: inherit; cursor: pointer; }
 .ce-end .grow b { display: block; font-size: 15px; }
+.ce-se { margin: 14px 4px 2px; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .ce-se { color: var(--page-ink); }
 .ce-end > svg { width: 20px; height: 20px; color: var(--muted); flex: none; }
 .ce-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 6px; }
 .ce-pill { display: inline-flex; align-items: center; font-size: 13px; font-weight: 700; color: var(--muted); box-shadow: inset 0 0 0 1.5px var(--line, rgba(127,127,127,.3)); border-radius: 16px; padding: 5px 12px; }
