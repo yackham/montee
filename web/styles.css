@@ -6233,3 +6233,5 @@ button.acr, a.acr { cursor: pointer; }
 .acd-up > span:nth-child(2) { flex: 1; min-width: 0; font-size: 14px; line-height: 1.35; color: var(--muted); }
 .acd-up > b { flex: none; display: flex; align-items: center; gap: 2px; font-size: 14px; color: var(--acc-ink); } .acd-up > b svg { width: 14px; height: 14px; }
 .acd-up .ace-pl { flex: none; margin: 0; }
+/* 3.74.1 (règle de Yann : pas de carte dans la feuille) : « d'où vient ce chiffre » en lignes à plat */
+.num-c { display: flex; flex-direction: column; }
