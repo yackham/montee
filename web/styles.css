@@ -455,6 +455,9 @@ input[role=switch]:checked::after { transform: translateX(20px); }
 .rev-hint.dark { background: rgba(255,255,255,.08); color: #fff; margin-top: 4px; }
 .rev-hint .grow { display: flex; flex-direction: column; gap: 2px; }
 .rev-hint .eyebrow { color: var(--terre-dark); }
+/* 4.2 (lisibilité) : carte neutre, la couleur reste dans le petit titre */
+.rev-hint:not(.dark) { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+.rev-hint:not(.dark) .eyebrow { color: var(--terre); }
 .rev-hint.dark .eyebrow { color: var(--hl); }
 .rev-hint.dark .small { color: var(--sub); }
 .rv-ill { flex: none; width: 40px; height: 40px; }
@@ -1008,6 +1011,9 @@ body.glow::before { content: ""; position: absolute; left: 0; right: 0; top: 0; 
 .dot-w, .dot-s { flex: none; width: 10px; height: 10px; border-radius: 5px; margin-top: 6px; background: var(--terre); }
 .dot-s { background: var(--gazon); }
 .moi-quote { font-size: 15px; font-weight: 600; line-height: 1.4; background: var(--balle-soft); border-radius: 18px; padding: 14px 16px; }
+/* 4.2 (lisibilité) : carte neutre avec son petit titre, plus d'aplat kaki */
+.moi-quote { background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+.moi-quote .eyebrow { display: block; color: var(--acc-ink, var(--gazon)); margin-bottom: 6px; }
 .me-rk b.nx.montee { color: var(--gazon); } .me-rk b.nx.descente { color: var(--terre); }
 /* Carte profil : une seule teinte (celle du bandeau), plus de pavés d'une autre couleur */
 .me-card .me-rk { background: color-mix(in srgb, var(--hero-ink) 8%, transparent); color: inherit; }
@@ -1246,6 +1252,14 @@ body.glow::before { content: ""; position: absolute; left: 0; right: 0; top: 0; 
 .an-sets span { flex: 1; border-radius: 10px; padding: 6px 0; text-align: center; font-weight: 700; font-size: 15px; color: var(--gazon-dark); background: var(--menthe); }
 .an-sets span.l { background: var(--terre-soft); color: var(--terre-dark); }
 .an-sets small { display: block; font-size: 10.5px; font-weight: 600; opacity: .8; }
+/* 4.2 (lisibilité) : « Pourquoi tu l'as gagné » sans liseré ni pavés colorés ; sets en chiffres colorés, note Ten'Up en une phrase */
+.an-sets { gap: 16px; }
+.an-sets span, .an-sets span.l { flex: none; background: none; padding: 0; border-radius: 0; text-align: left; font-size: 17px; font-weight: 800; color: var(--gazon); }
+.an-sets span.l { color: var(--terre); }
+.an-sets small { font-size: 11.5px; color: var(--muted); opacity: 1; }
+.an-note.an-foot { display: block; font-size: 13px; line-height: 1.45; }
+:root .card.an.insight { box-shadow: none !important; } /* l'anneau de .card.insight est en !important */
+:root[data-theme="nuit"] .card.an.insight { box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 0 0 1px rgba(255,255,255,.04) !important; }
 .an-imp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .an-imp div { background: var(--chip); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
 .an-imp b { font-size: 19px; letter-spacing: -.02em; }
@@ -2359,6 +2373,9 @@ button.card.tj3 { font: inherit; color: var(--ink); border: 0; text-align: left;
 .tj3-avg { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--muted); pointer-events: none; }
 .tj3-al { position: absolute; right: 0; font-size: 10.5px; font-weight: 800; color: var(--muted); background: var(--card); padding-left: 4px; }
 .tj3-lb { display: flex; gap: 6px; margin-top: 6px; } .tj3-lb span { flex: 1; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--muted); white-space: nowrap; } .tj3-lb span.on { color: var(--ink); }
+/* 4.2 (lisibilité) : durées alignées sous les barres, dates dessous */
+.tj3-lb.tj3-du { margin-top: 6px; } .tj3-lb.tj3-du span { font-size: 11.5px; font-weight: 800; color: var(--ink); opacity: .75; } .tj3-lb.tj3-du span.on { opacity: 1; }
+.tj3-du + .tj3-lb { margin-top: 2px; }
 .tj3-f { font-size: 13px; color: var(--muted); font-weight: 600; } .tj3-f b { color: var(--ink); }
 .tj3-lg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; font-weight: 700; } .tj3-lg i { display: inline-block; width: 9px; height: 9px; border-radius: 5px; margin-right: 5px; }
 .tj3-rows { gap: 0; } .tj3-r { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; } .tj3-r + .tj3-r { border-top: 1px solid var(--line); }
@@ -2371,6 +2388,11 @@ button.card.tj3 { font: inherit; color: var(--ink); border: 0; text-align: left;
 .fo-go { margin-top: 12px; width: 100%; }
 .card.vi-hero { flex-direction: row; align-items: center; gap: 16px; } .vi-hero > span { display: flex; flex-direction: column; gap: 4px; } .vi-hero b { font-size: 24px; letter-spacing: -.02em; }
 .vi-bars { display: flex; gap: 5px; height: 116px; align-items: flex-end; margin-bottom: 8px; }
+/* 4.2 (lisibilité) : bilan du mois au-dessus de chaque barre, mois en abrégé, mois en cours en gras */
+.vi-bars { height: 128px; gap: 3px; }
+.vi-bars .vi-n { display: block; font-style: normal; text-align: center; font-size: 10.5px; font-weight: 800; color: var(--muted); margin-bottom: 2px; white-space: nowrap; letter-spacing: -.02em; }
+.vi-bars small { font-size: 10px !important; letter-spacing: -.02em; white-space: nowrap; }
+.vi-bars small.on { color: var(--ink); font-weight: 800; }
 .vi-bars span { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 2px; height: 100%; } .vi-bars i { display: block; border-radius: 4px; } .vi-bars small { text-align: center; font-size: 10.5px; color: var(--muted); font-weight: 700; margin-top: 2px; }
 .vi-g { gap: 8px; } .vi-r { display: grid; grid-template-columns: 124px 1fr 44px; gap: 10px; align-items: center; } .vi-r span { font-size: 13.5px; font-weight: 700; } .vi-r b { text-align: right; font-size: 13.5px; }
 .fo-svg { height: auto; }
@@ -2726,6 +2748,8 @@ button.pdj { font: inherit; color: var(--ink); background: none; border: 0; bord
 .sem3-ic.sm-train { background: var(--balle) !important; color: var(--on-balle, #121212) !important; }
 .sem3-rk { width: 20px; height: 20px; display: flex; } .sem3-rk svg { width: 100%; height: 100%; }
 .ga2-g.main { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--gazon) 45%, transparent); }
+/* 4.2 (lisibilité) : raquettes à plat dans la carte (plus d'encadré dans l'encadré) */
+.ga2-g, .ga2-g.main { background: none; box-shadow: none; border-radius: 0; padding: 10px 0 2px; border-top: 1px solid var(--line); }
 .ga2-h .mt-star { margin-left: auto; }
 .ga2-how summary { font-weight: 800; font-size: 14px; cursor: pointer; list-style: none; color: var(--muted); }
 .ga2-how summary::after { content: " ›"; } .ga2-how[open] summary::after { content: " ⌄"; }
@@ -2765,6 +2789,9 @@ a.rr:hover { color: var(--rr-ink); }
 .rr-top { position: absolute; left: 0; right: 0; top: -2px; display: flex; flex-direction: column; align-items: center; z-index: 1; }
 .rr-v { font-size: 76px; font-weight: 800; letter-spacing: -.045em; line-height: 1; }
 .rr-v em { font-style: normal; font-size: 34px; color: var(--c); letter-spacing: -.02em; }
+/* 4.2 (lisibilité) : « +1,3 » avec son unité */
+.rr-d { display: inline-flex; flex-direction: column; margin-left: 8px; vertical-align: 12px; line-height: 1; text-align: left; }
+.rr-d small { font-size: 12.5px; font-weight: 700; letter-spacing: 0; margin-top: 4px; color: var(--c); opacity: .85; }
 .rr-s { font-size: 16px; font-weight: 800; color: var(--c); margin-top: 8px; }
 .rr-p { font-size: 13px; font-weight: 800; border-radius: 16px; padding: 6px 12px; background: var(--rr-pill); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rr-ink) 8%, transparent); margin-top: 12px; }
 .rr-g { display: block; width: calc(100% + 16px); margin: 0 -8px; height: auto; overflow: visible; }
@@ -4164,6 +4191,22 @@ a.pl-g { text-decoration: none; color: inherit; }
 :root[data-theme="nuit"] .fc-s.lt { background: #EE6F55; box-shadow: 0 0 6px rgba(238,111,85,.3); }
 .fc-v .dn { color: #D4553C; } :root[data-theme="nuit"] .fc-v .dn { color: #EE6F55; }
 .fc-k .fc-s.l { box-shadow: none; }
+/* 4.2 (lisibilité, Yann) : un seul dessin gagné / perdu partout (wlSq) : plein = gagné, vide = perdu, dans l'ordre des matchs.
+   Bonus / de trop ne sont plus des couleurs : le verdict s'écrit en mots à droite. */
+.fc-s.w, .fc-s.wb, :root[data-theme="nuit"] .fc-s.wb { background: var(--gazon); box-shadow: none; }
+.fc-s.l, .fc-s.lt, :root[data-theme="nuit"] .fc-s.lt { background: none; box-shadow: inset 0 0 0 1.7px var(--terre); }
+a.fc-s { display: block; }
+.wl-q { gap: 3px; align-items: center; }
+.as-c .wl-q .fc-s, .vi-r .wl-q .fc-s { width: 14px; height: 14px; border-radius: 4px; }
+.vi-r .wl-q { gap: 2px; } .vi-r .wl-q .fc-s { width: 12px; height: 12px; border-radius: 3.5px; }
+.wl-lg { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.wl-lg > span { display: inline-flex; align-items: center; gap: 6px; } .wl-lg .fc-s { width: 12px; height: 12px; border-radius: 3.5px; }
+.wl-lg small { font-size: 12px; font-weight: 600; }
+.fc-v .eq, .fc-v .up, .fc-v .dn { font-size: 12.5px; font-weight: 800; white-space: nowrap; } .fc-v .eq { color: var(--muted); }
+.fc-v .dn, :root[data-theme="nuit"] .fc-v .dn { color: var(--terre); }
+.fc-r { grid-template-columns: 52px minmax(0, 1fr) auto; }
+.as-b { grid-template-columns: 104px minmax(0, 1fr) 52px; font-size: 13.5px; }
+.vi-r { grid-template-columns: 124px minmax(0, 1fr) 52px; }
 /* 3.48.4 (Yann) : le coach */
 .co-card { gap: 12px; text-decoration: none; }
 .co-top { display: grid; grid-template-columns: 104px 1fr; gap: 14px; align-items: center; }
@@ -4388,6 +4431,11 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .tm-m .ln.me .nm { color: var(--gazon); font-weight: 700; }
 .tm-m .ln .sc { font-size: 17px; font-weight: 800; min-width: 18px; text-align: right; color: inherit; }
 .tm-m.mine { background: color-mix(in srgb, var(--gazon) 7%, transparent); margin: 0 -10px; padding: 10px; border-radius: 12px; }
+/* 4.2 (lisibilité) : plus d'aplat vert ; ton équipe en gras avec la petite balle */
+.tm-m.mine { background: none; margin: 0; padding: 10px 0; border-radius: 0; }
+.tm-m.mine .ln.me .nm { color: var(--ink); font-weight: 800; }
+.tm-m.mine .ln.me .nm::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--balle); margin-right: 7px; vertical-align: 1px; box-shadow: 0 0 0 1px rgba(0,0,0,.15); }
+.tm-dom-t { font-size: 13px; font-weight: 600; color: var(--muted); }
 .tm-m .mv { font-size: 12px; color: var(--muted); }
 .tm-m.lv .sc { color: var(--gazon); }
 .tm-imp { gap: 14px; }
@@ -6723,6 +6771,9 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .ob-frt { display: inline-flex; align-items: center; gap: 12px; }
 .ob-calb { position: relative; border: 0; background: none; padding: 2px; color: var(--page-muted, var(--muted)); cursor: pointer; display: grid; place-items: center; }
 .ob-calb svg { width: 19px; height: 19px; }
+/* 4.2 (lisibilité) : l'icône seule n'était pas comprise ; bouton détouré avec son mot */
+.fr-t .ob-calb { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 99px; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 30%, transparent); color: var(--page-ink, var(--ink)); font: inherit; font-size: 13px; font-weight: 700; min-height: 30px; }
+.fr-t .ob-calb svg { width: 16px; height: 16px; }
 .ob-calb.dot::after { content: ""; position: absolute; top: 0; right: -1px; width: 8px; height: 8px; border-radius: 50%; background: var(--terre); }
 .ob-mo { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--page-muted, var(--muted)); margin: 14px 4px 0; }
 .ob-cl { padding: 4px 16px; }
