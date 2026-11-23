@@ -7249,11 +7249,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function seasonChartSvg(rows) {
     var mx = Math.max.apply(null, rows.map(function (r) { return r.v + r.d; })), lbl = function (r) { return String(r.y - 1).slice(2) + "-" + String(r.y).slice(2); };
     var Wd = 320, Hh = 150, n = rows.length, bw = Math.min(34, (Wd - 8) / n - 10), gp = (Wd - n * bw) / (n + 1), base = 126, sc = 108 / Math.max(1, mx);
+    // 3.94.1 (Yann : « la légende des années est un peu serrée ») : au-delà de 7 saisons, une saison sur deux (ou trois…) porte son libellé,
+    // en partant de la saison en cours, toujours écrite ; les autres gardent un petit point sous la barre. Le nom complet reste au toucher.
+    var step = Math.max(1, Math.ceil(38 / (bw + gp))), showL = function (i) { return (n - 1 - i) % step === 0; };
     var chart = '<svg class="ss2-chart" viewBox="0 0 ' + Wd + " " + Hh + '" aria-hidden="true">' + rows.map(function (r, i) {
       var x = gp + i * (bw + gp), hv = r.v * sc, hd = r.d * sc, op = r.now ? ' opacity=".5"' : "";
       return '<g class="ss2-g"' + (r.tu ? ' role="img" aria-label="Saison ' + lbl(r) + " : " + plural(r.v, "victoire") + ", " + plural(r.d, "défaite") + ' (bilan Ten\'Up)"' : ' data-a="sheet" data-k="season" data-v="' + r.y + '" role="button" aria-label="Saison ' + lbl(r) + '"') + '><rect x="' + (x - gp / 2).toFixed(1) + '" y="0" width="' + (bw + gp).toFixed(1) + '" height="' + Hh + '" fill="transparent"/>' + (hv ? '<rect x="' + x.toFixed(1) + '" y="' + (base - hv).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hv.toFixed(1) + '" rx="5" fill="var(--gazon)"' + op + "/>" : "") +
         (hd ? '<rect x="' + x.toFixed(1) + '" y="' + (base - hv - hd - (hv ? 3 : 0)).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hd.toFixed(1) + '" rx="5" fill="var(--terre)"' + op + "/>" : "") +
-        '<text x="' + (x + bw / 2).toFixed(1) + '" y="144" text-anchor="middle" font-size="10.5" font-weight="800" fill="' + (r.now ? "var(--acc-ink, var(--gazon))" : "var(--muted)") + '">' + lbl(r) + "</text></g>";
+        (showL(i) ? '<text x="' + (x + bw / 2).toFixed(1) + '" y="144" text-anchor="middle" font-size="11" font-weight="800" fill="' + (r.now ? "var(--acc-ink, var(--gazon))" : "var(--muted)") + '">' + lbl(r) + "</text>" :
+          '<circle cx="' + (x + bw / 2).toFixed(1) + '" cy="140" r="1.6" fill="var(--muted)" opacity=".6"/>') + "</g>";
     }).join("") + "</svg>";
     return chart;
   }
