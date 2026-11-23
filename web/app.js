@@ -3213,7 +3213,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (tuCat(me)) R.push(["Ta catégorie", tuCat(me) + " ans <small>· pour les épreuves seniors plus</small>", "tmeFix", ""]);
     if (me.club) R.push(["Ton club", esc(me.club), "tmeFix", ""]);
     if (c.length >= 2) R.push(["Ta carrière", plural(c.length, "saison") + " <small>· " + plural(tv, "victoire") + " depuis " + (c[0].y - 1) + "</small>", "tmeFix", ""]);
-    if (me.dir && me.club) R.push(["Au club", (me.pres ? "Président" : "Dirigeant") + ' <small>· </small><span class="tme-ok">« Le club » t\'attend dans Mes épreuves</span>', "tmeClub", ""]);
     return '<div class="screen tme-rec"><div class="tme-h">Je t\'ai reconnu<small>Lu sur ton compte Ten\'Up, rien à saisir.</small></div>' +
       '<div class="card cbl tme-ace"><span class="cbl-b sm" data-id="tme:hello" data-m="joie"></span><div class="cbl-t"><span><b>Salut' + (nm ? " " + esc(nm) : "") + ", moi c'est Ace.</b> J'ai tout lu, vérifie juste que c'est bien toi.</span></div></div>" +
       '<div class="card tme-card">' + R.map(function (r, i) { return '<button class="tme-r" style="--i:' + i + '" data-a="' + r[2] + '"><span class="tme-okc" aria-hidden="true">' + I.check + '</span><span class="grow"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></span><span class="tme-chev" aria-hidden="true">›</span></button>'; }).join("") + "</div>" +
@@ -3240,7 +3239,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         '<span class="grow"><b>' + esc(full) + "</b>" + (sub0 ? "<small>" + esc(sub0) + "</small>" : "") + "</span></div>" +
         tmeRow("Classement", '<b class="rk-tag">' + esc(p.rank) + "</b>" + (stx ? " <small>· " + stx + "</small>" : ""), "goProjection") +
         (me.meilleur ? tmeRow("Meilleur classement", '<b class="rk-tag">' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? " <small>· atteint en " + me.meilleurAn + "</small>" : ""), "tmeCar") : "") +
-        (me.club ? tmeRow("Club", esc(me.club) + (me.dir ? " <small>· " + (me.pres ? "président" : "dirigeant") + "</small>" : ""), me.dir ? "tmeClub" : "goEp") : "") +
+        (me.club ? tmeRow("Club", esc(me.club), "goEp") : "") +
         tmeLicRow(me) +
         '<div class="tme-src"><span>' + I.link + " Lu sur Ten'Up" + (me.licence ? " · licence " + esc(me.licence) : "") + (S.tenup.lastImport ? " · à jour du " + esc(fdate(S.tenup.lastImport).replace(/\.$/, "")) : "") + '</span><button class="linkbtn" data-a="profEdit">Corriger</button></div></div>';
       s0 += careerHtml();
@@ -13958,7 +13957,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var me0 = S.tenup.me || {}, kp = function (k) { return pr[k] != null && pr[k] !== "" ? pr[k] : me0[k] != null ? me0[k] : null; };
       // 3.83 (Yann, maquettes validées le 23/11/2026) : profil lu sur Ten'Up ; une info que Ten'Up ne renvoie pas cette fois garde l'ancienne valeur
       S.tenup.me = { prenom: pr.prenom || "", nom: pr.nom || "", club: pr.club || me0.club || "", meilleur: pr.meilleur || "", licence: pr.licence || "",
-        meilleurAn: kp("meilleurAn"), age: kp("age"), cat: kp("cat"), dir: pr.dir != null ? !!pr.dir : !!me0.dir, pres: pr.pres != null ? !!pr.pres : !!me0.pres,
+        meilleurAn: kp("meilleurAn"), age: kp("age"), cat: kp("cat"),
         licN1: kp("licN1"), pay: kp("pay"), hist: kp("hist"), at: Date.now() };
     }
     if (pr.photo) S.profile.photoTU = pr.photo;
@@ -17425,7 +17424,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.83 : profil lu sur Ten'Up, écran « Je t'ai reconnu », carrière
     tmeOk: function () { S.tuMet = 1; save(); go(""); },
     tmeFix: function () { S.tuMet = 1; save(); UI.profEdit = true; go("profil"); },
-    tmeClub: function () { S.tuMet = 1; S.prefs = S.prefs || {}; S.prefs.epTab = "club"; save(); go("tournoi"); },
     tmeCar: function () { var c = document.querySelector(".crr"); if (c) c.scrollIntoView({ behavior: "smooth", block: "center" }); },
     goEp: function () { go("tournoi"); },
     crrY: function (el) { var y = +el.dataset.v; UI.crrY = UI.crrY === y ? null : y; render(); },
