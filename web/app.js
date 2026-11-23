@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.74.1",
+    VERSION: "3.74.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1874,7 +1874,7 @@
   function teamsRefresh(force) {
     if (!NATIVE || !S.tenup.linked || UI.tmBusy) return;
     var t = S.teams, live = t && myTeams().some(function (c) { return (c.renc || []).some(tmLive); });
-    if (!force && t && t.qv === 7 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe ; 5 = 3.58.1, le club d'en face ; 6 = 3.62, ton nom sur la feuille de match ; 7 = 3.68, recherche découpée en plusieurs lectures)
+    if (!force && t && t.qv === 8 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe ; 5 = 3.58.1, le club d'en face ; 6 = 3.62, ton nom sur la feuille de match ; 7 = 3.68, recherche découpée en plusieurs lectures ; 8 = 3.74.2, feuilles de match enfin lues)
     UI.tmBusy = true;
     // 3.68 : les poules où tes équipes ont déjà été trouvées sont relues en premier (une lecture courte suffit le plus souvent)
     var known = {}; ((t && t.champs) || []).forEach(function (c) { if (!c.none && !c.err && c.path && c.path.q && c.me && c.me.mine) { var k = String(c.cid || c.id); (known[k] = known[k] || []).push(c.path); } });
@@ -1894,7 +1894,7 @@
           var rt = route(); if (rt.indexOf("equipe") === 0) render();
           return go(r.job);
         }
-        delete r.job; delete r.trace; delete r.partial; r.qv = 7; S.teams = r; UI.tmErr = null; save(); try { scheduleTeamsNotif(); } catch (e) {} done();
+        delete r.job; delete r.trace; delete r.partial; r.qv = 8; S.teams = r; UI.tmErr = null; save(); try { scheduleTeamsNotif(); } catch (e) {} done();
       });
     };
     go(null);
