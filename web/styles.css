@@ -6799,6 +6799,43 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .mp-cap-nx { font-size: 14.5px; font-weight: 700; color: var(--ink); line-height: 1.4; }
 .cap-row.mp-cap-d small { white-space: normal; flex-basis: 100%; }
 .co-ace { margin-top: 4px; }
+
+/* ---------- 4.1 (Yann, audit densité validé le 23/11/2026) : une info, un endroit ; le détail au toucher ---------- */
+/* carte Sortie : victoires qui sortent et chances en lignes touchables */
+.h3c .h3-cond .cd3-x { cursor: pointer; }
+.h3c .h3-cond .cd3-x > span:nth-child(2) { flex: 1; min-width: 0; }
+.cd3-x .cd3-i { background: var(--chip); color: var(--muted); font-weight: 800; font-size: 13px; }
+.cd3-x .cd3-i svg { width: 15px; height: 15px; }
+.cd3-x .chev { flex: none; color: var(--muted); font-weight: 700; }
+.cd3-x .ch-plus { margin-left: 2px; }
+/* tes chances en une ligne : la tuile ch-tile existante, en bouton */
+.ch-btn { width: 100%; text-align: left; font: inherit; border: 0; cursor: pointer; }
+.ch-btn .grow b { font-size: 16px; line-height: 1.3; }
+.ch-btn .grow small { font-size: 13.5px; color: var(--muted); line-height: 1.35; }
+.ch-btn .chev { flex: none; color: var(--muted); }
+.ch-flat { display: flex; flex-direction: column; gap: 12px; background: none !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; }
+/* Activité : « à annoter » = un petit rond détouré à côté du nom */
+.todo-dot { display: inline-block; flex: none; width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--acc-ink); vertical-align: middle; margin-left: 6px; position: relative; top: -1px; }
+.ds-lg .todo-dot { margin: 0 6px 0 0; top: 0; }
+/* Ma montée : chaque piste montre sa recette en balles et son bilan */
+.pj-p.pv { align-items: flex-start; background: none; border-radius: 0; padding: 14px 0; border-top: 1px solid var(--line); }
+.pj-p.pv .grow { gap: 8px; flex: 1; }
+.pj-p.pv .pv-tt { font-size: 16px; line-height: 1.3; }
+.pv-bl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px; font-weight: 700; }
+.pv-bl i { font-style: normal; color: var(--muted); font-weight: 700; }
+.pv-best { color: var(--acc-ink); }
+.pv-sc { flex: none; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pv-sc b { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+.pv-sc small { font-size: 12px; color: var(--muted); font-weight: 600; }
+.pv-up { margin-top: 6px; font-size: 12.5px; font-weight: 800; color: var(--gazon); }
+.pv-mine { display: block; padding-top: 10px; border-top: 1px solid var(--line); }
+/* Bilan avec Ace : les consignes sous le cap, dans la même carte */
+.cap .cap-sep { display: block; height: 1px; background: var(--line); margin: 14px 0 4px; }
+.cap .cap-sep + .eyebrow { margin-bottom: 2px; }
+.cap .cap-o:first-of-type { border-top: 0; }
+.pv-j { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ds-lg { flex-wrap: wrap; row-gap: 6px; }
+.ds-lg .todo-dot { margin: 0 1px 0 0; }
 /* 4.0.4 : « Ta saison » en vraie tuile, bouton calendrier en action principale */
 .ob-st { flex-direction: row; align-items: center; gap: 14px; text-decoration: none; color: inherit; margin-bottom: 4px; }
 .ob-st .grow { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
