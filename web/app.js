@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.73.0",
+    VERSION: "3.73.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -8621,8 +8621,27 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (win) { var cmW = p.next ? countedMap(p.next)[win.id] : null; Q.push(["match", "win", "Ma victoire contre " + nameCase(win.opp) + ", ça m'a rapporté quoi ?", "Ta victoire", "contre " + nameCase(win.opp) + (cmW != null ? ", +" + cmW + " pts" : ""), "check"]); }
     if (loss) Q.push(["match", "loss", "Pourquoi j'ai perdu contre " + nameCase(loss.opp) + " ?", "Ta défaite", "contre " + nameCase(loss.opp) + " : on en tire quoi ?", "back"]);
     Q.push(["long", "prog", "Je progresse ou pas ?", "Je progresse ?", "Ton niveau, mois par mois", "spark"]);
+    // Ce que montrait l'ancien coach (mêmes calculs : coachData, capData, capOrders). Phrase clé gratuite, détail Montée+.
+    var d = coD();
+    if (d) {
+      Q.push(["toi", "profil", "Je suis quel genre de compétiteur ?", "Ton portrait", d.P.title, "user"]);
+      var lk = coLeaks(d); Q.push(["toi", "leaks", "Où je perds des points ?", "Ce qui te coûte", lk.sum >= 5 ? "≈ " + lk.sum + " pts laissés en route" : "Rien de flagrant", "warn"]);
+      if (!isSup()) Q.push(["toi", "cap", "Qu'est-ce que je dois faire ce mois-ci ?", "Ta consigne", "Une consigne chiffrée par mois", "edit"]);
+      else { var od = coOrders(d); if (od.length) Q.push(["toi", "cap", "Qu'est-ce que je dois faire ce mois-ci ?", "Ta consigne", od[0].t.length > 44 ? od[0].t.slice(0, 42).replace(/\s+\S*$/, "") + "…" : od[0].t, "edit"]); }
+      if (d.matches.length) Q.push(["toi", "matchs", "Quels matchs ont vraiment compté ?", "Les matchs clés", plural(d.matches.length, "match") + " qui ont pesé", "book"]);
+      if (d.best.length) Q.push(["toi", "best", "Je suis le meilleur quand ?", "Ta meilleure version", d.best[0].p + " % de victoires", "heart"]);
+      if (d.seen.items && d.seen.items.length) Q.push(["toi", "scout", "Qu'est-ce que mes adversaires savent de moi ?", "Ton rapport de scouting", "Ce qu'ils préparent contre toi", "info"]);
+    }
     return Q;
   }
+  // le bilan de l'ancien coach, calculé une fois par rendu (il faut 6 matchs sur 12 mois, comme sur sa page)
+  function coD() {
+    var k = S.matches.length + "|" + E.iso(today()) + "|" + (S.cap ? S.cap.at : "");
+    if (UI.coDk !== k) { UI.coDk = k; UI.coDv = null; try { var d = coachData(); if (d && d.ms.length >= 6) UI.coDv = d; } catch (e) {} }
+    return UI.coDv;
+  }
+  function coLeaks(d) { var l = d.leaks.filter(function (x) { return !x.fallback && x.pts; }); return { l: l, sum: l.reduce(function (a, x) { return a + x.pts; }, 0) }; }
+  function coOrders(d) { var cap = null, o = []; try { cap = capData(d.c); } catch (e) {} try { o = capOrders(d, cap); } catch (e) {} if (!o.length && d.plan.length) o = d.plan.map(function (x) { return { t: x.t, s: x.s }; }); return o; }
   function coAnswer(c, q) {
     var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], mood = "repos", pl = null, k = q.split(":");
     try { pl = pistes(c); } catch (e) {}
@@ -8692,6 +8711,59 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         F.push(["Voir mes courbes", "", "#/courbes"]);
       } else A.push("Encore " + plural(Math.max(1, 8 - ((f && f.n) || 0)), "match") + " et je pourrai te le dire chiffres à l'appui.");
     }
+    else if (k[0] === "profil" || k[0] === "leaks" || k[0] === "cap" || k[0] === "matchs" || k[0] === "best" || k[0] === "scout") {
+      var d = coD(), sup = isSup(), PL = function (what) { if (!sup) { A.push('<span class="ace-pl">Montée+</span> ' + what); F.push(["Découvrir Montée+", "", "#/coach"]); } };
+      if (!d) A.push("Encore quelques matchs sur 12 mois et je te fais ce bilan.");
+      else if (k[0] === "profil") {
+        var P = d.P, perf = P.R.perf && P.R.perf.g, solid = P.R.solid && P.R.solid.g, mx = P.R.mental && P.R.mental.g; mood = "joie";
+        A.push("<b>" + esc(P.title) + "</b>" + (d.lv && d.lv.ms ? " Tu joues au niveau " + esc(lab(Math.round(d.lv.mean))) + "." : ""));
+        if (sup) {
+          if (solid && solid.n >= 4) X.push(["Contre moins bien classé", solid.v + " sur " + solid.n]);
+          if (perf && perf.n >= 3) X.push(["Contre mieux classé", perf.v + " sur " + perf.n]);
+          if (mx && mx.n >= 4 && (P.R.mental.st === "faible" || cpSurv(P.R.mental))) X.push(["Après un 1er set perdu", mx.v + " sur " + mx.n]);
+          var fo = d.strong.slice(0, 2).map(function (x) { return x.t; }), fa = P.faibs.slice(0, 2).map(function (x) { return CP_LAB[x]; });
+          if (fo.length) A.push("Tes atouts : <b>" + fo.map(esc).join("</b>, <b>") + "</b>.");
+          if (fa.length) A.push("À travailler : <b>" + fa.map(esc).join("</b>, <b>") + "</b>.");
+          F.push(["Voir mon profil de compétiteur", "", "#/competiteur"]); F.push(["Mon bilan complet", "", "#/coach"]);
+        } else PL("ajoute tes chiffres face à chaque classement, tes atouts et ce qu'il faut travailler.");
+      } else if (k[0] === "leaks") {
+        var lk = coLeaks(d), nx = d.c.proj.next || {}, base0 = nx.total || 0, norm0 = nx.norme || 0, acc = base0, pass = -1; mood = "reflexion";
+        if (lk.sum < 5) { A.push("<b>Rien de flagrant.</b> Tu gagnes ce qu'un " + esc(d.P.curL) + " doit gagner. Pour monter, il faut aller chercher les perfs."); F.push(["Comment je monte ?", "up"]); }
+        else A.push("<b>Tu laisses ≈ " + lk.sum + " pts sur la table sur 12 mois.</b> Ce sont les victoires qu'un " + esc(d.P.curL) + " moyen aurait eues en plus de toi, face aux mêmes adversaires.");
+        if (lk.l[0]) A.push("Le plus gros : <b>" + esc(lk.l[0].t) + "</b> (≈ −" + lk.l[0].pts + " pts)" + (lk.l[0].s ? ", " + esc(lk.l[0].s) : "") + ".");
+        if (lk.sum < 5) {} else if (sup) {
+          lk.l.slice(0, 4).forEach(function (l, i) { X.push([l.t, "≈ −" + l.pts + " pts"]); acc += l.pts; if (pass < 0 && norm0 && acc >= norm0) pass = i; });
+          if (norm0 && d.c.proj.status !== "montee" && d.c.proj.status !== "top") A.push(pass >= 0 ? "Fais comme un " + esc(d.P.curL) + " moyen " + (pass === 0 ? "sur ce premier point" : "sur les " + (pass + 1) + " premiers") + " et tu es <b>" + esc(lab(d.tgt)) + "</b>." : "Même en corrigeant tout, il manquerait " + plural(Math.max(0, norm0 - acc), "pt") + " : il faudra aussi battre des " + esc(lab(d.tgt)) + ".");
+          F.push(["Mon bilan complet", "", "#/coach"]);
+        } else PL("détaille chaque fuite, ce qu'elle coûte, et ce qu'il faut corriger pour passer " + esc(lab(d.tgt)) + ".");
+      } else if (k[0] === "cap") {
+        var od = sup ? coOrders(d) : []; mood = "concentree";
+        if (!sup) PL("te donne une consigne chiffrée chaque mois, cochée toute seule après tes matchs.");
+        else if (!od.length) A.push("Pas de consigne ce mois-ci : continue comme ça.");
+        else { A.push("<b>" + esc(od[0].t) + "</b>" + (od[0].s ? " " + esc(od[0].s) : ""));
+          od.slice(1).forEach(function (o) { A.push(esc(o.t) + (o.s ? " <small>" + esc(o.s) + "</small>" : "")); });
+          od.forEach(function (o) { if (o.dots) X.push([o.t.split(/[,:]/)[0].slice(0, 30), o.dots.filter(function (x) { return x === "on"; }).length + " sur " + o.n]); });
+          F.push(["Mon bilan complet", "", "#/coach"]); }
+      } else if (k[0] === "matchs") {
+        var mm = sup ? d.matches : d.matches.slice(0, 1); mood = "reflexion";
+        A.push("<b>" + (mm.length > 1 ? "Les matchs qui ont le plus pesé sur ton classement :" : "Le match qui a le plus pesé :") + "</b>");
+        mm.forEach(function (x) { var v = x.m.result === "V"; A.push((v ? "Victoire" : "Défaite") + " contre un " + esc(T.normRank(x.m.oppRank) || x.m.oppRank) + " (" + esc(MOIS[E.parseDate(x.m.date).getMonth()].replace(/\.$/, "")) + ") : <b>" + (x.pts > 0 ? "+" : "−") + Math.abs(x.pts) + " pts</b>, " + esc(x.why) + "."); });
+        A.push("<small>Victoires : ce qu'elles pèsent dans ton bilan. Défaites : ce que ton bilan gagnerait sans elles.</small>");
+        if (sup) F.push(["Mon bilan complet", "", "#/coach"]); else PL("montre tous les matchs qui ont compté.");
+      } else if (k[0] === "best") {
+        var bb = sup ? d.best : d.best.slice(0, 1); mood = "joie";
+        A.push("<b>Là où tu gagnes le plus :</b>");
+        bb.forEach(function (b) { A.push(esc(b.t) + (b.s ? " " + esc(b.s) : "") + " : <b>" + b.p + " %</b> de victoires."); });
+        if (!sup) PL("donne toutes les situations où tu es le plus fort.");
+      } else if (k[0] === "scout") {
+        var it = sup ? d.seen.items : d.seen.items.slice(0, 1); mood = "reflexion";
+        A.push("<b>Ce qu'un adversaire qui a bien préparé son match sait de toi :</b>");
+        it.forEach(function (x) { A.push(esc(x.t) + " : " + x.v + " sur " + x.n + ", " + esc(x.s) + "."); });
+        if (sup && d.seen.plan.length) A.push("Leur plan contre toi : <b>" + d.seen.plan.map(esc).join(" · ") + "</b>. Prépare la parade.");
+        if (!sup) PL("te donne le rapport complet et leur plan contre toi.");
+      }
+    }
+    if (k[0] === "up" && isSup()) { var dU = coD(); if (dU && dU.ch && dU.ch.up.length) X.push([dU.ch.down ? "Te maintenir" : "Être " + lab(dU.ch.target), Math.round(dU.ch.p * 100) + " % de chances"]); }
     return { a: A, f: F, facts: X, mood: mood };
   }
   // L'écran d'Ace : les sujets en tuiles, puis une réponse en gros texte, ses chiffres et les suites (maquette v2 validée)
@@ -8703,7 +8775,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var h = coHomeTip(c), hot = h.tip ? h.tip.v : "";
       var g = c.proj.status !== "top" && c.proj.next ? (c.proj.status === "montee" ? "Tu montes " + esc(lab(c.proj.projected)) + " à la prochaine sortie." : "Il te manque " + plural(Math.max(0, c.proj.next.norme - c.proj.next.total), "pt") + " pour " + esc(c.proj.next.label) + ".") : "";
       s += top('<span class="small ace-pv">Gratuit · tout reste dans ton téléphone</span>') + '<div class="ace-hero">' + coBall("ace:hero", h.mood, "xl") + "<span><b>Salut" + (name ? " " + esc(name) : "") + " !</b><small>" + g + " On parle de quoi ?</small></span></div>";
-      [["now", "Maintenant"], ["match", "Tes derniers matchs"], ["long", "Sur la durée"]].forEach(function (gr) {
+      [["now", "Maintenant"], ["match", "Tes derniers matchs"], ["long", "Sur la durée"], ["toi", "Toi, en compétiteur"]].forEach(function (gr) {
         var qs = Q.filter(function (x) { return x[0] === gr[0]; }); if (!qs.length) return;
         s += '<span class="ace-k">' + gr[1] + '</span><div class="ace-grid">' + qs.map(function (x) { return '<button class="ace-tile' + (x[1] === hot ? " hot" : "") + '" data-a="aceQ" data-v="' + esc(x[1]) + '"><i>' + (I[x[5]] || I.spark) + "</i><b>" + esc(x[3]) + "</b><small>" + esc(x[4]) + "</small></button>"; }).join("") + "</div>";
       });
@@ -10808,7 +10880,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     B.service = watchStatsHtml(); // 3.38 : ton service rejoint le groupe « Ton jeu »
     try { s += badgesStripHtml(); } catch (e) {} // 3.59 (Yann, maquette B1) : tes badges en tête des Courbes
     B.defis = ""; // 3.59 : les défis vivent dans les badges (famille « Saison »)
-    s += coachCardHtml(); // 3.48.4 (Yann) : « Ton coach » remplace la carte profil (même place) ; 3.43 : ton profil de compétiteur, juste sous le classement réel (Montée+)
+    // 3.73.1 (Yann) : Ace remplace la carte « Ton coach » ; il reprend son portrait, ses fuites, sa consigne, ses matchs clés, sa meilleure version et son scouting
+    s += '<button class="card mmo-det" data-a="ace" data-v="' + (coD() ? "profil" : "") + '">' + coBall("ace:cb", "repos", "sm") + '<span class="grow"><b>Ton bilan avec Ace</b><span class="small">Ton portrait, ce qui te coûte des points, ta consigne du mois</span></span>' + I.next + "</button>"; // avant : coachCardHtml() ; 3.48.4 (Yann) : « Ton coach » remplace la carte profil (même place) ; 3.43 : ton profil de compétiteur, juste sous le classement réel (Montée+)
     s += layout("courbes", B, true);
     return s + "</div>" + tabbar("courbes");
   };
