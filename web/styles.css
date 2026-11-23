@@ -6231,6 +6231,22 @@ button.acr, a.acr { cursor: pointer; }
 /* 3.74.1 (Yann) : la date de l'en-tête reste sur une ligne ; c'est la bulle d'Ace qui se raccourcit */
 .hd-dr .hd-d { flex: none; max-width: 55%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hd-dr .ace-hd { flex: 0 1 auto; }
+/* 3.75 : Ace, la bonne carte au bon moment (« Pour toi, maintenant », ton match, ce qui a changé) */
+.acf-k { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 6px; margin-bottom: -6px; }
+.acf-k .ace-k { margin-top: 0; }
+.acf-k small { font-size: 12.5px; font-weight: 700; color: var(--acc-ink); }
+.acf { display: flex; gap: 10px; overflow-x: auto; margin: 0 -18px; padding: 2px 18px 4px; scroll-snap-type: x mandatory; scroll-padding: 0 18px; scrollbar-width: none; }
+.acf::-webkit-scrollbar { display: none; }
+.acf > .acd { flex: none; width: 82%; scroll-snap-align: start; }
+.acf.one > .acd { width: 100%; }
+.acd-tag { display: inline-flex; align-items: center; gap: 6px; color: var(--acc-ink); }
+.acd-tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--terre); }
+.acd-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 8px; }
+.acd-acts .acd-btn { margin-top: 0; text-decoration: none; }
+.acd-acts .acd-f { margin-top: 0; }
+.acd-acts .acd-f svg { width: 14px; height: 14px; color: var(--gazon); }
+.acd-no { background: none; border: 0; padding: 8px 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.acf > .acd > .acd-acts { margin-top: auto; padding-top: 8px; }
 
 /* 3.74.2 (audit accessibilité) : zone tactile agrandie sans changer la mise en page (petits liens et pastilles < 30 px) */
 :is(.num-l, .go-pill, .fo-p, button.lnk, .ce-fl, .linkbtn, .lnk) { position: relative; }
