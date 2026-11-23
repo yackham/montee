@@ -17517,7 +17517,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (!S.profile.rank) return toast("Choisis ton classement.");
       UI.profEdit = false;
       save();
-      if (!S.onboarded) { S.onboarded = true; save(); var nx = UI.afterProfil || ""; UI.afterProfil = null; go(nx); } else if (!S.matches.length || stack.length < 2) { toast("Profil enregistré."); go(""); } else { toast("Profil enregistré."); back(); }
+      if (!S.onboarded) { S.onboarded = true; save(); var nx = UI.afterProfil || ""; UI.afterProfil = null; go(nx); } else if (UI.afterProfil) { var nx2 = UI.afterProfil; UI.afterProfil = null; if (stack[stack.length - 1] === "profil") stack.pop(); toast("Profil enregistré."); go(nx2); window.scrollTo(0, 0); } // 3.82.1 : après l'exemple, retour à la fiche du 1er vrai match
+      else if (!S.matches.length || stack.length < 2) { toast("Profil enregistré."); go(""); } else { toast("Profil enregistré."); back(); }
     },
     skipImport: function () { UI.draft = null; if (!S.profile.rank) { UI.afterProfil = "match/new"; go("profil"); return; } S.onboarded = true; save(); go("match/new"); },
     palTab: function (el) { UI.palTab = el.dataset.v; render(); },
@@ -17700,7 +17701,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (i >= 0) { UI.mEdit = false; UI.annEdit = false; UI.draft = null; render(); window.scrollTo(0, 0); return; } // 3.42.1 : on reste sur la fiche
       // La fiche du match remplace le formulaire : le retour ramène là d'où tu venais, pas au formulaire vide
       if (stack[stack.length - 1] === "match/new") stack.pop();
-      if (wasDemo && !S.profile.rank) { toast("L'exemple est effacé. Indique ton classement pour calculer ton bilan."); go("profil"); window.scrollTo(0, 0); return; }
+      if (wasDemo && !S.profile.rank) { UI.afterProfil = "match/" + clean.id; toast("Ton match est gardé, l'exemple est effacé. Indique ton classement pour voir ce qu'il te rapporte."); go("profil"); window.scrollTo(0, 0); return; }
       go("match/" + clean.id); window.scrollTo(0, 0);
     },
     demoExit: function () { demoPurge(); save(); go("tenup"); window.scrollTo(0, 0); },
