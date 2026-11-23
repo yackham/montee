@@ -6257,6 +6257,20 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 @media (prefers-reduced-motion: reduce) {
   .tap-pop, .rate-row.soft button.on, .rate-ok, .rate-ok *, .mx-ck2 *, .mx-in2.mx-on, .co-yr.mx-yr.mx-on > div, .mx-trn * { animation: none !important; stroke-dashoffset: 0 !important; opacity: 1; }
 }
+/* 3.83 : derniers écrans (Cette semaine, Tes tournois, Toi contre toi, Courbes) */
+@keyframes mxML { from { transform: translateX(-46px); opacity: 0; } }
+@keyframes mxMR { from { transform: translateX(46px); opacity: 0; } }
+.mx-ml { animation: mxML .55s cubic-bezier(.3,1.3,.5,1) both; animation-delay: var(--d, 0ms); }
+.mx-mr { animation: mxMR .55s cubic-bezier(.3,1.3,.5,1) both; animation-delay: var(--d, 0ms); }
+.mx-in2.mx-on { animation-delay: calc(var(--i, 0) * 90ms); }
+.ts-bar.mx i { transform-origin: left; animation: mxGrow .8s cubic-bezier(.2,.8,.3,1) both; animation-delay: .25s; }
+.mx-in2:not(.mx-on) .ts-bar.mx i { animation: none; transform: scaleX(0); }
+.ts-t b { position: relative; }
+button.ts-t { position: relative; padding-right: 30px; }
+.ts-go { position: absolute; top: 12px; right: 10px; width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; background: var(--chip); color: var(--muted); transition: transform .25s ease; }
+.ts-go svg { width: 13px; height: 13px; }
+.ts-t.on .ts-go { transform: rotate(90deg); color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .mx-ml, .mx-mr, .ts-bar.mx i { animation: none !important; opacity: 1; transform: none !important; } }
 /* 3.75 : petites touches d'humour (une par écran, chantier/09) */
 .jk { margin: 0; font-size: 13px; line-height: 1.35; font-style: italic; color: var(--muted); }
 .card.empty .jk { margin-top: 2px; }
