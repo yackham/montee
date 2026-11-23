@@ -6240,3 +6240,9 @@ body { overflow-x: clip; overflow-wrap: break-word; }
   .mx-pop, .mx-in, .mx-on .mx-pop2, .mx-on .mx-flip, .mx-today, .mx-mv, .mx-vs, .mx-on .mx-ck, .mx-on .pl-d i, .mx-on .pal-i svg *, .mx-cupd .tm-cup path, .pj-balls circle, .hx-bar.mx i, .tq-bar.mx i, .tq-r.mx-hit .tq-b { animation: none !important; opacity: 1 !important; stroke-dashoffset: 0 !important; }
   .mx-sp, .mx-hb, .mx-tb { display: none; }
 }
+/* 3.75 : petites touches d'humour (une par écran, chantier/09) */
+.jk { margin: 0; font-size: 13px; line-height: 1.35; font-style: italic; color: var(--muted); }
+.card.empty .jk { margin-top: 2px; }
+.strc1-a .jk { display: block; margin-top: 2px; font-size: 12.5px; }
+.pj-p .jk { margin-top: 4px; }
+.screen > .jk { padding: 0 6px; margin-top: -4px; }
