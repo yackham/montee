@@ -288,7 +288,8 @@
         return { id: String(c.id), nom: c.nom || "", dates: c.dates, last: c.last, opp: (c.opp || []).filter(function (o) { return o && o.c && dayN(o.d) != null; }),
           ent: (known || []).some(function (k) { return k && k.e; }) ? 1 : 0, q: q, seen: {}, conf: {}, ck: [], done: {}, alt: {}, ak: [], cov: {}, fb: null, fw: null, best: null, d0: null, n: 0, nF: 0, fin: false, ms: 0 };
       };
-      var scan = function (cs, club) {
+      var scan = function (cs, club, code) {
+        code = code ? String(code) : "";
         var myDays = cs.dates.map(dayN).filter(function (x) { return x != null; });
         var allDone = function () { return myDays.length && myDays.every(function (x) { return cs.done[x]; }); };
         var base = "championnats-equipes/" + cs.id;
@@ -306,7 +307,9 @@
           var eq = (det && det.poule && det.poule.equipes) || [];
           if (!cs.ex && eq.length) cs.ex = eq.slice(0, 3).map(function (e) { return String(e.nom || "").replace(/\s+\d+\s*$/, ""); });
           if (cs.ent) return eq.map(function (e) { return e.id; });
-          var a = eq.filter(function (e) { return nrm(e.nom).indexOf(nrm(club)) === 0; });
+          // 4.0.4 : une équipe que Ten'Up rattache au club par son code (tennis entreprise au nom d'une société, par ex.) est du club
+          var byCode = code ? eq.filter(function (e) { return e && Object.keys(e).some(function (k) { if (!/club/i.test(k)) return false; var v = e[k]; if (v && typeof v === "object") v = v.code || v.codeClub || v.id; return v != null && String(v) === code; }); }) : [];
+          var a = eq.filter(function (e) { return nrm(e.nom).indexOf(nrm(club)) === 0 || byCode.indexOf(e) >= 0; });
           // 3.72.1 : le nom des équipes du club déjà connues (« CLAMART (TC) ») quand le nom officiel du club diffère (« TENNIS CLUB DE CLAMART »)
           if (!a.length && A.tn && A.tn.length) a = eq.filter(function (e) { return A.tn.indexOf(nrm(String(e.nom || "").replace(/\s+\d+\s*$/, ""))) >= 0; });
           if (!a.length && cw.length) a = eq.filter(function (e) { var nn = String(e.nom || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); if (!cw.every(function (w) { return nn.indexOf(w) >= 0; })) return false;
@@ -473,7 +476,7 @@
       };
       if (A.all) return startClub().then(function (job) {
         job.calls = (job.calls || 0) + 1;
-        return Promise.all(job.cs.filter(function (cs) { return !cs.fin; }).slice(0, 8).map(function (cs) { return scan(cs, job.u.nom); })).then(function () {
+        return Promise.all(job.cs.filter(function (cs) { return !cs.fin; }).slice(0, 8).map(function (cs) { return scan(cs, job.u.nom, job.u.code); })).then(function () {
           var done = job.cs.every(function (cs) { return cs.fin; });
           var champs = [].concat.apply([], job.cs.filter(function (cs) { return done || cs.fin; }).map(function (cs) { return cs.clk.map(function (k) { var o = cs.cl[k]; o.id = k; o.cid = cs.id; o.cl = 1; o.me.sure = false; return o; }); }));
           return ok({ at: Date.now(), club: { code: job.u.code, nom: job.u.nom }, champs: champs, job: done ? null : job, partial: !done,
@@ -484,7 +487,7 @@
         job.calls = (job.calls || 0) + 1; ME.id = String(job.u.id || "");
         var todo = job.cs.filter(function (cs) { return !cs.fin; });
         // les championnats en parallèle (chacun lit 3 pages à la fois), dans le temps de cette lecture
-        return Promise.all(todo.map(function (cs) { return scan(cs, job.u.nom); })).then(function () {
+        return Promise.all(todo.map(function (cs) { return scan(cs, job.u.nom, job.u.code); })).then(function () {
           var done = job.cs.every(function (cs) { return cs.fin; });
           var champs = [].concat.apply([], job.cs.filter(function (cs) { return done || cs.fin; }).map(fin));
           return ok({ at: Date.now(), club: { code: job.u.code, nom: job.u.nom }, pid: job.u.id, champs: champs, job: done ? null : job, partial: !done, trace: { calls: job.calls, champs: trace(job) } });
