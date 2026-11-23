@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.74.8",
+    VERSION: "3.75.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1573,88 +1573,92 @@
       }).join("") +
         '<div class="pt-up"><b>Avant ou après ? Montée+ fait le calcul.</b><span class="small">Ce que vaut ta victoire contre chacun avant et après la sortie, le bon moment pour le jouer, et un rappel 5 jours avant.</span><button class="btn primary small" data-a="goSoutenirComp">Essayer 1 mois gratuit</button></div></div>';
     }
-    // 3.56.4 (retour testeur, maquette v2 validée par Yann) : une GRILLE, une ligne par adversaire et une case par période
-    // (« Jusqu'au 30 nov. », « Du 1 déc. au 4 janv. », « À partir du 5 janv. »). Chaque case dit si tu peux le jouer à ce moment-là :
-    // jouable, MEILLEUR, trop tôt (il va monter) ou à éviter (il aura baissé). Avant, chaque joueur tombait dans une seule colonne :
-    // on croyait qu'il fallait jouer tout le monde avant la 1re sortie. Dessous : le conseil et l'alerte par joueur (sans refaire de frise).
-    var P = L.map(function (z) { return bmPlan(t, z); }), U = poolUnknown(t);
-    var ref = P.reduce(function (a, q) { return q.cells.length > a.cells.length ? q : a; }, P[0]), cols = ref.cells.slice(0, 3), nC = cols.length;
-    var endS = (t.dl || t.to) ? dm(E.parseDate(t.dl || t.to)) : "";
-    var sub = '<span class="bx-sub">Ce que vaut ta victoire contre chacun' + (nC > 1 ? ", période par période" : "") + (endS ? ", d'ici la fin de la poule (" + endS + ")" : "") + ".</span>";
-    var CAL = svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', 3);
-    var SHIELD = svg('<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>', 2.6); // 3.58.1 : « protégé » tient dans la case
-    var BELL = svg('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>', 2.2), WARN = svg('<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>', 2.2);
-    var grid = "", LGU = {};
-    if (nC > 1) {
-      var veille = function (c) { return dm(new Date(c.d.getTime() - 864e5)); }, dj = Math.max(1, dGap(cols[1].dI));
-      var ch = function (j) {
-        if (j === 0) return "Jusqu'au<b>" + veille(cols[1]) + "</b><em>" + (dj === 1 ? "dernier jour" : "encore " + dj + " j") + "</em>";
-        var tk = '<span class="bz-tk"><i></i>' + (j === 1 ? "sortie Ten'Up" : "calcul Montée") /* 3.58.1 (Yann) : tient sur une ligne, et dit d'où vient la projection */ + "</span>";
-        return (j < nC - 1 ? "Du " + dm(cols[j].d) + "<b>au " + veille(cols[j + 1]) + "</b>" : "À partir du<b>" + dm(cols[j].d) + "</b>") + tk;
-      };
-      var ST = { ok: "✓ jouable", best: "✓ jouable", lo: "trop tôt", no: "✗ à éviter", unk: "inconnu" };
-      grid = '<div class="bz-g" style="grid-template-columns:72px repeat(' + nC + ',minmax(0,1fr))"><span></span>' + cols.map(function (c, j) { return '<span class="bz-ch">' + ch(j) + "</span>"; }).join("") +
-        P.map(function (q) {
-          var x = q.z.x, G = function (c) { return c.g == null ? -1 : c.g; }, bG = G(q.cells[q.best]);
-          var mj = -1; if (x.day && dGap(x.day) >= 0) cols.forEach(function (c, j) { if (j === 0 || c.dI <= x.day) mj = j; });
-          var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : "";
-          // 3.70.8 (Yann, maquette B validée) : sous le prénom, son classement (balle jaune) ; un joueur sans enjeu tient sur une case large ;
-          // le conseil et l'alerte s'affichent juste sous sa ligne (plus de liste dessous qui répète la grille)
-          var rkNow = q.z.sp && q.z.sp.cur ? lab(q.z.sp.cur) : (x.rank || "");
-          var nmC = '<div class="bz-n' + tap + '"><span class="tq-av">' + esc(initials(trNm(x.name))) + "</span><b>" + esc(trNm(x.name).split(" ")[0]) + "</b>" + (rkNow ? '<span class="rk-tag">' + esc(rkNow) + "</span>" : "") + "</div>";
-          // 3.74.5 (Yann, maquette bon-moment v4 V3) : un joueur qui ne risque de descendre qu'APRÈS la dernière période affichée
-          // a des cases identiques : une case large aussi, avec la frise du risque (date de la descente placée sur la durée de la poule)
-          var late = q.kind === "warn" && q.drop >= nC && q.cells[q.drop];
-          var c0 = q.cells[0], flat = (late || (q.kind === "any" && !(q.drop > 0))) && cols.every(function (col, j) { var c = q.cells[j]; return c && c.g != null && (j === 0 || c.dI === col.dI) && c.g === c0.g && c.dir !== "down"; });
-          var kept = cols.some(function (col, j) { return q.cells[j] && q.cells[j].kept; });
-          if (flat) { LGU.ok = 1; if (kept) LGU.pr = 1; }
-          if (flat && late) {
-            LGU.risk = 1;
-            var D = q.cells[q.drop], t0 = today().getTime(), tE = (t.dl || t.to) ? E.parseDate(t.dl || t.to).getTime() : D.d.getTime() + 21 * 864e5;
-            if (tE <= D.d.getTime()) tE = D.d.getTime() + 7 * 864e5;
-            var pos = Math.max(8, Math.min(92, Math.round((D.d.getTime() - t0) / Math.max(1, tE - t0) * 100)));
-            var why = q.alerts.filter(function (a) { return a[0] === "warn"; }).map(function (a) { return a[1]; }).join(" ");
-            return nmC + '<div class="bz-c ok bz-all" style="grid-column:span ' + nC + '"><span class="bz-st">✓ jouable jusqu\'au ' + dm(new Date(D.d.getTime() - 864e5)) + '</span><span class="bz-al1"><b>+' + c0.g + "</b><span>à chaque période" + (kept ? ' · <i class="bz-pr bz-prw">' + SHIELD + "protégé</i>" : "") + "</span></span>" +
-              '<details class="bz-why"><summary aria-label="Pourquoi : il risque de descendre le ' + esc(dm(D.d)) + '"><span class="bz-tl" aria-hidden="true"><i class="a" style="flex:' + pos + '"></i><i class="b" style="flex:' + (100 - pos) + '"></i><em style="left:' + pos + '%"></em></span>' +
-              '<span class="bz-tlx"><span>auj.</span><span class="w">' + esc(dm(D.d)) + " ↘ " + esc(lab(D.rank)) + "</span><span>" + esc(dm(new Date(tE))) + "</span></span></summary>" + (why ? '<span class="bz-whyt">' + why + "</span>" : "") + "</details></div>";
-          }
-          if (flat) return nmC + '<div class="bz-c ok bz-all' + tap + '" style="grid-column:span ' + nC + '"><span class="bz-st">✓ jouable tout le temps</span><span class="bz-al1"><b>+' + c0.g + "</b><span>à chaque période" + (kept ? ' · <i class="bz-pr bz-prw">' + SHIELD + "protégé</i>" : "") + "</span></span></div>";
-          var tipA = q.alerts.slice(), tip = q.kind === "any" && !tipA.length ? "" : '<div class="bz-tip' + tap + '"><span class="bz-v ' + q.kind + '">' + esc(/\.$/.test(q.verdict) ? q.verdict : q.verdict + ".") + "</span>" +
-            tipA.map(function (a) { return '<span class="bz-al ' + a[0] + '">' + (a[0] === "warn" ? WARN : BELL) + "<span>" + a[1] + "</span></span>"; }).join("") + "</div>";
-          return nmC +
-            cols.map(function (col, j) {
-              var c = q.cells[j], k;
-              if (!c || (j > 0 && c.dI !== col.dI) || c.g == null) k = "unk";
-              else if (q.kind === "any" || G(c) >= bG - 4) k = j === q.best && q.kind === "wait" ? "best" : "ok";
-              else k = j < q.best ? "lo" : "no";
-              if (q.drop > 0 && j >= q.drop && k === "ok") k = "no"; // 3.68 : il aura baissé : à éviter même à points égaux
-              LGU[k === "best" ? "ok" : k] = 1; if (c && c.kept) LGU.pr = 1;
-              var mv = c && c.dir === "up" ? '<em class="up">↗</em> ' : c && c.dir === "down" ? '<em class="dn">↘</em> ' : "";
-              return '<div class="bz-c ' + k + tap + '">' + (k === "best" ? '<span class="bz-tg">MEILLEUR</span>' : "") + (j === mj ? '<span class="bz-mt">' + CAL + esc(dm(E.parseDate(x.day)).toUpperCase()) + "</span>" : "") +
-                '<span class="bz-st">' + ST[k] + "</span>" + (k === "unk" ? "<b>?</b>" : k === "no" ? "<s>+" + c.g + "</s>" : "<b>+" + c.g + "</b>") + "<span>" + (c && k !== "unk" ? mv + esc(lab(c.rank)) + (c.kept ? ' <i class="bz-pr" title="protégé : déjà descendu il y a moins de 12 mois">' + SHIELD + "protégé</i>" : "") : "") + "</span></div>";
-            }).join("") + tip;
-        }).join("") + "</div>" +
-        // 3.74.5 : la légende ne montre que ce qui est dans la grille
-        '<div class="bz-lg bz-lg2">' + (LGU.ok ? '<span><i class="ok"></i>jouable</span>' : "") + (LGU.lo ? '<span><i class="lo"></i>trop tôt : il va monter ↗</span>' : "") + (LGU.no ? '<span><i class="no"></i>à éviter : il aura baissé ↘</span>' : "") + (LGU.pr ? '<span><em class="bz-pr bz-prl">' + SHIELD + "</em>protégé : ne peut pas redescendre</span>" : "") + (LGU.risk ? '<span><i class="risk"></i>il risque de descendre</span>' : "") + "</div>";
-    }
-    var row = function (x, av, verdict, kind, al) {
-      var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : "";
-      return '<div class="bz-r' + tap + '"><span class="tq-av">' + esc(av) + "</span><span><b>" + esc(trNm(x.name) || "Un joueur") + '</b><span class="bz-v ' + kind + '">' + esc(verdict) + "</span>" +
-        al.map(function (a) { return '<span class="bz-al ' + a[0] + '">' + (a[0] === "warn" ? WARN : BELL) + "<span>" + a[1] + "</span></span>"; }).join("") + "</span>" + (x.tid ? I.next : "<span></span>") + "</div>";
-    };
-    var body = (nC > 1 ? [] : P).map(function (q) {
-      var x = q.z.x, al = q.alerts.slice();
-      if (nC <= 1) al.unshift(["bell", esc(lab(q.z.sp.cur)) + " aujourd'hui · ta victoire : <b>+" + q.cells[0].g + "</b>"]);
-      return row(x, initials(trNm(x.name)), /\.$/.test(q.verdict) ? q.verdict : q.verdict + ".", q.kind, al);
-    }).join("") + U.map(function (u) {
-      return row(u.x, "?", "Sa projection n'est pas visible : pas de meilleure date pour lui.", "any", u.g != null ? [["bell", "Aujourd'hui, ta victoire vaut <b>+" + u.g + "</b>" + (u.x.rank ? " (" + esc(u.x.rank) + ")" : "") + "."]] : []);
-    }).join("");
+    // 3.75.0 (Yann, maquette poule-matchs D validée) : la FRISE DU TEMPS. Un seul axe, du début de la poule à sa fin, une ligne par adversaire.
+    // Chaque tranche (entre deux sorties du classement) dit son classement prévu (balle) et ce que vaut ta victoire. Seul le MEILLEUR moment
+    // est en évidence (vert plein), même à points égaux ou à 0 pt : le jouer mieux classé vaut mieux. ↗ / ↘ là où son classement change.
+    // Les matchs joués (V / D à leur date), le match prévu (calendrier, « ! » s'il tombe au mauvais moment) et le match passé sans résultat (« ? »).
+    var CAL = svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', 2.4);
+    var P = L.map(function (q) { return { z: q, q: bmPlan(t, q) }; }), U = poolUnknown(t), T0 = E.iso(today());
+    var played = (t.pool || []).map(function (x, i) { return { x: x, i: i }; }).filter(function (o) { return o.x.res; });
+    played.forEach(function (o) { var mm = null; try { mm = poolMyMatch(t, o.x); } catch (e) {} o.d = String((mm && mm.date) || o.x.day || "").slice(0, 10); o.sc = o.x.score || (mm && mm.score) || ""; });
+    var endI = String(t.dl || t.to || "").slice(0, 10);
+    if (!endI) { var lastC = T0; P.forEach(function (o) { o.q.cells.forEach(function (c) { if (c.dI > lastC) lastC = c.dI; }); }); endI = E.iso(new Date(E.parseDate(lastC).getTime() + 30 * 864e5)); }
+    var stI = String(t.from || "").slice(0, 10); if (!stI || stI > T0) stI = T0;
+    played.forEach(function (o) { if (o.d && o.d < stI) stI = o.d; });
+    (t.pool || []).forEach(function (x) { if (!x.res && x.day && x.day < stI) stI = String(x.day).slice(0, 10); });
+    var t0 = E.parseDate(stI).getTime(), span = Math.max(864e5, E.parseDate(endI).getTime() - t0);
+    var pc = function (iso) { return Math.max(0, Math.min(100, (E.parseDate(String(iso).slice(0, 10)).getTime() - t0) / span * 100)); }, P2 = function (v) { return v.toFixed(2) + "%"; };
+    var nowP = pc(T0), REL = {}, LG = {};
+    // le meilleur moment : plus de points (5 et plus d'écart), sinon, à points proches, le mieux classé
+    var better = function (a, b) { var ga = a.g == null ? -99 : a.g, gb = b.g == null ? -99 : b.g; if (ga >= gb + 5) return true; if (gb >= ga + 5) return false; return a.rank != null && b.rank != null && a.rank > b.rank; };
+    var say = [], rows = [];
+    var btnHtml = function (x, i, cls, lab0, aria) { return '<button class="fq-btn' + cls + '" data-a="plSched" data-i="' + i + '" aria-label="' + esc(aria) + '">' + lab0 + "</button>"; };
+    var nmHtml = function (x, rk) { var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : ""; return '<span class="fq-l' + tap + '"><span class="fq-nm"><b>' + esc(trNm(x.name).split(" ")[0] || "Un joueur") + "</b>" + (rk ? '<b class="rk-tag">' + esc(rk) + "</b>" : "") + "</span></span>"; };
+    var lines = function () { return '<i class="fq-past" style="width:' + P2(nowP) + '"></i>' + Object.keys(REL).map(function (d) { return '<b class="fq-rel" style="left:' + P2(pc(d)) + '"></b>'; }).join("") + '<b class="fq-now" style="left:' + P2(nowP) + '"></b>'; };
+    P.forEach(function (o) { o.q.cells.forEach(function (c, j) { if (j > 0 && c.dI <= endI) REL[c.dI] = 1; }); });
+    var lateRow = function (x, i) { var d = x.day && x.day < T0 && !x.res ? x.day : ""; if (!d) return ""; LG.late = 1;
+      say.unshift('<span class="fq-sy"><b class="w">' + esc(trNm(x.name).split(" ")[0]) + "</b> : ton match du " + esc(dm(E.parseDate(d))) + ' est passé. Ça a donné quoi ?<span class="fq-res"><button class="chip" data-a="trRes" data-k="pool" data-v="V" data-i="' + i + '">J\'ai gagné</button><button class="chip" data-a="trRes" data-k="pool" data-v="D" data-i="' + i + '">J\'ai perdu</button></span></span>');
+      return '<span class="fq-dn q" style="left:' + P2(pc(d)) + '" aria-label="Match du ' + esc(dm(E.parseDate(d))) + ' sans résultat">?</span>'; };
+    P.forEach(function (o) {
+      var q = o.q, x = o.z.x, i = o.z.i, nm = esc(trNm(x.name).split(" ")[0]);
+      // les tranches identiques (même classement, mêmes points) n'en font qu'une
+      var C = []; q.cells.forEach(function (c, j) { if (j > 0 && c.dI > endI) return; var p0 = C[C.length - 1]; if (p0 && p0.rank === c.rank && p0.g === c.g) return; C.push(c); });
+      var b = -1; C.forEach(function (c, j) { if (C.every(function (d, k) { return k === j || better(c, d); })) b = j; });
+      var segs = C.map(function (c, j) {
+        var a = j === 0 ? T0 : c.dI, z2 = j < C.length - 1 ? C[j + 1].dI : endI, k;
+        if (c.g == null) k = "unk"; else if (b < 0) k = "ok"; else if (j === b) k = "best"; else if (j < b) k = c.g <= C[b].g - 5 ? "early" : "poss"; else k = c.g <= C[b].g - 5 || (c.rank != null && C[b].rank != null && c.rank < C[b].rank) ? "lo" : "poss";
+        LG[k] = 1;
+        var prev = j > 0 ? C[j - 1] : null, ar = prev && c.rank != null && prev.rank != null && c.rank !== prev.rank ? (c.rank > prev.rank ? "up" : "dn") : "";
+        if (ar) LG[ar] = 1;
+        var w = pc(z2) - pc(a), pt = c.g == null ? "?" : k === "lo" && b >= 0 && C[b].g - c.g >= 1 ? "−" + (C[b].g - c.g) : c.g > 0 ? "+" + c.g : "0 pt";
+        var rk = c.rank != null ? lab(c.rank) : "";
+        var al = (rk ? rk + ", " : "") + (c.g == null ? "valeur inconnue" : c.g + " pts") + ", " + { best: "le meilleur moment", ok: "bon moment", poss: "possible", early: "trop tôt", lo: "il vaut moins", unk: "" }[k] + (ar === "up" ? ", il monte" : ar === "dn" ? ", il descend" : "");
+        return '<i class="fq-s ' + k + (w < 13 ? " nar" : "") + '" style="left:' + P2(pc(a)) + ";width:calc(" + P2(w) + ' - 2px)" role="img" aria-label="' + esc((j === 0 ? "Jusqu'au " + dm(new Date(E.parseDate(z2).getTime() - 864e5)) : "À partir du " + dm(c.d)) + " : " + al) + '">' +
+          (ar ? '<span class="fq-ar ' + ar + '" aria-hidden="true">' + (ar === "up" ? "↗" : "↘") + "</span>" : "") + (rk ? '<span class="fq-rk" aria-hidden="true"><b class="rk-tag">' + esc(rk) + "</b></span>" : "") + '<span class="fq-pt" aria-hidden="true">' + pt + "</span></i>";
+      }).join("");
+      // le match prévu : bien placé, ou « ! » s'il tombe hors du meilleur moment
+      var day = x.day && x.day >= T0 ? String(x.day).slice(0, 10) : "", mk = "", btn, jd = -1;
+      if (day) { C.forEach(function (c, j) { if ((j === 0 ? T0 : c.dI) <= day) jd = j; }); }
+      var warn = day && b >= 0 && jd !== b;
+      if (day) { mk = '<span class="fq-pv' + (warn ? " warn" : "") + '" style="left:' + P2(pc(day)) + '" aria-hidden="true">' + (warn ? "!" : CAL) + "</span>"; var dd = E.parseDate(day); btn = btnHtml(x, i, " on" + (warn ? " warn" : ""), dd.getDate() + "<small>" + MOIS[dd.getMonth()] + "</small>", "Prévu le " + dm(dd) + (warn ? ", pas le meilleur moment" : "") + " : modifier"); }
+      else if (x.day && !x.res) { var dl = E.parseDate(x.day); btn = btnHtml(x, i, " late", dl.getDate() + "<small>" + MOIS[dl.getMonth()] + "</small>", "Match du " + dm(dl) + " sans résultat"); }
+      else btn = btnHtml(x, i, "", CAL, "Programmer le match contre " + trNm(x.name));
+      rows.push('<div class="fq-r">' + nmHtml(x, o.z.sp && o.z.sp.cur != null ? lab(o.z.sp.cur) : x.rank) + '<span class="fq-t">' + lines() + segs + mk + lateRow(x, i) + '</span><span class="fq-b">' + btn + "</span></div>");
+      // la phrase, seulement s'il y a quelque chose à faire
+      if (b < 0) return;
+      var B = C[b], B0 = C[0], dB = dm(B.d), rB = lab(B.rank);
+      if (warn) {
+        var J = C[jd], s1 = jd < b ? "tombe <b>avant qu'il monte " + esc(rB) + "</b> (" + dB + ")" : "tombe <b>après qu'il descend " + esc(lab(J.rank)) + "</b> (" + dm(J.d) + ")";
+        var s2 = Math.abs(B.g - J.g) >= 5 ? (jd < b ? " Après, ta victoire vaudra " + (B.g - J.g) + " pts de plus." : " Avant, ta victoire vaut " + (B.g - J.g) + " pts de plus.") : " Même nombre de points, mais mieux vaut le jouer " + esc(rB) + " que " + esc(lab(J.rank)) + ".";
+        say.push('<span class="fq-sy"><b class="w">' + nm + "</b> : ton match du " + esc(dm(E.parseDate(day))) + " " + s1 + "." + s2 + '<span class="fq-res"><button class="chip" data-a="plSched" data-i="' + i + '">Décaler le match</button></span></span>');
+      } else if (day) return;
+      else if (b > 0) say.push('<span class="fq-sy"><b class="g">' + nm + "</b> : " + (B.g - B0.g >= 5 ? "<b>attends le " + dB.replace(/\.$/, "") + ".</b> S'il monte " + esc(rB) + ", ta victoire vaudra " + (B.g - B0.g) + " pts de plus." : (B.g === 0 ? "0 pt dans tous les cas, mais il" : "il") + " devrait <b>monter " + esc(rB) + " le " + dB + "</b> : mieux vaut le jouer après.") + "</span>");
+      else { var N = C.filter(function (c, j) { return j > 0 && better(B, c); })[0]; if (N) say.push('<span class="fq-sy"><b class="w">' + nm + "</b> : joue-le <b>avant le " + dm(N.d).replace(/\.$/, "") + ".</b> " + (B.g - N.g >= 5 ? "Il risque de descendre : après, ta victoire vaudrait " + (B.g - N.g) + " pts de moins." : "Il risque de descendre " + esc(lab(N.rank)) + " : mieux vaut le jouer " + esc(lab(B.rank)) + ".") + "</span>"); }
+    });
+    // sans projection lisible : une barre neutre (sa valeur d'aujourd'hui, si on la connaît)
+    U.forEach(function (u) { var i = (t.pool || []).indexOf(u.x); LG.unk = 1;
+      var day = u.x.day && u.x.day >= T0 ? String(u.x.day).slice(0, 10) : "", dd = day ? E.parseDate(day) : null;
+      var btn = day ? btnHtml(u.x, i, " on", dd.getDate() + "<small>" + MOIS[dd.getMonth()] + "</small>", "Prévu le " + dm(dd) + " : modifier") : u.x.day ? btnHtml(u.x, i, " late", E.parseDate(u.x.day).getDate() + "<small>" + MOIS[E.parseDate(u.x.day).getMonth()] + "</small>", "Match sans résultat") : btnHtml(u.x, i, "", CAL, "Programmer le match contre " + trNm(u.x.name));
+      rows.push('<div class="fq-r">' + nmHtml(u.x, u.x.rank) + '<span class="fq-t">' + lines() + '<i class="fq-s unk" style="left:' + P2(nowP) + ";width:calc(" + P2(100 - nowP) + ' - 2px)"><span class="fq-pt">' + (u.g != null ? "+" + u.g + " · pas de projection" : "calcul en cours") + "</span></i>" + (day ? '<span class="fq-pv" style="left:' + P2(pc(day)) + '" aria-hidden="true">' + CAL + "</span>" : "") + lateRow(u.x, i) + '</span><span class="fq-b">' + btn + "</span></div>"); });
+    played.forEach(function (o) { var v = o.x.res === "V", p0 = o.d ? pc(o.d) : 3; LG.done = 1;
+      rows.push('<div class="fq-r done">' + nmHtml(o.x, o.x.rank) + '<span class="fq-t">' + lines() + '<span class="fq-dn ' + (v ? "v" : "d") + '" style="left:' + P2(p0) + '">' + (v ? "V" : "D") + '</span><span class="fq-dt" style="left:calc(' + P2(p0) + ' + 18px)">' + (v ? "Gagné" : "Perdu") + (o.sc ? " " + esc(o.sc) : "") + (o.d ? '<span class="sr"> le ' + esc(dm(E.parseDate(o.d))) + "</span>" : "") + '</span></span><span class="fq-b"></span></div>'); });
+    var mo = [], m0 = E.parseDate(stI); m0 = new Date(m0.getFullYear(), m0.getMonth() + 1, 1);
+    for (var md = m0; E.iso(md) < endI; md = new Date(md.getFullYear(), md.getMonth() + 1, 1)) { var mp = pc(E.iso(md)); if (mp > 4 && mp < 94) mo.push('<em style="left:' + P2(mp) + '">' + MOIS[md.getMonth()] + "</em>"); }
+    var grid = '<div class="fq" role="group" aria-label="Frise de la poule, du ' + esc(dm(E.parseDate(stI))) + " au " + esc(dm(E.parseDate(endI))) + '"><div class="fq-ax" aria-hidden="true"><span></span><span class="fq-t">' + mo.join("") + "</span><span></span></div>" + rows.join("") + "</div>" +
+      '<div class="fq-lg">' + (LG.best ? '<span><i class="best"></i>le meilleur moment</span>' : "") + (LG.ok ? '<span><i class="ok"></i>bon moment</span>' : "") + (LG.poss ? '<span><i class="poss"></i>possible</span>' : "") + (LG.early ? '<span><i class="early"></i>trop tôt</span>' : "") + (LG.lo ? '<span><i class="lo"></i>il vaut moins</span>' : "") +
+      (LG.up ? '<span><b class="fq-ar up">↗</b>il monte</span>' : "") + (LG.dn ? '<span><b class="fq-ar dn">↘</b>il descend</span>' : "") + (Object.keys(REL).length ? '<span><b class="fq-rel2"></b>sortie du classement</span>' : "") + '<span><b class="fq-now2"></b>aujourd\'hui</span></div>' +
+      (say.length ? '<div class="fq-say">' + say.join("") + "</div>" : "");
+    var nTodo = (t.pool || []).filter(function (x) { return !x.res; }).length;
+    head = '<span class="eyebrow">Ta poule · ' + nTodo + " à jouer" + (played.length ? ", " + played.length + (played.length > 1 ? " joués" : " joué") : "") + "</span>";
+    var sub = '<span class="aj-sub">Quand jouer chacun, du ' + esc(dm(E.parseDate(stI))) + " à la fin de la poule (" + esc(dm(E.parseDate(endI))) + ")</span>";
+    var body = "";
     var HOW = '<details class="bz-how"><summary>' + svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>', 2.2) + "Comment Montée calcule</summary><ul>" +
-      "<li><b>+35</b> : ce que vaut ta victoire, à ton classement d'aujourd'hui.</li>" +
+      "<li><b>+35</b> : ce que vaut ta victoire, à ton classement d'aujourd'hui. <b>−8</b> : ce que tu perdrais en le jouant à ce moment-là plutôt qu'au meilleur.</li>" +
+      "<li><b>Le meilleur moment</b> : là où ta victoire vaut le plus ; à points égaux (même à 0 pt), là où il est le mieux classé.</li>" +
       "<li><b>1er changement</b> : la simulation Ten'Up. <b>Le suivant</b> : Montée le calcule sur son palmarès, comme s'il ne rejouait plus.</li>" +
       "<li><b>Protégé</b> : il est déjà descendu il y a moins de 12 mois (Ten'Up ou son palmarès le montre). La FFT ne le fait pas redescendre.</li>" +
       "<li>Touche un joueur pour sa fiche.</li>" + (t.to || t.dl ? "" : "<li>Indique la date limite (Modifier, en haut) pour ne voir que les dates encore jouables.</li>") + "</ul></details>";
-    return '<div class="card pt-card bx">' + head + sub + poolProgHtml(t) + grid + (body ? '<div class="bz-d">' + body + "</div>" : "") + HOW + "</div>";
+    return '<div class="card pt-card bx fq-card">' + head + sub + poolProgHtml(t) + grid + HOW + "</div>";
   }
   function dm(d) { return d.getDate() + " " + MOIS[d.getMonth()]; }
   // 3.55.3 : la meilleure date pour un adversaire : cases (maintenant, chaque sortie jusqu'à la fin de la poule), la meilleure, le conseil, les alertes
@@ -1772,6 +1776,8 @@
     // 3.74.7 (maquette poule-matchs validée par Yann) : « Les résultats » à plat, tes matchs d'abord (pastille V/D), puis les autres (date), du plus récent au plus ancien
     var played = games.slice().sort(function (a, b) { return ((b.me ? 1 : 0) - (a.me ? 1 : 0)) || (String(b.date || "") > String(a.date || "") ? 1 : String(b.date || "") < String(a.date || "") ? -1 : 0); });
     var lead = function (gm) { if (gm.me) { var v = gm.w === "a"; return '<span class="pl-lead"><span class="pl-ok ' + (v ? "v" : "d") + '" aria-label="' + (v ? "Victoire" : "Défaite") + '">' + (v ? "V" : "D") + "</span></span>"; } var dd = gm.date && E.parseDate(String(gm.date).slice(0, 10)); return '<span class="pl-lead">' + (dd && !isNaN(dd) ? '<span class="pl-dt">' + dd.getDate() + "<br>" + MOIS[dd.getMonth()] + "</span>" : "") + "</span>"; };
+    // 3.75.0 : quand la frise est là (Montée+ et une projection lisible), elle remplace « Programmés / À programmer »
+    var fz = !PLUS_LOCK() && (UI.plEdit !== t.id) && poolTiming(t).length > 0;
     s += poolTimingHtml(t);
     var todo = (t.pool || []).map(function (x, i) { return { x: x, i: i }; }).filter(function (z) { return !z.x.res; });
     s += '<div class="card pl-m pl-flat">' + (played.length ? '<span class="eyebrow">Les résultats · ' + plural(played.length, "match", "matchs") + "</span>" : "") + (played.length ? played.map(function (gm) {
@@ -1795,7 +1801,7 @@
         (when ? '<span class="pl-wl">' + when + "</span>" : "") +
         (past ? '<span class="tq-res pl-rs"><button class="chip" data-a="trRes" data-k="pool" data-v="V" data-i="' + z.i + '">J\'ai gagné</button><button class="chip" data-a="trRes" data-k="pool" data-v="D" data-i="' + z.i + '">J\'ai perdu</button></span>' : "") + "</div>";
     };
-    if (UI.plEdit !== t.id) {
+    if (UI.plEdit !== t.id && !fz) {
       var sched = todo.filter(function (z) { return z.x.day; }).sort(function (a, b) { return a.x.day < b.x.day ? -1 : 1; }), open = todo.filter(function (z) { return !z.x.day; });
       if (sched.length) s += '<span class="eyebrow pl-h">Programmés · ' + plural(sched.length, "match") + "</span>" + sched.map(prow).join("");
       if (open.length) s += '<span class="eyebrow pl-h' + (sched.length ? " pl-sep" : "") + '">À programmer · ' + plural(open.length, "match") + "</span>" + open.map(prow).join("");
@@ -1806,6 +1812,16 @@
         return '<div class="pl-er"><span class="grow"><b>' + esc(trNm(x.name) || "Un " + (x.rank || "joueur")) + (x.rank ? ' <span class="muted">· ' + esc(x.rank) + "</span>" : "") + "</b>" + (x.res ? "<small>match joué (" + (x.res === "V" ? "victoire" : "défaite") + ")</small>" : "") + '</span><button class="pl-ic" data-a="trRound" data-k="pool" data-i="' + i + '" aria-label="Modifier">' + svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', 2) + '</button><button class="pl-ic pl-del" data-a="plDel" data-i="' + i + '" aria-label="Retirer de la poule">' + svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>', 2) + "</button></div>";
       }).join("") + '<button class="tq-add pl-new" data-a="trRound" data-k="pool" data-i="new">+ Ajouter un adversaire</button></div></div>';
     } else s += '<button class="linkbtn pl-add" data-a="plEdit">' + svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', 2) + " Modifier la poule</button></div>";
+    // 3.75.0 (Yann) : « Les coordonnées » de toute la poule (SMS, appel), un numéro manquant s'ajoute d'un geste
+    if (fz && (t.pool || []).length) {
+      var telF = function (n) { var d = String(n).replace(/\D/g, ""); return d.length === 10 ? d.replace(/(\d\d)(?=\d)/g, "$1 ") : String(n); };
+      s += '<div class="card ctc"><span class="eyebrow">Les coordonnées · ' + plural((t.pool || []).length, "joueur", "joueurs") + "</span>" + (t.pool || []).map(function (x, i) {
+        var nm = esc(trNm(x.name) || "Un joueur"), tap = x.tid ? ' data-a="plOpen" data-v="' + esc(x.tid) + '"' : ' data-a="trRound" data-k="pool" data-i="' + i + '"';
+        return '<div class="ct-r"><button class="ct-n"' + tap + '><b>' + nm + (x.rank ? ' <b class="rk-tag">' + esc(x.rank) + "</b>" : "") + "</b><small>" + (x.tel ? esc(telF(x.tel)) : "Pas de numéro") + "</small></button>" +
+          (x.tel ? '<button class="ct-b" data-a="trSms" data-v="' + i + '" aria-label="Envoyer un SMS à ' + nm + '">' + SMS_IC + '</button><button class="ct-b" data-a="trCall" data-v="' + i + '" aria-label="Appeler ' + nm + '">' + CALL_IC + "</button>"
+            : '<button class="ct-add" data-a="trRound" data-k="pool" data-i="' + i + '" aria-label="Ajouter le numéro de ' + nm + '">+ Ajouter</button>') + "</div>";
+      }).join("") + "</div>";
+    }
     return s;
   }
   // Récap : après la défaite (ou la fin), plus de prochain match proposé
