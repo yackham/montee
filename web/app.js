@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.88.0",
+    VERSION: "3.89.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -15198,9 +15198,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         hours: st2.known ? fmtHours(st2.min) : "?", max: st2.known && mono ? "sur " + Math.round(MONO_MAX / 60) + " h" : st2.known ? "de jeu" : "",
         pct: st2.known && mono ? Math.min(100, Math.round(st2.min * 100 / MONO_MAX)) : st2.known ? Math.min(100, Math.round(st2.min * 100 / (40 * 60))) : 0,
         title: [r.name, r.string ? r.string.replace(/\s*\d+([.,]\d+)?\s*$/, "") : r.model, fmtTension(r)].filter(Boolean).join(" · "),
-        short: st2.level === "broken" ? "cassé" : st2.level === "change" ? "à recorder" : st2.level === "soon" ? "bientôt" : !st2.known ? "date ?" : "OK" };
+        short: st2.level === "broken" ? "cassé" : st2.level === "change" ? "à recorder" : st2.level === "soon" ? "bientôt" : !st2.known ? "date ?" : "OK",
+        // 3.81 (widget raquette B3) : heures en chiffre, heures prévues, ce qu'il reste, date du cordage
+        hN: st2.known ? fmtHours(st2.min).replace(" h", "") : "?", maxH: st2.known ? (mono ? Math.round(MONO_MAX / 60) : 40) : 0,
+        left: st2.known ? Math.max(0, Math.round(((mono ? MONO_MAX : 40 * 60) - st2.min) / 60)) : null,
+        since: (function () { try { var sd = st2.since && E.parseDate(st2.since); return sd ? sd.getDate() + " " + MOIS_L[sd.getMonth()] : ""; } catch (e) { return ""; } })() };
     };
     if (rk) { var full = wr(rk); for (var kk in full) if (d.racket[kk] === undefined || kk === "hours" || kk === "pct") d.racket[kk] = full[kk]; d.racket.msg = d.racket.msg; }
+    // 3.81 : Ace, Ce qui arrive, ton équipe, tes chances, et le prochain match (tournoi, poule, équipe) pour les widgets
+    try { widgetMore(d); } catch (e) {}
     d.bag = bag().map(wr);
     // semaine
     var by = activity(), mon = mondayOf(today()), min = 0, days = [];
@@ -15217,6 +15223,50 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       d.week.slot = { label: "Prochain : " + DAYS_L[nxt.sl.dow] + " " + nxt.sl.time + " · " + (nxt.sl.label || "Entraînement"), ask: false };
     }
     return d;
+  }
+  // 3.81 : ce que les nouveaux widgets et la montre affichent (maquettes validées par Yann le 23/11)
+  function calOf(z) {
+    var x = E.parseDate(z.d), g = dGap(z.d), J = ["DIM.", "LUN.", "MAR.", "MER.", "JEU.", "VEN.", "SAM."];
+    var k = z.team ? "team" : z.rel ? "rel" : z.bd ? "badge" : z.todo ? "todo" : z.pl ? "match" : z.t ? "tour" : "autre";
+    return { d: String(x.getDate()), w: g === 0 ? "AUJ." : g === 1 ? "DEM." : J[x.getDay()], m: MOIS[x.getMonth()].replace(/\.$/, "").toUpperCase(), iso: z.d, k: k,
+      t: String(z.title || "").replace(/<[^>]+>/g, ""), e: z.eye || "", s: [z.eye, z.sub, z.time ? z.time.replace(":", "h") : ""].filter(Boolean).join(" · "),
+      st: String(z.st || "").replace(/<[^>]+>/g, "") || null, oid: z.pl ? String(z.pl.id) : z.oid ? String(z.oid) : null, time: z.time || "" };
+  }
+  function aceNow() {
+    var h = coHomeTip(ctx()), t = h.tip ? String(h.tip.t).replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim() : "";
+    return { t: t, m: h.mood || "repos", v: h.tip ? h.tip.v : "" };
+  }
+  function widgetMore(d) {
+    try { if (S.matches.length) d.ace = aceNow(); } catch (e) {}
+    var fr = []; try { fr = friseItems().filter(function (z) { return !z.dim; }); } catch (e) {}
+    d.cal = fr.slice(0, 7).map(calOf);
+    var tm = fr.filter(function (z) { return z.team; })[0];
+    if (tm) d.team = { t: tm.title, s: tm.sub, st: tm.st || "", live: !!tm.live, when: dayLab(tm.d) };
+    try { d.chances = watchChances(); } catch (e) {}
+    // Prochain match : le match prévu, sinon le prochain tour de tournoi ou match de poule avec un adversaire connu
+    var mt = fr.filter(function (z) { return (z.pl || (z.t && z.oid)) && dGap(z.d) >= 0 && dGap(z.d) <= 14; })[0];
+    if (mt && !mt.pl && !(d.scout && d.scout.when)) {
+      var nm = String(mt.title || "").split(" · "), pc = /(\d+) %/.exec(mt.st || "");
+      d.scout = { id: String(mt.oid), name: nm[0], rank: nm[1] || "", p: pc ? +pc[1] : null, when: dayLab(mt.d) + (mt.time ? " " + mt.time.replace(":", "h") : ""), tip: mt.sub || "", tipS: "" };
+    }
+    // 3.81 : pile intelligente (iPhone) : quels widgets comptent aujourd'hui
+    var R = {}, set = function (ks, v) { ks.forEach(function (k) { R[k] = Math.max(R[k] || 0, v); }); };
+    var m0 = fr.filter(function (z) { return (z.pl || z.t || z.team) && !z.todo && !z.rel && !z.bd; })[0];
+    if (m0 && dGap(m0.d) <= 1) set(m0.team ? ["equipe", "avenir", "avenir2"] : ["adversaire", "adversaire2", "avenir", "avenir2", "ace", "ace2"], dGap(m0.d) === 0 ? 1 : 0.6);
+    try { if (d.releaseIso && dGap(d.releaseIso) >= 0 && dGap(d.releaseIso) <= 2) set(["classement", "sortie", "chances"], 0.8); } catch (e) {}
+    if (d.racket && (d.racket.level === "change" || d.racket.level === "broken") && mt && dGap(mt.d) <= 2) set(["cordage", "cordage2"], 0.9);
+    if (d.ace && (d.ace.v === "win" || d.ace.v === "loss")) set(["ace", "ace2"], 0.7);
+    d.rel = R;
+    // Raquette à recorder : avant quel match ?
+    if (mt && d.racket && dGap(mt.d) <= 7) {
+      d.racketBefore = dGap(mt.d) === 0 ? "ton match" : dGap(mt.d) === 1 ? "demain" : JOURS[E.parseDate(mt.d).getDay()];
+      var nm2 = String(mt.title || "").split(" · "); d.racketOpp = { name: nm2[0], rank: nm2[1] || (mt.pl && mt.pl.rank) || "" };
+    }
+  }
+  function watchChances() {
+    if (PLUS_LOCK()) return null; var r = chancesCalc(ctx()); if (!r) return null;
+    var pc = Math.round(r.p * 100), lim = E.iso(new Date(today().getTime() - 6 * 864e5)), old = (S.chHist || []).filter(function (x) { return x.d <= lim && x.rel === E.iso(r.rel); }).pop();
+    return { p: pc, t: lab(r.target), down: r.down, rel: chRelLab(r.rel), delta: old ? pc - old.p : null };
   }
   var lastWidgetJson = "", widgetTimer = 0, widgetBusy = false;
   function widgetTheme() { var w = (S.prefs && S.prefs.wtheme) || "app"; return w === "app" ? themeNow() : w; }
@@ -15280,6 +15330,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     else if (ls.name) nx = { id: ls.id || "", name: nameCase(ls.name), rank: ls.rank || "", when: "", p: ls.p != null ? ls.p : null, h2h: ls.h2h || "", tip: ls.tip || "", tipS: ls.tipS || "", mode: ls.k || null, gap: ls.gap != null ? ls.gap : null };
     if (nx) Object.assign(nx, watchCoach(nx.name));
     var last = null; try { var pm = sortedMatches().filter(function (m) { return m.date && !m.wo && (m.result === "V" || m.result === "D"); })[0]; if (pm) last = pm.result + " " + (pm.score || "") + " · " + (pm.opp || "") ; } catch (e) {}
+    var day = null; try { var dz = friseItems().filter(function (z) { return !z.dim && dGap(z.d) === 0 && (z.pl || z.t || z.team) && !z.todo && !z.rel && !z.bd; })[0];
+      if (dz) { var dn = String(dz.title || "").replace(/<[^>]+>/g, "").split(" · "), oid = dz.pl ? String(dz.pl.id) : dz.oid ? String(dz.oid) : null;
+        day = { k: dz.team ? "team" : dz.pl ? "match" : "tour", t: dn[0], r: dn[1] || (dz.pl && dz.pl.rank) || "", s: String(dz.sub || "").replace(/<[^>]+>/g, ""), time: dz.time ? dz.time.replace(":", "h") : "", st: String(dz.st || "").replace(/<[^>]+>/g, ""), oid: oid };
+        if (oid && !dz.team && !seen[oid]) { seen[oid] = 1; o.unshift(Object.assign({ id: oid, name: dn[0], rank: day.r, p: dz.pl ? dz.pl.p : null, tag: "Aujourd'hui", hom: dz.pl ? dz.pl.hom : null, fmt: dz.pl ? dz.pl.fmt : null }, watchCoach(dn[0]))); } } } catch (e) {}
+    var lastM = null; try { var pl0 = sortedMatches().filter(function (m) { return m.date && !m.wo && (m.result === "V" || m.result === "D"); })[0];
+      if (pl0 && dGap(pl0.date) >= -3 && dGap(pl0.date) <= 0) lastM = { r: pl0.result, opp: pl0.opp && !isAnon(pl0.opp) ? nameCase(pl0.opp) : "Un " + pl0.oppRank, rank: pl0.oppRank || "", score: pl0.score || "", pts: d.last && d.last[0] && d.last[0].r === pl0.result ? d.last[0].right : "", when: dayLab(pl0.date) }; } catch (e) {}
     var rel = d.releaseIso ? E.parseDate(d.releaseIso) : null;
     return { v: 1, rank: d.rankNow || d.rank || effRank() || "", next: d.label || "", pct: d.pct != null ? d.pct : null, short: d.short || d.line || "", plus: isSup(), name: S.profile.name || "",
       gap: gap, defend: dp, defendWhen: dw ? MOIS[["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"].indexOf(dw)] || dw : null, record: d.recordShort || null, rel: d.releaseIso ? dGap(d.releaseIso) : null, relLabel: rel ? rel.getDate() + " " + MOIS[rel.getMonth()] : null,
@@ -15287,10 +15343,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       week: watchWeek(),
       // 3.49 : complication face-à-face (le prochain adversaire déjà joué, sinon ton plus grand rival) et tes chances de monter (Montée+)
       faf: (function () { try { var f = faData()[0]; return f ? { n: shortNm(f.name), when: f.next || "", v: f.v, d: f.d, seq: f.seq.slice(-8) } : null; } catch (e) { return null; } })(),
-      chances: (function () { try { if (PLUS_LOCK()) return null; var r = chancesCalc(ctx()); if (!r) return null; var pc = Math.round(r.p * 100), lim = E.iso(new Date(today().getTime() - 6 * 864e5)), old = (S.chHist || []).filter(function (x) { return x.d <= lim && x.rel === E.iso(r.rel); }).pop();
-        return { p: pc, t: lab(r.target), down: r.down, rel: chRelLab(r.rel), delta: old ? pc - old.p : null }; } catch (e) { return null; } })(),
+      chances: (function () { try { return watchChances(); } catch (e) { return null; } })(),
       // 3.46.5 (maquette 448) : « À venir » (la frise de l'accueil, 3 éléments) et « Tes copains » (joueurs suivis, ce qui a bougé)
-      cal: (function () { try { var J = ["DIM.", "LUN.", "MAR.", "MER.", "JEU.", "VEN.", "SAM."]; return friseItems().filter(function (z) { return !z.dim; }).slice(0, 3).map(function (z) { var x = E.parseDate(z.d); return { d: String(x.getDate()), w: dGap(z.d) === 0 ? "AUJ." : dGap(z.d) === 1 ? "DEM." : J[x.getDay()], m: MOIS[x.getMonth()].replace(/\.$/, "").toUpperCase(), t: z.title, s: [z.sub, z.time ? z.time.replace(":", "h") : ""].filter(Boolean).join(" · "), st: z.st || null, oid: z.pl ? String(z.pl.id) : z.oid ? String(z.oid) : null }; }); } catch (e) { return []; } })(),
+      // 3.81 : billets « Ce qui arrive » avec leur en-tête (le badge s'affichait sans son titre), Ace, jour de match, après-match
+      cal: (d.cal || []).slice(0, 6),
+      ace: d.ace || null, day: day, lastM: lastM,
       fol: (function () { try { return Object.keys(S.follow || {}).map(function (k) { var f = S.follow[k], nw = f.news && Date.now() - (f.newsAt || 0) < 14 * 864e5 ? f.news : null; return { n: nameCase(f.name || ""), r: f.rank || "", s: nw ? (nw.t || nw.tag || "") : "rien de neuf", up: nw && nw.k === "up" ? 1 : nw && nw.k === "dn" ? -1 : 0, at: nw ? f.newsAt : 0 }; }).sort(function (a, b) { return b.at - a.at; }).slice(0, 6).map(function (x) { delete x.at; return x; }); } catch (e) { return []; } })(),
       // 3.34 : ta photo (petite) et ton initiale, en bas de l'écran de score du mode avancé
       photo: photoThumb(), initial: (S.profile.name || ((S.tenup.me || {}).prenom) || "?").charAt(0).toUpperCase(),
@@ -15597,6 +15654,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (pth[0] === "sante/nouvelle") UI.hcFromNotif = true;
       var to = /(^|&)to=([\w-]+)/.exec(qs); if (to) UI.cbTo = to[2];
       var tb = /(^|&)tab=(\w+)/.exec(qs); if (tb) UI.fafTab = tb[2]; // widget « Joueurs suivis » // widget « Points à défendre » : droit sur sa courbe
+      // 3.81 : widget Ace : l'accueil, puis Ace ouvert sur la question du moment
+      if (pth[0] === "ace") { go(""); try { var av = aceNow().v || ""; UI.ace = { q: av }; render(); } catch (e) {} return; }
       go(pth[0] || ""); return;
     }
     var q = {}; (m[2].split("?")[1] || "").split("&").forEach(function (kv) { var p = kv.split("="); if (p[0]) q[p[0]] = decodeURIComponent(p[1] || ""); });

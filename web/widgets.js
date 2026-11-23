@@ -11,7 +11,10 @@
     semaine: [360, 170], tableau: [360, 380], truc: [360, 92], defend: [170, 170], sac: [360, 92],
     joueurs: [360, 92], adversaire: [360, 170], objectif: [170, 170],
     adversaire2: [170, 170], suivis: [360, 170], suivis2: [170, 170], suivis3: [360, 380],
-    faf: [360, 380], faf2: [360, 170], faf1: [170, 170]
+    faf: [360, 380], faf2: [360, 170], faf1: [170, 170],
+    // 3.81 : Ace, Ce qui arrive, ton équipe, tes chances ; formats iPhone de la raquette, de la forme et du sac
+    ace: [170, 170], ace2: [360, 170], avenir: [360, 380], avenir2: [360, 170], equipe: [170, 170], chances: [170, 170],
+    cordage2: [360, 170], forme2: [170, 170], sac2: [360, 170]
   };
   var VARS = ["bg", "card", "ink", "muted", "line", "chip", "balle", "balle-soft", "on-balle", "gazon", "gazon-dark", "menthe",
     "terre", "terre-dark", "terre-soft", "chart-v", "chart-d", "solid", "on-solid", "panel", "on-panel", "sub", "hl",
@@ -70,10 +73,9 @@
     return "norm";
   }
   function skin(st, p) {
-    if (st === "up") return { bg: p.panel, fg: p["on-panel"], sub: p.sub, acc: p.hl, track: "rgba(255,255,255,.18)" };
-    if (st === "down") return { bg: p.terre, fg: p["on-terre"], sub: mix(p["on-terre"], 80), acc: p["on-terre"], track: mix(p["on-terre"], 25) };
-    if (st === "norm") return { bg: p["hero-bg"], fg: p["hero-ink"], sub: mix(p["hero-ink"], 72), acc: p["hero-bar"], track: mix(p["hero-ink"], 12) };
-    return { bg: p.card, fg: p.ink, sub: p.muted, acc: p.gazon, track: p.chip };
+    // 3.81 (Yann) : cartes neutres partout, la couleur seulement en accent (plus de fond vert, jaune-vert ou terre)
+    var a = st === "down" ? p.terre : st === "up" || st === "norm" ? accent(p) : p.gazon;
+    return { bg: p.card, fg: p.ink, sub: p.muted, acc: a, track: p.chip };
   }
   function relLabel(d) {
     if (!d.releaseIso) return "";
@@ -96,6 +98,24 @@
       '<div style="position:absolute;top:0;left:calc((100% - 20px) * ' + f.toFixed(3) + ')">' + tball(col, p.card) + "</div></div>";
   }
   function pill(t, col) { return '<span style="align-self:flex-start;font-size:11px;font-weight:800;border-radius:99px;padding:3px 9px;white-space:nowrap;background:' + mix(col, 18) + ";color:" + col + '">' + esc(t) + "</span>"; }
+  // 3.81 (Yann) : un classement = la petite balle jaune devant, comme .rk-tag dans l'app
+  function rkb(r, p, fs, col) {
+    if (!r) return ""; fs = fs || 13; var z = Math.max(6, Math.round(fs * 0.6));
+    return '<span style="white-space:nowrap;font-weight:800;font-size:' + fs + "px;color:" + (col || p.ink) + '"><span style="display:inline-block;width:' + z + "px;height:" + z + "px;border-radius:50%;background:" + p.balle +
+      ";box-shadow:inset 0 0 0 1px " + mix(p.ink, 25) + ";margin-right:" + Math.round(fs * 0.3) + "px;vertical-align:" + Math.round(fs * 0.06) + 'px"></span>' + esc(r) + "</span>";
+  }
+  // 3.81 : Ace (la Balle, balle.js) en image fixe, dans l'humeur du moment
+  function aceArt(mood, sz) {
+    var B = root.Balle;
+    if (B && B.make) {
+      try {
+        var w = B.make(sz), f = B.M[mood] || B.M.repos;
+        w.pose(f(mood === "repos" ? 0.05 : mood === "joie" || mood === "arrivee" ? 1 : 0.55));
+        return '<span style="display:block;flex:none;width:' + sz + "px;height:" + Math.round(sz * 1.1) + 'px">' + w.innerHTML + "</span>";
+      } catch (e) {}
+    }
+    return '<span style="display:block;flex:none">' + tball("#D4E64A", "#F4F7E1", sz) + "</span>";
+  }
   function eyeb(t, col) { return '<span class="x-ey x-ell" style="font-size:10px;color:' + col + '">' + esc(t) + "</span>"; }
 
   // 1. Montée (2 × 2)
@@ -115,9 +135,9 @@
       // 3.34 : montée en cours : les deux classements en pastilles, « Il te manque N pts », la barre, J-n
       if (st === "norm" && d.norme && d.target) {
         var tg = String(d.target).split("→").map(function (x) { return x.trim(); }), jn = d.releaseIso ? Math.max(0, Math.round((new Date(d.releaseIso + "T12:00:00") - new Date()) / 864e5)) : null;
-        var cp = function (t, bg, fg) { return '<span style="font-size:12px;font-weight:800;border-radius:8px;padding:3px 7px;background:' + bg + ";color:" + fg + '">' + esc(t) + "</span>"; };
+
         return '<div class="x-w" style="' + glow(p, ac) + ';gap:2px">' +
-          '<div class="x-row" style="align-items:center;gap:5px">' + cp(tg[0] || d.rankNow || d.rank, p.chip, p.ink) + '<b style="color:' + p.muted + ';font-size:13px">→</b>' + cp(tg[1] || "", ac, isDark(p) ? "#121212" : "#fff") + "</div>" +
+          '<div class="x-row" style="align-items:center;gap:6px">' + rkb(tg[0] || d.rankNow || d.rank, p, 14) + '<b style="color:' + p.muted + ';font-size:13px">→</b>' + rkb(tg[1] || "", p, 14, ac) + "</div>" +
           '<span style="font-size:13px;font-weight:700;color:' + p.muted + ';margin-top:8px">Il te manque</span>' +
           '<b style="font-size:30px;line-height:1;letter-spacing:-.03em">' + Math.max(0, d.norme - d.total) + " pts</b>" +
           '<div class="x-sp"></div>' + bbar(p, d.pct, ac) +
@@ -144,26 +164,50 @@
     // 3.29 : carte du thème + lueur, barre à balle
     var ac2 = st === "down" ? p.terre : accent(p);
     s = '<div class="x-w" style="' + glow(p, ac2) + ';gap:5px">';
-    s += '<div class="x-row" style="align-items:center;gap:8px"><span class="x-ey x-ell" style="flex:1;font-size:10px;color:' + (st === "down" ? p.terre : p.muted) + '">' + esc(ey + (d.days != null ? " · dans " + d.days + " j" : "")) + "</span>" + (d.target ? chip(st === "down" ? "Maintien " + (d.rankNow || d.rank) : d.target, p.chip, p.ink) : "") + "</div>" +
+    s += '<div class="x-row" style="align-items:center;gap:8px"><span class="x-ey x-ell" style="flex:1;font-size:10px;color:' + (st === "down" ? p.terre : p.muted) + '">' + esc(ey + (d.days != null ? " · dans " + d.days + " j" : "")) + "</span>" + (d.target ? (st === "down" ? '<span class="x-sm" style="font-weight:700">Maintien ' + rkb(d.rankNow || d.rank, p, 12) + "</span>" : rkb(String(d.target).split("→")[0].trim(), p, 12) + '<b style="color:' + p.muted + ';font-size:12px">→</b>' + rkb((String(d.target).split("→")[1] || "").trim(), p, 12, ac2)) : "") + "</div>" +
       '<span class="x-t1 x-clamp2" style="font-size:21px;margin-top:3px">' + esc(d.headline) + "</span>" + (d.sub ? '<span class="x-sm x-ell" style="color:' + p.muted + '">' + esc(d.sub) + "</span>" : "") + '<div class="x-sp"></div>';
     if (d.norme) s += bbar(p, d.pct, ac2) + '<div class="x-row x-sm" style="color:' + p.muted + '"><span><b style="color:' + p.ink + '">' + d.total + "</b> / " + d.norme + " pts au bilan " + esc(d.label || "") + '</span><div class="x-sp"></div><span>il en faut ' + d.norme + "</span></div>";
     return s + "</div>";
   };
 
   // 3. Raquette (2 × 2)
-  T.cordage = function (d, p) {
+  // 3.81 (maquette B3 validée) : ta raquette à ses couleurs ; les cordes prennent la couleur de l'usure, du bas vers le haut
+  var rkN = 0;
+  function rkCol(p, r) { var bad = r.level === "change" || r.level === "broken"; return bad ? p.terre : r.level === "soon" ? p["chart-d"] : p.gazon; }
+  function rkWear(p, r, h) {
+    var I = ill(); if (!I) return "";
+    var f = r.known ? Math.max(0.04, Math.min(1, (r.pct || 0) / 100)) : 0, col = rkCol(p, r), id = "rw" + (rkN++);
+    var svg = I.racket(r.color || "noir", r.accent, r.pattern).replace(/(id="|url\(#)(rk[^"\)]*?)(f|c)(["\)])/g, "$1$2" + id + "$3$4");
+    var cid = (svg.match(/clipPath id="([^"]+)"/) || [])[1], str = "";
+    for (var x = 13; x <= 47; x += 4) str += "M" + x + " 6V68";
+    for (var y = 12; y <= 64; y += 4) str += "M6 " + y + "H54";
+    var y0 = (6 + 62 * (1 - f)).toFixed(1);
+    if (f > 0 && cid) svg = svg.replace("</defs>", '<clipPath id="' + id + 'w"><rect x="0" y="' + y0 + '" width="60" height="' + (68 - y0).toFixed(1) + '"/></clipPath></defs>')
+      .replace('<path d="M22 64', '<g clip-path="url(#' + cid + ')"><g clip-path="url(#' + id + 'w)"><rect x="6" y="4" width="48" height="66" fill="' + col + '" opacity=".14"/><path d="' + str + '" stroke="' + col + '" stroke-width="1.15"/></g></g><path d="M22 64');
+    return '<span class="x-rkt" style="height:' + h + "px;width:" + Math.round(h * 0.484) + "px;transform:rotate(-8deg)" + (isDark(p) ? ";filter:drop-shadow(0 0 .7px rgba(242,243,245,.85)) drop-shadow(0 0 4px rgba(242,243,245,.16))" : "") + '">' + svg + "</span>";
+  }
+  function rkState(r, d, big) {
+    if (r.level === "broken") return "Cordage cassé";
+    if (r.level === "change") return "À recorder" + (big && d.racketBefore ? " avant " + d.racketBefore : "");
+    if (r.level === "soon") return "Bientôt à recorder";
+    if (!r.known) return "Date de cordage ?";
+    return r.left != null ? "Encore " + r.left + " h" + (big ? ", tout va bien" : "") : "Cordage en forme";
+  }
+  T.cordage = function (d, p, W) {
     var r = d.racket;
     if (!r) return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + '"><span class="x-ey" style="color:' + p.muted + '">Ton sac</span><div class="x-sp"></div><span class="x-t1">Ajoute ta raquette</span><span class="x-sm" style="color:' + p.muted + '">Montée suivra l\'usure du cordage.</span></div>';
-    var lv = r.level, warn = lv === "soon", bad = lv === "change" || lv === "broken";
-    var bg = bad ? p.terre : p.card, fg = bad ? p["on-terre"] : p.ink, sub = bad ? mix(p["on-terre"], 80) : p.muted;
-    var col = bad ? p["on-terre"] : warn ? p["chart-d"] : p["chart-v"], track = bad ? mix(p["on-terre"], 22) : p.chip;
-    var pill = lv === "broken" ? "Cordage cassé" : lv === "change" ? "À recorder" : lv === "soon" ? "Bientôt à recorder" : !r.known ? "Date de cordage ?" : "Cordage en forme";
-    var pillBg = bad ? mix(p["on-terre"], 18) : warn ? p["terre-soft"] : p.menthe, pillFg = bad ? fg : warn ? p["terre-dark"] : p["gazon-dark"];
-    return '<div class="x-w" style="background:' + bg + ";color:" + fg + '"><span class="x-ey" style="color:' + sub + '">' + esc(r.title || r.name) + "</span>" +
-      '<div class="x-row" style="flex:1;align-items:center;gap:6px;margin:4px 0"><div style="position:relative;width:84px;height:84px">' + ring(r.pct, col, track, 84, 8) +
-      '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><b style="font-size:20px;letter-spacing:-.03em">' + esc((r.hours || "?").replace("≈ ", "")) + '</b><span style="font-size:10px;color:' + sub + '">' + esc(r.max || "") + "</span></div></div>" +
-      '<div class="x-sp"></div>' + rk(r, 78) + "</div>" + chip(pill, pillBg, pillFg) + "</div>";
+    var big = W >= 300, col = rkCol(p, r), hN = r.known ? String(r.hN || (r.hours || "").replace(/[^0-9,]/g, "")) : "?";
+    var sub = r.known ? (r.maxH ? "sur " + r.maxH + " h" + (big ? " prévues" : "") : "de jeu") : "depuis le cordage";
+    var foot = big ? (r.level === "change" || r.level === "broken") && d.racketOpp ? '<span class="x-sm x-ell" style="color:' + p.muted + ';margin-top:2px">contre ' + esc(d.racketOpp.name) + (d.racketOpp.rank ? " " + rkb(d.racketOpp.rank, p, 12) : "") + "</span>" : r.since ? '<span class="x-sm x-ell" style="color:' + p.muted + ';margin-top:2px">Cordée le ' + esc(r.since) + "</span>" : "" : "";
+    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';flex-direction:row;padding:0;align-items:stretch">' +
+      '<div style="width:' + (big ? 96 : 66) + "px;flex:none;display:flex;align-items:center;justify-content:center;padding-left:" + (big ? 18 : 10) + 'px">' + rkWear(p, r, big ? 140 : 128) + "</div>" +
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:15px 14px 15px 10px">' +
+      '<span class="x-ey x-ell" style="color:' + p.muted + ';font-size:9.5px;letter-spacing:.03em">' + esc(big ? r.title || r.name : r.name || "Raquette") + '</span><div class="x-sp"></div>' +
+      (big ? '<div class="x-row" style="align-items:baseline;gap:8px">' : "") + '<b style="font-size:34px;font-weight:800;letter-spacing:-.035em;line-height:1">' + esc(hN) + '<span style="font-size:17px;letter-spacing:0"> h</span></b>' +
+      '<span class="x-sm" style="color:' + p.muted + '">' + esc(sub) + "</span>" + (big ? "</div>" : "") +
+      '<b class="x-ell" style="font-size:13px;margin-top:7px;color:' + col + '">' + esc(rkState(r, d, big)) + "</b>" + foot + "</div></div>";
   };
+  T.cordage2 = function (d, p) { return T.cordage(d, p, 360); };
 
   // 4. Forme (2 × 1)
   T.forme = function (d, p) {
@@ -179,12 +223,12 @@
 
   // 5. Sortie (1 × 1)
   T.mini = function (d, p) {
-    var st = state(d), up = st === "up", rel = relLabel(d);
-    var bg = up ? p.panel : st === "down" ? p.terre : p["hero-bg"], fg = up ? p["on-panel"] : st === "down" ? p["on-terre"] : p["hero-ink"];
-    return '<div class="x-w" style="background:' + bg + ";color:" + fg + ';padding:8px;align-items:center;justify-content:center;text-align:center;gap:1px">' + (up ? confetti(p, [84, 95, 10, 88]) : "") +
-      '<span class="x-ey" style="font-size:9.5px;color:' + (up ? p.hl : mix(fg, 70)) + '">' + (up ? "Tu montes" : "Sortie") + "</span>" +
-      '<span style="font-size:' + (up ? 26 : 22) + "px;font-weight:800;letter-spacing:-.04em;line-height:1.05;position:relative;color:" + (up ? p.hl : fg) + '">' + esc(up ? d.rank : rel || "—") + "</span>" +
-      '<span style="font-size:10px;font-weight:600;opacity:.8;position:relative">' + esc(up ? rel : d.rank ? d.rank : "") + "</span></div>";
+    // 3.81 : carte neutre, la couleur en accent seulement
+    var st = state(d), up = st === "up", rel = relLabel(d), ac = st === "down" ? p.terre : accent(p);
+    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';padding:8px;align-items:center;justify-content:center;text-align:center;gap:1px">' + (up ? confetti(p, [84, 95, 10, 88]) : "") +
+      '<span class="x-ey" style="font-size:9.5px;color:' + (up ? ac : p.muted) + '">' + (up ? "Tu montes" : "Sortie") + "</span>" +
+      '<span style="font-size:' + (up ? 24 : 22) + "px;font-weight:800;letter-spacing:-.04em;line-height:1.05;position:relative;color:" + (up ? ac : p.ink) + '">' + esc(up ? d.rank : rel || "—") + "</span>" +
+      '<span style="font-size:10px;font-weight:600;position:relative;color:' + p.muted + '">' + esc(up ? rel : d.rank ? d.rank : "") + "</span></div>";
   };
 
   // 6. Ta semaine (4 × 2)
@@ -212,7 +256,7 @@
     H = H || 380;
     var st = state(d), rel = relLabel(d);
     var s = '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';gap:9px"><div class="x-row" style="align-items:center"><span class="x-ey" style="color:' + p.muted + '">Palmarès</span><div class="x-sp"></div>' +
-      chip(d.rank || "—", p.solid, p["on-solid"]) + "</div>";
+      rkb(d.rank || "—", p, 14) + "</div>";
     // Points en cours : une ligne et une barre fine
     var ptsTxt = st === "up" ? "Tu montes à " + (d.rank || "") + (rel ? " le " + rel : "") : st === "norm" && d.norme ? "" : d.short || "";
     s += '<div style="background:' + p.chip + ';border-radius:14px;padding:9px 12px;display:flex;flex-direction:column;gap:6px">' +
@@ -230,9 +274,24 @@
   };
 
   // 8. Le truc à savoir (4 × 1)
+  // 3.81 (maquette validée) : « Le truc à savoir » devient la voix d'Ace, sans liseré, avec sa tête
   T.truc = function (d, p) {
-    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';padding:12px 16px 12px 20px;justify-content:center;gap:4px"><i style="position:absolute;left:0;top:0;bottom:0;width:5px;background:' + p.balle + '"></i>' +
-      '<span class="x-ey" style="color:' + p.gazon + '">Le truc à savoir</span><span style="font-size:15px;font-weight:600;line-height:1.28;letter-spacing:-.01em" class="x-clamp2">' + esc(d.truc || "Annote tes matchs : Montée te dira où tu gagnes le plus.") + "</span></div>";
+    var a = d.ace || {}, t = a.t || d.truc || "Annote tes matchs : je te dirai où tu gagnes le plus.";
+    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';flex-direction:row;align-items:center;gap:10px;padding:10px 16px 10px 12px">' + aceArt(a.m || "repos", 46) +
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span class="x-ey" style="color:' + accent(p) + '">Ace</span><span style="font-size:14.5px;font-weight:700;line-height:1.28;letter-spacing:-.01em" class="x-clamp2">' + esc(t) + "</span></div></div>";
+  };
+  T.ace = function (d, p, W) {
+    if (W && W >= 300) return T.ace2(d, p); // Android : widget agrandi
+    var a = d.ace || {}, t = a.t || "Ajoute tes matchs : je te dirai comment monter.";
+    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + '"><span class="x-ey" style="color:' + accent(p) + '">Ace</span>' +
+      '<span style="position:absolute;right:10px;top:8px">' + aceArt(a.m || "repos", 54) + '</span><div class="x-sp"></div>' +
+      '<span class="x-clamp3" style="font-size:15px;font-weight:800;line-height:1.25;letter-spacing:-.01em">' + esc(t) + "</span></div>";
+  };
+  T.ace2 = function (d, p) {
+    var a = d.ace || {}, t = a.t || "Ajoute tes matchs : je te dirai comment monter.";
+    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';flex-direction:row;align-items:center;gap:14px">' + aceArt(a.m || "repos", 84) +
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span class="x-ey" style="color:' + accent(p) + '">Ace</span>' +
+      '<span class="x-clamp3" style="font-size:18px;font-weight:800;line-height:1.22;letter-spacing:-.015em">' + esc(t) + '</span><span class="x-sm" style="color:' + p.muted + '">Touche pour en parler</span></div></div>';
   };
 
   // 9. Points à défendre (2 × 2)
@@ -258,9 +317,9 @@
     var items = list.map(function (r) {
       var bad = r.level === "change" || r.level === "broken", warn = r.level === "soon";
       var col = bad ? p.terre : warn ? p["chart-d"] : p["chart-v"];
-      return '<div style="flex:1;min-width:0;display:flex;gap:8px;align-items:center;background:' + (bad ? p["terre-soft"] : p.chip) + ';border-radius:16px;padding:8px 10px">' + rk(r, 50) +
+      return '<div style="flex:1;min-width:0;display:flex;gap:8px;align-items:center;background:' + p.chip + ';border-radius:16px;padding:8px 10px">' + rk(r, 50) +
         '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><b style="font-size:14px" class="x-ell">' + esc(r.name) + "</b>" + bar(r.pct, col, p.line, 5) +
-        '<span style="font-size:11px;color:' + (bad ? p["terre-dark"] : p.muted) + '" class="x-ell">' + esc((r.hours || "?") + " · " + (r.short || "")) + "</span></div></div>";
+        '<span style="font-size:11px;font-weight:' + (bad ? 700 : 400) + ";color:" + (bad ? p.terre : p.muted) + '" class="x-ell">' + esc((r.hours || "?") + " · " + (r.short || "")) + "</span></div></div>";
     }).join("");
     return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';flex-direction:row;gap:8px;padding:10px">' + items + "</div>";
   };
@@ -286,9 +345,9 @@
     return '<div class="x-w" style="' + glow(p, ac) + ';gap:8px;padding:13px 16px">' +
       '<div class="x-row" style="align-items:center;gap:10px"><span class="x-vd" style="width:38px;height:38px;font-size:13px;background:' + p.chip + ";color:" + p.ink + '">' + esc(ini) + "</span>" +
       '<div style="flex:1;min-width:0;display:flex;flex-direction:column">' + eyeb(o.when ? "Ton match · " + o.when : "Consulté récemment", p.muted) + '<b style="font-size:17px;letter-spacing:-.02em" class="x-ell">' + esc(String(o.name || "").toLowerCase().replace(/(^|[\s'-])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); })) + "</b></div>" +
-      chip(o.rank || "?", p.chip, p.ink) + "</div>" +
+      rkb(o.rank || "?", p, 14) + "</div>" +
       (pc != null ? '<div class="x-row" style="align-items:center;gap:10px"><b style="font-size:26px;letter-spacing:-.04em;line-height:1">' + pc + ' %</b><div style="flex:1">' + bbar(p, pc, col) + "</div></div>" : "") +
-      (o.tip ? '<div style="margin-top:auto;background:' + p.chip + ';border-radius:14px;padding:7px 10px;border-left:3px solid ' + ac + '"><span class="x-sm x-ell" style="display:block;font-weight:700">' + esc(o.tip) + '</span><span class="x-sm x-ell" style="display:block;color:' + p.muted + '">' + esc(o.tipS || "") + "</span></div>" : "") + "</div>";
+      (o.tip ? '<div style="margin-top:auto;background:' + p.chip + ';border-radius:14px;padding:7px 10px"><span class="x-sm x-ell" style="display:block;font-weight:700">' + esc(o.tip) + '</span><span class="x-sm x-ell" style="display:block;color:' + p.muted + '">' + esc(o.tipS || "") + "</span></div>" : "") + "</div>";
   };
 
   // 13. Objectif de saison (2 × 2)
@@ -316,7 +375,7 @@
     if (!o) return '<div class="x-w" style="' + glow(p, ac) + '">' + eyeb("Adversaire", p.muted) + '<div class="x-sp"></div><span class="x-t1" style="font-size:18px">Qui tu joues ?</span><span class="x-sm" style="margin-top:4px;color:' + p.muted + '">Cherche-le : tes chances et ton plan de jeu.</span></div>';
     var pc = o.p, col = pc == null ? p.muted : pc >= 60 ? p.gazon : pc >= 40 ? ac : p.terre;
     return '<div class="x-w" style="' + glow(p, ac) + ';gap:4px">' +
-      '<div class="x-row" style="align-items:center;gap:6px"><span style="flex:1;min-width:0">' + eyeb(o.when ? o.when : "Recherche", p.muted) + "</span>" + chip(o.rank || "?", p.chip, p.ink) + "</div>" +
+      '<div class="x-row" style="align-items:center;gap:6px"><span style="flex:1;min-width:0">' + eyeb(o.when ? o.when : "Recherche", p.muted) + "</span>" + rkb(o.rank || "?", p, 13) + "</div>" +
       '<b class="x-ell" style="font-size:16px;letter-spacing:-.02em;line-height:1.2;display:block">' + esc(shortName(o.name)) + "</b>" +
       '<div class="x-sp"></div>' +
       (pc != null ? '<b style="font-size:26px;letter-spacing:-.04em;line-height:1">' + pc + ' %</b>' + bbar(p, pc, col) +
@@ -325,7 +384,8 @@
   };
 
   // 14. Joueurs suivis : qui a joué, qui monte (2 × 2 ou 4 × 2)
-  T.suivis = function (d, p, W) {
+  T.suivis = function (d, p, W, H) {
+    if (W >= 300 && H >= 300) return T.suivis3(d, p); // 3.81 : Android, widget agrandi
     var big = W >= 300, L = (d.follows || []).slice(0, 3);
     if (!L.length) return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + '"><span class="x-ey" style="color:' + p.muted + '">Joueurs suivis</span><div class="x-sp"></div><span class="x-t1" style="font-size:18px">Suis tes adversaires</span><span class="x-sm" style="margin-top:4px;color:' + p.muted + '">Une cloche sur leur fiche : tu vois ici quand ils jouent ou montent.</span></div>';
     var tone = function (k) { return k === "up" ? [p.menthe, p["gazon-dark"]] : k === "dn" ? [p["terre-soft"], p["terre-dark"]] : [p.chip, p.ink]; };
@@ -333,9 +393,9 @@
       var t = tone(f.k);
       return '<div class="x-row" style="flex:1;align-items:center;gap:' + (big ? 10 : 7) + 'px;min-width:0">' +
         '<span class="x-vd" style="flex:none;width:' + (big ? 32 : 26) + "px;height:" + (big ? 32 : 26) + "px;font-size:" + (big ? 11 : 9.5) + "px;background:" + p.menthe + ";color:" + p["gazon-dark"] + (f.fresh ? ";box-shadow:0 0 0 2px " + p.card + ",0 0 0 3.5px " + p.balle : "") + '">' + esc(f.ini) + "</span>" +
-        '<div style="flex:1;min-width:0;display:flex;flex-direction:column"><span class="x-ell" style="font-size:' + (big ? 14.5 : 13) + 'px;font-weight:700">' + esc(big ? f.name : f.short) + (big ? ' <span style="font-weight:500;color:' + p.muted + '">' + esc(f.rank) + "</span>" : "") + "</span>" +
+        '<div style="flex:1;min-width:0;display:flex;flex-direction:column"><span class="x-ell" style="font-size:' + (big ? 14.5 : 13) + 'px;font-weight:700">' + esc(big ? f.name : f.short) + (big && f.rank ? " " + rkb(f.rank, p, 12, p.muted) : "") + "</span>" +
         '<span class="x-ell" style="font-size:' + (big ? 12 : 11) + "px;color:" + p.muted + '">' + esc(big ? f.line : f.when || f.rank) + "</span></div>" +
-        (f.tag ? chip(f.tag, t[0], t[1]).replace('class="x-chip"', 'class="x-chip" style="flex:none;font-size:' + (big ? 11.5 : 10) + 'px"').replace('" style="background', ';background') : big ? "" : '<span style="font-size:11px;font-weight:700;color:' + p.muted + '">' + esc(f.rank) + "</span>") + "</div>";
+        (f.tag ? chip(f.tag, t[0], t[1]).replace('class="x-chip"', 'class="x-chip" style="flex:none;font-size:' + (big ? 11.5 : 10) + 'px"').replace('" style="background', ';background') : big ? "" : rkb(f.rank, p, 11, p.muted)) + "</div>";
     }).join("");
     var px = big ? 16 : 13;
     return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';padding:0"><span class="x-ey" style="position:absolute;left:' + px + 'px;top:14px;color:' + p.muted + ';font-size:10px">Joueurs suivis</span>' +
@@ -350,7 +410,7 @@
       var t = tone(f.k);
       return '<div class="x-row" style="flex:1;align-items:center;gap:11px;min-width:0;border-top:1px solid ' + p.line + '">' +
         '<span class="x-vd" style="flex:none;width:36px;height:36px;font-size:12px;background:' + p.menthe + ";color:" + p["gazon-dark"] + (f.fresh ? ";box-shadow:0 0 0 2px " + p.card + ",0 0 0 3.5px " + p.balle : "") + '">' + esc(f.ini) + "</span>" +
-        '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span class="x-ell" style="font-size:15px;font-weight:700">' + esc(f.name) + ' <span style="font-weight:500;color:' + p.muted + '">' + esc(f.rank) + "</span></span>" +
+        '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><span class="x-ell" style="font-size:15px;font-weight:700">' + esc(f.name) + (f.rank ? " " + rkb(f.rank, p, 13, p.muted) : "") + "</span>" +
         '<span class="x-ell" style="font-size:12.5px;color:' + p.muted + '">' + esc(f.line) + "</span></div>" +
         (f.tag ? '<span class="x-chip" style="flex:none;font-size:11.5px;background:' + t[0] + ";color:" + t[1] + '">' + esc(f.tag) + "</span>" : "") + "</div>";
     }).join("");
@@ -378,14 +438,14 @@
     var tile = function (x, lab, col) {
       if (!x) return '<div style="flex:1;min-width:0;border-radius:18px;padding:12px;background:' + p.chip + ';display:flex;flex-direction:column;justify-content:center"><span class="x-ey" style="color:' + p.muted + '">' + lab + '</span><span class="x-sm" style="margin-top:6px;color:' + p.muted + '">Pas encore</span></div>';
       return '<div style="flex:1;min-width:0;border-radius:18px;padding:11px 12px;background:radial-gradient(130% 100% at 100% 0%,' + mix(col, 20) + ',transparent 65%),' + p.chip + ';display:flex;flex-direction:column;gap:5px">' +
-        '<span class="x-ey" style="color:' + col + '">' + lab + '</span><span class="x-ell" style="font-size:15px;font-weight:700">' + esc(x.name) + "</span>" + faSc(p, x, 34) + '<div class="x-row" style="align-items:center;justify-content:space-between;gap:6px">' + faSq(p, x.seq, 10, 6) + '<span class="x-sm" style="color:' + p.muted + '">' + esc(x.rank) + "</span></div></div>";
+        '<span class="x-ey" style="color:' + col + '">' + lab + '</span><span class="x-ell" style="font-size:15px;font-weight:700">' + esc(x.name) + "</span>" + faSc(p, x, 34) + '<div class="x-row" style="align-items:center;justify-content:space-between;gap:6px">' + faSq(p, x.seq, 10, 6) + rkb(x.rank, p, 12, p.muted) + "</div></div>";
     };
     var used = [bete, cli], rest = L.filter(function (x) { return used.indexOf(x) < 0; }).slice(0, 3);
     if (rest.length < 3) rest = L.slice(0, 3);
     var rows = rest.map(function (x) {
       return '<div class="x-row" style="flex:1;align-items:center;gap:10px;min-width:0;border-top:1px solid ' + p.line + '">' +
         '<span class="x-vd" style="flex:none;width:34px;height:34px;font-size:12px;background:' + p.chip + ";color:" + p.ink + '">' + esc(x.ini) + "</span>" +
-        '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span class="x-ell" style="font-size:14.5px;font-weight:700">' + esc(x.name) + ' <span style="font-weight:500;color:' + p.muted + '">' + esc(x.rank) + "</span>" + (x.next ? ' <span class="x-chip" style="font-size:10.5px;padding:2px 7px;background:' + p.balle + ";color:" + p["on-balle"] + '">' + esc(x.next) + "</span>" : "") + "</span>" + faSq(p, x.seq, 9, 10) + "</div>" + faSc(p, x, 22) + "</div>";
+        '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px"><span class="x-ell" style="font-size:14.5px;font-weight:700">' + esc(x.name) + (x.rank ? " " + rkb(x.rank, p, 12, p.muted) : "") + (x.next ? ' <span class="x-chip" style="font-size:10.5px;padding:2px 7px;background:' + p.balle + ";color:" + p["on-balle"] + '">' + esc(x.next) + "</span>" : "") + "</span>" + faSq(p, x.seq, 9, 10) + "</div>" + faSc(p, x, 22) + "</div>";
     }).join("");
     return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';gap:10px"><div class="x-row" style="align-items:center;justify-content:space-between">' + eyeb("Tes face-à-face", p.muted) + '<span class="x-sm" style="color:' + p.muted + '">' + L.length + " rivaux</span></div>" +
       '<div class="x-row" style="gap:8px">' + tile(bete, "Ta bête noire", p.terre) + tile(cli, "Ton client", accent(p)) + "</div>" +
@@ -396,12 +456,73 @@
     var x = L.filter(function (y) { return y.next; })[0] || L[0], col = faCol(p, x);
     var ey = x.next ? (x.v < x.d ? x.next + " · c'est la revanche" : x.next + " · face-à-face") : "Ton plus grand rival";
     return '<div class="x-w" style="' + glow(p, col) + '"><div class="x-row" style="align-items:center;justify-content:space-between">' + eyeb(ey, x.next ? accent(p) : p.muted) + '<span class="x-sm" style="color:' + p.muted + '">' + (x.v + x.d) + " matchs</span></div>" +
-      '<div class="x-sp"></div><div class="x-row" style="align-items:flex-end;gap:12px"><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><span class="x-t1 x-ell">' + esc(x.name) + '</span><span class="x-sm" style="color:' + p.muted + '">' + esc(x.rank) + (x.last ? " · dernier : " + esc(x.last) : "") + "</span>" + faSq(p, x.seq, 13, 10) + "</div>" + faSc(p, x, 50) + "</div></div>";
+      '<div class="x-sp"></div><div class="x-row" style="align-items:flex-end;gap:12px"><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><span class="x-t1 x-ell">' + esc(x.name) + '</span><span class="x-sm" style="color:' + p.muted + '">' + rkb(x.rank, p, 12, p.muted) + (x.last ? " · dernier : " + esc(x.last) : "") + "</span>" + faSq(p, x.seq, 13, 10) + "</div>" + faSc(p, x, 50) + "</div></div>";
   };
   T.faf1 = function (d, p) {
     var L = d.fa || []; if (!L.length) return faEmpty(p);
     var x = L.filter(function (y) { return y.next; })[0] || L[0];
-    return '<div class="x-w" style="' + glow(p, faCol(p, x)) + '">' + eyeb(x.next || "Face-à-face", x.next ? accent(p) : p.muted) + '<span class="x-ell" style="margin-top:5px;font-size:16px;font-weight:700">' + esc(shortName(x.name)) + '</span><span class="x-sm" style="color:' + p.muted + '">' + esc(x.rank) + '</span><div class="x-sp"></div>' + faSc(p, x, 46) + '<div style="margin-top:8px">' + faSq(p, x.seq, 11, 8) + "</div></div>";
+    return '<div class="x-w" style="' + glow(p, faCol(p, x)) + '">' + eyeb(x.next || "Face-à-face", x.next ? accent(p) : p.muted) + '<span class="x-ell" style="margin-top:5px;font-size:16px;font-weight:700">' + esc(shortName(x.name)) + '</span><span class="x-sm" style="color:' + p.muted + '">' + rkb(x.rank, p, 12, p.muted) + '</span><div class="x-sp"></div>' + faSc(p, x, 46) + '<div style="margin-top:8px">' + faSq(p, x.seq, 11, 8) + "</div></div>";
+  };
+
+  // ---- 3.81 : formats iPhone de la forme (carré) et du sac (moyen) ----
+  T.forme2 = function (d, p) {
+    var f = d.form || [];
+    var dots = f.map(function (r) { var v = r === "V"; return '<span class="x-vd" style="width:34px;height:34px;font-size:13px;background:' + (v ? p["chart-v"] : p["terre-soft"]) + ";color:" + (v ? p["on-gazon"] : p["terre-dark"]) + '">' + r + "</span>"; }).join("");
+    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';gap:8px"><div class="x-row"><span class="x-ey" style="color:' + p.muted + '">Forme</span><div class="x-sp"></div><span class="x-sm" style="color:' + p.muted + '">' + esc(d.recordShort || "") + "</span></div>" +
+      '<div class="x-sp"></div><div style="display:grid;grid-template-columns:repeat(3,34px);gap:8px;justify-content:center">' + (dots || "") + "</div>" + (dots ? "" : '<span class="x-sm" style="color:' + p.muted + '">Pas encore de match</span>') +
+      '<div class="x-sp"></div><span class="x-sm x-ell" style="font-weight:700">' + esc(d.streak || "") + "</span></div>";
+  };
+  T.sac2 = function (d, p) {
+    var list = (d.bag || []).slice(0, 3);
+    if (!list.length) return T.cordage(d, p, 360);
+    var rows = list.map(function (r, i) {
+      var col = rkCol(p, r);
+      return '<div class="x-row" style="flex:1;align-items:center;gap:10px;min-width:0' + (i ? ";border-top:1px solid " + p.line : "") + '">' + rk(r, 34) +
+        '<b class="x-ell" style="flex:1;font-size:14px">' + esc(r.name) + '</b><div style="width:90px">' + bar(r.pct, col, p.chip, 5) + "</div>" +
+        '<span class="x-sm" style="min-width:74px;text-align:right;font-weight:700;color:' + (r.level === "ok" || !r.level ? p.muted : col) + '">' + esc((r.hours || "?") + " · " + (r.short || "")) + "</span></div>";
+    }).join("");
+    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';gap:4px">' + eyeb("Ton sac", p.muted) + '<div style="flex:1;display:flex;flex-direction:column">' + rows + "</div></div>";
+  };
+
+  // ---- 3.81 (maquette validée) : Ce qui arrive (la frise de l'accueil) ----
+  // d.cal = [{ d: "29", w: "DIM.", t, s, st, k: "team"|"tour"|"match"|"rel"|"badge"|"todo" }]
+  function calRow(p, x, first) {
+    var stc = x.k === "rel" ? accent(p) : x.k === "badge" ? p.muted : p.gazon;
+    return '<div class="x-row" style="flex:1;align-items:center;gap:10px;min-width:0;max-height:62px' + (first ? "" : ";border-top:1px solid " + p.line) + '">' +
+      '<div style="width:34px;flex:none;text-align:center;line-height:1.05"><b style="display:block;font-size:17px">' + esc(x.d) + '</b><span style="font-size:9px;font-weight:800;color:' + p.muted + '">' + esc(x.w) + "</span></div>" +
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column"><b class="x-ell" style="font-size:13.5px">' + esc(x.t) + '</b><span class="x-sm x-ell" style="font-size:11px;color:' + p.muted + '">' + esc(x.s || "") + "</span></div>" +
+      (x.st ? '<b style="font-size:11.5px;white-space:nowrap;color:' + stc + '">' + esc(x.st) + "</b>" : "") + "</div>";
+  }
+  T.avenir = function (d, p, W, H) {
+    H = H || 380; var n = Math.max(2, Math.min(7, Math.floor((H - 40) / 48))), L = (d.cal || []).slice(0, n);
+    if (!L.length) return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + '">' + eyeb("Ce qui arrive", p.muted) + '<div class="x-sp"></div><span class="x-t1" style="font-size:18px">Rien de prévu pour l\'instant</span><span class="x-sm" style="margin-top:4px;color:' + p.muted + '">Tes tournois, matchs d\'équipe et matchs prévus s\'afficheront ici.</span></div>';
+    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + ';padding:12px 16px 8px">' + eyeb("Ce qui arrive", p.muted) +
+      '<div style="flex:1;display:flex;flex-direction:column;margin-top:4px">' + L.map(function (x, i) { return calRow(p, x, !i); }).join("") +
+      (L.length < n && H > 200 ? '<div class="x-sp"></div><span class="x-sm" style="color:' + p.muted + ';padding:6px 0 4px;border-top:1px solid ' + p.line + '">Rien d\'autre de prévu pour l\'instant</span>' : "") + "</div></div>";
+  };
+  T.avenir2 = function (d, p) { return T.avenir(d, p, 360, 170); };
+
+  // ---- 3.81 : ton équipe (prochaine rencontre, puis le score) ----
+  T.equipe = function (d, p) {
+    var t = d.team;
+    if (!t) return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + '">' + eyeb("Ton équipe", p.muted) + '<div class="x-sp"></div><span class="x-t1" style="font-size:18px">Pas de rencontre prévue</span><span class="x-sm" style="margin-top:4px;color:' + p.muted + '">Ta prochaine rencontre par équipes s\'affichera ici.</span></div>';
+    var nm = String(t.t || "").split(" – ");
+    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + '">' + eyeb((t.live ? "En cours" : "Équipe") + (t.when ? " · " + t.when : ""), t.live ? accent(p) : p.muted) + '<div class="x-sp"></div>' +
+      '<b class="x-clamp2" style="font-size:17px;line-height:1.2;letter-spacing:-.01em">' + esc(nm[0] || "") + "</b>" + (nm[1] ? '<span style="font-size:13px;font-weight:700;color:' + p.muted + '">contre</span><b class="x-clamp2" style="font-size:17px;line-height:1.2;letter-spacing:-.01em">' + esc(nm[1]) + "</b>" : "") +
+      '<div class="x-sp"></div><span class="x-sm x-ell" style="color:' + p.muted + '">' + esc(String(t.s || "").replace(/^(Équipe|Suivie) · /, "")) + "</span>" +
+      (t.st ? '<span style="align-self:flex-start;margin-top:5px;font-size:11px;font-weight:800;border-radius:99px;padding:2px 8px;white-space:nowrap;border:1.5px solid ' + (t.live ? accent(p) : p.gazon) + ";color:" + (t.live ? accent(p) : p.gazon) + '">' + esc(t.st) + "</span>" : "") + "</div>";
+  };
+
+  // ---- 3.81 : tes chances de monter (Montée+), le même calcul que sur l'iPhone ----
+  T.chances = function (d, p) {
+    var c = d.chances, ac = accent(p);
+    if (!c) return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + '">' + eyeb("Tes chances · Montée+", p.muted) + '<div class="x-sp"></div><span class="x-t1" style="font-size:18px">Tu montes à la sortie ?</span><span class="x-sm" style="margin-top:4px;color:' + p.muted + '">Ton % de chances, recalculé à chaque match.</span></div>';
+    var dl = c.delta ? '<span class="x-sm" style="font-weight:700"><b style="color:' + (c.delta > 0 ? p.gazon : p.terre) + '">' + (c.delta > 0 ? "+" : "−") + Math.abs(c.delta) + " pts</b> en 7 jours</span>" : '<span class="x-sm" style="color:' + p.muted + '">Le ' + esc(c.rel || "") + "</span>";
+    return '<div class="x-w" style="background:' + p.card + ";color:" + p.ink + '">' + eyeb(c.down ? "Te maintenir" : "Tes chances", p.muted) + '<div class="x-sp"></div>' +
+      '<div class="x-row" style="align-items:center;gap:10px"><div style="position:relative;width:74px;height:74px;flex:none">' + ring(c.p, ac, p.chip, 74, 8) +
+      '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><b style="font-size:18px;letter-spacing:-.03em">' + c.p + " %</b></div></div>" +
+      '<span class="x-sm" style="color:' + p.muted + '">' + (c.down ? "de rester " : "d'être ") + rkb(c.t, p, 13) + "</span></div>" +
+      '<div class="x-sp"></div>' + dl + "</div>";
   };
   var CSS = "*{box-sizing:border-box;margin:0;padding:0}" +
     ".x-w{position:relative;overflow:hidden;width:100%;height:100%;border-radius:24px;padding:15px 16px;display:flex;flex-direction:column;font-family:Fig,Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased}" +

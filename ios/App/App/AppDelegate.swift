@@ -114,6 +114,7 @@ enum MonteeWidgetsShared {
         case ("MonteeMain", .systemSmall): return "classement"
         case ("MonteeMain", .systemMedium): return "sortie"
         case ("MonteeMain", .systemLarge): return "tableau"
+        case ("MonteeCordage", .systemMedium): return "cordage2"
         case ("MonteeCordage", _): return "cordage"
         case ("MonteeDefend", _): return "defend"
         case ("MonteeObjectif", _): return "objectif"
@@ -126,6 +127,15 @@ enum MonteeWidgetsShared {
         case ("MonteeFaf", .systemSmall): return "faf1"
         case ("MonteeFaf", .systemMedium): return "faf2"
         case ("MonteeFaf", _): return "faf"
+        // 3.81
+        case ("MonteeAce", .systemSmall): return "ace"
+        case ("MonteeAce", _): return "ace2"
+        case ("MonteeAvenir", .systemLarge): return "avenir"
+        case ("MonteeAvenir", _): return "avenir2"
+        case ("MonteeEquipe", _): return "equipe"
+        case ("MonteeChances", _): return "chances"
+        case ("MonteeForme", _): return "forme2"
+        case ("MonteeSac", _): return "sac2"
         default: return nil
         }
     }

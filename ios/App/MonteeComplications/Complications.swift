@@ -144,6 +144,13 @@ struct MEntry: TimelineEntry {
     let live: CLive?
     let plus: Bool
     var planned: COpp? { ctx.opps.first { ($0.tag ?? "").hasPrefix("Prévu") } }
+    /// 3.81 : pile intelligente : le jour d'un match (et juste avant la sortie du classement), Montée remonte en haut
+    var relevance: TimelineEntryRelevance? {
+        let today = ctx.opps.contains { ($0.tag ?? "").lowercased().contains("aujourd'hui") }
+        if today { return TimelineEntryRelevance(score: 1) }
+        if let r = ctx.rel, r >= 0, r <= 2 { return TimelineEntryRelevance(score: 0.6) }
+        return nil
+    }
 }
 
 func loadEntry() -> MEntry {

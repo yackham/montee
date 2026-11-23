@@ -52,6 +52,15 @@ func targetURL(_ kind: String, _ d: [String: Any]) -> URL? {
     case "objectif": s = "montee://open/objectif"
     case "suivis", "suivis2", "suivis3": s = "montee://open/faf?tab=suivis"
     case "faf", "faf2", "faf1": s = "montee://open/faf?tab=adv"
+    // 3.81 : Ace, Ce qui arrive, ton équipe, tes chances, forme, sac
+    case "ace", "ace2": s = "montee://open/ace"
+    case "avenir", "avenir2": s = "montee://open/"
+    case "chances": s = "montee://open/projection"
+    case "forme2": s = "montee://open/palmares"
+    case "sac2": s = "montee://open/materiel"
+    case "cordage2":
+        if let r = d["racket"] as? [String: Any], let id = r["id"] as? String { s = "montee://open/raquette/" + id } else { s = "montee://open/raquette/new" }
+    case "equipe": s = "montee://open/"
     case "adversaire", "adversaire2":
         if let o = d["scout"] as? [String: Any], let id = o["id"] as? String, !id.isEmpty { s = "montee://open/joueur/" + id } else { s = "montee://open/faf?focus=1" }
     default: break
@@ -66,6 +75,11 @@ struct ImgEntry: TimelineEntry {
     let kind: String
     let image: UIImage?
     let data: [String: Any]
+    /// 3.81 : pile intelligente : l'app dit quand ce widget compte (jour de match, sortie proche, raquette à recorder)
+    var relevance: TimelineEntryRelevance? {
+        guard let r = data["rel"] as? [String: Any], let v = r[kind] as? Double, v > 0 else { return nil }
+        return TimelineEntryRelevance(score: Float(v))
+    }
 }
 
 struct ImgProvider: TimelineProvider {
@@ -166,10 +180,10 @@ struct MainWidget: Widget {
 
 struct CordageWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "MonteeCordage", provider: ImgProvider(kinds: [.systemSmall: "cordage"])) { ImgView(entry: $0) }
+        StaticConfiguration(kind: "MonteeCordage", provider: ImgProvider(kinds: [.systemSmall: "cordage", .systemMedium: "cordage2"])) { ImgView(entry: $0) }
             .configurationDisplayName("Raquette")
             .description("Les heures de jeu sur ton cordage.")
-            .supportedFamilies([.systemSmall])
+            .supportedFamilies([.systemSmall, .systemMedium])
             .contentMarginsDisabled()
     }
 }
@@ -347,6 +361,73 @@ struct LockWidget: Widget {
     }
 }
 
+// 3.81 : nouveaux widgets (maquettes validées par Yann le 23/11)
+struct AceWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MonteeAce", provider: ImgProvider(kinds: [.systemSmall: "ace", .systemMedium: "ace2"])) { ImgView(entry: $0) }
+            .configurationDisplayName("Ace")
+            .description("Ce que ton coach a à te dire en ce moment.")
+            .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+struct AvenirWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MonteeAvenir", provider: ImgProvider(kinds: [.systemMedium: "avenir2", .systemLarge: "avenir"])) { ImgView(entry: $0) }
+            .configurationDisplayName("Ce qui arrive")
+            .description("Tes tournois, tes matchs d'équipe, tes matchs prévus et la sortie du classement.")
+            .supportedFamilies([.systemMedium, .systemLarge])
+    }
+}
+
+struct EquipeWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MonteeEquipe", provider: ImgProvider(kinds: [.systemSmall: "equipe"])) { ImgView(entry: $0) }
+            .configurationDisplayName("Ton équipe")
+            .description("La prochaine rencontre de ton équipe, puis le score.")
+            .supportedFamilies([.systemSmall])
+    }
+}
+
+struct ChancesWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MonteeChances", provider: ImgProvider(kinds: [.systemSmall: "chances"])) { ImgView(entry: $0) }
+            .configurationDisplayName("Tes chances")
+            .description("Tes chances de monter à la prochaine sortie (Montée+).")
+            .supportedFamilies([.systemSmall])
+    }
+}
+
+struct FormeWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MonteeForme", provider: ImgProvider(kinds: [.systemSmall: "forme2"])) { ImgView(entry: $0) }
+            .configurationDisplayName("Ta forme")
+            .description("Tes 6 derniers matchs et ta série.")
+            .supportedFamilies([.systemSmall])
+    }
+}
+
+struct SacWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MonteeSac", provider: ImgProvider(kinds: [.systemMedium: "sac2"])) { ImgView(entry: $0) }
+            .configurationDisplayName("Ton sac")
+            .description("L'usure du cordage de chacune de tes raquettes.")
+            .supportedFamilies([.systemMedium])
+    }
+}
+
+/// Un WidgetBundle accepte 10 widgets au plus : les nouveaux sont dans un second groupe
+struct MonteeWidgetBundle2: WidgetBundle {
+    var body: some Widget {
+        AceWidget()
+        AvenirWidget()
+        EquipeWidget()
+        ChancesWidget()
+        FormeWidget()
+        SacWidget()
+    }
+}
+
 @main
 struct MonteeWidgetBundle: WidgetBundle {
     var body: some Widget {
@@ -359,5 +440,6 @@ struct MonteeWidgetBundle: WidgetBundle {
         SuivisWidget()
         FafWidget()
         LockWidget()
+        MonteeWidgetBundle2().body
     }
 }

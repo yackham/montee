@@ -20,6 +20,9 @@ struct WOpp: Codable, Identifiable, Hashable {
     var plan: [WStep]? = nil
     var forts: [String]? = nil
     var faibles: [String]? = nil
+    /// 3.81 : votre face-à-face (carte « Jour de match »)
+    var fv: Int? = nil
+    var fd: Int? = nil
 }
 
 /// Une consigne du plan : « Break avant 5-5 » + pourquoi ; k = att / pro ; th = thème (mental, physique, start…)
@@ -74,6 +77,10 @@ struct WCtx: Codable {
     /// 3.61 : la séance du jour, prête à lancer depuis la montre (JSON du plan), et si elle est permise (Montée+ ou séance offerte du mois)
     var seance: String? = nil
     var sjOk: Bool? = nil
+    /// 3.81 : Ace, ton match du jour, ton dernier match
+    var ace: WAce? = nil
+    var day: WDay? = nil
+    var lastM: WLastM? = nil
 }
 
 /// 3.49 : un face-à-face : prénom, quand (« Sam. »), victoires, défaites, carrés du plus ancien au plus récent
@@ -84,7 +91,15 @@ struct WChances: Codable, Hashable { var p: Int; var t: String; var down: Bool? 
 }
 
 /// Un élément à venir : jour (« 18 »), jour de semaine (« MER. »), mois, titre, détail, enjeu (« +35 pts · 82 % »), adversaire (pour lancer le match)
-struct WCal: Codable, Hashable { var d: String; var w: String; var m: String? = nil; var t: String; var s: String? = nil; var st: String? = nil; var oid: String? = nil }
+struct WCal: Codable, Hashable { var d: String; var w: String; var m: String? = nil; var t: String; var s: String? = nil; var st: String? = nil; var oid: String? = nil
+    /// 3.81 : en-tête du billet (« Badge · presque ») et sorte (match, tour, team, rel, badge, todo)
+    var e: String? = nil; var k: String? = nil }
+/// 3.81 : ce que dit Ace (la Balle) en ce moment : texte, humeur (joie, decu, repos, pense, encourage…), sens (up, win, loss…)
+struct WAce: Codable, Hashable { var t: String; var m: String? = nil; var v: String? = nil }
+/// 3.81 : ton match du jour (match prévu, tour de tournoi, rencontre par équipes)
+struct WDay: Codable, Hashable { var k: String? = nil; var t: String; var r: String? = nil; var s: String? = nil; var time: String? = nil; var st: String? = nil; var oid: String? = nil }
+/// 3.81 : ton dernier match (moins de 3 jours) pour l'après-match
+struct WLastM: Codable, Hashable { var r: String; var opp: String; var rank: String? = nil; var score: String? = nil; var pts: String? = nil; var when: String? = nil }
 /// Un copain suivi : nom, classement, ce qui a bougé (up 1 = monté, -1 = descendu)
 struct WFol: Codable, Hashable { var n: String; var r: String; var s: String; var up: Int? = nil }
 
