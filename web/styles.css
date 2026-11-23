@@ -6861,3 +6861,112 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .ob-sti svg { width: 22px; height: 22px; }
 .ob-calcta { margin: 0 0 14px; }
 .ob-calcta .btn svg { width: 20px; height: 20px; flex: none; }
+
+/* ==========================================================================
+   4.2 — Identité « Balle et Ace » (piste B validée par Yann le 23/11/2026)
+   Code couleur des 3 anneaux, en accent seulement (texte, pastille détourée, icône) :
+   balle = toi et l'action · gazon = gagné · dur = niveau et dates · terre = à défendre.
+   Accent seulement dans les cartes (jamais sur le fond de page). Ace une seule fois par écran (aceOnce).
+   ========================================================================== */
+:root { --id-dur: #2D5DB5; --id-ball: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='8.4' fill='%23D4E64A' stroke='rgba(0,0,0,.18)' stroke-width='.8'/%3E%3Cpath d='M3.4 5.6c3.6 2 3.6 6.8 0 8.8M16.6 5.6c-3.6 2-3.6 6.8 0 8.8' fill='none' stroke='%23fff' stroke-opacity='.85' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); }
+:root[data-theme="nuit"] { --id-dur: #8DB4FF; }
+.c-dur { color: var(--id-dur) !important; } .c-gazon { color: var(--gazon) !important; } .c-terre { color: var(--terre) !important; } .c-acc { color: var(--acc-ink); }
+
+/* Titres : plus grands, plus gras, une petite balle devant les titres de section */
+.screen > h1 { font-weight: 800; letter-spacing: -.035em; }
+.h3sec, .fr-t b, .screen > h2, .tcar-hd b { font-size: 21px !important; font-weight: 800 !important; letter-spacing: -.025em !important; }
+.screen > h2 { color: var(--ink); margin-top: 6px; }
+.h3sec::before, .fr-t b::before, .screen > h2::before, .tcar-hd b::before { content: ""; display: inline-block; width: 15px; height: 15px; margin-right: 8px; vertical-align: -1px; background: var(--id-ball) center / contain no-repeat; }
+.stack > h2 { font-weight: 800; letter-spacing: -.02em; }
+
+/* Petit titre de carte en pastille détourée, de la couleur de son sens */
+.id-pill { display: inline-flex !important; flex: 0 0 auto !important; align-self: flex-start !important; align-items: center; gap: 6px; width: auto !important; max-width: none !important; overflow: visible !important; white-space: nowrap; padding: 3px 12px 3px 9px !important; border-radius: 99px; box-shadow: inset 0 0 0 1.5px currentColor; font-size: 11.5px !important; font-weight: 800 !important; letter-spacing: .07em !important; text-overflow: clip !important; }
+.id-pill svg { width: 13px; height: 13px; flex: none; }
+.pal-e { display: inline-flex; align-self: flex-start; padding: 2px 10px; border-radius: 99px; box-shadow: inset 0 0 0 1.5px currentColor; margin-bottom: 4px; }
+
+/* Petits boutons secondaires : un fin contour, pour toujours se voir comme des boutons */
+.card.hero.h3 .go, .card .go-pill, .card .mp-go { background: transparent !important; color: var(--ink) !important; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 28%, transparent) !important; }
+
+/* Carte Sortie : blanche ou grise comme les autres (plus de voile), balles vides à aller chercher */
+.card.hero.h3c { background-image: none !important; }
+.id-slots { display: inline-flex; gap: 6px; margin-left: 8px; vertical-align: -3px; color: var(--acc-ink); }
+.id-slots svg { width: 18px; height: 18px; }
+.ace-gone .id-slots { display: none; }
+
+/* Ace posé sur le coin de la carte, et sa phrase dans la carte */
+.card.id-dock { position: relative; overflow: visible !important; margin-top: 30px; }
+.card.id-dock.ace-gone { margin-top: 0; }
+.ace-peek { position: absolute !important; right: 14px; top: -46px; z-index: 3; pointer-events: none; display: block; }
+.ace-peek .cbl-b { margin: 0; }
+.ace-peek .cbl-b.sm { margin-top: 6px; }
+.ace-off, .cbl-b.ace-off { display: none !important; }
+.ace-bub { position: absolute; right: 64px; top: 8px; width: max-content; max-width: 220px; background: var(--card); color: var(--ink); font-size: 13px; font-weight: 700; padding: 6px 11px; border-radius: 14px 14px 4px 14px; box-shadow: 0 0 0 1.5px var(--acc-ink); }
+.ace-line { display: flex; flex-direction: column; gap: 6px; padding: 12px 0 0; margin-top: 2px; border-top: 1px solid var(--line); font-size: 15px; line-height: 1.42; color: var(--ink); }
+.ace-line:first-child, .id-dock > .ace-peek + .ace-line { border-top: 0; padding: 0 64px 10px 0; margin: 0 0 2px; border-bottom: 1px solid var(--line); }
+.pj-pistes > .ace-line { padding-right: 60px; }
+
+/* Face-à-face : le score sur un court vu de dessus */
+.opp-head .grow { width: 100%; }
+.fc-court { position: relative; display: block; width: 100%; max-width: 100%; aspect-ratio: 2.35 / 1; margin: 12px 0 6px; color: color-mix(in srgb, var(--ink) 32%, transparent); }
+.fc-crt { position: absolute; inset: 0; width: 100%; height: 100%; }
+.fc-sd { position: absolute; top: 50%; transform: translateY(-50%); width: 34%; display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--ink); }
+.fc-sd.me { left: 4%; } .fc-sd.him { right: 4%; }
+.fc-sd b { font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -.04em; }
+.fc-sd small { font-size: 12.5px; font-weight: 700; color: var(--muted); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.fc-ball { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; color: #D4E64A; }
+.fc-ball .tball path { stroke: rgba(0,0,0,.25); }
+.fc-sub { text-align: center; color: var(--muted); }
+
+/* Face-à-face : « Ce que tu sais de lui » en deux lignes */
+.fk-c { padding: 4px 18px !important; gap: 0 !important; }
+.fk-r { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 0; font: inherit; color: var(--ink); padding: 12px 0; text-decoration: none; cursor: pointer; }
+.fk-r + .fk-r { border-top: 1px solid var(--line); }
+.fk-r .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fk-r b { font-size: 16px; font-weight: 700; line-height: 1.3; } .fk-r small { font-size: 13.5px; color: var(--muted); font-weight: 500; }
+.fk-go { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; font-size: 14px; white-space: nowrap; color: var(--ink); }
+.fk-go svg { width: 15px; height: 15px; }
+
+/* Accueil : « En forme » en une ligne */
+.pdj1 .pdj-go { margin: 6px -18px 0; justify-content: center; }
+
+/* Activité › Ta progression : cartes plus basses, la séance en compact */
+.tcar > .tcar-c { gap: 7px; }
+.tcar-c.pf-card { position: relative; }
+.tcar-c.pf-card .pf-ill { position: absolute; right: 16px; top: 14px; width: 84px; height: 56px; margin: 0 !important; border-radius: 12px; }
+.tcar-c.pf-card .pf-ill svg { width: 100%; height: 100%; }
+.tcar-c.pf-card .ch-hd, .tcar-c.pf-card .pf-t { padding-right: 94px; }
+.tcar-c.pf-card .ch-hd { flex-wrap: wrap; justify-content: flex-start; gap: 6px; }
+.tcar-c.pf-card .pf-t { font-size: 16px; }
+.tcar-c .btn.primary { padding: 9px 16px; font-size: 14.5px; min-height: 0; width: auto; align-self: flex-start; }
+.sq-top { display: flex; gap: 12px; align-items: flex-start; } .sq-top .tcar-t { flex: 1; min-width: 0; }
+.sq-vig { flex: none; width: 50px; height: 50px; border-radius: 12px; overflow: hidden; display: grid; } .sq-vig svg { width: 100%; height: 100%; }
+.sq-bar { display: flex; gap: 3px; } .sq-bar i { height: 7px; border-radius: 99px; display: block; }
+.sq-l { display: flex; flex-direction: column; }
+.sq-r { display: grid; grid-template-columns: 36px 12px 1fr auto; gap: 6px; align-items: baseline; padding: 3px 0; font-size: 14px; }
+.sq-r time { color: var(--muted); font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; }
+.sq-r i { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 2px currentColor; align-self: center; }
+.sq-r b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sq-r small { color: var(--muted); font-weight: 600; font-size: 13px; white-space: nowrap; }
+.sq-df { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); min-width: 0; }
+.sq-df > span:not(.sq-go) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .sq-df b { color: var(--ink); }
+.sq-df .tball { flex: none; color: #D4E64A; } .sq-df .tball path { stroke: rgba(0,0,0,.25); }
+.sq-go { flex: none; color: var(--acc-ink); display: inline-flex; } .sq-go svg { width: 16px; height: 16px; }
+
+/* Animations : une seule qui attire l'œil par écran, sur l'élément clé, une fois par visite */
+@media (prefers-reduced-motion: no-preference) {
+  .ace-bub { animation: idPop .5s cubic-bezier(.2,.9,.3,1.25) 1.3s backwards; }
+  .id-slots svg { animation: idPulse .5s ease-out 1.9s 1 backwards; }
+  .id-slots svg + svg { animation-delay: 2.05s; }
+  .fc-ball { animation: idRally 1.8s ease-in-out .25s 1 backwards; }
+  .fc-sd b { animation: idFlip .42s cubic-bezier(.2,.9,.3,1.3) backwards; } .fc-sd.me b { animation-delay: .6s; } .fc-sd.him b { animation-delay: 1.3s; }
+  .sq-bar i { transform-origin: left center; animation: idGrow .5s ease-out backwards; }
+  .sq-bar i:nth-child(2) { animation-delay: .08s; } .sq-bar i:nth-child(3) { animation-delay: .16s; } .sq-bar i:nth-child(4) { animation-delay: .24s; } .sq-bar i:nth-child(n+5) { animation-delay: .32s; }
+}
+@keyframes idPop { from { opacity: 0; transform: scale(.4); } 60% { opacity: 1; transform: scale(1.1); } to { transform: none; } }
+@keyframes idPulse { 50% { transform: scale(1.45); } }
+@keyframes idRally { 0% { transform: translate(calc(-50% - 70px), -50%); } 25% { transform: translate(-50%, calc(-50% - 30px)); } 50% { transform: translate(calc(-50% + 70px), -50%); } 75% { transform: translate(-50%, calc(-50% - 22px)); } 100% { transform: translate(-50%, -50%); } }
+@keyframes idFlip { from { transform: rotateX(90deg); opacity: .2; } to { transform: none; opacity: 1; } }
+@keyframes idGrow { from { transform: scaleX(0); } }
+.h3sec { justify-content: flex-start; }
+.h3sec::before { flex: none; align-self: center; }
+.h3sec > small, .h3sec > button:last-child, .h3sec > a:last-child { margin-left: auto; }
