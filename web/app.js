@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.74.2",
+    VERSION: "3.75.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -442,6 +442,8 @@
     pistesMemo = { key: key, val: { goal: keep ? "keep" : "up", target: target, list: list, stretch: stretch, maxBeaten: mb, one: one } };
     return pistesMemo.val;
   }
+  // 3.75 : les victoires à aller chercher, en balles vides détourées (piste la plus accessible)
+  function pjBalls(n) { var b = '<svg viewBox="0 0 22 22"><circle cx="11" cy="11" r="9"/><path d="M4.5 7.5c3 1 4.5 4.5 3.5 7.5M14 3.5c-1 3 .5 6.5 3.5 7.5"/></svg>', o = ""; for (var i = 0; i < Math.min(n, 5); i++) o += b.replace("<svg", '<svg style="--i:' + i + '"'); return n ? '<span class="pj-balls" aria-hidden="true">' + o + "</span>" : ""; }
   function pisteLabel(x) {
     var g = {}; x.levels.forEach(function (L) { g[L] = (g[L] || 0) + 1; });
     var ks = Object.keys(g).map(Number).sort(function (a, b) { return b - a; });
@@ -848,7 +850,7 @@
     mTw(520, 0, function (k) { h.setAttribute("r", (7 + 12 * k).toFixed(1)); h.setAttribute("opacity", (1 - k).toFixed(2)); }, function () { h.remove(); });
   }
   function motion(page) {
-    if (page === "") motionHome(); else if (page === "courbes") motionCurves();
+    if (page === "") motionHome(); else if (page === "courbes") motionCurves(); try { motionMore(page); } catch (e) {}
   }
   // ---------- Accueil : la première fois du jour tout se remplit, ensuite seul l'écart depuis ta dernière visite s'anime ----------
   function motionHome() {
@@ -983,6 +985,174 @@
       mSeen(fc, function () { Array.prototype.forEach.call(sq, function (s, i) { mTw(260, i * 35, function (k) { s.style.transform = "scale(" + k.toFixed(3) + ")"; }, function () { s.style.transform = ""; }, mBack); }); });
     }
   }
+  // ---------- 3.75 : tous les écrans vivants (guide chantier/08, maquettes lot 1 et 2 validées par Yann le 23/11/2026) ----------
+  // Briques : mxIo (à l'apparition), mxCount (chiffre qui défile), mxSpark (étincelles), classes CSS mx-* (styles.css, bloc 3.75).
+  // Une fois par arrivée sur la page ; mouvement réduit = rien ne bouge ; décorations invisibles pour VoiceOver.
+  var mxQ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  function mxIo(els, fn, th) {
+    els = els.filter(Boolean); if (!els.length) return;
+    if (!("IntersectionObserver" in window)) return els.forEach(fn);
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { io.unobserve(e.target); fn(e.target); } }); }, { threshold: th || 0.3 });
+    els.forEach(function (e) { io.observe(e); });
+  }
+  // Le premier nombre du texte défile de « from » à « to » (le texte final est remis à la fin)
+  function mxCount(el, to, o) {
+    if (!el) return; o = o || {}; var tn = el.firstChild; if (!tn || tn.nodeType !== 3 || !/\d/.test(tn.nodeValue)) return;
+    var txt = tn.nodeValue, from = o.from || 0; if (to == null) to = +(/\d+/.exec(txt) || [0])[0]; if (to === from) return;
+    // une seule boucle : pendant l'attente on garde la valeur de départ (une mise à jour de la page ne la remet pas trop tôt)
+    var D = o.delay || 0, ms = o.ms || 800, t0 = 0;
+    tn.nodeValue = txt.replace(/\d+/, from);
+    var step = function (now) { if (!t0) t0 = now; var e = now - t0 - D, k = e <= 0 ? 0 : Math.min(1, e / ms); tn.nodeValue = k >= 1 ? txt : txt.replace(/\d+/, Math.round(from + (to - from) * mEase(k))); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+  function mxSpark(host, delay, n) {
+    if (!host) return; n = n || 8;
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    for (var k = 0; k < n; k++) {
+      var a = k / n * 6.28 + 0.4, r = 16 + (k % 2) * 8, s = document.createElement("i");
+      s.className = "mx-x mx-sp" + (k % 3 === 1 ? " g" : ""); s.setAttribute("aria-hidden", "true");
+      s.style.cssText = "--x:" + (Math.cos(a) * r).toFixed(0) + "px;--y:" + (Math.sin(a) * r).toFixed(0) + "px;--d:" + ((delay || 0) + k * 30) + "ms";
+      host.appendChild(s); (function (s) { setTimeout(function () { if (s.parentNode) s.remove(); }, (delay || 0) + 1400); })(s);
+    }
+  }
+  function mxSet(el, cls, i, d) { if (!el) return; if (i != null) el.style.setProperty("--i", i); if (d != null) el.style.setProperty("--d", d + "ms"); el.classList.add(cls); }
+  // Une balle qui roule sur une barre (Ma montée, fiche match)
+  function mxBall(host, x0, x1, top, ms, delay) {
+    var b = document.createElement("span"); b.className = "mx-x mx-hb"; b.setAttribute("aria-hidden", "true");
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    b.style.top = top + "px"; b.style.left = x0 + "px"; host.appendChild(b);
+    mTw(ms || 1000, delay || 0, function (k) { b.style.left = (x0 + (x1 - x0) * k).toFixed(1) + "px"; b.style.transform = "rotate(" + (540 * k).toFixed(0) + "deg)"; }, function () { setTimeout(function () { b.style.transition = "opacity .4s"; b.style.opacity = 0; setTimeout(function () { b.remove(); }, 450); }, 2200); });
+    return b;
+  }
+  function motionMore(page) {
+    if (mRM()) return;
+    var day = new Date().toDateString();
+    // Activité : la semaine, la carte 12 mois, les scores (1re fois du jour), les cartes paliers
+    if (page === "palmares") {
+      var n = 0; mxQ(".dstrip .ds-d").forEach(function (d) { var ic = d.querySelector(".ds-ic, .tr-ic"); if (ic && !ic.classList.contains("e")) mxSet(ic, "mx-pop", n++, 200); if (d.classList.contains("on")) d.classList.add("mx-today"); });
+      var as = document.querySelector(".as-c");
+      if (as) {
+        mxQ(".as-k b", as).forEach(function (b, i) { mxCount(b, null, { delay: 200 + i * 120 }); });
+        var j = 0; mxQ(".as-b", as).forEach(function (row) { mxQ(".as-sq a", row).forEach(function (a) { mxSet(a, "mx-pop2", Math.min(j++, 24), 450); }); mxSet(row.querySelector(":scope > b"), "mx-in", null, 600 + Math.min(j, 24) * 70); });
+        mxIo([as], function (x) { x.classList.add("mx-on"); }, 0.2);
+      }
+      if (mMem("actDay") !== day) {
+        mMem("actDay", day);
+        var rows = mxQ('.screen a.row[href^="#/match"], .screen a.row[href^="#/double"]');
+        rows.forEach(function (r) { var sc = r.querySelector(".mscr"); if (sc) { sc.classList.add("mxr"); mxQ("span", sc).forEach(function (s, i) { mxSet(s, "mx-flip", i); }); } mxSet(r.querySelector(".vd"), "mx-pop2", 0); });
+        mxIo(rows, function (r) { r.classList.add("mx-on"); var p = r.querySelector(".pts-in"); if (p && /^\+\d+/.test(p.textContent)) mxCount(p, null, { delay: 250, ms: 600 }); }, 0.6);
+      }
+      var pc = mxQ(".pal-c"); pc.forEach(function (c) { mxQ(".pal-i svg circle", c).forEach(function (x, i) { x.style.setProperty("--i", i); }); });
+      mxIo(pc, function (c) { c.classList.add("mx-on"); }, 0.6);
+    }
+    // Fiche match : +pts, barre du bilan avec la balle, étincelles sur la perf, sets du « Pourquoi »
+    else if (page === "match") {
+      var imp = document.querySelector(".hx-imp"), big = imp && imp.querySelector(".hx-big.pos"), bar = imp && imp.querySelector(".hx-bar");
+      var gain = big && /^\+\d+/.test(big.textContent) ? +(/\d+/.exec(big.textContent) || [0])[0] : 0;
+      if (big && /^\+\d+/.test(big.textContent)) mxCount(big, null, { delay: 800, ms: 700 });
+      if (bar) {
+        bar.classList.add("mx");
+        var end = mxQ("i", bar).reduce(function (s, i) { return Math.max(s, (parseFloat(i.style.left) || 0) + (parseFloat(i.style.width) || 0)); }, 0);
+        if (end > 0 && big && getComputedStyle(imp).position === "static") imp.style.position = "relative";
+        if (end > 0 && big) mxBall(imp, bar.offsetLeft, bar.offsetLeft + bar.offsetWidth * Math.min(1, end / 100), bar.offsetTop + bar.offsetHeight / 2, 1300, 300);
+        var b2 = imp.querySelector(".small b"), tot = b2 ? +b2.textContent : 0;
+        if (b2 && gain && tot > gain) mxCount(b2, tot, { from: tot - gain, delay: 800, ms: 900 });
+      }
+      var hb = document.querySelector(".hx-badge"); if (hb) { mxSet(hb, "mx-pop", 0, 700); mxSpark(hb, 1100); }
+      var an = document.querySelector(".an-sets"); if (an) { mxQ("span", an).forEach(function (s, i) { mxSet(s, "mx-pop2", i); }); mxIo([an], function (x) { x.classList.add("mx-on"); }, 0.5); }
+      // Défaite : Ace passe de « déçue » à « concentrée »
+      var ace = document.querySelector('.mt-ace .cbl-b[data-m="decue"]');
+      if (ace) setTimeout(function () { var bb = ace.firstChild; if (bb && window.Balle) Balle.play(bb, "concentree", 1500); }, 2000);
+    }
+    // Ma montée : le manque défile, la balle roule jusqu'à ton bilan
+    else if (page === "projection") {
+      var bb = document.querySelector(".pj-bar .bbar"), bf = bb && bb.querySelector(".bb-f"), bl = bb && bb.querySelector(".bb-b"), lab = bb && /(\d+) sur (\d+)/.exec(bb.getAttribute("aria-label") || "");
+      if (bf && bl && lab) {
+        var to = +lab[1], T = +lab[2], wF = bf.style.width, lB = bl.style.left, x = Math.max(0, Math.min(1, to / T));
+        var setB = function (v) { bf.style.width = "calc((100% - 22px) * " + v.toFixed(3) + " + 11px)"; bl.style.left = "calc((100% - 22px) * " + v.toFixed(3) + ")"; };
+        setB(0); mTw(1000, 200, function (k) { setB(x * k); bl.style.transform = "rotate(" + (540 * k).toFixed(0) + "deg)"; }, function () { bf.style.width = wF; bl.style.left = lB; bl.style.transform = ""; });
+        mxCount(document.querySelector(".pj-leg b"), to, { delay: 200, ms: 1000 });
+        var em = document.querySelector(".screen > h1 em"), m0 = em && /^(\d+) point/.exec(em.textContent);
+        if (m0 && +m0[1] < T) mxCount(em, +m0[1], { from: T, delay: 200, ms: 1000 });
+      }
+    }
+    // Badges : ils sortent un par un, les anneaux se remplissent, ceux du mois scintillent
+    else if (page === "badges") {
+      var secs = mxQ(".bd-sec");
+      secs.forEach(function (s, k) { mxQ(".bd", s).forEach(function (b, i) { b.style.setProperty("--i", Math.min(i, 10)); }); });
+      mxIo(secs, function (s) {
+        s.classList.add("mx-on");
+        mxQ(".bd-pr", s).forEach(function (c, i) { var C = +c.getAttribute("stroke-dasharray"), o = c.getAttribute("stroke-dashoffset"); if (!C) return; c.setAttribute("stroke-dashoffset", C); mTw(800, 300 + i * 90, function (k) { c.setAttribute("stroke-dashoffset", (C - (C - +o) * k).toFixed(1)); }, function () { c.setAttribute("stroke-dashoffset", o); }); });
+        mxQ(".bd-x", s).forEach(function (x, i) { mxSet(x, "mx-pop", 0, 700 + i * 90); });
+        if (s === secs[0]) mxQ(".bd.ok .bd-m", s).forEach(function (m, i) { mxSpark(m, 900 + i * 200); });
+      }, 0.25);
+    }
+    // Mes épreuves : liste, chemin du tableau, poule, équipes
+    else if (page === "tournoi") {
+      mxQ(".tsx-big b").forEach(function (b, i) { mxSet(b, "mx-in", null, 150 + i * 120); });
+      mxQ(".screen .tl-r").forEach(function (r, i) {
+        mxSet(r, "mx-in", null, 300 + Math.min(i, 8) * 110);
+        var rk = r.querySelector(".tm-rk b"); if (rk) { mxSet(rk, "mx-pop", 0, 550 + Math.min(i, 8) * 130); if (rk.querySelector(".tm-cup")) { rk.classList.add("mx-cupd"); mxSpark(rk, 1300); } }
+      });
+      var path = document.querySelector(".tq-path"), tr = path ? mxQ(".tq-r", path) : [];
+      if (tr.length) {
+        tr.forEach(function (r, i) { mxSet(r, "mx-in", null, i * 110); });
+        var done = tr.filter(function (r) { return r.classList.contains("v") || r.classList.contains("d"); }).length, stop = Math.min(tr.length - 1, done);
+        mxIo([path], function () {
+          var pos = function (r) { var b = r.querySelector(".tq-b").getBoundingClientRect(), P = path.getBoundingClientRect(); return [b.left + b.width / 2 - P.left, b.top + b.height / 2 - P.top]; };
+          var ball = document.createElement("span"); ball.className = "mx-x mx-tb"; ball.setAttribute("aria-hidden", "true"); var p0 = pos(tr[0]); ball.style.left = p0[0] + "px"; ball.style.top = (p0[1] - 26) + "px"; path.appendChild(ball);
+          var k = 0, step = function () {
+            if (k > stop) { ball.style.opacity = 0; setTimeout(function () { ball.remove(); }, 400); return; }
+            var r = tr[k], p = pos(r); ball.style.top = p[1] + "px";
+            setTimeout(function () {
+              r.classList.add("mx-hit");
+              if (k === stop && !r.classList.contains("v") && !r.classList.contains("d")) { r.querySelector(".tq-b").classList.add("mx-today"); var pc2 = r.querySelector(".tq-p"); if (pc2) mxCount(pc2, null, { ms: 700 }); mxSet(r.querySelector(".tq-g"), "mx-pop", 0, 0); }
+              k++; setTimeout(step, 200);
+            }, 520);
+          };
+          setTimeout(function () { ball.style.opacity = 1; step(); }, 500);
+        }, 0.3);
+      }
+      var bil = document.querySelector(".tq-bil");
+      if (bil) { bil.querySelector(".tq-bar") && bil.querySelector(".tq-bar").classList.add("mx"); var bs = bil.querySelector(".tq-bh b"), bn = bs && /^(\d+)/.exec(bs.textContent), sp = bs && bs.querySelector("span"); if (sp && bn) mxCount(sp, null, { from: +bn[1], delay: 700 }); }
+      var st = document.querySelector(".pl-st");
+      if (st) {
+        var pr = mxQ(".pl-r", st), me = st.querySelector(".pl-r.me"), mi = pr.indexOf(me), key = "pl:" + location.hash, was = mMem(key);
+        pr.forEach(function (r, i) { mxQ(".pl-d i", r).forEach(function (d, j) { d.style.setProperty("--i", i); d.style.setProperty("--j", j); }); });
+        if (me && was != null && was > mi) { // tu as gagné des places depuis ta dernière visite : ta ligne remonte
+          var h = me.getBoundingClientRect().height; me.style.setProperty("--dy", ((was - mi) * h) + "px"); mxSet(me, "mx-mv", null, 800);
+          pr.slice(mi + 1, was + 1).forEach(function (r) { r.style.setProperty("--dy", (-h) + "px"); mxSet(r, "mx-mv", null, 800); });
+        }
+        if (me) mMem(key, mi);
+        if (me && me.querySelector(".tm-cup")) { me.classList.add("mx-cupd"); mxSpark(me.querySelector(".pl-k"), 1700); }
+        mxQ(".pl-pt", st).forEach(function (p, i) { mxCount(p, null, { delay: 400 + i * 80, ms: 600 }); });
+        mxIo([st], function (x) { x.classList.add("mx-on"); }, 0.3);
+      }
+      var pm = document.querySelector(".pl-m");
+      if (pm) {
+        var fi = 0; mxQ(".pl-g .mscr", pm).forEach(function (m) { m.classList.add("mxr"); mxQ("span", m).forEach(function (s) { mxSet(s, "mx-flip", Math.min(fi++, 12)); }); });
+        mxIo([pm], function (m) { m.classList.add("mx-on"); mxQ(".pl-ub small b", m).forEach(function (c) { if (/^\d+ %/.test(c.textContent)) mxCount(c, null, { delay: 500 }); }); }, 0.3);
+      }
+    }
+    // Fiche d'une équipe : le classement arrive, les points défilent, coupe du 1er, scores des rencontres
+    else if (page === "equipe") {
+      var tb = document.querySelector(".tm-cl table");
+      if (tb) {
+        mxQ("tr", tb).slice(1).forEach(function (r, i) { mxSet(r, "mx-in", null, 150 + Math.min(i, 10) * 80); mxCount(r.querySelector(".pt b"), null, { delay: 250 + i * 80, ms: 700 }); });
+        var cu = tb.querySelector("tr.me .tm-cup"); if (cu) { cu.parentNode.classList.add("mx-cupd"); mxSpark(cu.parentNode, 1500); }
+      }
+      var ms = mxQ(".screen .mscr"); ms.forEach(function (m) { m.classList.add("mxr"); mxQ("span", m).forEach(function (s, i) { mxSet(s, "mx-flip", i); }); });
+      mxIo(ms.map(function (m) { return m.parentNode; }), function (x) { x.classList.add("mx-on"); }, 0.5);
+    }
+    // Face-à-face : le score claque chiffre par chiffre, les coches se dessinent, les résultats apparaissent
+    else if (page === "adversaire" || page === "joueur") {
+      var os = document.querySelector(".opp-score"), parts = os && /^(\d+)\s*–\s*(\d+)$/.exec(os.textContent.trim());
+      if (parts) { os.setAttribute("aria-label", os.textContent); os.innerHTML = '<span class="mx-vs" style="--d:250ms" aria-hidden="true">' + parts[1] + '</span> <span class="mx-vs" style="--d:550ms;opacity:.5" aria-hidden="true">–</span> <span class="mx-vs" style="--d:800ms" aria-hidden="true">' + parts[2] + "</span>"; }
+      var pl = document.querySelector(".pc-l"); if (pl) { mxQ(":scope > span > svg", pl).forEach(function (s, i) { mxSet(s, "mx-ck", i); }); mxIo([pl], function (x) { x.classList.add("mx-on"); }, 0.5); }
+      var ls = mxQ(".screen .list").filter(function (l) { return l.querySelector(".vd"); })[0];
+      if (ls) { mxQ(".vd", ls).forEach(function (v, i) { mxSet(v, "mx-pop2", Math.min(i, 10)); }); mxIo([ls], function (x) { x.classList.add("mx-on"); }, 0.3); }
+    }
+  }
   // 3.49.1 : mise à jour sur place du DOM (même nœuds conservés quand ils sont du même type)
   function morphInto(root, html) {
     var tpl = document.createElement("div"); tpl.innerHTML = html;
@@ -992,8 +1162,10 @@
   function mStrict(a, b) { return !!a && !!b && mSame(a, b) && (a.nodeType !== 1 || a.getAttribute("class") === b.getAttribute("class")); }
   function morphKids(from, to) {
     var a = from.firstChild, b = to.firstChild;
+    var mxX = function (n) { return n && n.nodeType === 1 && n.classList.contains("mx-x"); }; // 3.75 : balles et étincelles de passage, laissées en place
     while (b) {
       var nb = b.nextSibling;
+      if (mxX(a)) { a = a.nextSibling; continue; }
       if (!a) { from.appendChild(b); b = nb; continue; }
       var na = a.nextSibling;
       if (mStrict(a, b) || (mSame(a, b) && !mStrict(na, b) && !mStrict(a, nb))) { morphNode(a, b); a = na; b = nb; }
@@ -1001,7 +1173,7 @@
       else if (mStrict(na, b)) { from.removeChild(a); a = na; } // un nœud de moins
       else { from.replaceChild(b, a); a = na; b = nb; }
     }
-    while (a) { var n = a.nextSibling; from.removeChild(a); a = n; }
+    while (a) { var n = a.nextSibling; if (!mxX(a)) from.removeChild(a); a = n; }
   }
   function morphNode(a, b) {
     if (a.nodeType === 3 || a.nodeType === 8) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
@@ -1010,8 +1182,11 @@
     // champs de saisie : on garde celui où tu tapes, les autres sont remplacés (comme avant)
     if (tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT") { if (a !== document.activeElement && a.outerHTML !== b.outerHTML) a.parentNode.replaceChild(b, a); else if (a !== document.activeElement) { if (tg !== "SELECT") a.value = b.value; if (tg === "INPUT") a.checked = b.checked; } return; }
     var i, at;
+    // 3.75 : une mise à jour juste après l'arrivée garde les animations en cours (classes mx*, variables --i/--j/--d/--dy)
+    var mxC = a.classList ? Array.prototype.filter.call(a.classList, function (c) { return /^mx/.test(c); }) : [], mxS = mxC.length && a.style ? a.style.cssText.match(/--(?:i|j|d|dy)\s*:[^;]+/g) : null;
     for (i = a.attributes.length - 1; i >= 0; i--) { at = a.attributes[i]; if (!b.hasAttribute(at.name)) a.removeAttribute(at.name); }
     for (i = 0; i < b.attributes.length; i++) { at = b.attributes[i]; if (a.getAttribute(at.name) !== at.value) { if (at.namespaceURI) a.setAttributeNS(at.namespaceURI, at.name, at.value); else a.setAttribute(at.name, at.value); } }
+    if (mxC.length) { mxC.forEach(function (c) { a.classList.add(c); }); (mxS || []).forEach(function (d) { var k = d.indexOf(":"); a.style.setProperty(d.slice(0, k).trim(), d.slice(k + 1).trim()); }); }
     if (tg === "DETAILS") a.open = b.hasAttribute("open");
     if (a.classList && a.classList.contains("cbl-b") && a.firstChild) return; // 3.73 : la Balle déjà dessinée n'est pas effacée
     morphKids(a, b);
@@ -1772,7 +1947,7 @@
     var tieUsed = st.some(function (x, i) { var y = st[i + 1]; return y && x.p === y.p; });
     var sgn = function (x) { return (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x); };
     var s = '<div class="card pl-st"><span class="eyebrow">Le classement</span>' + poolProgHtml(t) + st.map(function (x, i) {
-      return '<div class="pl-r' + (x.m.me ? " me" : "") + (!x.m.me && x.m.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.m.tid) + '" role="button' : "") + '"><b class="pl-k' + (i < (t.qual || 1) ? " q" : "") + '">' + (i + 1) + "</b><b>" + esc(x.m.me ? "Toi" : trNm(x.m.name)) + (x.m.rank ? ' <span class="muted">· ' + esc(x.m.rank) + "</span>" : "") + (!x.m.me && x.m.age ? '<span class="muted pl-age"> · ' + x.m.age + " ans</span>" : "") + (x.scN ? '<small class="pl-tb">sets ' + sgn(x.sd) + " · jeux " + sgn(x.gd) + "</small>" : "") + '</b><span class="pl-d">' + x.res.map(function (r) { return '<i class="' + (r === "V" ? "v" : r === "D" ? "d" : "") + '"></i>'; }).join("") + '</span><b class="pl-vd">' + x.v + "-" + x.d + '<small class="pl-pt">' + plural(x.p, "pt", "pts") + "</small></b></div>";
+      return '<div class="pl-r' + (x.m.me ? " me" : "") + (!x.m.me && x.m.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.m.tid) + '" role="button' : "") + '"><b class="pl-k' + (i < (t.qual || 1) ? " q" : "") + '">' + (i + 1) + "</b><b>" + esc(x.m.me ? "Toi" : trNm(x.m.name)) + (x.m.me && i === 0 && x.v + x.d > 0 ? TM_CUP : "") + (x.m.rank ? ' <span class="muted">· ' + esc(x.m.rank) + "</span>" : "") + (!x.m.me && x.m.age ? '<span class="muted pl-age"> · ' + x.m.age + " ans</span>" : "") + (x.scN ? '<small class="pl-tb">sets ' + sgn(x.sd) + " · jeux " + sgn(x.gd) + "</small>" : "") + '</b><span class="pl-d">' + x.res.map(function (r) { return '<i class="' + (r === "V" ? "v" : r === "D" ? "d" : "") + '"></i>'; }).join("") + '</span><b class="pl-vd">' + x.v + "-" + x.d + '<small class="pl-pt">' + plural(x.p, "pt", "pts") + "</small></b></div>";
     }).join("") + '<span class="small">Classement aux points : victoire 2 pts, défaite 1 pt, pas encore joué 0.' + (tieUsed ? " À égalité de points : départage aux sets gagnés − perdus, puis aux jeux." + (games.some(function (gm) { return !gm.sc; }) ? " Il manque des scores : ajoute-les pour un départage juste." : "") : "") + "</span>" + (NATIVE ? "" : '<span class="small">Les matchs des autres se lisent sur Ten\'Up depuis l\'appli iPhone ou Android.</span>') + "</div>";
     var played = games.slice().sort(function (a, b) { return (b.me ? 1 : 0) - (a.me ? 1 : 0); });
     s += poolTimingHtml(t);
@@ -2191,7 +2366,7 @@
     var T2 = (c.teams || []).slice().sort(function (a, b) { return (a.cl || 99) - (b.cl || 99); });
     s += '<div class="card tm-cl"><div class="tm-ch"><span class="eyebrow">Classement</span>' + (live ? '<span class="tm-live">En direct</span>' : "") + "</div>" +
       '<table><tr><th></th><th>Équipe</th><th>V-N-D</th><th>Pts</th></tr>' + T2.map(function (t) {
-        return '<tr class="' + (t.id === me ? "me" : "") + '"><td>' + (t.cl || "") + "</td><td>" + esc(tmNm(t.nom)) + '</td><td class="vnd">' + (t.v || 0) + "-" + (t.n || 0) + "-" + (t.d || 0) + '</td><td class="pt"><b>' + (t.pts != null ? t.pts : "") + "</b></td></tr>";
+        return '<tr class="' + (t.id === me ? "me" : "") + '"><td>' + (t.cl || "") + "</td><td>" + esc(tmNm(t.nom)) + (t.id === me && t.cl === 1 ? TM_CUP : "") + '</td><td class="vnd">' + (t.v || 0) + "-" + (t.n || 0) + "-" + (t.d || 0) + '</td><td class="pt"><b>' + (t.pts != null ? t.pts : "") + "</b></td></tr>";
       }).join("") + "</table>" +
       '<span class="small">Victoire ' + c.pts.v + " pts, nul " + c.pts.n + ", défaite " + c.pts.d + ". " + (c.cloture ? "Championnat terminé." : "Mis à jour " + agoLab(S.teams.at) + (UI.tmBusy ? " · lecture de Ten'Up…" : "") + ".") + "</span></div>";
     // 3.50.4 (Yann) : ton impact sur l'équipe : avec toi / sans toi, tes matchs, ta part des matchs gagnés
@@ -8902,7 +9077,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var badge = x === ez ? "Le plus accessible" : x.p < 0.45 && ez && x.top > ez.top ? "Plus ambitieux" : x.k === 1 ? "Une victoire suffit aussi" : "Sans jouer plus fort que " + lab(x.top);
       var mine = cap != null && x.top <= cap && x.top >= (c.cur < 0 ? 0 : c.cur); // inutile de le dire contre des moins bien classés
       var mineTxt = !mine ? "" : x.top === cap ? " · <strong>dans tes cordes</strong> : tu bats régulièrement les " + esc(lab(cap)) : " · <strong>dans tes cordes</strong> : tu bats régulièrement des joueurs mieux classés (jusqu'à " + esc(lab(cap)) + ")";
-      return '<div class="pj-p' + (x === ez ? " best" : "") + '"><span class="grow"><b>' + esc(pisteLabel(x)) + "</b>" +
+      return '<div class="pj-p' + (x === ez ? " best" : "") + '"><span class="grow"><b>' + esc(pisteLabel(x)) + "</b>" + (x === ez ? pjBalls(x.levels.length) : "") +
         '<span class="small">' + (x.p >= 0.45 ? "À ta portée" : x.p >= 0.2 ? "Jouable" : "Ambitieux") + " · bilan " + x.after.total + " / " + x.after.norme + mineTxt + "</span></span>" + (x === ez ? '<span class="pj-b">Le plus<br>accessible</span>' : "") + "</div>";
     }).join("");
     return s + '<details class="pj-how"><summary>Comment c\'est calculé</summary><span class="small">Calculé comme ton bilan : une nouvelle victoire remplace ta plus faible victoire comptée, elle ne rapporte donc que la différence. Pistes classées de la plus probable à la moins probable, d\'après tes résultats contre chaque classement' + (pl.maxBeaten != null ? ", sans adversaire plus fort que ton meilleur succès (" + lab(pl.maxBeaten) + ")" : "") + ".</span></details></div>";
@@ -9917,6 +10092,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       "</div>";
     return s;
   }
+  // 3.75 : après ta dernière défaite (60 j), Ace arrive déçue puis se concentre sur la suite (jamais de fête)
+  function lossAceHtml(m) {
+    if (m.result !== "D" || m.wo) return "";
+    var last = null; try { last = coLastPlayed("D", 60); } catch (e) {} if (!last || last.id !== m.id) return "";
+    var ss = String(m.score || "").match(/\d{1,2}\s*[-\/]\s*\d{1,2}/g) || [];
+    var tight = ss.length >= 3 || ss.some(function (x) { var q = x.split(/[-\/]/).map(Number); return (q[0] === 7 && q[1] === 6) || (q[0] === 6 && q[1] === 7); });
+    var o = E.idx(T.normRank(m.oppRank || "")), cur = null; try { cur = ctx().cur; } catch (e) {}
+    var t = "<b>" + (tight ? "Ça s'est joué à rien." : "Pas ton jour, ça arrive.") + "</b>" + (o != null && cur != null && o > cur ? " En face, il était mieux classé : ce n'est pas une contre-perf." : "") + " On regarde ce qui vient ensuite ?";
+    return coachBubble("mt", [{ id: "mt:loss:" + m.id, mood: "decue", t: t, act: { l: "On en parle", a: "ace", v: "loss" } }]).replace('class="card cbl"', 'class="card cbl mt-ace"');
+  }
 
   function annSummaryHtml(m) {
     var r = m.racketId ? racket(m.racketId) : null, rows = [];
@@ -9964,14 +10149,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.55 (Yann, ordre de la fiche validé) : résultat, puis pourquoi / ce que tu gardes, puis à compléter, puis le contexte
     var midH = isNew ? "" : analyseHtml(mA, official) + (m.result === "D" ? nextOccHtml(mA) : "") + toCompleteHtml(mA);
     if (!isNew && (S.anNew || []).indexOf(m.id) >= 0) { S.anNew = S.anNew.filter(function (x) { return x !== m.id; }); save(); }
-    if (official) s += midH;
+    if (official) s += (isNew ? "" : lossAceHtml(m)) + midH;
     if (!isNew && official) s += hcMatchLine(m) + hrMatchCard(m);
     if (!isNew && !official) {
       s += '<div class="card ink" style="flex-direction:row;justify-content:space-between;align-items:center"><span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;color:var(--sub)">' + esc(fdate(m.date)) + " · " + esc((KINDS.filter(function (k) { return k[0] === m.kind; })[0] || ["", "Match"])[1]) + (m.comp ? '</span><span style="font-size:12px;color:var(--sub);line-height:1.3">' + esc(m.comp) : "") + '</span><span style="font-size:20px;font-weight:600">' + esc(nameCase(m.opp) || "Adversaire") + " · " + esc(m.oppRank) + '</span><span style="color:#E6E0D8">' + esc(m.score || "") + "</span></span>" +
         '<span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span style="height:32px;padding:0 12px;border-radius:16px;background:' + (m.result === "V" ? "var(--balle)" : "var(--terre-soft)") + ";color:" + (m.result === "V" ? "var(--on-balle)" : "var(--terre-dark)") + ';font-weight:700;display:flex;align-items:center">' + (m.result === "V" ? "Victoire" : "Défaite") + (m.wo ? " (WO)" : "") + "</span>" +
         (m.result === "V" ? '<span style="color:var(--hl);font-weight:600;font-size:14px">' + (!counts(m) ? "ne compte pas" : pts != null ? "+" + pts + " pts" : "hors quota") + "</span>" : "") + "</span></div>";
     }
-    if (!isNew && !official) s += midH + hcMatchLine(m) + hrMatchCard(m); // 3.54 : sous l'en-tête du match
+    if (!isNew && !official) s += lossAceHtml(m) + midH + hcMatchLine(m) + hrMatchCard(m); // 3.54 : sous l'en-tête du match
     // 3.47 (Yann) : le face-à-face remonte sous l'en-tête du match (bilan + pastilles V/D), au lieu d'être tout en bas
     if (!isNew && m.opp && !isAnon(m.opp) && nameKey(m.opp).length >= 3) {
       var hk = nameKey(m.opp), hm = knownMatches(false).filter(function (x) { return x.opp && nameKey(x.opp) === hk && !x.wo && (x.result === "V" || x.result === "D"); }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
