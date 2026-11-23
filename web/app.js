@@ -777,6 +777,8 @@
     UI.lastRKey = rKey;
     if (S.onboarded && !UI.capCkT) UI.capCkT = setTimeout(function () { UI.capCkT = null; try { capCheck(); } catch (e) {} }, 600); // 3.62
     Array.prototype.forEach.call(app.querySelectorAll("textarea"), growTa);
+    // 3.74.1 (accessibilité) : à chaque nouveau sujet d'Ace, on repart du haut et le focus va sur la question
+    try { var aceK = UI.ace ? "q:" + (UI.ace.q || "") : ""; if (aceK && aceK !== UI.aceK) { var ae = document.querySelector(".ace"); if (ae) { ae.scrollTop = 0; var af = ae.querySelector(".ace-me") || ae.querySelector(".ace-hero b"); if (af) { af.setAttribute("tabindex", "-1"); af.focus({ preventScroll: true }); } } } UI.aceK = aceK; } catch (e) {}
     try { mountBalles(document.body); } catch (e) {} // 3.73 : la Balle (bulles du coach, accueil, discussion)
     // Barre des courbes : recréée par le rendu, on remet tout de suite son fond « collé » et le bon onglet (sinon transparente jusqu'au prochain défilement)
     try { cbSpy(true); } catch (e) {}
@@ -8688,10 +8690,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function acRow(o) {
     var tag = o.sheet ? 'button class="acr" data-a="sheet" data-k="' + esc(o.sheet[0]) + '" data-v="' + esc(o.sheet[1] || "") + '"' : o.href ? 'a class="acr" href="' + esc(o.href) + '"' : 'div class="acr"';
     return "<" + tag + ">" + (o.sq ? '<span class="acr-sq ' + (o.sq === "V" ? "g" : "r") + '">' + o.sq + "</span>" : "") + '<span class="acr-l"><b>' + o.l + "</b>" + (o.s ? "<small" + (o.scl ? ' class="' + o.scl + '"' : "") + ">" + o.s + "</small>" : "") + "</span>" +
-      (o.bar != null ? '<span class="acr-bar ' + (o.cl || "") + '"><i style="width:' + Math.max(0, Math.min(100, o.bar)) + '%"></i>' + (o.tick != null ? '<em style="left:' + Math.max(0, Math.min(100, o.tick)) + '%"></em>' : "") + "</span>" : "") +
+      (o.bar != null ? '<span aria-hidden="true" class="acr-bar ' + (o.cl || "") + '"><i style="width:' + Math.max(0, Math.min(100, o.bar)) + '%"></i>' + (o.tick != null ? '<em style="left:' + Math.max(0, Math.min(100, o.tick)) + '%"></em>' : "") + "</span>" : "") +
       '<span class="acr-v ' + (o.cl || "") + '">' + (o.v || "") + "</span>" + (o.sheet || o.href ? '<span class="acr-go">' + I.next + "</span>" : "") + "</" + tag.split(" ")[0] + ">";
   }
-  function acBig(v, l, cl, bar, side) { return '<div class="acb"><span class="acb-n ' + (cl || "") + '">' + v + "</span>" + (side ? '<span class="acb-s">' + side + "</span>" : "") + (l ? '<small class="acb-l">' + l + "</small>" : "") + (bar != null ? '<span class="acr-bar wide ' + (cl || "") + '"><i style="width:' + Math.max(0, Math.min(100, bar)) + '%"></i></span>' : "") + "</div>"; }
+  function acBig(v, l, cl, bar, side) { return '<div class="acb"><span class="acb-n ' + (cl || "") + '">' + v + "</span>" + (side ? '<span class="acb-s">' + side + "</span>" : "") + (l ? '<small class="acb-l">' + l + "</small>" : "") + (bar != null ? '<span aria-hidden="true" class="acr-bar wide ' + (cl || "") + '"><i style="width:' + Math.max(0, Math.min(100, bar)) + '%"></i></span>' : "") + "</div>"; }
   function acRk(r) { return r ? ' <b class="rk-tag">' + esc(T.normRank(r) || r) + "</b>" : ""; }
   function coAnswer(c, q) {
     var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], XH = "", mood = "repos", pl = null, k = q.split(":");
@@ -8764,7 +8766,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         if (dm != null && dm !== 0) A.push("Ce mois-ci : <b>" + (dm > 0 ? "+" : "−") + String(Math.abs(dm)).replace(".", ",") + "</b>, " + (dm > 0 ? "ça monte." : "petit creux, rien d'alarmant."));
         mood = dl >= 0.3 ? "joie" : "reflexion";
         if (hist.length >= 2) { var hv = hist.slice(-8), mn = Math.min.apply(null, hv.map(function (x) { return x.v; }).concat([cur])) - 0.5, mx2 = Math.max.apply(null, hv.map(function (x) { return x.v; }).concat([cur])) + 0.3;
-          XH += acCard("Ton niveau, mois par mois", '<div class="acg"><div class="acg-p">' + hv.map(function (x, i) { return '<i class="' + (i === hv.length - 1 ? "on" : "") + '" style="height:' + Math.max(4, Math.round(100 * (x.v - mn) / (mx2 - mn))) + '%"></i>'; }).join("") + '<em style="bottom:' + Math.round(100 * (cur - mn) / (mx2 - mn)) + '%"></em></div><div class="acg-x">' + hv.map(function (x) { return "<small>" + (x === hv[hv.length - 1] ? "auj." : esc(MOIS[x.d.getMonth()].replace(/\.$/, "").slice(0, 4))) + "</small>"; }).join("") + '</div></div><span class="acd-f"><i class="acg-k"></i>ton classement ' + esc(lab(cur)) + "</span>"); }
+          XH += acCard("Ton niveau, mois par mois", '<div class="acg" role="img" aria-label="' + esc("Ton niveau, mois par mois : " + hv.map(function (x) { return lab(Math.max(0, Math.min(E.MAX_CALC, Math.round(x.v)))); }).join(", ")) + '"><div class="acg-p">' + hv.map(function (x, i) { return '<i class="' + (i === hv.length - 1 ? "on" : "") + '" style="height:' + Math.max(4, Math.round(100 * (x.v - mn) / (mx2 - mn))) + '%"></i>'; }).join("") + '<em style="bottom:' + Math.round(100 * (cur - mn) / (mx2 - mn)) + '%"></em></div><div class="acg-x">' + hv.map(function (x) { return "<small>" + (x === hv[hv.length - 1] ? "auj." : esc(MOIS[x.d.getMonth()].replace(/\.$/, "").slice(0, 4))) + "</small>"; }).join("") + '</div></div><span class="acd-f"><i class="acg-k"></i>ton classement ' + esc(lab(cur)) + "</span>"); }
         F.push(["Voir mes courbes", "", "#/courbes"]);
       } else A.push("Encore " + plural(Math.max(1, 8 - ((f && f.n) || 0)), "match") + " et je pourrai te le dire chiffres à l'appui.");
     }
@@ -18192,6 +18194,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   app.addEventListener("touchstart", tip, { passive: true });
   app.addEventListener("click", tip);
   document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && UI.menu) { UI.menu = false; render(); } });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && UI.ace && !UI.sheet) { if (UI.ace.q) UI.ace.q = ""; else UI.ace = null; render(); } }); // 3.74.1 : Échap = retour d'Android
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.tq && UI.trR) { ev.preventDefault(); if (nameSplits(UI.trR.q || "").length && NATIVE) { ev.target.blur(); A.trFind(); } } });
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.ff) { ev.preventDefault(); ev.target.blur(); UI.fafLocal = null; fafSearch(null); } });
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "ps-q") { ev.preventDefault(); ev.target.blur(); A.psFind(); } });

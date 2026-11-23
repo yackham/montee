@@ -6236,3 +6236,4 @@ button.acr, a.acr { cursor: pointer; }
 /* 3.74.1 (règle de Yann : pas de carte dans la feuille) : « d'où vient ce chiffre » en lignes à plat */
 .num-c { display: flex; flex-direction: column; }
 .acd-btn { align-self: flex-start; width: auto; margin-top: 8px; padding: 8px 16px; border: 1.5px solid var(--acc-ink) !important; border-radius: 99px; color: var(--acc-ink); font-weight: 700; background: transparent; }
+.ace-me:focus, .ace-hero b:focus { outline: none; }
