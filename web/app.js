@@ -8660,6 +8660,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var lk = coLeaks(d); Q.push(["toi", "leaks", "Où je perds des points ?", "Ce qui te coûte", lk.sum >= 5 ? "≈ " + lk.sum + " pts laissés en route" : "Rien de flagrant", "warn"]);
       if (!isSup()) Q.push(["toi", "cap", "Qu'est-ce que je dois faire ce mois-ci ?", "Ta consigne", "Une consigne chiffrée par mois", "edit"]);
       else { var od = coOrders(d); if (od.length) Q.push(["toi", "cap", "Qu'est-ce que je dois faire ce mois-ci ?", "Ta consigne", od[0].t.length > 44 ? od[0].t.slice(0, 42).replace(/\s+\S*$/, "") + "…" : od[0].t, "edit"]); }
+      var wk = coWeak(d); if (wk) Q.push(["toi", "faible", wk.weak ? "Mon point faible, je le travaille comment ?" : "Je travaille quoi à l'entraînement ?", "À travailler", (wk.weak ? "" : "Garder : ") + CP_LAB[wk.k], "edit"]);
       if (d.matches.length) Q.push(["toi", "matchs", "Quels matchs ont vraiment compté ?", "Les matchs clés", plural(d.matches.length, "match") + " qui ont pesé", "book"]);
       if (d.best.length) Q.push(["toi", "best", "Je suis le meilleur quand ?", "Ta meilleure version", d.best[0].p + " % de victoires", "heart"]);
       if (d.seen.items && d.seen.items.length) Q.push(["toi", "scout", "Qu'est-ce que mes adversaires savent de moi ?", "Ton rapport de scouting", "Ce qu'ils préparent contre toi", "info"]);
@@ -8671,6 +8672,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var k = S.matches.length + "|" + E.iso(today()) + "|" + (S.cap ? S.cap.at : "");
     if (UI.coDk !== k) { UI.coDk = k; UI.coDv = null; try { var d = coachData(); if (d && d.ms.length >= 6) UI.coDv = d; } catch (e) {} }
     return UI.coDv;
+  }
+  // le point à travailler : le plus gros point faible, sinon un « à surveiller », sinon le point fort à garder (mêmes verdicts que le profil)
+  function coWeak(d) {
+    var P = d.P, k = (P.faibs || [])[0] || CP_KEYS.filter(function (x) { return cpSurv(P.R[x]); })[0], weak = !!k;
+    if (!k) k = (P.forts || [])[0];
+    return k && CP_HOW[k] ? { k: k, weak: weak, x: P.R[k] } : null;
   }
   function coLeaks(d) { var l = d.leaks.filter(function (x) { return !x.fallback && x.pts; }); return { l: l, sum: l.reduce(function (a, x) { return a + x.pts; }, 0) }; }
   function coOrders(d) { var cap = null, o = []; try { cap = capData(d.c); } catch (e) {} try { o = capOrders(d, cap); } catch (e) {} if (!o.length && d.plan.length) o = d.plan.map(function (x) { return { t: x.t, s: x.s }; }); return o; }
@@ -8761,7 +8768,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         F.push(["Voir mes courbes", "", "#/courbes"]);
       } else A.push("Encore " + plural(Math.max(1, 8 - ((f && f.n) || 0)), "match") + " et je pourrai te le dire chiffres à l'appui.");
     }
-    else if (k[0] === "profil" || k[0] === "leaks" || k[0] === "cap" || k[0] === "matchs" || k[0] === "best" || k[0] === "scout") {
+    else if (k[0] === "profil" || k[0] === "faible" || k[0] === "leaks" || k[0] === "cap" || k[0] === "matchs" || k[0] === "best" || k[0] === "scout") {
       var d = coD(), sup = isSup(), PL = function (what) { if (!sup) XH += '<a class="acd acd-up" href="#/soutenir"><span class="ace-pl">Montée+</span><span>' + what.charAt(0).toUpperCase() + what.slice(1) + '</span><b>Découvrir ' + I.next + "</b></a>"; };
       if (!d) A.push("Encore quelques matchs sur 12 mois et je te fais ce bilan.");
       else if (k[0] === "profil") {
@@ -8778,6 +8785,19 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
           if (rows) XH += acCard("Tes chiffres sur 12 mois", rows + '<span class="acd-f"><i class="acd-tk"></i>ce que ferait un ' + esc(P.curL) + " face aux mêmes adversaires</span>");
           F.push(["Voir mon profil de compétiteur", "", "#/competiteur"]); F.push(["Où je perds des points ?", "leaks"]);
         } else A.push("Ton style, tiré de tes 12 derniers mois."); PL("ajoute tes chiffres face à chaque classement, ce qui est un point fort et ce qu'il faut travailler.");
+      } else if (k[0] === "faible") {
+        var wk = coWeak(d); mood = "concentree";
+        if (!wk) A.push("Rien qui ressort pour l'instant : continue à noter tes matchs.");
+        else {
+          var h = CP_HOW[wk.k], g = wk.x.g, trl = { match: "Match à thème" }[h.tr] || ((TR_WORK.filter(function (x) { return x[0] === h.tr; })[0] || [0, h.tr])[1]);
+          A.push(wk.weak ? "<b>Ta priorité : " + esc(CP_LAB[wk.k].toLowerCase()) + ".</b> " + (g && g.n ? cap1(wk.x.what) + " : " + g.v + " sur " + g.n + ", un " + esc(d.P.curL) + " en ferait ≈ " + String(Math.round(g.e * 10) / 10).replace(".", ",") + "." : "") : "<b>Pas de point faible net.</b> Garde ton point fort : " + esc(CP_LAB[wk.k].toLowerCase()) + ".");
+          var dr = sup ? h.d.slice(0, wk.weak ? 2 : 1) : h.d.slice(0, 1);
+          XH += acCard("Sur le court", dr.map(function (x, i) { return '<div class="acc"><span class="acc-n">' + (i + 1) + '</span><span class="acc-t"><b>' + esc(x[0]) + "</b><small>" + esc(x[1]) + "</small></span></div>"; }).join("") +
+            (sup && h.m ? '<div class="acc"><span class="acc-n g">✓</span><span class="acc-t"><b>En match</b><small>' + esc(h.m) + "</small></span></div>" : "") +
+            '<button class="btn soft small acd-btn" data-a="trWithWork" data-k="' + esc(h.tr) + '">Noter une séance « ' + esc(trl) + " »</button>");
+          if (sup) F.push(["Voir mon profil de compétiteur", "", "#/competiteur"]); else PL("ajoute le 2e exercice et la consigne à appliquer en match.");
+          F.push(["Je suis quel genre de compétiteur ?", "profil"]);
+        }
       } else if (k[0] === "leaks") {
         var lk = coLeaks(d), nx = d.c.proj.next || {}, norm0 = nx.norme || 0, acc = nx.total || 0, pass = -1; mood = "reflexion";
         if (lk.sum < 5) { A.push("<b>Rien de flagrant.</b> Tu gagnes ce qu'un " + esc(d.P.curL) + " doit gagner. Pour monter, il faut aller chercher les perfs."); F.push(["Comment je monte ?", "up"]); }
