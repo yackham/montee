@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.85.0",
+    VERSION: "3.89.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -722,6 +722,7 @@
       case "moi": html = V.moi(); break;
       case "tenup": html = V.tenup(); break;
       case "profil": html = V.profil(); break;
+      case "reconnu": html = V.reconnu(); break;
       case "donnees": html = V.donnees(); break;
       case "methode": html = V.methode(); break;
       case "apropos": html = V.apropos(); break;
@@ -768,7 +769,7 @@
     var rKey = location.hash.split("?")[0];
     // 3.51.0 (Android, quelques clignotements restants) : rendu identique = on ne touche à rien ; même page = mise à jour sur place
     if (UI.lastRKey === rKey && app.firstChild && UI.lastHtml === html) { /* rien n'a changé */ }
-    else if (UI.lastRKey === rKey && app.firstChild) morphInto(app, html);
+    else if (UI.lastRKey === rKey && app.firstChild) { morphInto(app, html); try { lcIo(); } catch (e) {} } // 3.81 : listes du club arrivées par mise à jour
     else { app.innerHTML = html; countUp(app); try { motion(parts[0]); } catch (e) {} } // 3.59 : les chiffres clés défilent jusqu'à leur valeur, à l'ouverture de la page
     UI.lastHtml = html;
     UI.lastRKey = rKey;
@@ -819,7 +820,7 @@
   var mBack = function (t) { var c = 1.6; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
   function mTw(ms, delay, fn, done, ez) {
     ez = ez || mEase;
-    var go = function () { var t0 = 0; var step = function (now) { if (!t0) t0 = now; var t = Math.min(1, (now - t0) / ms); fn(ez(t)); if (t < 1) requestAnimationFrame(step); else if (done) done(); }; requestAnimationFrame(step); };
+    var go = function () { var t0 = 0; var step = function (now) { if (!t0) t0 = now; var t = Math.min(1, (now - t0) / ms); try { fn(ez(t)); } catch (e) { return; } if (t < 1) requestAnimationFrame(step); else if (done) done(); }; requestAnimationFrame(step); };
     if (delay) setTimeout(go, delay); else go();
   }
   function mSeen(el, fn) {
@@ -1154,6 +1155,7 @@
     }
     // Mes épreuves : liste, chemin du tableau, poule, équipes
     else if (page === "tournoi") {
+      lcMotion(); // 3.81 : l'onglet « Le club »
       mxQ(".tsx-big b").forEach(function (b, i) { mxSet(b, "mx-in", null, 150 + i * 120); });
       mxQ(".screen .tl-r").forEach(function (r, i) {
         mxSet(r, "mx-in", null, 300 + Math.min(i, 8) * 110);
@@ -2285,7 +2287,7 @@
     if (on.length) s += '<h2 class="tm-gh">Tes équipes</h2><div class="blk">' + on.map(teamRow).join("") + "</div>";
     if (ent.length) s += '<h2 class="tm-gh">Tennis entreprise</h2><div class="blk">' + ent.map(teamRow).join("") + "</div>";
     if (off.length) s += '<h2 class="tm-gh">Tes championnats terminés</h2><div class="blk">' + off.map(teamRow).join("") + "</div>";
-    if (s) s += clubHtml();
+    if (s) s += clubFolHtml();
     return (s || '<div class="card"><span class="small">Montée lit tes championnats sur Ten\'Up…</span></div>');
   }
   // 3.72 (Yann, responsable sportif, maquette equipes-club v2 validée) : les autres équipes du club, derrière un interrupteur.
@@ -2309,46 +2311,185 @@
       (L ? '<span class="ce-sc ' + L.res + '">' + L.res.toUpperCase() + " " + L.a + "–" + L.b + "</span>" : "<span></span>") +
       (me.cl ? '<span class="ce-pl ' + tmRkC(me.cl, n) + '">' + me.cl + "<sup>" + (me.cl === 1 ? "er" : "e") + "</sup><small>sur " + n + "</small></span>" : "<span></span>") + "</a></div>";
   }
-  function clubHtml() {
-    if (!NATIVE && !S.club) return "";
-    var on = clubOn(), CL = on ? clubTeams() : [], nm = tmNm(((S.teams || {}).club || {}).nom || "ton club");
-    var nCh = {}; CL.forEach(function (c) { if (!clubDone(c)) nCh[c.cid] = 1; });
-    // 3.74.6 (Yann) : les équipes suivies juste sous les tiennes, même interrupteur coupé (en cours d'abord, puis terminées)
+  // 3.81 (Yann, maquette « Le club » vivante validée le 23/11/2026) : les équipes du club ont leur propre onglet dans Mes épreuves.
+  // Ici, dans Mes équipes, il ne reste que les équipes du club que tu suis (★).
+  function clubFolHtml() {
     var fol = clubTeams().filter(function (c) { return clubFol(c.id); }).sort(function (a, b) { return (clubDone(a) ? 1 : 0) - (clubDone(b) ? 1 : 0); });
-    var s = (fol.length ? '<h2 class="tm-gh ce-h">Tes équipes suivies <small>' + fol.length + '</small></h2><div class="blk ce-g">' + fol.map(function (c) { return clubRow(c, true); }).join("") + "</div>" : "") + '<div class="card ce-sw"><span class="grow"><b>Équipes du club</b><small>' + (!on ? "Voir toutes les équipes de " + esc(nm) + ", choisir celles que tu suis." : UI.clubBusy && !CL.length ? "Lecture des équipes du club sur Ten'Up…" : CL.length ? plural(CL.length, "autre équipe", "autres équipes") + " · " + plural(Object.keys(nCh).length, "championnat en cours", "championnats en cours") : !(S.tenup || {}).linked ? "Relie ton compte Ten'Up pour lire les équipes du club." : S.clubTrace && S.clubTrace.err ? "Ten'Up n'a pas répondu, réessaie plus tard." : "Aucune autre équipe trouvée pour l'instant.") +
-      '</small></span><button class="ce-tg' + (on ? " on" : "") + '" data-a="clubTg" role="switch" aria-checked="' + on + '" aria-label="Équipes du club"></button></div>';
-    if (!on) return s;
-    // 3.72.2 : erreur ou lecture vide → réessayer ; lecture en cours → avancement
-    var ct = S.clubTrace || {};
-    if (UI.clubBusy && CL.length) s += '<span class="small ce-ld"><span class="spin"></span> Mise à jour des équipes du club…</span>';
-    else if (!UI.clubBusy && (S.tenup || {}).linked && (ct.err || !CL.length)) s += '<span class="small ce-ld">' + (ct.err && CL.length ? "Dernière mise à jour impossible (" + esc(String(ct.err).slice(0, 60)) + "). " : "") + '<button class="lnk" data-a="clubRetry">Réessayer</button></span>';
-    if (!CL.length) return s;
-    // le week-end du club : les rencontres jouées depuis samedi dernier (7 jours au plus), tes équipes comprises
-    var td = today(), back = (td.getDay() + 1) % 7, sat = E.iso(new Date(td.getTime() - back * 864e5)), sun = E.iso(new Date(td.getTime() - (back - 1) * 864e5));
-    var all = myTeams(true).concat(CL), W = []; all.forEach(function (c) { var L = clubLast(c, sat); if (L) W.push(L); });
-    var nx7 = E.iso(new Date(td.getTime() + 7 * 864e5)), nxt = 0; all.forEach(function (c) { if (!clubDone(c)) nxt += (c.renc || []).filter(function (r) { var d = String(r.d).slice(0, 10); return (r.a === c.me.mine || r.b === c.me.mine) && r.st !== "T" && d >= E.iso(td) && d <= nx7; }).length; });
-    if (W.length) {
-      var cnt = function (k) { return W.filter(function (x) { return x.res === k; }).length; }, ds = E.parseDate(sat);
-      s += '<div class="card ce-we"><span class="eyebrow">' + (back <= 1 ? "Ce week-end" : "Le week-end") + " au club · " + ds.getDate() + "-" + E.parseDate(sun).getDate() + " " + MOIS[E.parseDate(sun).getMonth()] + '</span><div class="ce-big"><span class="v">' + cnt("v") + '<small>V</small></span><span class="n">' + cnt("n") + '<small>N</small></span><span class="d">' + cnt("d") + "<small>D</small></span></div>" +
-        '<div class="ce-sq" aria-hidden="true">' + W.map(function (x) { return '<i class="' + (x.res === "v" ? "" : x.res) + '"></i>'; }).join("") + "</div>" +
-        '<div class="ce-lk"><button data-a="sheet" data-k="clubWe" data-v="' + sat + '">' + plural(W.length, "score", "scores").replace(/^(\d+) /, "Les $1 ") + " ›</button>" + (nxt ? '<button data-a="sheet" data-k="clubNx" data-v="' + nx7 + '">7 prochains jours : ' + plural(nxt, "rencontre", "rencontres") + " ›</button>" : "") + "</div></div>";
+    return fol.length ? '<h2 class="tm-gh ce-h">Tes équipes suivies <small>' + fol.length + '</small></h2><div class="blk ce-g">' + fol.map(function (c) { return clubRow(c, true); }).join("") + "</div>" : "";
+  }
+  // Une équipe du club (la tienne comprise) : sa ligne au classement, ses résultats dans l'ordre, son numéro
+  function lcT(c) {
+    var me = c.me.mine, t = tmOf(c, me) || {}, n = (c.teams || []).length;
+    var R = (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.st === "T" && r.s1 != null && r.s2 != null; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+    var res = R.map(function (r) { var a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1; return a > b ? "v" : a < b ? "d" : "n"; });
+    return { c: c, t: t, n: n, pos: t.cl || 0, R: R, res: res, num: (/(\d+)\s*$/.exec(t.nom || "") || [])[1] || "", mine: !c.cl, fem: /dame|femin|fille/i.test(String(c.nom || "")) };
+  }
+  function lcOrd(p, fem) { return p === 1 ? (fem ? "re" : "er") : "e"; }
+  function lcAll() { return myTeams(true).filter(function (c) { return !c.ent && c.teams; }).concat(clubTeams()); }
+  function lcCur() { return lcAll().filter(function (c) { return !clubDone(c); }).map(lcT); }
+  function lcPosC(x) { return x.pos === 1 ? "g" : x.n > 2 && x.pos === x.n ? "r" : ""; }
+  var LC_CUP = '<svg class="lc-cup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4M12 14v4M8 20h8"/></svg>';
+  function lcDay(iso) { var d = E.parseDate(iso); return JOURS[d.getDay()].slice(0, 3) + ". " + d.getDate() + " " + MOIS[d.getMonth()]; }
+  function lcPos(x, cls) {
+    return x.pos ? '<span class="lc-pos ' + lcPosC(x) + (cls ? " " + cls : "") + '">' + (x.pos === 1 ? LC_CUP : "") + x.pos + "<sup>" + lcOrd(x.pos, x.fem) + "</sup><small>sur " + x.n + "</small></span>" : "<span></span>";
+  }
+  // Une ligne d'équipe : numéro, nom, division, ses résultats (points), sa place
+  function lcRow(x, inCat, i) {
+    var c = x.c, lab = inCat ? "Équipe " + (x.num || "") : champNm(c) + (x.num ? " · éq. " + x.num : "");
+    var dots = x.res.slice(-6).map(function (r, j) { return '<i class="' + r + '" style="--j:' + j + '"></i>'; }).join("");
+    return '<a class="lc-r" href="#/equipe/' + esc(c.id) + '" style="--i:' + i + '"><span class="lc-n">' + esc(x.num || "·") + '</span><span class="grow"><b>' + esc(lab) + (x.mine ? ' <span class="lc-me">toi</span>' : "") + "</b><small>" + esc([tmDiv(c.div), tmDiv(c.poule)].filter(Boolean).join(" · ")) + "</small></span>" +
+      (dots ? '<span class="lc-dots" aria-label="' + esc(x.res.slice(-6).map(function (r) { return r.toUpperCase(); }).join(" ")) + '">' + dots + "</span>" : "") + lcPos(x) + "</a>";
+  }
+  // Les fanions du club : un par équipe en lice, détouré de la couleur de sa place
+  function lcFans(L) {
+    var X = L.slice(0, 7); if (!X.length) return "";
+    var w = 150, s = '<svg class="lc-fan" viewBox="0 0 150 78" aria-hidden="true"><path class="str" d="M4 10 Q75 34 146 10" fill="none" stroke="var(--muted)" stroke-width="1.4"/>';
+    X.forEach(function (x, i) {
+      var px = X.length === 1 ? 75 : 14 + i * (122 / (X.length - 1)), py = 10 + 24 * (1 - Math.pow((px - 75) / 71, 2)) - 1, col = x.pos === 1 ? "var(--gazon)" : lcPosC(x) === "r" ? "var(--terre)" : "var(--muted)";
+      s += '<g class="p" style="--i:' + i + '"><path d="M' + (px - 8).toFixed(1) + " " + py.toFixed(1) + " L" + (px + 8).toFixed(1) + " " + py.toFixed(1) + " L" + px.toFixed(1) + " " + (py + 26).toFixed(1) + ' Z" fill="var(--card)" stroke="' + col + '" stroke-width="2" stroke-linejoin="round"/><text x="' + px.toFixed(1) + '" y="' + (py + 12).toFixed(1) + '" text-anchor="middle" font-size="9" font-weight="800" fill="' + col + '">' + esc(x.num || "") + "</text></g>";
+    });
+    return s + "</svg>";
+  }
+  // Ace commente la saison du club : qui est en tête, qui a besoin d'un mot avant la prochaine rencontre
+  function lcAce(L) {
+    var lead = L.filter(function (x) { return x.pos === 1; }), dn = L.map(function (x) { var k = 0; for (var i = x.res.length - 1; i >= 0 && x.res[i] === "d"; i--) k++; return { x: x, k: k }; }).filter(function (o) { return o.k >= 2; }).sort(function (a, b) { return b.k - a.k; })[0];
+    if (!lead.length && !dn) return "";
+    var nm = function (x) { return "L'équipe " + x.num + " (" + champNm(x.c) + ")"; }, t = "";
+    if (lead.length) t += "<b>" + (lead.length > 1 ? "Belle saison !" : "Ça avance bien !") + "</b> " + (lead.length > 1 ? lead.length + " équipes du club sont en tête de leur poule." : esc(nm(lead[0])) + " est en tête de sa poule.");
+    if (dn) t += (t ? " " : "") + esc(nm(dn.x)) + " enchaîne " + dn.k + " défaites : un petit mot avant la prochaine rencontre ?";
+    return '<div class="card cbl lc-ace" role="note" aria-label="Ace sur le club">' + coBall("lc-ace", lead.length ? "joie" : "concentree") + '<div class="cbl-t"><span>' + t + "</span>" +
+      (dn ? '<div class="cbl-ac"><a class="cbl-go" href="#/equipe/' + esc(dn.x.c.id) + '">Voir l\'équipe ' + esc(dn.x.num) + " ›</a></div>" : "") + "</div></div>";
+  }
+  function clubTabHtml() {
+    var nm = tmNm(((S.teams || {}).club || {}).nom || "ton club"), ct = S.clubTrace || {};
+    var y = today().getMonth() >= 8 ? today().getFullYear() : today().getFullYear() - 1, seas = "saison " + y + "-" + String(y + 1).slice(2);
+    var s = '<div class="lc-tab" data-k="lc-tab">';
+    if (!clubOn()) return s + viduel("eq", "Toutes les équipes de " + nm, "Leur place, leurs scores du week-end, leurs saisons passées : lus sur Ten'Up, sans rien ressaisir.", seas) + '<button class="go-pill lc-go" data-a="clubTg">Voir les équipes du club</button></div>';
+    var A0 = lcAll();
+    if (!A0.length) return s + '<div class="card"><span class="small">' + (UI.clubBusy ? '<span class="spin"></span> Lecture des équipes du club sur Ten\'Up…' : !(S.tenup || {}).linked ? "Relie ton compte Ten'Up pour lire les équipes du club." : ct.err ? "Ten'Up n'a pas répondu. " : "Aucune équipe trouvée pour l'instant. ") + "</span>" + (!UI.clubBusy && (S.tenup || {}).linked ? '<button class="lnk" data-a="clubRetry">Réessayer</button>' : "") + "</div></div>";
+    var L = lcCur().sort(function (a, b) { return clubCat(a.c) < clubCat(b.c) ? -1 : clubCat(a.c) > clubCat(b.c) ? 1 : champNm(a.c) < champNm(b.c) ? -1 : champNm(a.c) > champNm(b.c) ? 1 : (+a.num || 0) - (+b.num || 0); });
+    var W = { v: 0, n: 0, d: 0 }, nR = 0; L.forEach(function (x) { x.res.forEach(function (r) { W[r]++; nR++; }); });
+    var nG = L.filter(function (x) { return x.pos === 1; }).length, n2 = L.filter(function (x) { return x.pos === 2; }).length, nL = L.filter(function (x) { return lcPosC(x) === "r"; }).length, F = UI.lcF || "";
+    if (UI.clubBusy) s += '<span class="small ce-ld"><span class="spin"></span> Mise à jour des équipes du club…</span>';
+    else if (ct.err) s += '<span class="small ce-ld">Dernière mise à jour impossible. <button class="lnk" data-a="clubRetry">Réessayer</button></span>';
+    // la saison en un coup d'œil
+    var chip = function (k, n, lab, dot) { return n ? '<button class="' + (F === k ? "on" : "") + '" data-a="lcF" data-v="' + k + '" aria-pressed="' + (F === k) + '" style="--i:' + "g2r".indexOf(k) + '"><i class="' + dot + '"></i>' + lab + "</button>" : ""; };
+    var vnd = function (k, n, lab) { return '<button data-a="sheet" data-k="lcRes" data-v="' + k + '"><b class="' + k + '">' + n + "</b><small>" + lab + "</small></button>"; };
+    s += '<div class="card lc-hero">' + lcFans(L) + '<span class="eyebrow">' + esc(nm) + " · " + seas + "</span>" +
+      '<div class="lc-ttl">' + (L.length ? plural(L.length, "équipe en lice", "équipes en lice") : "Pas de championnat en cours") + "<small>" + (nR ? plural(nR, "rencontre jouée", "rencontres jouées") : L.length ? "Pas encore de rencontre jouée" : "Les saisons passées sont plus bas") + "</small></div>" +
+      (nR ? '<div class="lc-vnd">' + vnd("v", W.v, W.v > 1 ? "victoires" : "victoire") + vnd("n", W.n, W.n > 1 ? "nuls" : "nul") + vnd("d", W.d, W.d > 1 ? "défaites" : "défaite") + "</div>" : "") +
+      (nG || n2 || nL ? '<div class="lc-chips" role="group" aria-label="Filtrer les équipes">' + chip("g", nG, nG + " en tête", "g") + chip("2", n2, plural(n2, "deuxième", "deuxièmes"), "") + chip("r", nL, plural(nL, "dernière", "dernières"), "r") + "</div>" : "") + "</div>";
+    s += lcAce(L);
+    // le dernier week-end joué (3 semaines au plus), toutes les équipes du club
+    var all = []; L.forEach(function (x) { x.R.forEach(function (r, i) { all.push({ x: x, r: r, res: x.res[i] }); }); });
+    var last = all.reduce(function (m, o) { var d = String(o.r.d).slice(0, 10); return d > m ? d : m; }, ""), td = today();
+    if (last && dGap(last) >= -21) {
+      var from = E.iso(new Date(E.parseDate(last).getTime() - 2 * 864e5)), WE = all.filter(function (o) { return String(o.r.d).slice(0, 10) >= from; }).sort(function (a, b) { return a.r.d < b.r.d ? 1 : -1; });
+      var nx7 = E.iso(new Date(td.getTime() + 7 * 864e5)), nxt = 0; L.forEach(function (x) { nxt += (x.c.renc || []).filter(function (r) { var d = String(r.d).slice(0, 10); return (r.a === x.c.me.mine || r.b === x.c.me.mine) && r.st !== "T" && d >= E.iso(td) && d <= nx7; }).length; });
+      s += '<h2 class="tm-gh lc-h"><span>Dernier week-end<svg class="lc-wb" viewBox="0 0 50 14" aria-hidden="true"><circle cx="3" cy="11" r="3" fill="var(--balle)"/></svg></span><small>' + lcDay(last) + "</small></h2>" +
+        '<div class="blk lc-list">' + WE.map(function (o, i) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
+          return '<a class="lc-r lc-w" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '" style="--i:' + i + '"><span class="grow"><b>' + esc(champNm(o.x.c) + (o.x.num ? " · éq. " + o.x.num : "")) + (o.x.mine ? ' <span class="lc-me">toi</span>' : "") + "</b><small>" + (r.dom === me ? "contre " : "chez ") + esc(tmNm(r.a === me ? r.bn : r.an)) + '</small></span><span class="lc-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span></a>"; }).join("") +
+        '<button class="lc-more lc-sh" data-a="lcShare" data-k="we">' + I.share + "Partager les scores du week-end</button>" + '<button class="lc-more" data-a="sheet" data-k="lcRes" data-v="">Toutes les rencontres de la saison ›</button>' + (nxt ? '<button class="lc-more" data-a="sheet" data-k="clubNx" data-v="' + nx7 + '">7 prochains jours : ' + plural(nxt, "rencontre", "rencontres") + " ›</button>" : "") + "</div>";
     }
-    var rest = CL.filter(function (c) { return !clubDone(c) && !clubFol(c.id); }), ended = CL.filter(function (c) { return clubDone(c) && !clubFol(c.id); });
-    var cats = {}; rest.forEach(function (c) { cats[clubCat(c)] = 1; }); var cat = (S.prefs || {}).clubCat; if (!cats[cat]) cat = "";
-    if (rest.length) {
-      s += '<h2 class="tm-gh ce-h">Le club <small>' + plural(rest.length, "équipe", "équipes") + "</small></h2>";
-      if (Object.keys(cats).length > 1) s += '<div class="ce-chips" role="group" aria-label="Filtrer">' + [""].concat(["mes", "dam", "jeu", "plus"].filter(function (k) { return cats[k]; })).map(function (k) { return '<button class="' + (cat === k ? "on" : "") + '" data-a="clubCat" data-v="' + k + '" aria-pressed="' + (cat === k) + '">' + (k ? CLUB_CAT[k] : "Toutes") + "</button>"; }).join("") + "</div>";
-      s += clubGroups(rest.filter(function (c) { return !cat || clubCat(c) === cat; }), sat);
+    // les équipes, groupées au choix
+    if (L.length) {
+      var gb = (S.prefs || {}).lcGrp || "cat", X = L.filter(function (x) { return !F || (F === "g" ? x.pos === 1 : F === "2" ? x.pos === 2 : lcPosC(x) === "r"); }), G = [];
+      var put = function (k, x) { var g = G.filter(function (o) { return o.t === k; })[0]; if (!g) G.push(g = { t: k, L: [] }); g.L.push(x); };
+      if (gb === "rk") { X.forEach(function (x) { put(x.pos === 1 ? "En tête" : lcPosC(x) === "r" ? "À surveiller" : "Dans le coup", x); }); var o = ["En tête", "Dans le coup", "À surveiller"]; G.sort(function (a, b) { return o.indexOf(a.t) - o.indexOf(b.t); }); G.forEach(function (g) { g.L.sort(function (a, b) { return a.pos - b.pos; }); }); }
+      else if (gb === "div") X.forEach(function (x) { put(tmDiv(x.c.div) || "Division ?", x); });
+      else X.forEach(function (x) { put(champNm(x.c), x); });
+      s += '<h2 class="tm-gh lc-h">Les équipes <small>' + plural(L.length, "en cours", "en cours") + "</small></h2>" +
+        '<div class="seg lc-seg">' + [["cat", "Catégorie"], ["rk", "Classement"], ["div", "Division"]].map(function (o) { return '<button class="' + (gb === o[0] ? "on" : "") + '" data-a="lcGrp" data-v="' + o[0] + '" aria-pressed="' + (gb === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
+        (F ? '<button class="lnk lc-fx" data-a="lcF" data-v="">Voir toutes les équipes</button>' : "") +
+        G.map(function (g) { return '<h3 class="lc-gh">' + esc(g.t) + "<small>" + plural(g.L.length, "équipe", "équipes") + '</small></h3><div class="blk lc-list">' + g.L.map(function (x, i) { return lcRow(x, gb === "cat", i); }).join("") + "</div>"; }).join("");
     }
-    if (ended.length) {
-      var eo = !!UI.clubEnd;
-      s += '<button class="card ce-end" data-a="clubEnd" aria-expanded="' + eo + '"><span class="grow"><b>Terminés</b><small>' + plural(Object.keys(ended.reduce(function (a, c) { a[c.cid] = 1; return a; }, {})).length, "championnat", "championnats") + " · " + plural(ended.length, "équipe", "équipes") + "</small></span>" + (eo ? CHEV_DN : I.next) + "</button>";
-      // 3.74.0 (Yann) : les terminés regroupés par saison (intertitre simple, saison la plus récente d'abord)
-      if (eo) { var bySe = {}; ended.forEach(function (c) { var k = clubSeason(c); (bySe[k] = bySe[k] || []).push(c); });
-        var ks = Object.keys(bySe).sort().reverse();
-        s += ks.map(function (k) { return (ks.length > 1 ? '<h3 class="ce-se">' + (k ? "Saison " + (k - 1) + "-" + k : "Saison inconnue") + "</h3>" : "") + clubGroups(bySe[k], sat); }).join(""); }
+    // les saisons passées, un trophée par première de poule
+    var past = lcAll().filter(clubDone), bySe = {}; past.forEach(function (c) { var k = clubSeason(c) || "0"; (bySe[k] = bySe[k] || []).push(lcT(c)); });
+    var ks = Object.keys(bySe).sort().reverse();
+    if (ks.length) s += '<h2 class="tm-gh lc-h">Saisons passées</h2><div class="blk lc-list">' + ks.map(function (k, i) { var T = bySe[k], f = T.filter(function (x) { return x.pos === 1; }).length;
+      return '<button class="lc-r" data-a="sheet" data-k="lcSea" data-v="' + k + '" style="--i:' + i + '"><span class="grow"><b>' + (+k ? "Saison " + (k - 1) + "-" + String(k).slice(2) : "Saison inconnue") + "</b><small>" + plural(T.length, "équipe", "équipes") + " · " + plural(f, "première de poule", "premières de poule") + "</small>" +
+        (f ? '<span class="lc-tro" aria-hidden="true">' + Array.apply(null, { length: Math.min(f, 10) }).map(function (_, j) { return LC_CUP.replace('class="lc-cup"', 'class="lc-cup" style="--i:' + j + '"'); }).join("") + "</span>" : "") + "</span>" + I.next + "</button>"; }).join("") + "</div>";
+    return s + "</div>";
+  }
+  // Les rencontres de la saison du club (toutes, ou les victoires / nuls / défaites touchés sur la carte)
+  function lcResSheet(k) {
+    var L = lcCur(), X = []; L.forEach(function (x) { x.R.forEach(function (r, i) { if (!k || x.res[i] === k) X.push({ x: x, r: r, res: x.res[i] }); }); });
+    X.sort(function (a, b) { return a.r.d < b.r.d ? 1 : -1; });
+    var rows = X.map(function (o) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
+      return '<a class="row ce-lr" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '"><span class="grow"><span class="t">' + esc(champNm(o.x.c) + (o.x.num ? " · éq. " + o.x.num : "")) + '</span><span class="s">' + esc(lcDay(String(r.d).slice(0, 10)) + " · " + (r.dom === me ? "contre " : "chez ") + tmNm(r.a === me ? r.bn : r.an)) + '</span></span><span class="ce-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span>" + I.next + "</a>"; }).join("");
+    return { title: k === "v" ? "Les victoires du club" : k === "n" ? "Les nuls du club" : k === "d" ? "Les défaites du club" : "Les rencontres de la saison", sub: plural(X.length, "rencontre", "rencontres") + " · équipes en lice, du point de vue du club", body: rows ? '<div class="ce-list">' + rows + "</div>" : '<span class="small">Rien pour l\'instant.</span>' };
+  }
+  // Le bilan d'une saison passée : podium et coupe, premières de poule, toutes les équipes par catégorie
+  function lcSeaSheet(k) {
+    var T = lcAll().filter(clubDone).filter(function (c) { return (clubSeason(c) || "0") === String(k); }).map(lcT); if (!T.length) return null;
+    var F = T.filter(function (x) { return x.pos === 1; }), nV = T.reduce(function (s, x) { return s + x.res.filter(function (r) { return r === "v"; }).length; }, 0), nL = T.filter(function (x) { return lcPosC(x) === "r"; }).length;
+    var cf = ""; for (var i = 0; i < 22; i++) { var x0 = 20 + ((i * 47) % 180), c = ["var(--balle)", "var(--gazon)", "var(--ink)"][i % 3]; cf += '<rect class="cf" x="' + x0 + '" y="0" width="5" height="3" rx="1" fill="' + c + '" style="--i:' + i + ";--x:" + (((i * 29) % 40) - 20) + 'px"/>'; }
+    var pod = '<div class="lc-pod" aria-hidden="true"><svg viewBox="0 0 220 120" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect class="st" x="40" y="82" width="46" height="36" rx="4" style="--d:.15s"/><rect class="st" x="87" y="66" width="46" height="52" rx="4"/><rect class="st" x="134" y="92" width="46" height="26" rx="4" style="--d:.25s"/>' +
+      '<text x="110" y="98" font-size="16" font-weight="800" text-anchor="middle" fill="currentColor" stroke="none">' + F.length + '</text><g class="cup" stroke="var(--balle)" stroke-width="2.6" stroke-linecap="round"><path d="M97 24h26v12a13 13 0 0 1-26 0V24zM97 28h-7a7 7 0 0 0 7 9M123 28h7a7 7 0 0 1-7 9M110 49v8M102 60h16"/></g>' + (F.length ? cf : "") + "</svg></div>";
+    var tile = function (n, lab, cls) { return '<div><b class="' + (cls || "") + '">' + n + "</b><small>" + lab + "</small></div>"; };
+    var row = function (x) { return '<a class="lc-fr" href="#/equipe/' + esc(x.c.id) + '"><span class="grow"><span class="t">' + esc(champNm(x.c) + (x.num ? " · éq. " + x.num : "")) + "</span><small>" + esc([tmDiv(x.c.div), tmDiv(x.c.poule)].filter(Boolean).join(" · ")) + " · " + x.res.filter(function (r) { return r === "v"; }).length + " V · " + x.res.filter(function (r) { return r === "d"; }).length + " D</small></span>" + lcPos(x, "s") + "</a>"; };
+    var cats = {}; T.forEach(function (x) { (cats[clubCat(x.c)] = cats[clubCat(x.c)] || []).push(x); });
+    var body = pod + '<div class="lc-tiles">' + tile(F.length, F.length > 1 ? "premières de poule" : "première de poule", "g") + tile(nV, nV > 1 ? "victoires" : "victoire") + tile(nL, nL > 1 ? "dernières" : "dernière", "d") + "</div>" +
+      (F.length ? '<h3 class="lc-st">Premières de poule</h3><div class="lc-flat">' + F.map(row).join("") + "</div>" : "") +
+      '<h3 class="lc-st">Toutes les équipes</h3><div class="lc-flat">' + ["mes", "dam", "jeu", "plus"].filter(function (c) { return cats[c]; }).map(function (c) { return '<div class="lc-sub">' + CLUB_CAT[c] + "<small>" + plural(cats[c].length, "équipe", "équipes") + "</small></div>" + cats[c].sort(function (a, b) { return a.pos - b.pos; }).map(row).join(""); }).join("") + "</div>";
+    var ch = {}; T.forEach(function (x) { ch[x.c.cid || x.c.id] = 1; });
+    body += '<button class="go-pill lc-shp" data-a="lcShare" data-k="sea" data-v="' + esc(k) + '">' + I.share + "Partager le bilan de la saison</button>";
+    return { title: "Saison " + (k - 1) + "-" + String(k).slice(2), sub: tmNm(((S.teams || {}).club || {}).nom || "") + " · " + plural(T.length, "équipe", "équipes") + " · " + plural(Object.keys(ch).length, "championnat", "championnats"), body: body };
+  }
+  // La place de l'équipe journée après journée (fiche d'une équipe du club), recalculée depuis les résultats
+  function lcHill(c) {
+    var P = tmPlaces(c), me = c.me.mine, n = (c.teams || []).length, ks = Object.keys(P).sort(), pts = ks.map(function (k) { return P[k][me]; }).filter(Boolean);
+    if (pts.length < 2 || n < 2) return "";
+    var W = 340, x0 = 30, x1 = 325, y = function (p) { return 10 + (p - 1) * (44 / (n - 1)); }, X = pts.map(function (p, i) { return [x0 + i * (x1 - x0) / (pts.length - 1), y(p)]; });
+    var d = "M" + X.map(function (p) { return p[0].toFixed(1) + " " + p[1].toFixed(1); }).join(" L"), cur = pts[pts.length - 1], since = "";
+    if (cur === 1) { var j = pts.length - 1; while (j > 0 && pts[j - 1] === 1) j--; since = j > 0 ? "en tête depuis le " + fdate(ks[j]) : "en tête depuis le début"; }
+    var fem = /dame|femin|fille/i.test(String(c.nom || "")), lb = since || cur + lcOrd(cur, fem) + " sur " + n + " après " + plural(pts.length, "journée", "journées");
+    var last = X[X.length - 1];
+    return '<div class="card lc-hc"><span class="eyebrow">Sa place, journée après journée</span><svg class="lc-hill" viewBox="0 0 ' + W + ' 78" role="img" aria-label="' + esc(lb) + '">' +
+      [1, n].map(function (p) { return '<path d="M' + x0 + " " + y(p).toFixed(1) + " H" + x1 + '" stroke="var(--line)" stroke-dasharray="3 4"/><text x="0" y="' + (y(p) + 4).toFixed(1) + '" font-size="10" fill="var(--muted)" font-weight="700">' + p + lcOrd(p, fem) + "</text>"; }).join("") +
+      '<path class="ln" d="' + d + '" fill="none" stroke="' + (cur === 1 ? "var(--gazon)" : "var(--ink)") + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+      X.map(function (p, i) { return '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="3" fill="var(--card)" stroke="var(--muted)" stroke-width="1.5"/><text x="' + p[0].toFixed(1) + '" y="74" font-size="10" fill="var(--muted)" text-anchor="middle">J' + (i + 1) + "</text>"; }).join("") +
+      '<circle class="bl" cx="' + last[0].toFixed(1) + '" cy="' + last[1].toFixed(1) + '" r="6" fill="var(--balle)"/></svg><span class="small lc-hl' + (cur === 1 ? " g" : "") + '">' + esc(cap1(lb)) + "</span></div>";
+  }
+  // Le club vivant : les chiffres défilent, les listes s'animent quand elles apparaissent, étincelles autour des coupes
+  function lcMotion() {
+    if (!document.querySelector(".lc-tab")) return;
+    if (mRM()) return lcIo();
+    mxQ(".lc-vnd b").forEach(function (b, i) { mxCount(b, null, { delay: 300 + i * 120, ms: 900 }); });
+    lcIo();
+  }
+  function lcShort(x) { var t = champNm(x.c); t = t.length > 20 ? t.slice(0, 19).trim() + "…" : t; return t + (x.num ? " · éq. " + x.num : ""); }
+  function lcShareV(k, v) {
+    var club = tmNm(((S.teams || {}).club || {}).nom || "Mon club"), cnt = function (x, r) { return x.res.filter(function (z) { return z === r; }).length; };
+    if (k === "sea") {
+      var T = lcAll().filter(clubDone).filter(function (c) { return (clubSeason(c) || "0") === String(v); }).map(lcT); if (!T.length) return null;
+      var F = T.filter(function (x) { return x.pos === 1; }), nV = T.reduce(function (a, x) { return a + cnt(x, "v"); }, 0), se = "saison " + (v - 1) + "-" + String(v).slice(2);
+      return { key: "club-saison-" + v, eb: club + " · " + se, col: "#D4E64A", title: F.length ? plural(F.length, "équipe première de poule", "équipes premières de poule") : plural(T.length, "équipe engagée", "équipes engagées"), big: F.length ? [[F.length, "#D4E64A"]] : null,
+        rows: F.map(function (x) { return [lcShort(x), "1" + lcOrd(1, x.fem), true]; }), line: plural(T.length, "équipe", "équipes") + " engagées, " + plural(nV, "victoire", "victoires") + " sur la saison.", foot: "bilan de la " + se,
+        text: club + ", " + se + " : " + plural(F.length, "première de poule", "premières de poule") + " sur " + plural(T.length, "équipe", "équipes") + ", " + plural(nV, "victoire", "victoires") + ".\n" + F.map(function (x) { return "• " + champNm(x.c) + (x.num ? " équipe " + x.num : "") + " : 1" + lcOrd(1, x.fem) + " de poule"; }).join("\n") };
     }
-    return s;
+    if (k === "we") {
+      var L = lcCur(), all = []; L.forEach(function (x) { x.R.forEach(function (r, i) { all.push({ x: x, r: r, res: x.res[i] }); }); });
+      var last = all.reduce(function (m, o) { var d = String(o.r.d).slice(0, 10); return d > m ? d : m; }, ""); if (!last) return null;
+      var from = E.iso(new Date(E.parseDate(last).getTime() - 2 * 864e5)), WE = all.filter(function (o) { return String(o.r.d).slice(0, 10) >= from; });
+      var sc = function (o) { var me = o.x.c.me.mine, a = o.r.a === me ? o.r.s1 : o.r.s2, b = o.r.a === me ? o.r.s2 : o.r.s1; return a + "–" + b; }, c3 = { v: 0, n: 0, d: 0 }; WE.forEach(function (o) { c3[o.res]++; });
+      return { key: "club-we-" + last, eb: club + " · " + lcDay(last), col: c3.v >= c3.d ? "#6FC28F" : "#E88A5E", title: "Le week-end du club", big: [[c3.v, "#6FC28F"], [c3.n, "#C9C7C1"], [c3.d, "#E88A5E"]], sep: "·",
+        rows: WE.map(function (o) { return [lcShort(o.x), o.res.toUpperCase() + " " + sc(o), o.res === "v"]; }), line: plural(c3.v, "victoire", "victoires") + ", " + plural(c3.n, "nul", "nuls") + ", " + plural(c3.d, "défaite", "défaites") + ".", foot: "scores du week-end",
+        text: club + ", week-end du " + lcDay(last) + " :\n" + WE.map(function (o) { return "• " + champNm(o.x.c) + (o.x.num ? " équipe " + o.x.num : "") + " : " + o.res.toUpperCase() + " " + sc(o) + " " + (o.r.dom === o.x.c.me.mine ? "contre " : "chez ") + tmNm(o.r.a === o.x.c.me.mine ? o.r.bn : o.r.an); }).join("\n") };
+    }
+    if (k === "team") {
+      var c = tmFind(v); if (!c || !c.teams) return null; var x = lcT(c), tv = x.t.v || 0, tn = x.t.n || 0, td = x.t.d || 0, T2 = c.teams.slice().sort(function (a, b) { return (a.cl || 99) - (b.cl || 99); }), me = c.me.mine;
+      return { key: "club-equipe-" + c.id, eb: club + " · " + champNm(c), col: x.pos === 1 ? "#D4E64A" : "#6FC28F", title: (x.num ? "Équipe " + x.num : tmNm(x.t.nom)) + (x.pos ? " : " + x.pos + lcOrd(x.pos, x.fem) + " sur " + x.n : ""), big: tv + tn + td ? [[tv, "#6FC28F"], [tn, "#C9C7C1"], [td, "#E88A5E"]] : null, sep: "·",
+        rows: T2.map(function (t) { return [tmNm(t.nom).slice(0, 22), (t.pts != null ? t.pts : 0) + " pts", t.id === me]; }), line: [tmDiv(c.div), tmDiv(c.poule)].filter(Boolean).join(" · ") + (tv + tn + td ? " · " + tv + " V, " + tn + " N, " + td + " D" : "") + ".", foot: c.cloture ? "championnat terminé" : "classement en cours",
+        text: tmNm(x.t.nom) + " (" + champNm(c) + ", " + [tmDiv(c.div), tmDiv(c.poule)].filter(Boolean).join(", ") + ") : " + (x.pos ? x.pos + lcOrd(x.pos, x.fem) + " sur " + x.n + ", " : "") + tv + " V, " + tn + " N, " + td + " D." };
+    }
+    return null;
+  }
+  // Les listes du club qui apparaissent (à l'arrivée, ou après une lecture de Ten'Up) s'animent quand elles sont à l'écran
+  function lcIo() {
+    var L = mxQ(".lc-tab .lc-list:not(.mx-io)"); if (!L.length) return;
+    L.forEach(function (l) { l.classList.add("mx-io"); });
+    mxIo(L, function (l) { l.classList.add("mx-on"); if (!mRM()) mxQ(".lc-pos.g", l).forEach(function (p, i) { mxSpark(p, 1100 + i * 120, 6); }); }, 0.25);
   }
   // 3.74.0 : terminé = clos par Ten'Up, ou plus aucune date (rencontre ou journée) depuis 45 jours : Ten'Up oublie parfois de clore
   function clubDone(c) {
@@ -2370,19 +2511,6 @@
       return '<a class="row ce-lr" href="#/rencontre/' + esc(x.c.id) + "/" + esc(r.id) + '"><span class="grow"><span class="t">' + esc(tmNm(t.nom)) + (x.c.cl ? "" : ' <span class="ce-me">toi</span>') + '</span><span class="s">' + esc(dayLab(x.d) + " · " + (home ? "contre " : "chez ") + vs + " · " + [CLUB_CAT[clubCat(x.c)], tmDiv(x.c.div)].join(" · ")) + "</span></span>" + (past ? '<span class="ce-sc ' + res + '">' + res.toUpperCase() + " " + a + "–" + b + "</span>" : "") + I.next + "</a>";
     }).join("");
     return { title: past ? "Les scores du club" : "Les 7 prochains jours", sub: plural(L.length, "rencontre", "rencontres") + (past ? " depuis samedi" : ""), body: rows ? '<div class="ce-list">' + rows + "</div>" : '<span class="small">Rien pour l\'instant.</span>' };
-  }
-  function clubGroups(L, sat) {
-    var G = []; L.forEach(function (c) { var g = G.filter(function (x) { return x.k === String(c.cid); })[0]; if (!g) G.push(g = { k: String(c.cid), c: c, L: [] }); g.L.push(c); });
-    var td = E.iso(today()), op = UI.clubOpen || {};
-    return G.map(function (g, gi) {
-      var c = g.c, cal = c.cal || [], jd = cal.filter(function (x) { return x.d <= td; }).length, open = op[g.k] != null ? op[g.k] : G.length === 1;
-      g.L.sort(function (a, b) { return String((tmOf(a, a.me.mine) || {}).nom) < String((tmOf(b, b.me.mine) || {}).nom) ? -1 : 1; });
-      var mini = g.L.map(function (x) { return clubLast(x, sat); }).filter(Boolean).map(function (x) { return '<i class="' + (x.res === "v" ? "" : x.res) + '"></i>'; }).join("");
-      var sub = plural(g.L.length, "équipe", "équipes") + " · " + (c.cloture ? "terminé" : cal.length && jd === 0 && cal[0] ? "commence le " + fdate(cal[0].d) : cal.length ? "journée " + Math.max(1, Math.min(jd, cal.length)) + " sur " + cal.length : tmDiv(c.phase));
-      var all = (UI.clubAll || {})[g.k], rows = all ? g.L : g.L.slice(0, 4);
-      return '<div class="blk ce-g' + (open ? " op" : "") + '"><button class="ce-gh" data-a="clubGrp" data-v="' + esc(g.k) + '" aria-expanded="' + open + '"><span class="grow"><b>' + esc(champNm(c)) + "</b><small>" + esc(sub) + '</small></span><span class="mini" aria-hidden="true">' + mini + "</span>" + CHEV_DN + "</button>" +
-        (open ? rows.map(function (x) { return clubRow(x, false); }).join("") + (g.L.length > rows.length ? '<button class="ce-more" data-a="clubAll" data-v="' + esc(g.k) + '">+ ' + plural(g.L.length - rows.length, "autre équipe", "autres équipes") + "</button>" : "") : "") + "</div>";
-    }).join("");
   }
   // lecture des équipes du club (même recherche que les tiennes, en mode « club ») : toutes les 12 h, complète une fois par semaine
   // 3.72.1 : noms des équipes de ton club (sans le numéro, simplifiés), pour reconnaître les autres équipes du club
@@ -2492,6 +2620,7 @@
       '<span class="small">Victoire ' + c.pts.v + " pts, nul " + c.pts.n + ", défaite " + c.pts.d + ". " + (c.cloture ? "Championnat terminé." : "Mis à jour " + agoLab(S.teams.at) + (UI.tmBusy ? " · lecture de Ten'Up…" : "") + ".") + "</span></div>";
     // 3.50.4 (Yann) : ton impact sur l'équipe : avec toi / sans toi, tes matchs, ta part des matchs gagnés
     if (!c.cl) s += teamImpactHtml(c);
+    else s += lcHill(c) + '<button class="go-pill lc-shp" data-a="lcShare" data-k="team" data-v="' + esc(c.id) + '">' + I.share + "Partager le bilan de l'équipe</button>"; // 3.81 : équipe du club : sa place journée après journée, partage
     // Les rencontres par JOURNÉE (date prévue par la FFT), avec la date réelle quand elle a été décalée ; lecture en deux lignes
     var jOf = function (r) { var k = r.dt || r.d, j = cal.filter(function (x) { return x.d === k; })[0]; return j ? j.j : null; };
     var tm = function (r) {
@@ -2673,13 +2802,15 @@
     var syncH = NATIVE && S.tenup && S.tenup.linked ? '<div class="ins-bar"><span>' + (UI.insBusy ? "Lecture de Ten'Up…" : UI.insErr ? "Ten'Up : " + esc(UI.insErr) : S.insAt ? "Ten'Up lu " + agoLab(S.insAt) : "Tes inscriptions Ten'Up") + '</span><button class="ins-go' + (UI.insBusy ? " busy" : "") + '" data-a="insSync">' + REFRESH_IC + "Actualiser</button></div>" : "";
     // 3.50.3 (maquette validée) : deux onglets, « Toi » (tournois, indivs) et « Mes équipes »
     // 3.50.4 (Yann) : les onglets toujours là (sauf si tu as caché tes équipes dans Réglages), avec un « viduel » quand c'est vide
-    var showEq = !(S.prefs || {}).teamsOff, tab = showEq && (S.prefs || {}).epTab === "eq" ? "eq" : "toi";
-    var tabs = showEq ? '<div class="seg ep-tabs"><button data-a="epTab" data-v="toi" class="' + (tab === "toi" ? "on" : "") + '">Toi</button><button data-a="epTab" data-v="eq" class="' + (tab === "eq" ? "on" : "") + '">Mes équipes</button></div>' : "";
+    // 3.81 (Yann, maquette validée) : un 3e onglet « Le club » dès que le club est connu
+    var showEq = !(S.prefs || {}).teamsOff, hasCl = showEq && !!((S.teams && S.teams.club && S.teams.club.code) || S.tenup.clubCode || S.club), tab = showEq && (S.prefs || {}).epTab === "eq" ? "eq" : hasCl && (S.prefs || {}).epTab === "club" ? "club" : "toi";
+    var tabs = showEq ? '<div class="seg ep-tabs"><button data-a="epTab" data-v="toi" class="' + (tab === "toi" ? "on" : "") + '">Toi</button><button data-a="epTab" data-v="eq" class="' + (tab === "eq" ? "on" : "") + '">Mes équipes</button>' + (hasCl ? '<button data-a="epTab" data-v="club" class="' + (tab === "club" ? "on" : "") + '">Le club</button>' : "") + "</div>" : "";
+    if (tab === "club") return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs + clubTabHtml() + "</div>";
     var seas = (function () { var y = today().getMonth() >= 8 ? today().getFullYear() : today().getFullYear() - 1; return "saison " + y + "-" + String(y + 1).slice(2); })();
     if (tab === "eq") return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs + (myTeams(true).length ? teamsTabHtml() :
       viduel("eq", "Pas encore de rencontre par équipes", "Montée suit ton palmarès Ten'Up : dès ta première rencontre avec ton club, ton équipe s'affiche ici avec son classement et ses résultats.", [S.teams && S.teams.club && S.teams.club.nom ? tmNm(S.teams.club.nom) : "", seas].filter(Boolean).join(" · ")) +
-      // 3.74.0 : un responsable sportif qui ne joue dans aucune équipe voit quand même celles du club
-      ((S.teams && S.teams.club && S.teams.club.code) || S.tenup.clubCode || S.club ? clubHtml() : "")) + "</div>";
+      // 3.74.0 : un responsable sportif qui ne joue dans aucune équipe voit quand même celles du club (3.81 : dans l'onglet « Le club »)
+      clubFolHtml()) + "</div>";
     return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs +
       (!all.length ? viduel("toi", "Aucun tournoi ni indivs cette saison", "Dès que tu t'inscris sur Ten'Up, ton tournoi ou ta poule d'indivs arrive ici tout seul : tableau, adversaires, tes chances.", "Ta " + seas) : "") +
 sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
@@ -3185,30 +3316,155 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
   // ---------- Bienvenue ----------
   V.welcome = function () {
-    var st = UI.wStep || 0, dots = '<div class="w-dots">' + [0, 1, 2].map(function (i) { return '<i class="' + (i === st ? "on" : "") + '"></i>'; }).join("") + "</div>";
-    var it = function (ic, t) { return '<div class="alert"><span class="badge ok">' + ic + "</span><span>" + t + "</span></div>"; };
-    var P = [
-      { k: "1 / 3 · Ta projection", h: "Tu montes ce mois&#8209;ci&nbsp;?<br>On te le dit avant mardi.", l: "Ton bilan recalculé après chaque match, ce qui te manque pour l'échelon suivant, et la date de la sortie.",
-        L: [it(I.check, "Ta prochaine sortie de classement, expliquée en une phrase"), it(I.spark, "« Et si… » : simule ton tournoi avant de le jouer")] },
-      { k: "2 / 3 · Chaque match analysé", h: "Ce que valait<br>vraiment ton match.", l: "Les points qu'il t'a rapportés, le vrai niveau de ton adversaire, et ce qui a fait la différence : sets serrés, tie-breaks, raquette, cordage.",
-        L: [it(I.racket, "Avec quelle raquette, quel cordage et quelle tension tu gagnes"), it(I.chart, "Tes courbes : niveau réel, plafond, mental, records")] },
-      { k: "3 / 3 · Ton prochain adversaire", h: "Tape son nom.<br>Prépare ton match.", l: "Tes chances de le battre, son vrai niveau, et un plan de jeu en 3 points tiré de ses résultats et de tes notes.",
-        L: [it(I.versus, "Suis tes adversaires : Montée te prévient s'ils montent"), it(svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'), "Tout reste sur ton téléphone, rien n'est envoyé")] }
-    ][st];
-    return '<div class="screen welcome">' +
-      '<div class="brand">' + I.logo(30) + "montée" + (st < 2 ? '<button class="linkbtn w-skip" data-a="wSkip">Passer</button>' : "") + "</div>" +
-      (st === 0 ? '<div class="welcome-ill">' + (window.MonteeIll ? window.MonteeIll.welcome() : "") + "</div>" : "") +
-      '<span class="w-k">' + P.k + "</span>" +
-      '<h1 class="xl">' + P.h + "</h1>" +
-      '<p class="lead">' + P.l + "</p>" +
-      '<div class="stack" style="margin-top:6px">' + P.L.join("") + "</div>" +
-      '<div class="spacer"></div>' + dots +
-      (st === 2 ? '<p class="small">Montée n\'est pas lié à la FFT ni à Ten\'Up. Le calcul est indicatif : seul le classement officiel fait foi.</p><a class="btn primary" href="#/tenup">C\'est parti</a><button class="linkbtn" data-a="demo" style="align-self:center">Essayer avec un exemple, sans compte</button>' :
-        '<button class="btn primary" data-a="wNext">Suivant</button>') +
+    // 3.82.1 (Yann, maquette M3 du 23/11) : un seul écran, Ace se présente avec les 3 promesses, puis Ten'Up tout de suite
+    // (avant : 3 écrans de promesses, puis Ace dans une feuille par-dessus l'accueil). Il est présenté : pas de 2e présentation.
+    S.aceSeen = 1;
+    var it = function (b, t) { return '<div class="alert"><span class="badge ok">' + I.check + "</span><span><b>" + b + "</b> " + t + "</span></div>"; };
+    return '<div class="screen welcome w-ace">' +
+      '<div class="brand">' + I.logo(30) + "montée</div>" +
+      '<div class="welcome-ill w-ball">' + coBall("w:intro", "arrivee", "xl") + "</div>" +
+      '<span class="w-k">Ton copain de compète</span>' +
+      '<h1 class="xl">Salut, moi c\'est Ace&nbsp;!</h1>' +
+      '<p class="lead">Je lis tes matchs sur Ten\'Up et je te dis le bon truc au bon moment. Tout reste dans ton téléphone.</p>' +
+      '<div class="stack" style="margin-top:6px">' + it("Tu montes à la sortie ?", "Je te le dis avant, avec ce qui te manque.") + it("Après chaque match :", "ce qu'il t'a rapporté et pourquoi.") + it("Avant le prochain :", "tes chances et comment le jouer.") + "</div>" +
+      '<div class="spacer"></div>' +
+      '<p class="small">Montée n\'est pas lié à la FFT ni à Ten\'Up. Le calcul est indicatif : seul le classement officiel fait foi.</p>' +
+      '<a class="btn primary" href="#/tenup">' + I.link + " Connecter mon compte Ten\'Up</a>" +
+      '<button class="linkbtn" data-a="demo" style="align-self:center">Voir un exemple d\'abord</button>' +
       "</div>";
   };
 
   // ---------- Profil ----------
+  // ---------- 3.83 (Yann, maquettes « profil rempli depuis Ten'Up » validées le 23/11/2026) ----------
+  function tuMe() { return (S.tenup && S.tenup.me) || {}; }
+  function curMill() { var d = today(); return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear(); }
+  function seasonLab(y) { return (y - 1) + "-" + String(y).slice(2); }
+  // Catégorie d'âge des épreuves seniors plus : celle de Ten'Up si elle a un âge, sinon d'après l'âge (par tranches de 5 ans dès 35)
+  function tuCat(me) {
+    var m = String(me.cat || "").match(/(\d{2})/); if (m && +m[1] >= 35) return "+" + m[1];
+    var a = +me.age; return a >= 35 ? "+" + Math.min(85, Math.floor(a / 5) * 5) : "";
+  }
+  // Bilan par saison (millésime = sept. → août) : historiqueStats de Ten'Up (format non documenté), puis tes saisons relues, puis la saison en cours
+  function careerSeasons() {
+    var by = {}, me = tuMe(), H = me.hist;
+    var num = function (o, re) { var v = null; Object.keys(o).forEach(function (k) { if (v == null && re.test(k) && o[k] !== "" && isFinite(+o[k])) v = +o[k]; }); return v; };
+    var L = Array.isArray(H) ? H : H && typeof H === "object" ? Object.keys(H).map(function (k) { var o = H[k]; return o && typeof o === "object" ? Object.assign({ _k: k }, o) : null; }).filter(Boolean) : [];
+    L.forEach(function (o) {
+      if (!o || typeof o !== "object") return; var y = null;
+      Object.keys(o).forEach(function (k) { if (y || !/millesime|annee|saison|year|^_k$/i.test(k)) return; var t = String(o[k]), m2 = t.match(/(20\d\d)\s*[-\/]\s*(\d{2,4})/), m1 = t.match(/(20\d\d)/);
+        if (m2) y = m2[2].length === 2 ? 2000 + +m2[2] : +m2[2]; else if (m1) y = +m1[1]; });
+      var v = num(o, /victoire|^nbv|^v$|gagne/i), d = num(o, /defaite|^nbd|^d$|perdu/i);
+      if (y && v != null && d != null && v + d > 0) by[y] = { y: y, v: v, d: d };
+    });
+    (S.tenupSeasons || []).forEach(function (x) { if (x && x.y && x.n) by[x.y] = { y: x.y, v: x.v || 0, d: Math.max(0, x.n - (x.v || 0)) }; });
+    var cy = curMill(), from = E.iso(new Date(cy - 1, 8, 1)), cv = 0, cd = 0;
+    S.matches.forEach(function (m) { if (!m.date || m.wo || m.date < from) return; if (m.result === "V") cv++; else if (m.result === "D") cd++; });
+    if (cv + cd) by[cy] = { y: cy, v: cv, d: cd, now: 1 };
+    return Object.keys(by).map(function (k) { return by[k]; }).filter(function (x) { return x.y <= cy; }).sort(function (a, b) { return a.y - b.y; }).slice(-10);
+  }
+  // 3.83 (idée de Davy, maquette validée le 23/11/2026) : ton classement dans le temps, saison par saison (carrière)
+  // ou sortie par sortie (24 mois). Sources : le classement de chaque saison lu sur Ten'Up, tes changements notés à chaque synchro, ton classement actuel.
+  function rankHist(range) {
+    var P = [], cy = curMill(), now = today(), nr = function (r) { var k = T.normRank(r || ""); return k && E.idx(k) != null ? k : null; };
+    // tes changements notés par Montée font foi ; avant le premier, le classement de chaque saison lu sur Ten'Up
+    var LG = (S.rankLog || []).filter(function (x) { return nr(x.to) && E.parseDate(x.d); }), l0 = LG.length ? E.parseDate(LG[0].d) : null;
+    (S.tenupSeasons || []).forEach(function (x) { var k = x && nr(x.cl), dd = x && x.y ? new Date(x.y - 1, 8, 1) : null; if (k && dd && (!l0 || dd < l0)) P.push({ d: dd, rk: k, src: "s" }); });
+    LG.forEach(function (x, i) { var dd = E.parseDate(x.d), f = nr(x.from); if (!i && f) P.push({ d: new Date(dd.getTime() - 864e5), rk: f, src: "l" }); P.push({ d: dd, rk: nr(x.to), src: "l" }); });
+    var cur = nr(S.profile.rank); if (cur) P.push({ d: now, rk: cur, src: "c" });
+    P.sort(function (a, b) { return a.d - b.d; });
+    if (range === "24") {
+      var from = new Date(now.getFullYear() - 2, now.getMonth(), 1), before = P.filter(function (p) { return p.d < from; }).pop();
+      P = P.filter(function (p) { return p.d >= from; }); if (before) P.unshift({ d: from, rk: before.rk, src: before.src });
+    }
+    // une marche par changement de classement
+    var out = []; P.forEach(function (p) { if (!out.length || out[out.length - 1].rk !== p.rk) out.push({ d: p.d, rk: p.rk }); });
+    if (out.length && P.length) out.push({ d: P[P.length - 1].d, rk: P[P.length - 1].rk, end: 1 });
+    return { pts: out, from: range === "24" ? new Date(now.getFullYear() - 2, now.getMonth(), 1) : out.length ? out[0].d : now, to: now };
+  }
+  function rankChartHtml(range) {
+    var H0 = rankHist(range), pts = H0.pts; if (pts.length < 2) return "";
+    var ix = pts.map(function (p) { return E.idx(p.rk); }), lo = Math.min.apply(null, ix), hi = Math.max.apply(null, ix);
+    if (hi === lo) { lo = Math.max(0, lo - 1); hi = hi + 1; }
+    var W = 326, Hh = 150, pl = 56, pr = 14, pt = 14, pb = 24, t0 = H0.from.getTime(), t1 = Math.max(H0.to.getTime(), t0 + 864e5);
+    var xs = function (d) { return pl + (Math.min(Math.max(d.getTime(), t0), t1) - t0) / (t1 - t0) * (W - pl - pr); }, ys = function (i) { return pt + (hi - i) / (hi - lo) * (Hh - pt - pb); };
+    var dpath = "", best = null; pts.forEach(function (p, k) { var x = xs(p.d).toFixed(1), y = ys(E.idx(p.rk)).toFixed(1); dpath += k ? " H" + x + " V" + y : "M" + x + " " + y; if (!best || E.idx(p.rk) > E.idx(best.rk)) best = p; });
+    var g = ""; for (var i = lo; i <= hi; i++) g += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + ys(i) + '" y2="' + ys(i) + '" class="rkc-g"/><circle cx="6" cy="' + ys(i) + '" r="3.5" class="rkc-bl"/><text x="14" y="' + (ys(i) + 4) + '" class="rkc-yl">' + esc(lab(i)) + "</text>";
+    var dots = pts.slice(1).filter(function (p) { return !p.end; }).map(function (p) { return '<circle cx="' + xs(p.d) + '" cy="' + ys(E.idx(p.rk)) + '" r="4.5" class="rkc-dot"/>'; }).join("");
+    var rec = range === "car" && best ? '<circle cx="' + xs(best.d) + '" cy="' + ys(E.idx(best.rk)) + '" r="7" class="rkc-rec"/>' : "";
+    var yl = []; if (range === "24") { for (var m = 0; m <= 24; m += 6) { var dd = new Date(H0.from.getFullYear(), H0.from.getMonth() + m, 1); yl.push([dd, MOIS[dd.getMonth()] + " " + String(dd.getFullYear()).slice(2)]); } }
+    else { var y0 = H0.from.getFullYear(), y1 = H0.to.getFullYear(), st = Math.max(1, Math.ceil((y1 - y0) / 5)); for (var y = y0; y <= y1; y += st) yl.push([new Date(y, 0, 1) < H0.from ? H0.from : new Date(y, 0, 1), String(y)]); }
+    var lastX = -99; yl = yl.filter(function (z) { var x = xs(z[0]); if (x - lastX < 48) return false; lastX = x; return true; });
+    var xl = yl.map(function (z) { var x = xs(z[0]); return '<text x="' + x + '" y="' + (Hh - 6) + '" class="rkc-xl" text-anchor="' + (x > W - pr - 20 ? "end" : x < pl + 14 ? "start" : "middle") + '">' + esc(z[1]) + "</text>"; }).join("");
+    // le récit en une phrase : montées / descentes de la période, le record, la prochaine sortie
+    var ch = []; for (var k = 1; k < pts.length; k++) if (!pts[k].end && pts[k].rk !== pts[k - 1].rk) ch.push(pts[k]);
+    var ups = ch.filter(function (p, k) { var prev = k ? ch[k - 1] : pts[0]; return E.idx(p.rk) > E.idx(prev.rk); }).length, cur = pts[pts.length - 1];
+    var tag = function (r) { return '<b class="rk-tag">' + esc(r) + "</b>"; }, when = function (d) { return MOIS_L[d.getMonth()] + " " + d.getFullYear(); };
+    var txt = range === "24"
+      ? (ch.length ? "<b>" + (ups ? plural(ups, "montée") + " en 24 mois" : "24 mois") + " :</b> " + ch.slice(-3).map(function (p) { return tag(p.rk) + " en " + when(p.d); }).join(", puis ") + "." : "<b>Stable à " + tag(cur.rk) + "</b> sur les 24 derniers mois.")
+      : "<b>Ton record : " + tag(best.rk) + (best.d.getFullYear() ? " en " + best.d.getFullYear() : "") + ".</b>" + (E.idx(best.rk) > E.idx(cur.rk) ? " Il te manque " + plural(E.idx(best.rk) - E.idx(cur.rk), "échelon") + " pour le retrouver." : " Tu y es : c'est ton meilleur classement.");
+    return '<svg viewBox="0 0 ' + W + " " + Hh + '" class="rkc-svg" role="img" aria-label="Ton classement ' + (range === "24" ? "sur 24 mois" : "depuis " + H0.from.getFullYear()) + '">' + g + '<path d="' + dpath + '" class="rkc-line" pathLength="1"/>' + dots + rec + xl + "</svg>" +
+      '<div class="crr-lg"><span><i class="rkc-ld"></i>une sortie où tu as bougé</span>' + (rec ? '<span><i class="rkc-lr"></i>ton record</span>' : "") + "</div>" +
+      '<div class="crr-best">' + txt + "</div>";
+  }
+  function careerHtml() {
+    var L = careerSeasons(); if (L.length < 2) return "";
+    // 3.83 : bascule « Ton classement / Tes victoires » quand Ten'Up a donné le classement de tes saisons
+    var rkOk = rankHist("car").pts.length >= 3, mode = rkOk && UI.crrMode !== "v" ? "rk" : "v", rg = UI.crrRg === "car" ? "car" : "24";
+    if (mode === "rk") {
+      var c24 = rankChartHtml("24"); if (!c24) rg = "car";
+      return '<div class="card crr"><span class="eyebrow">Ta carrière · depuis ' + (L[0].y - 1) + "</span>" +
+        '<div class="seg crr-seg"><button class="on" data-a="crrMode" data-v="rk">Ton classement</button><button data-a="crrMode" data-v="v">Tes victoires</button></div>' +
+        '<div class="crr-chips">' + (c24 ? '<button class="' + (rg === "24" ? "on" : "") + '" data-a="crrRg" data-v="24">24 mois</button>' : "") + '<button class="' + (rg === "car" ? "on" : "") + '" data-a="crrRg" data-v="car">Carrière</button></div>' +
+        (rg === "24" ? c24 : rankChartHtml("car")) + "</div>";
+    }
+    var tv = 0, td = 0, mx = 1, best = null, me = tuMe();
+    L.forEach(function (x) { tv += x.v; td += x.d; mx = Math.max(mx, x.v, x.d); if (!x.now && (!best || x.v > best.v)) best = x; });
+    var sel = L.filter(function (x) { return x.y === UI.crrY; })[0], cur = L.filter(function (x) { return x.now; })[0];
+    var h = function (n) { return n ? Math.max(4, Math.round(n / mx * 78)) : 0; };
+    var bars = '<div class="crr-bars" style="--n:' + L.length + '">' + L.map(function (x, i) {
+      return '<button class="crr-b' + (best && x.y === best.y ? " best" : "") + (x.now ? " now" : "") + (sel && sel.y === x.y ? " on" : "") + '" style="--i:' + i + '" data-a="crrY" data-v="' + x.y + '" aria-label="Saison ' + seasonLab(x.y) + " : " + plural(x.v, "victoire") + ", " + plural(x.d, "défaite") + (x.now ? ", en cours" : "") + '">' +
+        "<em>" + x.v + '</em><i style="height:' + h(x.v) + 'px"></i><i class="d" style="height:' + h(x.d) + 'px"></i></button>';
+    }).join("") + '</div><div class="crr-yrs" style="--n:' + L.length + '">' + L.map(function (x) { return "<span>" + String(x.y - 1).slice(2) + "</span>"; }).join("") + "</div>";
+    var bestRk = me.meilleur ? ' Ton meilleur classement, <b class="rk-tag">' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? ", date de " + me.meilleurAn : "") + "." : "";
+    var line = sel ? "<b>Saison " + seasonLab(sel.y) + (sel.now ? " (en cours)" : "") + " :</b> " + plural(sel.v, "victoire") + ", " + plural(sel.d, "défaite") + " · " + Math.round(100 * sel.v / Math.max(1, sel.v + sel.d)) + " % de victoires."
+      : (best ? "<b>" + seasonLab(best.y) + ", ta saison record :</b> " + plural(best.v, "victoire") + "." : "") + bestRk + (cur ? " Cette saison, tu en es à " + cur.v + "." : "");
+    return '<div class="card crr"><span class="eyebrow">Ta carrière · depuis ' + (L[0].y - 1) + "</span>" +
+      (rkOk ? '<div class="seg crr-seg"><button data-a="crrMode" data-v="rk">Ton classement</button><button class="on" data-a="crrMode" data-v="v">Tes victoires</button></div>' : "") +
+      '<div class="crr-t">' + plural(tv, "victoire") + ", " + plural(td, "défaite") + '</div><div class="crr-s">' + plural(L.length, "saison") + " lues sur Ten'Up. Touche une saison pour son bilan.</div>" + bars +
+      '<div class="crr-lg"><span><i></i>victoires</span><span><i class="d"></i>défaites</span>' + (cur ? "<span>" + String(cur.y - 1).slice(2) + " : en cours</span>" : "") + "</div>" +
+      '<div class="crr-best">' + line + "</div></div>";
+  }
+  // Une ligne du profil lu sur Ten'Up
+  function tmeRow(k, v, a, dv) { return '<button class="tme-r" data-a="' + a + '"' + (dv ? ' data-v="' + dv + '"' : "") + '><span class="grow"><span class="k">' + k + '</span><span class="v">' + v + '</span></span><span class="tme-chev" aria-hidden="true">›</span></button>'; }
+  // Licence de la saison suivante : utile seulement de juin à août (avant la nouvelle saison)
+  function tmeLicRow(me) {
+    var mo = today().getMonth(); if (me.licN1 == null || mo < 5 || mo > 7) return "";
+    return tmeRow("Licence " + (curMill() + 1), me.licN1 ? '<span class="tme-ok">Prise</span> <small>· tu es tranquille pour la saison prochaine</small>' : '<span class="tme-ko">Pas encore prise</span> <small>· à renouveler avant septembre</small>', "insOpen");
+  }
+  // « À faire » : inscriptions à venir pas encore payées (Ten'Up : restant à payer), la plus proche d'abord
+  function payTodoHtml() {
+    var td = E.iso(today()), L = (S.tours || []).filter(function (t) { return t.ins && t.ins.due > 0 && !t.wait && (t.to || t.from || "") >= td; }).sort(function (a, b) { return (a.from || "") < (b.from || "") ? -1 : 1; });
+    if (!L.length) return "";
+    var t = L[0], more = L.length > 1 ? " et " + plural(L.length - 1, "autre") : "";
+    return '<button class="card qa1" data-a="insOpen"><span class="eyebrow">Inscription pas encore payée</span><span class="qa1-r"><b>' + esc(t.name) + '<small class="qa1-more"> · ' + t.ins.due + " €" + (t.from ? " · " + esc(fdate(E.parseDate(t.from)).replace(/\.$/, "")) : "") + more + '</small></b><span class="qa1-go">Payer sur Ten\'Up ' + I.next + "</span></span></button>";
+  }
+  V.reconnu = function () {
+    var me = tuMe(), p = S.profile, c = careerSeasons(), tv = 0; c.forEach(function (x) { tv += x.v; });
+    var nm = p.name || (me.prenom ? String(me.prenom).charAt(0).toUpperCase() + String(me.prenom).slice(1).toLowerCase() : "");
+    var R = [];
+    R.push(["Toi", esc([nm, S.profile.sex === "F" ? "dames" : S.profile.sex === "H" ? "messieurs" : "", me.age ? me.age + " ans" : ""].filter(Boolean).join(" · ")), "tmeFix", ""]);
+    if (p.rank) R.push(["Ton classement", '<b class="rk-tag">' + esc(p.rank) + "</b>", "tmeFix", ""]);
+    if (me.meilleur) R.push(["Ton meilleur classement", '<b class="rk-tag">' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? " <small>· atteint en " + me.meilleurAn + "</small>" : ""), "tmeFix", ""]);
+    if (tuCat(me)) R.push(["Ta catégorie", tuCat(me) + " ans <small>· pour les épreuves seniors plus</small>", "tmeFix", ""]);
+    if (me.club) R.push(["Ton club", esc(me.club), "tmeFix", ""]);
+    if (c.length >= 2) R.push(["Ta carrière", plural(c.length, "saison") + " <small>· " + plural(tv, "victoire") + " depuis " + (c[0].y - 1) + "</small>", "tmeFix", ""]);
+    return '<div class="screen tme-rec"><div class="tme-h">Je t\'ai reconnu<small>Lu sur ton compte Ten\'Up, rien à saisir.</small></div>' +
+      '<div class="card cbl tme-ace"><span class="cbl-b sm" data-id="tme:hello" data-m="joie"></span><div class="cbl-t"><span><b>Salut' + (nm ? " " + esc(nm) : "") + ", moi c'est Ace.</b> J'ai tout lu, vérifie juste que c'est bien toi.</span></div></div>" +
+      '<div class="card tme-card">' + R.map(function (r, i) { return '<button class="tme-r" style="--i:' + i + '" data-a="' + r[2] + '"><span class="tme-okc" aria-hidden="true">' + I.check + '</span><span class="grow"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></span><span class="tme-chev" aria-hidden="true">›</span></button>'; }).join("") + "</div>" +
+      '<p class="tme-foot">Tout est lu depuis ton téléphone, rien n\'est envoyé ailleurs. Touche une ligne pour la corriger ; Montée la remet à jour à chaque synchro.</p>' +
+      '<div class="tme-btns" style="--i:' + R.length + '"><button class="btn primary" data-a="tmeOk">C\'est bien moi</button><button class="linkbtn" data-a="tmeFix">Corriger quelque chose</button></div></div>';
+  };
+
   V.profil = function () {
     var p = S.profile, first = !S.onboarded;
     var opts = '<option value="">Choisis…</option><option value="NC"' + (p.rank === "NC" ? " selected" : "") + ">Non classé</option>" +
@@ -3219,7 +3475,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var me = S.tenup.me || {}, full = [me.prenom, me.nom].filter(Boolean).join(" ") || p.name || "Toi", ph = myPhoto();
       var s0 = '<div class="screen">' + topbar("", "Mon profil");
       s0 += '<div class="card me-card"><button class="me-av" data-a="photoMenu" aria-label="Changer ma photo">' + (ph ? '<img src="' + ph + '" alt="">' : '<span>' + esc(initials(full)) + "</span>") + '<i class="me-cam">' + I.camera + "</i></button>" +
-        '<div class="me-id"><b class="me-n">' + esc(full) + "</b>" + (me.club ? '<span class="me-club">' + esc(me.club) + "</span>" : "") + "</div>" +
+        '<div class="me-id"><b class="me-n">' + esc(full) + "</b>" + (me.club || tuCat(me) ? '<span class="me-club">' + esc([me.club, tuCat(me) ? "catégorie " + tuCat(me) : ""].filter(Boolean).join(" · ")) + "</span>" : "") + "</div>" +
         (function () {
           // Classement actuel en grand ; meilleur classement et statut à la prochaine sortie en dessous, plus discrets
           var c0 = ctx(), pr0 = c0.proj, d0 = pr0.release ? esc(fdate(pr0.release).replace(/\.$/, "")) : "";
@@ -3231,11 +3487,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
             : pr0.status === "descente" ? '<span class="me-st descente"><i>↓</i><span><b>Descente</b> le ' + d0 + "</span></span>"
             : pr0.status === "maintien" ? '<span class="me-st maintien"><i>=</i><span><b>Maintien</b> le ' + d0 + "</span></span>" : "";
           return '<div class="me-rk2"><span class="k">Ton classement</span><b class="me-now">' + esc(p.rank) + to + "</b>" +
-            (me.meilleur || st ? '<div class="me-sub">' + (me.meilleur ? '<span class="me-best"><span>Meilleur</span><b>' + esc(me.meilleur) + "</b></span>" : "") + st + "</div>" : "") + "</div>";
+            (me.meilleur || st ? '<div class="me-sub">' + (me.meilleur ? '<span class="me-best"><span>Meilleur</span><b>' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? "<small>" + me.meilleurAn + "</small>" : "") + "</span>" : "") + st + "</div>" : "") + "</div>";
         })() +
         (S.ahead ? '<span class="me-ahead">' + I.check + " Montée te compte déjà " + esc(S.ahead.rank) + " pour la sortie du " + esc(fdate(S.ahead.release).replace(/\.$/, "")) + "</span>" : "") +
         '<span class="me-foot">' + I.link + " Ten'Up" + (me.licence ? " · licence " + esc(me.licence) : "") + (S.tenup.lastImport ? " · à jour du " + esc(fdate(S.tenup.lastImport).replace(/\.$/, "")) : "") + "</span></div>";
-      s0 += goalRow() + matRow() + semRow() + tonJeuCard();
+      // 3.83 (Yann, 23/11/2026) : la carte joueur reste compacte ; dessous, des onglets Toi · Ton jeu · Ta routine (matériel et créneaux)
+      var pt = UI.pfTab === "jeu" || UI.pfTab === "mat" ? UI.pfTab : "toi";
+      s0 += '<div class="seg pf-tabs" role="tablist">' + [["toi", "Toi"], ["jeu", "Ton jeu"], ["mat", "Ta routine"]].map(function (t) { return '<button role="tab" aria-selected="' + (pt === t[0]) + '" data-a="pfTab" data-v="' + t[0] + '" class="' + (pt === t[0] ? "on" : "") + '">' + t[1] + "</button>"; }).join("") + "</div>";
+      var lic0 = tmeLicRow(me);
+      s0 += pt === "jeu" ? tonJeuCard() : pt === "mat" ? matRow() + semRow() : (lic0 ? '<div class="card tme-card">' + lic0 + "</div>" : "") + careerHtml() + goalRow();
       s0 += '<button class="linkbtn" data-a="profEdit" style="align-self:center;margin-top:6px">Corriger mon classement à la main</button>';
       if (UI.photoMenu) s0 += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="photoClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Ta photo"><b>Ta photo</b>' +
         '<button class="btn primary" data-a="photoPick">Choisir une photo</button>' +
@@ -3246,7 +3506,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     return '<div class="screen">' + topbar(first ? "Sans Ten'Up" : "Mon profil", first ? "Saisis ton classement" : "") +
       '<div class="form">' +
-      '<div class="field"><label for="pf-name">Prénom</label><input id="pf-name" type="text" autocomplete="given-name" data-f="profile.name" value="' + esc(p.name) + '" placeholder="Ex. : Yann"></div>' +
+      '<div class="field"><label for="pf-name">Prénom</label><input id="pf-name" type="text" autocomplete="given-name" data-f="profile.name" value="' + esc(p.name) + '" placeholder="Ex. : Julien"></div>' +
       '<div class="field"><span class="lbl">Classement</span><span class="small" style="margin-top:-4px">Les normes ne sont pas les mêmes chez les hommes et les dames.</span><div class="seg" role="group" aria-label="Classement hommes ou dames">' +
       '<button data-a="sex" data-v="H" class="' + (p.sex === "H" ? "on" : "") + '" aria-pressed="' + (p.sex === "H") + '">Messieurs</button>' +
       '<button data-a="sex" data-v="F" class="' + (p.sex === "F" ? "on" : "") + '" aria-pressed="' + (p.sex === "F") + '">Dames</button></div></div>' +
@@ -3314,7 +3574,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (lines.length < 2) return null;
     var miss = p.next.norme != null && p.next.total != null ? Math.max(0, Math.round(p.next.norme - p.next.total)) : null, tl = p.next.label || lab(Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC));
     var free = '<span class="pmo-t">Tu es ' + esc(S.profile.rank || effRank() || "?") + "</span>" + '<span class="pmo-s">' + (p.status === "montee" ? "Tu montes <b class=\"pmo-g\">" + esc(lab(p.projected)) + "</b> à la prochaine sortie si rien ne bouge." : miss ? "Il te manque <b class=\"pmo-r\">" + miss + " points</b> pour " + esc(tl) + " à la prochaine sortie." : "") + " Ton bilan et ta projection restent gratuits.</span>";
-    return { type: "sortie", k: "sortie:" + E.iso(r1), ey: "Sortie du " + flong(r1), free: free, pt: "Le plan du coach", lines: lines, foot: "Ton bilan reste gratuit. Montée+ ajoute le plan du coach pour la prochaine sortie.", cta: "Mon plan" };
+    return { type: "sortie", k: "sortie:" + E.iso(r1), ey: "Sortie du " + flong(r1), free: free, pt: "Le plan d'Ace", lines: lines, foot: "Ton bilan reste gratuit. Montée+ ajoute le plan d'Ace pour la prochaine sortie.", cta: "Mon plan" };
   }
   function plusMomentHtml(c) {
     if (!PLUS_LOCK() || !S.onboarded || !S.matches.length) return "";
@@ -3368,6 +3628,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div></div></div></div>");
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
+    s += aceHomeCard(); // 3.82.1 : Ace sous le Salut
     if (!S.matches.length) {
       s += '<div class="card balle"><span class="eyebrow">Pour commencer</span><span style="font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.2">Récupère tes matchs des 12 derniers mois.</span><span style="font-size:15px">Sans eux, impossible de savoir si tu montes.</span></div>' +
         '<div class="stack"><a class="btn primary" href="#/tenup">' + I.link + " Récupérer depuis Ten'Up</a>" +
@@ -3473,14 +3734,21 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.55 (Yann, maquette D) : les petites choses à faire (annoter, ressenti, cordage, synchro) dans une seule carte « À faire »
     if (!freshStart()) {
       B.backup = bkDue() ? bkTodoHtml() : "";
-      var tdK = ["annoter", "rate", "slot", "cordage", "sync", "backup"].filter(function (k) { return B[k]; });
-      if (tdK.length === 1 && tdK[0] === "backup") B.sync = B.backup; // seule chose à faire : à la place de la synchro
+      B.pay = payTodoHtml(); // 3.83 : inscription à un tournoi pas encore payée (lue sur Ten'Up)
+      var tdK = ["annoter", "rate", "slot", "cordage", "pay", "sync", "backup"].filter(function (k) { return B[k]; });
+      if (tdK.length === 1 && (tdK[0] === "backup" || tdK[0] === "pay")) B.sync = B[tdK[0]]; // seule chose à faire : à la place de la synchro
       else if (tdK.length >= 2 || tuOut) {
-        var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0) + (B.backup ? 2 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
-        var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + (tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK).map(function (k) { return '<div class="td3-i">' + B[k] + "</div>"; }).join("") + "</div>";
-        tdK.forEach(function (k) { B[k] = ""; }); B[tdK[0]] = tdH;
+        var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0) + (B.backup ? 2 : 0) + (B.pay ? 5 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
+        var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + (function () {
+          // 3.82.1 (Yann, maquette M4 du 23/11) : 2 tâches visibles, le reste derrière « N autres »
+          var ord = tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK, vis = UI.tdAll || ord.length <= 3 ? ord : ord.slice(0, 2), rest = ord.slice(vis.length);
+          var TDN = { annoter: "annotation", rate: "ressenti", slot: "séance", cordage: "cordage", sync: "Ten'Up", backup: "sauvegarde", pay: "inscription" };
+          return vis.map(function (k) { return '<div class="td3-i">' + B[k] + "</div>"; }).join("") +
+            (rest.length ? '<button class="td3-more" data-a="tdMore"><span>' + esc(cap1(rest.map(function (k) { return TDN[k] || k; }).join(", "))) + "</span><b>" + (rest.length > 1 ? rest.length + " autres" : "1 autre") + " ›</b></button>" : "");
+        })() + "</div>";
+        tdK.forEach(function (k) { B[k] = ""; }); B[tdK[0] === "pay" ? "sync" : tdK[0]] = tdH;
       }
-      B.backup = "";
+      B.backup = ""; B.pay = "";
     }
     X.rebond = rebondHtml(c); // 3.55 (Yann) : mode rebond
     // 3.57 (audit parcours M1, M2) : une seule invitation à la fois, « Tu joues pour quoi ? » compris ; aucune pendant un passage à vide
@@ -7476,7 +7744,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var T = tr.T, si = E.iso(tr.start), pl = plans().filter(function (x) { return x.name && x.id && dGap(x.day) >= 0; }).sort(function (a, b) { return a.day < b.day ? -1 : 1; })[0];
     var cp = null; try { cp = capData(ctx()); } catch (e) {}
     return [
-      { t: "Lire ton bilan du coach", s: cp && !cp.done ? "Ton cap : " + plural(cp.n, "victoire") + " contre des " + lab(cp.lvl) + " d'ici " + MOIS_L[cp.by.getMonth()] + "." : "Ton portrait, ton cap, 3 consignes chiffrées.", done: !!T.seen.coach, href: "#/coach" },
+      { t: "Lire ton bilan avec Ace", s: cp && !cp.done ? "Ton cap : " + plural(cp.n, "victoire") + " contre des " + lab(cp.lvl) + " d'ici " + MOIS_L[cp.by.getMonth()] + "." : "Ton portrait, ton cap, 3 consignes chiffrées.", done: !!T.seen.coach, href: "#/coach" },
       { t: "Préparer un match avec le plan complet", s: pl ? pl.name + " : ton plan est prêt, plan B compris." : "Sur la fiche de ton prochain adversaire, dans Joueurs.", done: T.plans.length > 0, href: pl ? "#/joueur/" + pl.id : "#/faf" },
       IOS ? { t: "Jouer un match avec ta montre", s: "Un objectif à chaque changement de côté.", done: S.matches.some(function (m) { return m.wev && m.date >= si; }) }
         : { t: "Découvrir ton profil de compétiteur", s: "7 compétences tirées de tes matchs.", done: !!T.seen.comp, href: "#/competiteur" }];
@@ -7542,7 +7810,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       out += row({ ic: "watch", ey: "Apple Watch", t: "Ton plan au poignet, à chaque match", s: "Un objectif à chaque changement de côté, le plan B quand ça tourne mal, l'échauffement guidé.", me: open ? "" : "Sans Montée+ : 1 match par mois." });
     }
     out += sec("Pour monter");
-    if (cp && !cp.done) out += row({ ic: "cap", ey: "Ton cap · d'ici le " + fdate(cp.by).replace(/\.$/, ""), t: "Bats " + X(cp.n) + " " + (cp.n > 1 ? "joueurs classés " : "joueur classé ") + esc(lab(cp.lvl)) + " ou mieux", s: "Coché tout seul dès qu'un match entre, avec 3 consignes chiffrées.", me: "À la clé : " + esc(lab(cp.tgt)) + " à la sortie du " + esc(fdate(cp.rel).replace(/\.$/, "")) + "." });
+    if (cp && !cp.done) out += row({ ic: "cap", ey: "Ton cap · avant la sortie du " + fdate(cp.rel).replace(/\.$/, ""), t: "Bats " + X(cp.n) + " " + (cp.n > 1 ? "joueurs classés " : "joueur classé ") + esc(lab(cp.lvl)) + " ou mieux", s: "Coché tout seul dès qu'un match entre, avec 3 consignes chiffrées.", me: "À la clé : " + esc(lab(cp.tgt)) + " à la sortie du " + esc(fdate(cp.rel).replace(/\.$/, "")) + "." });
     else out += row({ ic: "cap", ey: "Ton cap", t: "Les victoires qu'il te faut pour monter", s: "Avec une date, coché tout seul dès qu'un match entre, et 3 consignes chiffrées." });
     if (ch) out += row({ ic: "pct", ey: "Tes chances de " + (ch.down ? "te maintenir" : "monter"), t: X(Math.round(ch.p * 100) + " %") + " d'être " + esc(lab(ch.target)) + " le " + chRelLab(ch.rel), s: "Et le match qui les fait le plus bouger." });
     else out += row({ ic: "pct", ey: "Tes chances de monter", t: "Ton % d'être au-dessus à la prochaine sortie", s: "Match par match, dès que tu ajoutes tes prochains matchs." });
@@ -7572,7 +7840,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return s + "</div>";
     }
     s += '<div class="card sup-hero"><span class="ball"></span><span class="eyebrow" style="color:var(--acc-ink);position:relative">Montée+' + (S.profile.name ? " · pour " + esc(S.profile.name) : "") + "</span><b>" +
-      (R.has ? "Ton coach a lu tes " + plural(R.n, "match", "matchs") + ". Voilà ce qu'il ferait pour toi." : "Ton coach, de la préparation au dernier point.") + '</b><span class="small">' +
+      (R.has ? "Ace a lu tes " + plural(R.n, "match", "matchs") + ". Voilà ce qu'il ferait pour toi." : "Ace, de la préparation au dernier point.") + '</b><span class="small">' +
       (R.has ? "Tout ce qui suit vient de tes matchs. Les chiffres cachés s'ouvrent avec l'essai." : "Dès tes premiers matchs, tout ce qui suit parle de toi.") + "</span></div>";
     s += '<div class="card pw-list">' + R.html + "</div>";
     s += plusFree();
@@ -7586,7 +7854,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (cur.id !== "plus_vie") {
       var t0 = today(), tEnd = new Date(t0.getTime() + 30 * 864e5), tWarn = new Date(tEnd.getTime() - 3 * 864e5), nx = R.pl;
       s += '<div class="card"><span class="eyebrow">Ton essai, sans surprise</span><div class="pw-tl">' +
-        '<div class="on"><small>Aujourd\'hui</small><b>Tout Montée+ est ouvert</b><span>' + esc(nx ? "Ton plan contre " + nx.name + ", ton cap" + (IOS ? ", ta montre sans limite." : ", tes chances.") : "Ton bilan du coach, ton cap, tes plans de match" + (IOS ? ", ta montre sans limite." : ".")) + "</span></div>" +
+        '<div class="on"><small>Aujourd\'hui</small><b>Tout Montée+ est ouvert</b><span>' + esc(nx ? "Ton plan contre " + nx.name + ", ton cap" + (IOS ? ", ta montre sans limite." : ", tes chances.") : "Ton bilan avec Ace, ton cap, tes plans de match" + (IOS ? ", ta montre sans limite." : ".")) + "</span></div>" +
         "<div><small>" + esc(fdate(tWarn).replace(/\.$/, "")) + " · 3 jours avant la fin</small><b>Montée te prévient</b><span>Avec ce que ce mois t'a apporté. Tu décides à ce moment-là.</span></div>" +
         "<div><small>" + esc(fdate(tEnd).replace(/\.$/, "")) + "</small><b>1er paiement : " + esc(price(cur)) + " " + (cur.id === "plus_saison" ? "pour la saison" : "pour le mois") + "</b><span>Sauf si tu annules avant. Rien n'est prélevé pendant l'essai.</span></div></div></div>";
     }
@@ -8206,6 +8474,51 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
 
 
+  // ---------- 3.83 (idée de Davy, maquette validée le 23/11/2026) : « Tes bonus » dans Ma montée ----------
+  // Ce que Montée compte déjà dans ton bilan : bonus championnat individuel (les premiers dans la limite du barème, les autres
+  // en réserve prennent le relais quand l'un sort), bonus doubles, bonus sans défaite significative ; avec jusqu'à quand chacun compte.
+  function bonusData(hb, c) {
+    var o = { ind: [], dbl: [], tot: 0, ch: 0, db: 0, sd: 0 }; if (!hb) return o;
+    try {
+      var ch = E.BAREME.champ(hb.calc), n = 0, rel = c.opts.release || E.nextRelease(today());
+      E.windowMatches(sortedMatches().filter(function (m) { return m.kind === "champ" && m.result === "V" && !m.wo && !m.dbl && !m._dbl && counts(m); }), rel, today(), false)
+        .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) { var on = hb.bonusCh && n < ch.max; if (on) n++; o.ind.push({ m: m, pts: on ? ch.par : 0, on: on }); });
+    } catch (e) {}
+    (hb.doubles || []).forEach(function (x) { if (x && x.m) o.dbl.push({ m: x.m, pts: x.pts || 0, on: true }); });
+    o.ch = hb.bonusCh || 0; o.db = hb.bonusDbl || 0; o.sd = hb.bonusSD || 0; o.tot = o.ch + o.db + o.sd;
+    return o;
+  }
+  function bonusHtml(hb, c) {
+    var B = bonusData(hb, c); if (!B.tot && !B.ind.length && !B.dbl.length) return "";
+    var mo = function (d) { return d ? MOIS[d.getMonth()] + " " + d.getFullYear() : ""; }, tag = function (r) { return r ? '<b class="rk-tag">' + esc(r) + "</b>" : ""; };
+    var on = B.ind.filter(function (x) { return x.on; }).concat(B.dbl), first = null;
+    // le premier bonus qui sort : la sortie de classement qui ne le compte plus (Ten'Up : « Dernier calcul clt » = la précédente)
+    on.forEach(function (x) { var l = E.leaveDate(x.m); if (l && (!first || l < first.l)) first = { l: l, x: x }; });
+    var row = function (x, dbl) {
+      var m = x.m, who = dbl ? esc(nameCase(m.opp || "") || "Double") : esc(nameCase(m.opp || "") || "Un " + (m.oppRank || "adversaire"));
+      var rks = dbl && (m.oppRanks || []).filter(Boolean).length ? m.oppRanks.filter(Boolean).slice(0, 2).map(tag).join(" et ") : tag(m.oppRank);
+      var l = E.lastDay(m);
+      return '<a class="bo-r' + (x.on ? "" : " off") + '" href="#/' + (dbl ? "double/" : "match/") + encodeURIComponent(m.id) + '"><span class="grow"><span class="t">' + who + "</span><small>" + rks + (rks ? " · " : "") + "le " + esc((function (d) { return d ? d.getDate() + " " + MOIS[d.getMonth()] + " " + d.getFullYear() : ""; })(E.parseDate(m.date))) + "</small></span>" +
+        '<span class="bo-p"><b>' + (x.pts ? "+" + x.pts : "0") + "</b><small>" + (x.on ? "jusqu'en " + mo(l) : "en réserve") + "</small></span></a>";
+    };
+    var ch = E.BAREME.champ(hb.calc), res = B.ind.filter(function (x) { return !x.on; });
+    var ace = "";
+    if (first) {
+      var fx = first.x, nm = esc(nameCase(fx.m.opp || "") || "ce match");
+      ace = fx.m.kind === "champ" && B.ind.indexOf(fx) >= 0
+        ? (res.length ? "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus contre " + nm + " sort.</b> Ta victoire contre " + esc(nameCase(res[0].m.opp || "") || "un " + res[0].m.oppRank) + " prend le relais : tu gardes tes " + B.ch + " pts." : "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus contre " + nm + " (+" + fx.pts + ") sort.</b> Gagne un match de poule d'ici là pour le garder.")
+        : "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus double contre " + nm + " (+" + fx.pts + ") sort.</b> Une victoire en double d'ici là le remplace.";
+    }
+    return '<div class="card bo-card" id="bo-card"><div class="bo-h"><span class="eyebrow">Tes bonus</span><span>pour ' + esc(hb.label) + "</span></div>" +
+      '<b class="bo-ti">+' + B.tot + " pts de bonus dans ton bilan</b>" +
+      '<div class="bo-tiles"><span><b>' + B.ch + "</b><small>championnat individuel</small></span><span><b>" + B.db + "</b><small>doubles</small></span>" +
+      (first ? "<span><b>" + first.l.getDate() + (first.l.getDate() === 1 ? "<sup>er</sup>" : "") + " " + MOIS[first.l.getMonth()] + "</b><small>1er bonus qui sort</small></span>" : B.sd ? "<span><b>" + B.sd + "</b><small>sans défaite significative</small></span>" : "") + "</div>" +
+      (B.ind.length ? '<h3 class="bo-st">Championnat individuel <small>' + (ch.max ? "tes " + ch.max + " premiers comptent" : "") + '</small></h3><div class="bo-flat">' + B.ind.map(function (x) { return row(x, false); }).join("") + "</div>" : "") +
+      (B.dbl.length ? '<h3 class="bo-st">Doubles <small>les meilleurs comptent</small></h3><div class="bo-flat">' + B.dbl.slice(0, 5).map(function (x) { return row(x, true); }).join("") + "</div>" : "") +
+      (B.sd && first ? '<div class="bo-sd">Bonus sans défaite significative <b>+' + B.sd + "</b></div>" : "") +
+      (ace ? '<div class="bo-ace"><span class="cbl-b xs" data-id="bo:' + esc(first.x.m.id) + '" data-m="reflexion"></span><span>' + ace + "</span></div>" : "") + "</div>";
+  }
+
   // ---------- Projection ----------
   V.projection = function () {
     var c = ctx(), p = c.proj;
@@ -8216,7 +8529,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var hb = p.status === "descente" ? p.here : nx;
     // 3.34 : barre à balle sous le titre
     s += '<div class="pj-bar">' + ballBar(hb.norme ? Math.min(100, hb.total * 100 / hb.norme) : 0, hb.total + " sur " + hb.norme, p.status === "descente" ? "var(--terre)" : "var(--hacc3)") +
-      '<div class="pj-leg"><span>' + (p.status === "descente" ? "Pour rester " : "Pour monter ") + esc(hb.label) + " : <b>" + hb.total + "</b> / " + hb.norme + " pts</span><span>" + plural(hb.n, "victoire comptée", "victoires comptées") + "</span></div>" + whyAtLevel(hb.label, p.status === "descente") + "</div>";
+      '<div class="pj-leg"><span>' + (p.status === "descente" ? "Pour rester " : "Pour monter ") + esc(hb.label) + " : <b>" + hb.total + "</b> / " + hb.norme + " pts</span><span>" + plural(hb.n, "victoire comptée", "victoires comptées") + "</span></div>" + whyAtLevel(hb.label, p.status === "descente") +
+      (function () { var bt = (hb.bonusCh || 0) + (hb.bonusDbl || 0) + (hb.bonusSD || 0); return bt ? '<button class="bo-inbar" data-a="boGo">dont <b>+' + bt + " pts de bonus</b> · le détail " + I.next + "</button>" : ""; })() + "</div>";
 
     // 3.73 (Yann, maquettes validées) : « Ma montée » : projection, Et si… et bon moment sur une seule page, en 3 onglets
     var tab = ["pistes", "etsi", "quand"].indexOf(UI.mmTab) >= 0 ? UI.mmTab : "pistes";
@@ -8254,6 +8568,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
     // 3.73 : le détail du bilan passe dans une feuille du bas, derrière une seule ligne (sans répéter les points)
     s += '<button class="card mmo-det" data-a="sheet" data-k="mmBilan" data-v="' + (danger ? "keep" : "up") + '"><span class="grow"><b>Les matchs qui comptent</b><span class="small">' + plural(hb.n, "victoire prise", "victoires prises") + " en compte, et ce que rapporte chacune</span></span>" + I.next + "</button>";
+    s += bonusHtml(hb, c);
     s += officialHtml(true);
     s += '<a class="btn soft small" href="#/methode">Comment c\'est calculé</a>';
     return s + '<p class="small">Calcul indicatif d\'après le barème FFT. Seul le classement officiel fait foi.</p></div>';
@@ -8535,6 +8850,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return out;
   }
   // Ace partout : sa pastille au-dessus des onglets (Yann, maquette v2 façon Bevel : la grosse balle prenait trop de place)
+  // 3.82.1 (maquette M1) : la phrase de l'accueil dit quoi faire (combien de victoires, contre qui), pas seulement l'écart
+  function winsLine(c) { // « 2 victoires contre des 15/1 » : même calcul que « Ton cap »
+    try { var tg = Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC), w = winsFor(c, tg), top = w && w.top != null && w.top <= 4 ? w.top : null, n = top || (w && w.n <= 6 ? w.n : null), lv = top ? tg : w && w.lvl;
+      if (n && lv != null) return (n > 1 ? n + " victoires contre des " : "1 victoire contre un ") + lab(lv); } catch (e) {}
+    return "";
+  }
+  function upTipT(c, gap) {
+    var L = c.proj.next.label, base = "Il te manque " + plural(gap, "pt") + " pour " + L + ", on voit comment ?";
+    try { var wl = winsLine(c);
+      if (wl) return wl + " et tu montes " + L + ". On regarde qui jouer d'abord ?"; } catch (e) {}
+    return base;
+  }
   function coHomeTip(c) {
     var tips = [], hier = null, jm = null, t0 = E.iso(today());
     try { var yd = E.iso(new Date(today().getTime() - 864e5)); hier = knownMatches(false).filter(function (m) { return (m.date === yd || m.date === t0) && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0]; } catch (e) {} // 3.74.1 : Ace réagit aussi au match saisi aujourd'hui (bulle + point rouge, sans fenêtre automatique)
@@ -8553,7 +8880,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (t.fmt === "poule") { var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }); if (left.length) tips.push({ id: "home:pl:" + t.id + ":" + left.length, t: (left.length > 1 ? left.length + " matchs de poule à caler" : "Un match de poule à caler") + ", on regarde ?", v: "poule:" + t.id }); }
       else { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r && r.day && r.day >= t0 && !(nm && nm.t === t)) tips.push({ id: "home:tb:" + t.id + ":" + r.day, t: "Ton prochain tour " + (r.day === t0 ? "aujourd'hui" : "le " + fdate(r.day).replace(/\.$/, "")) + " : on le prépare ?", v: "tour:" + t.id }); }
     });
-    if (c.proj.status !== "top" && c.proj.next) { var gap = Math.max(0, c.proj.next.norme - c.proj.next.total); tips.push({ id: "home:up:" + gap, t: c.proj.status === "montee" ? "Tu montes " + lab(c.proj.projected) + " à la sortie. On en parle ?" : gap ? "Il te manque " + plural(gap, "pt") + " pour " + c.proj.next.label + ", on voit comment ?" : "Il te manque une victoire pour " + c.proj.next.label + ", on voit laquelle ?", v: "up" }); }
+    if (c.proj.status !== "top" && c.proj.next) { var gap = Math.max(0, c.proj.next.norme - c.proj.next.total); tips.push({ id: "home:up:" + gap, t: c.proj.status === "montee" ? "Tu montes " + lab(c.proj.projected) + " à la sortie. On en parle ?" : gap ? upTipT(c, gap) : "Il te manque une victoire pour " + c.proj.next.label + ", on voit laquelle ?", v: "up" }); }
     if (!tips.length && (!hier || hier.result !== "D")) {
       var lastA = knownMatches(false).concat(S.trainings || []).map(function (x) { return x.date || ""; }).sort().pop();
       if (jm) { if (jk("h-jm")) tips.push({ id: "jk:h-jm:" + t0, t: "Jour de match. Les chaussettes porte-bonheur, c'est maintenant.", v: "" }); }
@@ -8566,11 +8893,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Accueil : Ace à côté de la roue des réglages (Yann, 23/11) : petit, il cligne des yeux ; quand il a un truc à te dire,
   // un point rouge, un petit rebond de temps en temps et sa phrase en une ligne à sa gauche
   function aceHd() {
+    UI.coHome = null;
     if (!S.onboarded || !S.matches.length) return "";
     var h = null; try { h = coHomeTip(ctx()); } catch (e) { return ""; }
     var m = coMem(), t = h.tip, dot = !!(t && !m.op[t.id]); UI.coHomeId = t ? t.id : null;
-    return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach' + (dot ? " : " + esc(t.t) : "") + '">' +
-      (dot ? '<span class="ace-bub">' + esc(t.t) + "</span>" : "") + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot ? '<span class="ace-dot"></span>' : "") + "</span></button>";
+    UI.coHome = dot ? { t: t, mood: h.mood } : null; return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot ? '<span class="ace-dot"></span>' : "") + "</span></button>";
+  }
+  // 3.82.1 (Yann, maquette M1 du tour du 23/11) : la phrase d'Ace a sa carte sous le Salut (avant : bulle coupée dans l'en-tête)
+  function aceHomeCard() {
+    var h = UI.coHome; if (!h || !h.t) return "";
+    return '<div class="card cbl ace-hc" role="note" aria-label="Ace">' + coBall("hc:" + h.t.id, h.mood) + '<div class="cbl-t"><span>' + esc(h.t.t) + '</span><div class="cbl-ac">' +
+      '<button class="cbl-go ace-hcg" data-a="ace" data-v="' + esc(h.t.v || "") + '">On en parle ›</button><button class="cbl-no" data-a="coachNo" data-id="' + esc(h.t.id) + '" data-s="home">Pas utile</button></div></div></div>';
   }
   // La présentation d'Ace, une seule fois
   function aceIntroHtml() {
@@ -9900,6 +10233,23 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (st.length >= 3) return jkLine("m-3s", "Trois sets. Le public (toi) en a eu pour son argent.");
     return "";
   }
+  // 3.82.1 (B5) : ce que la victoire ajoute vraiment au bilan (elle peut prendre la place d'une victoire déjà comptée)
+  function matchNet(m, c) {
+    try { var a = E.project(allMatches(), c.cur, c.sex, c.opts), b = E.project(allMatches().filter(function (x) { return x.id !== m.id; }), c.cur, c.sex, c.opts);
+      return a.next && b.next ? a.next.total - b.next.total : null; } catch (e) { return null; }
+  }
+  // 3.82.1 (Yann, maquette M2 du 23/11) : après ta dernière victoire (60 j), Ace dit ce que ça change et la suite
+  function winAceHtml(m) {
+    if (m.result !== "V" || m.wo || !counts(m)) return "";
+    var last = null; try { last = coLastPlayed("V", 60); } catch (e) {} if (!last || last.id !== m.id) return "";
+    var c = null; try { c = ctx(); } catch (e) { return ""; } var p = c.proj; if (!p || p.status === "top") return "";
+    var o = E.idx(T.normRank(m.oppRank || "")), perf = o != null && c.cur != null && o > c.cur, net = matchNet(m, c);
+    var t = "<b>" + (perf ? "Belle perf, ça c'est fait !" : "Bien joué !") + "</b>" + (net > 0 ? " +" + net + " pts au bilan." : "");
+    if (p.status === "montee") t += " Tu montes " + esc(lab(p.projected)) + " à la sortie. On en parle ?";
+    else if (p.next && p.next.norme) { var gap = Math.max(0, p.next.norme - p.next.total), wl = winsLine(c); t += gap ? " Plus que " + gap + " pts pour " + esc(p.next.label) + (wl ? ", soit " + esc(wl) : "") + ". Je te dis qui viser ?" : " On regarde la suite ?"; }
+    else t += " On regarde la suite ?";
+    return coachBubble("mt", [{ id: "mt:win:" + m.id, mood: "joie", t: t, act: { l: "On en parle", a: "ace", v: "win" } }]).replace('class="card cbl"', 'class="card cbl mt-ace"');
+  }
   // 3.75 : après ta dernière défaite (60 j), Ace arrive déçue puis se concentre sur la suite (jamais de fête)
   function lossAceHtml(m) {
     if (m.result !== "D" || m.wo) return "";
@@ -9936,7 +10286,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }
       if (isNew && UI.mmPrefill) { var mp = UI.mmPrefill; UI.mmPrefill = null; base.opp = mp.opp; base.oppRank = mp.rank; base.result = mp.r; if (mp.score) base.score = mp.score; if (mp.minutes) base.minutes = mp.minutes; if (mp.feel) base.feel = mp.feel; if (mp.kind) base.kind = mp.kind; if (mp.serve) base.serve = mp.serve; if (mp.hr) base.hr = mp.hr; if (mp.kcal) base.kcal = mp.kcal; if (mp.date) base.date = mp.date; if (mp.wid) base._wid = mp.wid; if (mp.oid) base.oid = String(mp.oid); if (mp.watch) base.watch = true; if (mp.wev) { base.wev = mp.wev; base.wsrv = mp.wsrv; base.wfmt = mp.wfmt; } if (mp.wevT) base.wevT = mp.wevT; if (mp.wt0) base.wt0 = mp.wt0; if (mp.wmax) base.wmax = mp.wmax; }
       // 3.55 (audit, validé) : un match neuf reprend les conditions de ta dernière saisie (surface, lieu)
-      if (isNew) { var lastC = S.matches.filter(function (x) { return x.surface || x.indoor != null; }).sort(byDateDesc)[0]; if (lastC) { base.surface = SURFACES.indexOf(lastC.surface) >= 0 ? lastC.surface : ""; base.indoor = lastC.indoor != null ? lastC.indoor : null; } UI.condOpen = false; }
+      if (isNew) { var lastC = S.matches.filter(function (x) { return x.source !== "exemple" && (x.surface || x.indoor != null); }).sort(byDateDesc)[0]; if (lastC) { base.surface = SURFACES.indexOf(lastC.surface) >= 0 ? lastC.surface : ""; base.indoor = lastC.indoor != null ? lastC.indoor : null; } UI.condOpen = false; }
       if (isNew && UI.hcPrefillM) { var hm = UI.hcPrefillM; UI.hcPrefillM = null; base.date = hcIso(hm.start); base.minutes = hcMin(hm); base.hid = hm.id; base.hat = hm.start; }
       base._for = id || "new"; UI.draft = base; UI.gearOpen = false; UI.origKey = null; // nouveau brouillon : on reprend la référence « rien de modifié »
       base.sets = setsOf(base.score);
@@ -9957,14 +10307,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.55 (Yann, ordre de la fiche validé) : résultat, puis pourquoi / ce que tu gardes, puis à compléter, puis le contexte
     var midH = isNew ? "" : analyseHtml(mA, official) + (m.result === "D" ? nextOccHtml(mA) : "") + toCompleteHtml(mA);
     if (!isNew && (S.anNew || []).indexOf(m.id) >= 0) { S.anNew = S.anNew.filter(function (x) { return x !== m.id; }); save(); }
-    if (official) s += (isNew ? "" : lossAceHtml(m) + jkMatch(m)) + midH;
+    if (official) s += (isNew ? "" : lossAceHtml(m) + winAceHtml(m) + jkMatch(m)) + midH;
     if (!isNew && official) s += hcMatchLine(m) + hrMatchCard(m);
     if (!isNew && !official) {
       s += '<div class="card ink" style="flex-direction:row;justify-content:space-between;align-items:center"><span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;color:var(--sub)">' + esc(fdate(m.date)) + " · " + esc((KINDS.filter(function (k) { return k[0] === m.kind; })[0] || ["", "Match"])[1]) + (m.comp ? '</span><span style="font-size:12px;color:var(--sub);line-height:1.3">' + esc(m.comp) : "") + '</span><span style="font-size:20px;font-weight:600">' + esc(nameCase(m.opp) || "Adversaire") + " · " + esc(m.oppRank) + '</span><span style="color:#E6E0D8">' + esc(m.score || "") + "</span></span>" +
         '<span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span style="height:32px;padding:0 12px;border-radius:16px;background:' + (m.result === "V" ? "var(--balle)" : "var(--terre-soft)") + ";color:" + (m.result === "V" ? "var(--on-balle)" : "var(--terre-dark)") + ';font-weight:700;display:flex;align-items:center">' + (m.result === "V" ? "Victoire" : "Défaite") + (m.wo ? " (WO)" : "") + "</span>" +
-        (m.result === "V" ? '<span style="color:var(--hl);font-weight:600;font-size:14px">' + (!counts(m) ? "ne compte pas" : pts != null ? "+" + pts + " pts" : "hors quota") + "</span>" : "") + "</span></div>";
+        (m.result === "V" ? '<span style="color:var(--hl);font-weight:600;font-size:14px">' + (!counts(m) ? "ne compte pas" : pts != null ? "+" + (function () { var nt = matchNet(m, c); return nt != null && nt > 0 && nt < pts ? nt : pts; })() + " pts" : "hors quota") + "</span>" : "") + "</span></div>";
     }
-    if (!isNew && !official) s += lossAceHtml(m) + jkMatch(m) + midH + hcMatchLine(m) + hrMatchCard(m); // 3.54 : sous l'en-tête du match
+    if (!isNew && !official) s += lossAceHtml(m) + winAceHtml(m) + jkMatch(m) + midH + hcMatchLine(m) + hrMatchCard(m); // 3.54 : sous l'en-tête du match
     // 3.47 (Yann) : le face-à-face remonte sous l'en-tête du match (bilan + pastilles V/D), au lieu d'être tout en bas
     if (!isNew && m.opp && !isAnon(m.opp) && nameKey(m.opp).length >= 3) {
       var hk = nameKey(m.opp), hm = knownMatches(false).filter(function (x) { return x.opp && nameKey(x.opp) === hk && !x.wo && (x.result === "V" || x.result === "D"); }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
@@ -10273,7 +10623,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function coachCardHtml() {
     if (!PLUS) return "";
     var P = compSkills(); if (P.n < 6) return "";
-    var head = '<div class="cp-h"><span class="eyebrow">Ton coach</span><span class="cp-plus">Montée+</span></div>';
+    var head = '<div class="cp-h"><span class="eyebrow">Ace</span><span class="cp-plus">Montée+</span></div>';
     if (!isSup()) return '<div class="card cp-card co-card">' + head + '<div class="co-top"><span class="cp-fw">' + compFlower(P, 104, null, true) + '</span><b class="co-t">Ton portrait de compétiteur, ce qui te coûte des points, et 3 priorités pour monter.</b></div><button class="btn primary ch-cta" data-a="goSoutenirComp">Découvrir avec Montée+</button></div>';
     var d = coachData(), lines = d.leaks.filter(function (l) { return !l.fallback; }).slice(0, 2).map(function (l) { return '<div class="co-l"><i class="r"></i><span>' + esc(l.t) + "</span>" + (l.pts ? '<em class="r">≈ −' + l.pts + " pts</em>" : "") + "</div>"; }).join("") +
       (d.strong[0] ? '<div class="co-l"><i class="g"></i><span>' + esc(d.strong[0].t) + '</span><em class="g">' + esc(d.strong[0].s) + "</em></div>" : "");
@@ -10335,15 +10685,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function coachTeaser() {
     var d = null; try { d = coachData(); } catch (e) {}
     var n = d ? d.ms.length : 0;
-    if (!d || n < 3) return plusTeaser({ h1: "Le bilan du coach", ey: "Dès tes premiers matchs", rows: [
+    if (!d || n < 3) return plusTeaser({ h1: "Ton bilan avec Ace", ey: "Dès tes premiers matchs", rows: [
       { ic: "cap", ey: "Ton cap", t: "Les victoires qu'il te faut pour monter", s: "Avec une date, et coché tout seul dès qu'un match entre." },
-      { ic: "goal", ey: "Ce que le coach te demande", t: "3 consignes chiffrées", s: "Chacune avec son compteur." },
+      { ic: "goal", ey: "Ce qu'Ace te demande", t: "3 consignes chiffrées", s: "Chacune avec son compteur." },
       { ic: "who", ey: "Le compétiteur que tu es", t: "Ton portrait", s: "Ce qui te réussit, ce qui te coûte des points." }] });
     var p0 = d.plan[0], cp = null, ord = [];
     try { cp = capData(d.c); } catch (e) {}
     try { ord = capOrders(d, cp); } catch (e) {}
     var L = function (r) { return esc(lab(r)); }, rows = [];
-    if (cp && !cp.done) rows.push({ ic: "cap", ey: "Ton cap · d'ici le " + fdate(cp.by).replace(/\.$/, ""), t: "Bats " + pwX(cp.n) + " " + (cp.n > 1 ? "joueurs classés " : "joueur classé ") + L(cp.lvl) + " ou mieux", s: cp.gap ? "Pourquoi ce nombre : il te manque " + cp.gap + " pts." : "" });
+    if (cp && !cp.done) rows.push({ ic: "cap", ey: "Ton cap · avant la sortie du " + fdate(cp.rel).replace(/\.$/, ""), t: "Bats " + pwX(cp.n) + " " + (cp.n > 1 ? "joueurs classés " : "joueur classé ") + L(cp.lvl) + " ou mieux", s: cp.gap ? "Pourquoi ce nombre : il te manque " + cp.gap + " pts." : "" });
     if (ord.length) rows.push({ ic: "goal", ey: "Ce qu'il te demande", t: plural(ord.length, "consigne chiffrée", "consignes chiffrées") + ", cochée" + (ord.length > 1 ? "s" : "") + " toute" + (ord.length > 1 ? "s" : "") + " seule" + (ord.length > 1 ? "s" : ""), s: cp && !cp.done ? "La 1re est à faire avant le " + pwX(fdate(cp.mEnd).replace(/\.$/, "")) + "." : "" });
     var it = (d.seen && d.seen.items) || [];
     rows.push({ ic: "who", ey: "Le compétiteur que tu es", t: d.P.title ? "Ton portrait : " + pwX(String(d.P.title).replace(/\.$/, "")) : "Ton portrait", s: it.slice(0, 2).map(function (x) { return pwX(x.v + " sur " + x.n) + " " + esc(String(x.t).charAt(0).toLowerCase() + String(x.t).slice(1)); }).join(", ") });
@@ -10351,10 +10701,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (lk.length) rows.push({ ic: "pts", ey: "Ce qui te coûte des points", t: plural(lk.length, "fuite") + (lp ? " : " + pwX("≈ −" + lp + " pts") : ""), s: "Chacune avec les matchs où elle t'a coûté." });
     if (d.seen && d.seen.plan && d.seen.plan.length) rows.push({ ic: "plan", ey: "Le scouting sur toi", t: "Ce qu'un adversaire préparé sait de toi", s: "Son plan contre toi tient en " + pwX(d.seen.plan.length) + " ligne" + (d.seen.plan.length > 1 ? "s" : "") + "." });
     return plusTeaser({
-      h1: "Ton coach a lu<br>tes " + plural(n, "match", "matchs"),
+      h1: "Ace a lu<br>tes " + plural(n, "match", "matchs"),
       tip: p0 ? p0.t + (p0.l && p0.l.s && !p0.l.fallback ? " : " + p0.l.s + "." : ".") : "", tipS: p0 ? p0.s : "",
       ey: "Ce qu'il a trouvé d'autre", rows: rows,
-      foot: lk.length ? "" : "Rien ne te coûte de points en ce moment : le coach te dit plutôt où aller les chercher."
+      foot: lk.length ? "" : "Rien ne te coûte de points en ce moment : Ace te dit plutôt où aller les chercher."
     });
   }
   // ---------- Montée+ (Yann, 19/11) : LE CAP : une action, un nombre, une date, coché tout seul ----------
@@ -10392,14 +10742,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function capHtml(cp) {
     if (!cp) return "";
     var L = function (r) { return esc(lab(r)); }, who = "joueurs classés " + L(cp.lvl) + " ou mieux";
-    var s = '<div class="card cap"><div class="cap-hd"><span class="eyebrow">Ton cap · d\'ici le ' + esc(fdate(cp.by).replace(/\.$/, "")) + '</span><span class="cap-j">' + (cp.done ? "atteint" : "J-" + cp.days) + "</span></div>" +
+    var s = '<div class="card cap"><div class="cap-hd"><span class="eyebrow">Ton cap · avant la sortie du ' + esc(fdate(cp.rel).replace(/\.$/, "")) + '</span><span class="cap-j">' + (cp.done ? "atteint" : "J-" + cp.days) + "</span></div>" +
       '<b class="cap-t">' + (cp.done ? "Cap atteint : " + plural(cp.n, "victoire") + " contre des " + who + "." : "Bats " + (cp.n > 1 ? cp.n + " " + who : "1 " + who.replace(/^joueurs classés/, "joueur classé").replace(/ ou mieux$/, " ou mieux")) + ".") + "</b>" +
       '<div class="cap-row">' + capDots(cp.n, cp.won.length) + '<small>' + cp.won.length + " sur " + cp.n + " · coché tout seul dès qu'un match entre</small></div>" +
       '<div class="cap-kv">' +
       (cp.gap ? "<span>Pourquoi " + cp.n + "</span><b>il te manque " + cp.gap + " pts" + (cp.pts ? ", un " + L(cp.lvl) + " battu en vaut " + cp.pts : "") + "</b>" : "") +
       "<span>Le rythme</span><b>1 victoire par mois" + (cp.n > 1 ? (cp.m1 === cp.m2 ? "" : ", de " + cp.m1 + " à " + cp.m2) : "") + "</b>" +
       (cp.yn ? '<span>Cette saison</span><b>tu en as battu <button class="num-l" data-a="sheet" data-k="capm" data-v="1">' + cp.yv + " sur " + cp.yn + "</button>" + (cp.yv / cp.yn < 0.34 ? " : c'est le vrai défi" : "") + "</b>" : "") +
-      '<span>Ce que ça donne</span><b class="g">' + L(cp.tgt) + " à la sortie du " + esc(fdate(cp.rel).replace(/\.$/, "")) + "</b>" +
+      '<span>Ce que ça donne</span><b class="g">' + L(cp.tgt) + " à cette sortie</b>" +
       "</div>" +
       '<button class="go-pill right" data-a="sheet" data-k="capm" data-v="1">Les matchs ' + I.next + "</button></div>";
     return s;
@@ -10446,12 +10796,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var lim = E.iso(new Date(today().getTime() - 200 * 864e5)); Object.keys(M).forEach(function (x) { if (M[x] < lim) delete M[x]; });
     S.capOk = M; save();
     if (first || !news.length) return;
-    toast((news[0].cap ? "" : "Consigne du coach remplie : ") + news[0].t.replace(/\.$/, "") + ".");
-    if (NATIVE && LN && S.notif && np("coach")) try { LN.schedule({ notifications: news.slice(0, 2).map(function (o, i) { return { id: 1700 + i, title: o.cap ? "Ton cap est atteint" : "Consigne du coach remplie ✓", body: o.cap ? o.t : o.t + " La suivante t'attend dans ton coach.", extra: { url: "montee://open/coach" } }; }) }).catch(function () {}); } catch (e) {}
+    toast((news[0].cap ? "" : "Consigne d'Ace remplie : ") + news[0].t.replace(/\.$/, "") + ".");
+    if (NATIVE && LN && S.notif && np("coach")) try { LN.schedule({ notifications: news.slice(0, 2).map(function (o, i) { return { id: 1700 + i, title: o.cap ? "Ton cap est atteint" : "Consigne d'Ace remplie ✓", body: o.cap ? o.t : o.t + " La suivante t'attend chez Ace.", extra: { url: "montee://open/coach" } }; }) }).catch(function () {}); } catch (e) {}
   }
   function capOrdersHtml(list) {
     if (!list.length) return "";
-    return '<div class="card"><span class="eyebrow">Ce que le coach te demande</span>' + list.map(function (o, i) {
+    return '<div class="card"><span class="eyebrow">Ce qu\'Ace te demande</span>' + list.map(function (o, i) {
       var ok = o.dots ? o.dots.filter(function (x) { return x === "on"; }).length >= 1 : o.k >= o.n;
       var dots = o.dots ? '<span class="cap-dots">' + [0, 1, 2].map(function (j) { return '<i class="' + (o.dots[j] || "") + '"></i>'; }).join("") + "</span>" : capDots(o.n, o.k);
       var btn = o.num ? '<button class="go-pill" data-a="sheet" data-k="num" data-v="' + esc(o.num) + '">Le détail ' + I.next + "</button>" : o.go ? (o.go[1] === "defend" ? '<button class="go-pill" data-a="goDefend">' : '<a class="go-pill" href="#/' + o.go[1] + '">') + esc(o.go[0]) + " " + I.next + (o.go[1] === "defend" ? "</button>" : "</a>") : "";
@@ -10463,8 +10813,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!isSup()) return s + coachTeaser() + "</div>";
     trialSeen("coach");
     var d = coachData(), P = d.P;
-    if (d.ms.length < 6) return s + '<h1>Le bilan du coach</h1><div class="card"><span>Encore ' + plural(6 - d.ms.length, "match") + " sur 12 mois pour un vrai bilan.</span></div></div>";
-    s += '<h1 class="co-h1">Le bilan du coach</h1><span class="small co-sub">Tes 12 derniers mois · ' + plural(d.ms.length, "match", "matchs") + " · à jour après chaque match</span>";
+    if (d.ms.length < 6) return s + '<h1>Ton bilan avec Ace</h1><div class="card"><span>Encore ' + plural(6 - d.ms.length, "match") + " sur 12 mois pour un vrai bilan.</span></div></div>";
+    s += '<h1 class="co-h1">Ton bilan avec Ace</h1><span class="small co-sub">Tes 12 derniers mois · ' + plural(d.ms.length, "match", "matchs") + " · à jour après chaque match</span>";
     // 1 · Le compétiteur que tu es
     var tags = d.strong.slice(0, 2).map(function (x) { return '<span class="g">' + esc(x.t) + "</span>"; }).concat(P.faibs.slice(0, 2).map(function (k) { return '<span class="r">' + esc(CP_LAB[k]) + "</span>"; })).join("");
     var perf = P.R.perf && P.R.perf.g, solid = P.R.solid && P.R.solid.g;
@@ -10513,7 +10863,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 5 · Ce que le coach te demande : Montée+ (Yann, 19/11) : des consignes mesurables, cochées toutes seules
     var orders = []; try { orders = capOrders(d, cap); } catch (e) { orders = []; }
     if (orders.length) s += capOrdersHtml(orders);
-    else if (d.plan.length) s += '<div class="card"><span class="eyebrow">Ce que le coach te demande</span><ol class="co-plan">' + d.plan.map(function (p) { return "<li><span><b>" + esc(p.t) + "</b><small>" + esc(p.s) + "</small>" + coachProof(p.l, P) + '<button class="co-go" data-a="sheet" data-k="cbCard" data-v="' + esc(COACH_SHEET[p.lt] || "plafond") + '">Voir ' + esc(p.lt) + " →</button></span></li>"; }).join("") + "</ol></div>";
+    else if (d.plan.length) s += '<div class="card"><span class="eyebrow">Ce qu\'Ace te demande</span><ol class="co-plan">' + d.plan.map(function (p) { return "<li><span><b>" + esc(p.t) + "</b><small>" + esc(p.s) + "</small>" + coachProof(p.l, P) + '<button class="co-go" data-a="sheet" data-k="cbCard" data-v="' + esc(COACH_SHEET[p.lt] || "plafond") + '">Voir ' + esc(p.lt) + " →</button></span></li>"; }).join("") + "</ol></div>";
     // Bonus
     if (d.best.length) s += '<div class="card"><span class="eyebrow">Ta meilleure version</span><span class="co-p">Là où tu gagnes le plus.</span><div class="co-best">' + d.best.map(function (b) { return '<div><span class="g">' + b.p + " %</span><b>" + esc(b.t) + "</b><small>" + esc(b.s) + "</small></div>"; }).join("") + "</div></div>";
     s += coachYear(d);
@@ -10918,14 +11268,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function ringsWait(n) {
     var sz = 92, w = 7, r = (sz - w) / 2;
     var one = function (k) { return '<a class="cr3-c" href="#/victoires"><svg width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + " " + sz + '" aria-hidden="true"><circle cx="' + sz / 2 + '" cy="' + sz / 2 + '" r="' + r + '" stroke="var(--line)" stroke-width="' + w + '" fill="none" stroke-dasharray="4 6"/><text x="' + sz / 2 + '" y="' + (sz / 2 + 1) + '" text-anchor="middle" dominant-baseline="middle" font-weight="800" font-size="18" fill="var(--muted)">' + n + '<tspan font-size="12">/3</tspan></text></svg><b>' + k + "</b></a>"; };
-    return '<div class="card cr3 cr3-wait"><div class="cr3-row">' + one("Victoires") + one("Forme") + one("Classement réel") + '</div><div class="cr3-say"><b>' + (3 - n === 1 ? "Encore 1 match" : "Encore " + (3 - n) + " matchs") + ' et tes anneaux s\'allument</b><span class="small">Victoires, forme et classement réel se calculent à partir de 3 matchs sur 12 mois.</span></div></div>';
+    return '<div class="card cr3 cr3-wait"><div class="cr3-row">' + one("Victoires") + one("Forme") + one("Niveau") + '</div><div class="cr3-say"><b>' + (3 - n === 1 ? "Encore 1 match" : "Encore " + (3 - n) + " matchs") + ' et tes anneaux s\'allument</b><span class="small">Victoires, forme et classement réel se calculent à partir de 3 matchs sur 12 mois.</span></div></div>';
   }
   function ring3(pct, col, size, w, txt, sub) {
     var r = (size - w) / 2, C = 2 * Math.PI * r, f = Math.max(0, Math.min(1, pct));
     return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" overflow="visible" style="overflow:visible" aria-hidden="true"><circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" stroke="var(--chip)" stroke-width="' + w + '" fill="none"/>' +
       '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" stroke="' + col + '" stroke-width="' + w + '" fill="none" stroke-linecap="round" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + (C * (1 - f)).toFixed(1) + '" transform="rotate(-90 ' + size / 2 + " " + size / 2 + ')"/>' +
-      // 3.58 (Yann) : une balle au bout de l'anneau, qui tourne avec lui au remplissage (svg en overflow visible : elle n'est jamais coupée)
-      (f > 0.02 ? '<g class="cr3-ball" style="transform-origin:' + size / 2 + "px " + size / 2 + "px;transform:rotate(" + (f * 360).toFixed(1) + 'deg)"><g transform="translate(' + (size / 2 - 8) + " " + (w / 2 - 8) + ') scale(.7273)"><circle cx="11" cy="11" r="12" fill="var(--card)"/><circle cx="11" cy="11" r="10" fill="' + col + '"/><path d="M3.2 5.5C7.5 8.5 7.5 13.5 3.2 16.5M18.8 5.5C14.5 8.5 14.5 13.5 18.8 16.5" stroke="var(--card)" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></g>' : "") +
+      // 3.84 (Yann, version A du 23/11) : un point lumineux au bout de l'anneau (avant, 3.58 : une balle épaisse), qui tourne avec lui au remplissage (svg en overflow visible : elle n'est jamais coupée)
+      (f > 0.02 ? '<g class="cr3-ball" style="transform-origin:' + size / 2 + "px " + size / 2 + "px;transform:rotate(" + (f * 360).toFixed(1) + 'deg)"><g transform="translate(' + size / 2 + " " + w / 2 + ')"><circle r="9" fill="' + col + '" opacity=".22"/><circle r="5.2" fill="' + col + '"/><circle r="2.4" fill="#fff"/></g></g>' : "") +
       '<text x="' + size / 2 + '" y="' + (size / 2 + 1) + '" text-anchor="middle" dominant-baseline="middle" font-weight="800" font-size="' + (size > 85 ? 20 : 19) + '" fill="var(--ink)">' + txt + (sub ? '<tspan font-size="11" fill="var(--muted)">' + sub + "</tspan>" : "") + "</text></svg>";
   }
   // 3.31 : la forme (6 derniers matchs), sa courbe glissante sur 12 mois, tes séries
@@ -11005,7 +11355,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var last = (S.matches || []).filter(function (m) { return m.date && !m.wo; }).map(function (m) { return m.date; }).sort().pop();
     if (last) { var gd = -dGap(last); if (gd >= 7) frm += " Pas joué depuis " + gd + " jours."; }
     var secs = [{ ic: "◎", col: "var(--bleu3)", t: "Ton niveau", b: niv }, { ic: "↗", col: "var(--gazon)", t: "Ta montée", b: mon }, { ic: "⛨", col: "var(--terre)", t: "Ton maintien", b: mai }, { ic: "♥", col: "var(--balle)", t: "Ta forme", b: frm }].filter(function (x) { return x.b; });
-    var text = [niv, mai].filter(Boolean).join(" "); // 3.46.5 : la montée est déjà dans la carte juste en dessous
+    var text = [niv, (p.margin != null && p.margin >= 0 && !p.kept && !z && p.status !== "descente") ? "" : mai].filter(Boolean).join(" "); // 3.82.1 : « +X pts d'avance » est déjà dans la carte Sortie ; 3.46.5 : la montée est déjà dans la carte juste en dessous
     return { ic: ic, col: col, title: title, text: text, secs: secs };
   }
   function courbesRings(c) {
@@ -11027,7 +11377,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return '<div class="card cr3' + (go ? " cr3-go" : "") + '"><div class="cr3-row">' +
       cell(ring3(pv, "var(--gazon)", 92, 9, Math.round(pv * 100) + "%"), "Victoires", "victoires") +
       cell(ring3(pf, acc, 92, 9, Math.round(pf * 100) + "%"), "Forme", "!forme") +
-      (lvl != null ? cell(ring3(Math.max(.08, Math.min(1, .5 + (lvl - cur) * .25)), "var(--bleu3)", 92, 9, lab(lvl)), "Classement réel", "!rrWhy") : cell(ring3(nv / Math.max(1, w12.length), "var(--bleu3)", 92, 9, String(w12.length)), "Matchs", "victoires")) +
+      (lvl != null ? cell(ring3(f.mean != null ? Math.max(.04, Math.min(1, f.mean - cur)) : .04, "var(--bleu3)", 92, 9, lab(cur)), "Niveau", "!rrWhy") /* 3.84 (Yann) : ton classement au centre, l'anneau se remplit à mesure que ton niveau joué approche l'échelon du dessus */ /* 3.84 (Yann) : « Niveau » comme sur la montre ; « Classement réel » = l'officiel, dans Courbes */ : cell(ring3(nv / Math.max(1, w12.length), "var(--bleu3)", 92, 9, String(w12.length)), "Matchs", "victoires")) +
       "</div>" + (function () {
         var P = null; try { P = pointDuJour(c); } catch (e) {}
         if (!P) return '<div class="cr3-say' + (say.length <= 46 ? " c" : "") + '">' + esc(say) + "</div>";
@@ -11331,6 +11681,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.72 : les scores du week-end au club / les rencontres des 7 prochains jours (tes équipes et celles du club)
     clubWe: function (v) { return clubListSheet(v, true); },
     clubNx: function (v) { return clubListSheet(v, false); },
+    // 3.81 : onglet « Le club » : les rencontres de la saison (ou les V / N / D touchés), le bilan d'une saison passée
+    lcRes: function (v) { return lcResSheet(v); },
+    lcSea: function (v) { return lcSeaSheet(v); },
     // 3.63 : la feuille de partage (aperçu de l'image, format, partager)
     shv: function () {
       var V = UI.shv; if (!V) return null; var f = UI.shvF || "45";
@@ -13946,7 +14299,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!S.profile.name && pr.prenom) S.profile.name = (function (n) { return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase(); })(String(pr.prenom).split(/[\s-]/)[0]);
     if (pr.licence && !S.profile.licence) S.profile.licence = String(pr.licence);
     if (pr.fiche) { S.profile.gameTU = normGame(pr.fiche); S.profile.ficheTU = pr.fiche; }
-    if (pr.nom || pr.prenom) S.tenup.me = { prenom: pr.prenom || "", nom: pr.nom || "", club: pr.club || (S.tenup.me || {}).club || "", meilleur: pr.meilleur || "", licence: pr.licence || "" };
+    if (pr.nom || pr.prenom) {
+      var me0 = S.tenup.me || {}, kp = function (k) { return pr[k] != null && pr[k] !== "" ? pr[k] : me0[k] != null ? me0[k] : null; };
+      // 3.83 (Yann, maquettes validées le 23/11/2026) : profil lu sur Ten'Up ; une info que Ten'Up ne renvoie pas cette fois garde l'ancienne valeur
+      S.tenup.me = { prenom: pr.prenom || "", nom: pr.nom || "", club: pr.club || me0.club || "", meilleur: pr.meilleur || "", licence: pr.licence || "",
+        meilleurAn: kp("meilleurAn"), age: kp("age"), cat: kp("cat"),
+        licN1: kp("licN1"), pay: kp("pay"), hist: kp("hist"), at: Date.now() };
+    }
     if (pr.photo) S.profile.photoTU = pr.photo;
     if (Array.isArray(pl.seasons)) {
       // Saisons passées : on écarte celles que Ten'Up renvoie identiques à la saison en cours (paramètre ignoré)
@@ -13987,7 +14346,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       save(); syncNative();
       toast((add.length ? plural(add.length, "nouveau match", "nouveaux matchs") + " depuis Ten'Up" : "Ton palmarès est à jour") +
         (doubles ? " · " + plural(doubles, "double", "doubles") + " (bonus)" : "") + (removed ? " · " + plural(removed, "match retiré", "matchs retirés") : "") + (confirmedN ? " · " + plural(confirmedN, "match saisi à la main confirmé", "matchs saisis à la main confirmés") : "") + (msg.length ? " · " + msg.join(", ") : "") + ".");
-      go(S.profile.rank ? "" : "profil");
+      // 3.83 : 1re connexion : « Je t'ai reconnu » (une fois), puis l'accueil
+      go(!S.tuMet && S.profile.rank && (S.tenup.me || {}).prenom ? "reconnu" : S.profile.rank ? "" : "profil");
       return;
     }
     save();
@@ -14563,7 +14923,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         n = { id: 1400, title: t, body: b, schedule: { at: at }, extra: { url: "montee://open/coach" } };
       } else {
         var z = null; try { z = defendThreat(c); } catch (e) {}
-        if (z) n = { id: 1400, title: "Dans " + Math.max(1, Math.round((z.rel - now) / (7 * 864e5))) + " semaines, −" + z.lost + " pts", body: (z.need != null ? "Une victoire contre un " + lab(z.need) + " les remplace." : "Il te faudra de nouvelles victoires pour garder " + lab(z.calc) + ".") + " Le plan du coach ›", schedule: { at: at }, extra: { url: "montee://open/coach" } };
+        if (z) n = { id: 1400, title: "Dans " + Math.max(1, Math.round((z.rel - now) / (7 * 864e5))) + " semaines, −" + z.lost + " pts", body: (z.need != null ? "Une victoire contre un " + lab(z.need) + " les remplace." : "Il te faudra de nouvelles victoires pour garder " + lab(z.calc) + ".") + " Le plan d'Ace ›", schedule: { at: at }, extra: { url: "montee://open/coach" } };
       }
     }
     var key = n ? n.title + n.body + at.getTime() : "off";
@@ -14658,7 +15018,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (n) list.push({ id: 1100 + i, title: n.t, body: rv ? "Il t'a battu " + rvW + (rv.score ? ", " + rv.score : "") + ". Ta revanche est prête" + (pl.p != null ? " · " + pl.p + " % de chances." : ".") : (pl.hom ? "Match homologué" : "Match libre") + odds + tip + " Ton plan de jeu est prêt.", schedule: { at: n.at }, extra: { url: "montee://open/joueur/" + pl.id } });
     });
     if (!np("avant")) list = [];
-    // 3.69 : le lendemain du match prévu, 9 h : « comment ça s'est passé ? » (score + ressenti), sinon le bilan du coach n'a rien à lire
+    // 3.69 : le lendemain du match prévu, 9 h : « comment ça s'est passé ? » (score + ressenti), sinon le bilan d'Ace n'a rien à lire
     var after = [];
     if (np("apres")) pls.forEach(function (pl, i) { var d = E.parseDate(pl.day); if (!d) return; var nx = new Date(d.getTime()); nx.setDate(nx.getDate() + 1); nx.setHours(9, 0, 0, 0); if (nx > now) after.push({ id: 1110 + i, title: "Ton match contre " + (pl.name || "ton adversaire") + " : comment ça s'est passé ?", body: "Ajoute le score et ton ressenti en 20 secondes : ton bilan du coach se met à jour.", schedule: { at: nx }, extra: { url: "montee://open/" } }); });
     list = list.concat(after);
@@ -16022,7 +16382,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     };
     var grp = function (h, rows) { return '<h2 class="nf-gh">' + h + '</h2><div class="nf-grp' + (S.notif ? "" : " off") + '">' + rows.join("") + "</div>"; };
     s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche avec Montée+" : ", avec ta revanche s'il t'a battu")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
-    s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Le coach", "Le lundi : tes chances qui bougent, le match qui compte. Et quand une consigne est remplie", true), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
+    s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Ace", "Le lundi : tes chances qui bougent, le match qui compte. Et quand une consigne est remplie", true), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
     var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
     if (HC_OK && hcOn()) oth.push('<label class="nf-row"><span class="nf-r"><b>Séances de la montre</b><small>Une nouvelle séance à enregistrer</small></span><input type="checkbox" role="switch" data-a="hcNotify"' + (S.health.notify !== false ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>");
     s += grp("Les autres", oth);
@@ -16423,7 +16783,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<div class="brand">' + I.logo(30) + "montée</div>" +
       '<div class="card"><b>Tes données restent chez toi</b><span style="font-size:15px;line-height:1.5">Pas de compte, pas de serveur, pas de pub, pas de pisteur. Ton palmarès et ton matériel sont enregistrés uniquement dans ce navigateur.</span></div>' +
       '<div class="card"><b>Pas lié à la FFT</b><span style="font-size:15px;line-height:1.5">Montée est une application indépendante. Elle n\'est ni éditée ni approuvée par la Fédération Française de Tennis. Ten\'Up est un service de la FFT. Le calcul est indicatif : seul le classement officiel fait foi.</span></div>' +
-      (PLUS ? '<div class="card"><b>' + (isSup() ? "Merci d\'être sur Montée+" : "Gratuite et sans pub") + '</b><span style="font-size:15px;line-height:1.5">' + (isSup() ? "Ton abonnement fait tourner Montée. Parle-en aussi à ton club, c\'est la meilleure pub." : (IOS ? "Le classement reste gratuit. Montée+ ajoute le coach sur l\'Apple Watch, ton profil de compétiteur, le bon moment pour jouer tes indivs et des habillages." : "Le classement reste gratuit. Montée+ ajoute ton profil de compétiteur, le bon moment pour jouer tes indivs, tes stats de tournois et des habillages.")) + '</span><button class="btn balle small" data-a="goSoutenir">' + I.heart + (isSup() ? " Montée+" : " Découvrir Montée+") + "</button></div>" : '<div class="card"><b>Gratuite et sans pub</b><span style="font-size:15px;line-height:1.5">Parle de Montée à ton club, c\'est la meilleure façon de l\'aider.</span></div>') +
+      (PLUS ? '<div class="card"><b>' + (isSup() ? "Merci d\'être sur Montée+" : "Gratuite et sans pub") + '</b><span style="font-size:15px;line-height:1.5">' + (isSup() ? "Ton abonnement fait tourner Montée. Parle-en aussi à ton club, c\'est la meilleure pub." : (IOS ? "Le classement reste gratuit. Montée+ ajoute Ace sur l\'Apple Watch, ton profil de compétiteur, le bon moment pour jouer tes indivs et des habillages." : "Le classement reste gratuit. Montée+ ajoute ton profil de compétiteur, le bon moment pour jouer tes indivs, tes stats de tournois et des habillages.")) + '</span><button class="btn balle small" data-a="goSoutenir">' + I.heart + (isSup() ? " Montée+" : " Découvrir Montée+") + "</button></div>" : '<div class="card"><b>Gratuite et sans pub</b><span style="font-size:15px;line-height:1.5">Parle de Montée à ton club, c\'est la meilleure façon de l\'aider.</span></div>') +
       '<a class="row" href="#/methode" style="background:var(--card);border-radius:20px"><span class="grow"><span class="t">Comment c\'est calculé</span><span class="s">Barème, normes, V − E − 2I − 5G</span></span>' + I.next + "</a>" +
       '<a class="row" href="#/donnees" style="background:var(--card);border-radius:20px"><span class="grow"><span class="t">Sauvegarder mes données</span><span class="s">Créer ou restaurer une sauvegarde</span></span>' + I.next + "</a>" +
       '<p class="small">Version ' + CONFIG.VERSION + "</p></div>";
@@ -16973,7 +17333,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     apTrain: function () { UI.actPlus = false; UI.draft = null; go("entrainement/new"); },
     apTour: function () { UI.actPlus = false; UI.trNew = null; go("tournoi/new"); },
     tsxTg: function () { S.prefs = S.prefs || {}; S.prefs.tsxOpen = !S.prefs.tsxOpen; save(); render(); },
-    epTab: function (el) { S.prefs = S.prefs || {}; S.prefs.epTab = el.dataset.v; save(); render(); window.scrollTo(0, 0); },
+    epTab: function (el) { S.prefs = S.prefs || {}; S.prefs.epTab = el.dataset.v; save(); render(); window.scrollTo(0, 0); if (el.dataset.v === "club") { try { clubRefresh(); lcMotion(); } catch (e) {} } },
+    // 3.81 : Le club : filtre par place (puces de la carte), regroupement des équipes
+    lcF: function (el) { UI.lcF = UI.lcF === el.dataset.v ? "" : el.dataset.v; render(); },
+    // 3.81 : partager le bilan d'une saison du club, les scores du dernier week-end, le bilan d'une équipe (image, comme les autres partages)
+    lcShare: function (el) { var V = lcShareV(el.dataset.k, el.dataset.v); if (V) shareVisual(V); },
+    lcGrp: function (el) { S.prefs = S.prefs || {}; S.prefs.lcGrp = el.dataset.v; save(); render(); },
     resCancel: function () { UI.resEdit = false; render(); },
     resDel: function () { var t = tourOf(route().split("/")[1]); if (!t) return; t.resUrl = ""; UI.resEdit = false; save(); render(); },
     plSched: function (el) { UI.plSched = +el.dataset.i; UI.plHost = null; render(); },
@@ -17220,12 +17585,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     simuClear: function () { UI.simu = []; render(); },
     // 3.73 : Ma montée (onglets) et la Balle
     mmTab: function (el) { UI.mmTab = el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); },
+    tdMore: function () { UI.tdAll = 1; render(); },
     coachNo: function (el) {
       var m = coMem(), id = el.dataset.id, sc = el.dataset.s; m.no[id] = Date.now(); m.scr[sc] = (m.scr[sc] || 0) + 1; coPurge(m); save();
       toast("Compris, je ne te le redis pas avant 3 semaines.");
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
-    ace: function (el) { var m = coMem(); if (UI.coHomeId && el.classList.contains("ace-hd")) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; save(); render(); haptic("light"); },
+    ace: function (el) { var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; save(); render(); haptic("light"); },
     aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
     aceClose: function () { UI.ace = null; render(); },
     // 3.75 : « Le jour J, rappelle-moi » : une notification locale le matin du match (ou 2 h avant l'heure prévue)
@@ -17486,13 +17852,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     goRaquettes: function () { UI.menu = false; go("materiel"); },
     goProfil: function () { UI.menu = false; go("profil"); },
+    // 3.83 : profil lu sur Ten'Up, écran « Je t'ai reconnu », carrière
+    tmeOk: function () { S.tuMet = 1; save(); go(""); },
+    tmeFix: function () { S.tuMet = 1; save(); UI.profEdit = true; go("profil"); },
+    pfTab: function (el) { UI.pfTab = el.dataset.v; render(); },
+    boGo: function () { var b = document.getElementById("bo-card"); if (b) b.scrollIntoView({ behavior: "smooth", block: "start" }); },
+    crrMode: function (el) { UI.crrMode = el.dataset.v; render(); },
+    crrRg: function (el) { UI.crrRg = el.dataset.v; render(); },
+    crrY: function (el) { var y = +el.dataset.v; UI.crrY = UI.crrY === y ? null : y; render(); },
     clubRetry: function () { if (UI.clubBusy) return; S.clubTrace = null; clubRefresh(true); render(); },
     clubTg: function () { S.prefs = S.prefs || {}; S.prefs.clubOn = !S.prefs.clubOn; save(); render(); if (S.prefs.clubOn) clubRefresh(!S.club); },
     ceFol: function (el) { S.prefs = S.prefs || {}; var f = S.prefs.clubFol = S.prefs.clubFol || {}, id = el.dataset.id; if (f[id]) delete f[id]; else f[id] = 1; save(); render(); },
-    clubCat: function (el) { S.prefs = S.prefs || {}; S.prefs.clubCat = el.dataset.v; save(); render(); },
-    clubGrp: function (el) { UI.clubOpen = UI.clubOpen || {}; var k = el.dataset.v, cur = el.getAttribute("aria-expanded") === "true"; UI.clubOpen[k] = !cur; render(); },
-    clubAll: function (el) { UI.clubAll = UI.clubAll || {}; UI.clubAll[el.dataset.v] = 1; render(); },
-    clubEnd: function () { UI.clubEnd = !UI.clubEnd; render(); },
     hdGo: function (el) { if (el.dataset.h) location.hash = el.dataset.h; },
     goReglages: function () { UI.menu = false; go("reglages"); },
     setTheme: function (el) {
@@ -17554,7 +17924,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (!S.profile.rank) return toast("Choisis ton classement.");
       UI.profEdit = false;
       save();
-      if (!S.onboarded) { S.onboarded = true; save(); var nx = UI.afterProfil || ""; UI.afterProfil = null; go(nx); } else if (!S.matches.length || stack.length < 2) { toast("Profil enregistré."); go(""); } else { toast("Profil enregistré."); back(); }
+      if (!S.onboarded) { S.onboarded = true; save(); var nx = UI.afterProfil || ""; UI.afterProfil = null; go(nx); } else if (UI.afterProfil) { var nx2 = UI.afterProfil; UI.afterProfil = null; if (stack[stack.length - 1] === "profil") stack.pop(); toast("Profil enregistré."); go(nx2); window.scrollTo(0, 0); } // 3.82.1 : après l'exemple, retour à la fiche du 1er vrai match
+      else if (!S.matches.length || stack.length < 2) { toast("Profil enregistré."); go(""); } else { toast("Profil enregistré."); back(); }
     },
     skipImport: function () { UI.draft = null; if (!S.profile.rank) { UI.afterProfil = "match/new"; go("profil"); return; } S.onboarded = true; save(); go("match/new"); },
     palTab: function (el) { UI.palTab = el.dataset.v; render(); },
@@ -17737,7 +18108,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (i >= 0) { UI.mEdit = false; UI.annEdit = false; UI.draft = null; render(); window.scrollTo(0, 0); return; } // 3.42.1 : on reste sur la fiche
       // La fiche du match remplace le formulaire : le retour ramène là d'où tu venais, pas au formulaire vide
       if (stack[stack.length - 1] === "match/new") stack.pop();
-      if (wasDemo && !S.profile.rank) { toast("L'exemple est effacé. Indique ton classement pour calculer ton bilan."); go("profil"); window.scrollTo(0, 0); return; }
+      if (wasDemo && !S.profile.rank) { UI.afterProfil = "match/" + clean.id; toast("Ton match est gardé, l'exemple est effacé. Indique ton classement pour voir ce qu'il te rapporte."); go("profil"); window.scrollTo(0, 0); return; }
       go("match/" + clean.id); window.scrollTo(0, 0);
     },
     demoExit: function () { demoPurge(); save(); go("tenup"); window.scrollTo(0, 0); },
