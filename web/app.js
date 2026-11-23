@@ -9224,10 +9224,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var aq = UI.ace && UI.ace.q || ""; if (/^vs:/.test(aq)) { var ov = coMatchFind(aq); if (ov) Q.push(["feed", aq, "Prépare-moi le match contre " + ov.name, "Contre lui", ov.name, "versus"]); }
     if (p.status !== "top" && p.next) { var gap = Math.max(0, p.next.norme - p.next.total);
       Q.push(["now", "up", p.status === "descente" ? "Comment je reste " + lab(cur) + " ?" : "Comment je monte " + p.next.label + " ?", p.status === "descente" ? "Rester " + lab(cur) : "Monter " + p.next.label, p.status === "montee" ? "Tu montes le " + fdate(p.release).replace(/\.$/, "") : gap ? "Il manque " + plural(gap, "pt") : "Il manque une victoire", "chart"]); }
-    toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
-      var left = (t.pool || []).filter(function (x) { return !x.res && x.name; });
-      if (t.fmt === "poule" && left.length) Q.push(["now", "poule:" + t.id, "Je joue qui en premier dans ma poule ?", "Ta poule", left.length > 1 ? left.length + " matchs à caler : lequel d'abord ?" : "Un match à caler", "list"]);
-      else if (t.fmt !== "poule") { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r) Q.push(["now", "tour:" + t.id, "Mon prochain tour, il vaut quoi ?", "Ton prochain tour", (r.day ? fdate(r.day).replace(/\.$/, "") + " · " : "") + (t.name || "Tournoi"), "versus"]); }
+    // 4.0.1 (capture de Yann) : deux poules en cours donnaient deux fois « Je joue qui en premier dans ma poule ? ». Avec plusieurs épreuves du même genre, la question nomme l'épreuve.
+    var opT = toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }), poLeft = function (t) { return t.fmt === "poule" ? (t.pool || []).filter(function (x) { return !x.res && x.name; }) : []; };
+    var nPo = opT.filter(function (t) { return poLeft(t).length; }).length, nTb = opT.filter(function (t) { return t.fmt !== "poule" && (t.rounds || []).some(function (x) { return !x.res; }); }).length;
+    opT.forEach(function (t) {
+      var left = poLeft(t), tn = (t.name || "").trim();
+      if (t.fmt === "poule" && left.length) Q.push(["now", "poule:" + t.id, nPo > 1 && tn ? "Je joue qui en premier dans ma poule « " + tn + " » ?" : "Je joue qui en premier dans ma poule ?", "Ta poule", (nPo > 1 && tn ? tn + " · " : "") + (left.length > 1 ? left.length + " matchs à caler" + (nPo > 1 && tn ? "" : " : lequel d'abord ?") : "Un match à caler"), "list"]);
+      else if (t.fmt !== "poule") { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r) Q.push(["now", "tour:" + t.id, nTb > 1 && tn ? "Mon prochain tour « " + tn + " », il vaut quoi ?" : "Mon prochain tour, il vaut quoi ?", "Ton prochain tour", (r.day ? fdate(r.day).replace(/\.$/, "") + " · " : "") + (t.name || "Tournoi"), "versus"]); }
     });
     if (p.status !== "top" && p.next) { var o = coNextOut(c); Q.push(["now", "when", "C'est quand, le bon moment pour jouer ?", "Le bon moment", o ? "Une victoire sort le " + o.dt : "Pas d'urgence", "clock"]); }
     if (win) { var cmW = p.next ? countedMap(p.next)[win.id] : null; Q.push(["match", "win", "Ma victoire contre " + nameCase(win.opp) + ", ça m'a rapporté quoi ?", "Ta victoire", "contre " + nameCase(win.opp) + (cmW != null ? ", +" + cmW + " pts" : ""), "check"]); }
@@ -9245,7 +9248,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (d.best.length) Q.push(["toi", "best", "Je suis le meilleur quand ?", "Ta meilleure version", d.best[0].p + " % de victoires", "heart"]);
       if (d.seen.items && d.seen.items.length) Q.push(["toi", "scout", "Qu'est-ce que mes adversaires savent de moi ?", "Ton rapport de scouting", "Ce qu'ils préparent contre toi", "info"]);
     }
-    return Q;
+    // filet : une même question (même texte) n'apparaît qu'une fois, ex. deux épreuves au même nom
+    var seenQ = {}; return Q.filter(function (x) { var k = x[2].toLowerCase(); if (seenQ[k]) return false; seenQ[k] = 1; return true; });
   }
   // le bilan de l'ancien coach, calculé une fois par rendu (il faut 6 matchs sur 12 mois, comme sur sa page)
   function coD() {
@@ -9454,6 +9458,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (an.facts && an.facts.length) s += '<div class="ace-fact">' + an.facts.map(function (f) { return "<span><em>" + esc(f[0]) + "</em>" + esc(f[1]) + "</span>"; }).join("") + "</div>";
       var more = an.f.map(function (f) { return f[3] ? '<button data-a="sheet" data-k="' + esc(f[3][0]) + '" data-v="' + esc(f[3][1] || "") + '"><i>↳</i>' + esc(f[0]) + "</button>" : f[2] ? '<button data-a="coachGo" data-h="' + esc(f[2]) + '"><i>↳</i>' + esc(f[0]) + "</button>" : '<button data-a="aceQ" data-v="' + esc(f[1]) + '"><i>↳</i>' + esc(f[0]) + "</button>"; });
       Q.filter(function (x) { return x[1] !== q && an.f.every(function (f) { return f[1] !== x[1]; }); }).sort(function (a, b) { return (UI.aceVis[a[1]] ? 1 : 0) - (UI.aceVis[b[1]] ? 1 : 0) || (a[0] === ask[0] ? 0 : 1) - (b[0] === ask[0] ? 0 : 1); }).slice(0, Math.max(2, 4 - an.f.length)).forEach(function (x) { more.push('<button data-a="aceQ" data-v="' + esc(x[1]) + '"><i>↳</i>' + esc(x[2]) + "</button>"); });
+      var seenM = {}; more = more.filter(function (h) { var k = h.replace(/<[^>]*>/g, "").replace(/^↳/, "").trim().toLowerCase(); if (seenM[k]) return false; seenM[k] = 1; return true; }); // chaque suggestion une seule fois
       s += '<span class="ace-k">Tu peux aussi me demander</span><div class="ace-f">' + more.join("") + "</div>";
       s += '<button class="ace-bot" data-a="aceQ" data-v=""><span>Autres sujets</span><b>Tous les sujets</b></button>';
     }
