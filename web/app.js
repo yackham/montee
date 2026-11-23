@@ -4451,6 +4451,20 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     [sc && sc.profil && sc.profil.classement, fo && fo.rank].forEach(function (x) { var k = x ? E.idx(T.normRank(x)) : null; if (k != null && (r == null || k > r)) r = k; });
     return r != null && r > o ? r : o;
   }
+  // 4.0.4 (Davy : Solidité à 82 % contre un 30 « qui joue déjà 15/4 ») : le niveau qu'avaient ses résultats, lu dans son palmarès
+  // (analyse du match), compte aussi, avec le même seuil que la carte « Il joue déjà … » de l'analyse.
+  var OPP_RL = {};
+  function oppRealIdx(m) {
+    var o = E.idx(T.normRank(m.oppRank)), e = oppEffIdx(m), p = (S.anPal || {})[m.id];
+    if (o == null || !p || !p.rows) return e;
+    var key = m.id + "|" + p.at + "|" + p.rows.length;
+    if (OPP_RL[key] === undefined) {
+      var hp = playedOf(p.rows.filter(function (x) { return !x.wo && (x.result === "V" || x.result === "D") && x.date; }).map(function (x) { return { date: x.date, result: x.result, oppRank: x.oppRank, score: x.score }; }));
+      var hl = null; try { if (hp.length >= 6) hl = levelFit(hp, o).mean; } catch (er) {}
+      OPP_RL[key] = hl != null && hl - o >= 0.6 ? Math.round(hl) : null;
+    }
+    var r = OPP_RL[key]; return r != null && (e == null || r > e) ? r : e;
+  }
   function effMs(ms) { return (ms || []).map(function (m) { var o = E.idx(T.normRank(m.oppRank)), e = oppEffIdx(m); return e != null && o != null && e > o ? Object.assign({}, m, { oppRank: lab(e), oppRank0: m.oppRank, risen: e - o }) : m; }); }
   function levelNow(c) {
     var cur = c.cur < 0 ? 0 : c.cur, ms = playedOf(effMs(c.proj.matches));
@@ -10728,7 +10742,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var src = c.proj.matches, atI = at ? E.iso(at) : null;
     if (at) { var a0 = new Date(at); a0.setFullYear(a0.getFullYear() - 1); var a0I = E.iso(a0); src = S.matches.filter(function (m) { return m.date && m.date <= atI && m.date > a0I; }); }
     var ms = playedOf(src).filter(function (m) { return !m.dbl && !m.wo && (m.result === "V" || m.result === "D") && m.date && E.idx(m.oppRank) != null; });
-    var E1 = function (m) { var o = E.idx(m.oppRank), oe = oppEffIdx(m); return expWin(oe != null && oe > o ? oe : o, cur); };
+    var E1 = function (m) { var o = E.idx(m.oppRank), oe = oppRealIdx(m); return expWin(oe != null && oe > o ? oe : o, cur); };
     var grp = function (list, ef) { var es = list.map(function (m) { return ef ? ef(E1(m)) : E1(m); }); return { ms: list, es: es, n: list.length, v: list.filter(function (m) { return m.result === "V"; }).length, e: es.reduce(function (s, x) { return s + x; }, 0) }; };
     var st = function (g, min) { if (g.n < (min || 4)) return "lock"; var vd = vsVerdict(g.v, g.e, g.n); if (vd === "par" && g.v >= 1.5 * g.e && g.v - g.e >= 0.6) vd = "above"; /* 3.55 (audit R4) : nettement au-dessus de l'attendu (2 sur 4 quand un 15/2 en gagne 1) = point fort */ return vd === "above" ? "fort" : vd === "below" ? "faible" : "norme"; };
     var s1 = function (m) { var x = setsOf(m.score); return x.length ? x[0][0] > x[0][1] : null; };
@@ -11180,7 +11194,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var body = '<div class="num-c"><div class="num-hd"><span><b class="num-big">' + g.v + " sur " + g.n + "</b><small>toi" + (mental ? ", renversés" : ", gagnés") + '</small></span><span class="r"><b>≈ ' + Math.round(g.e) + " sur " + g.n + "</b><small>un joueur classé " + esc(P.curL) + ", mêmes adversaires</small></span></div>" +
       '<div class="num-calc"><b>Le calcul.</b> ' + esc(CP_CALC[k] || "Tes matchs") + " (W.O. et doubles exclus). Pour chacun, la chance qu'un joueur classé " + esc(P.curL) + (mental ? ", mené d'un set," : "") + " gagne contre ce même adversaire (à son vrai niveau s'il joue au-dessus de son classement). On additionne" + (g.n <= 8 ? " : " + rows.map(function (r) { return String(Math.round(r.e * 100) / 100).replace(".", ","); }).join(" + ") + " = <b>" + ex + "</b>." : " : <b>" + ex + "</b>.") + "</div>" +
       '<span class="num-h">Les ' + plural(g.n, "match") + " · chance d'un " + esc(P.curL) + "</span>" +
-      rows.map(function (r) { var m = r.m; return '<a class="num-r" href="#/match/' + esc(m.id) + '"><span class="vd ' + m.result + '">' + m.result + '</span><span class="grow"><b>' + esc(nameCase(m.opp || "") || "Adversaire") + "</b> <small>· " + esc(m.oppRank || "") + "</small><small class=\"d\">" + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + "</small></span><em>" + Math.round(r.e * 100) + " %</em></a>"; }).join("") +
+      rows.map(function (r) { var m = r.m; return '<a class="num-r" href="#/match/' + esc(m.id) + '"><span class="vd ' + m.result + '">' + m.result + '</span><span class="grow"><b>' + esc(nameCase(m.opp || "") || "Adversaire") + "</b> <small>· " + esc(m.oppRank || "") + (function () { var o = E.idx(m.oppRank), rx = oppRealIdx(m); return rx != null && o != null && rx > o ? " → joue " + esc(lab(rx)) : ""; })() + "</small><small class=\"d\">" + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + "</small></span><em>" + Math.round(r.e * 100) + " %</em></a>"; }).join("") +
       '<div class="num-rel"><span class="num-chip ' + rl.k + '">' + rl.t + "</span><small>" + esc(rl.s) + "</small></div></div>" +
       '<span class="small">Touche un match pour ouvrir sa fiche.</span>';
     return { title: CP_LAB[k] + " · " + x.what, body: body };
