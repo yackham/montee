@@ -4461,7 +4461,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var hl = null; try { if (hp.length >= 6) hl = levelFit(hp, o).mean; } catch (er) {}
       OPP_RL[key] = hl != null && hl - o >= 0.6 ? Math.round(hl) : null;
     }
-    var r = OPP_RL[key]; return r != null && (e == null || r > e) ? r : e;
+    var r = OPP_RL[key], sc = scoutLevel(m.oid || p.id); if (sc != null) r = sc - o >= 0.6 ? Math.round(sc) : null; // 4.0.4 : même niveau que sa fiche
+    return r != null && (e == null || r > e) ? r : e;
   }
   function effMs(ms) { return (ms || []).map(function (m) { var o = E.idx(T.normRank(m.oppRank)), e = oppEffIdx(m); return e != null && o != null && e > o ? Object.assign({}, m, { oppRank: lab(e), oppRank0: m.oppRank, risen: e - o }) : m; }); }
   function levelNow(c) {
@@ -5152,18 +5153,29 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     return { b: b, lab: T.normRank(pr.meilleur), y: y, before: before, age: y ? Math.max(0, mill - y) : before ? Math.max(0, mill - before + 1) : null, up: b - cur };
   }
-  function matchOdds(rows, rank, mine, best, past) {
-    var c = ctx(), me = c.cur < 0 ? 0 : c.cur, ln = levelNow(c), myL = ln.ms ? ln.mean : me, hi = E.idx(T.normRank(rank));
-    if (hi == null || c.proj.status === "top") return null;
-    var his = playedOf(rows), hisL = his.length >= 6 ? levelFit(his, hi).mean : hi;
+  // 4.0.4 (Davy : 15/3 sur sa fiche, « joue déjà 15/4 » dans l'analyse) : UN seul calcul du niveau réel d'un adversaire, partagé par
+  // sa fiche, l'analyse d'un match et les points forts.
+  function oppLevelOf(rows, hi, best, past) {
+    var his = playedOf(rows || []), hisL = his.length >= 6 ? levelFit(his, hi).mean : hi;
     // 3.47 (retour testeur : classé 30, ancien 15/1, 80 % de victoires) : peu de matchs cette saison → ses 2 saisons précédentes comptent aussi
     var pastP = playedOf([].concat.apply([], (past || []).slice().sort(function (a, b) { return b.y - a.y; }).slice(0, 2).map(function (x) { return x.rows || []; })));
     if (his.length < 12 && pastP.length >= 4) { var allP = his.concat(pastP); if (allP.length >= 6) hisL = levelFit(allP, hi).mean; }
-    // Ancien mieux classé : son vrai niveau est sûrement entre les deux (fort si c'est récent, encore un peu si on ne sait pas quand)
-    var bestPull = 0;
     // 3.47 (retour Yann : classé 30, ancien 15/1, il perd contre des 15/4 qui valent 15/2) : son niveau joué est tiré vers son meilleur classement,
     // d'autant plus que c'est récent (inconnu : on le prend en compte quand même) ; jamais au-dessus de son meilleur
+    var bestPull = 0;
     if (best && best.b > hisL) { var k0 = best.age == null ? 0.35 : best.age <= 1 ? 0.55 : best.age <= 2 ? 0.45 : best.age <= 4 ? 0.3 : 0.15; bestPull = Math.min(2.5, (best.b - hisL) * k0); hisL += bestPull; }
+    return { his: his, L: hisL, pull: bestPull };
+  }
+  // le niveau réel d'un adversaire dont la fiche a été lue (même calcul que sa fiche), sinon null
+  function scoutLevel(id) {
+    var p = id && S.scout && S.scout[id]; if (!p || !p.rows) return null;
+    var pr = p.profil || {}, hi = E.idx(T.normRank(pr.classement)); if (hi == null) return null;
+    try { return oppLevelOf(p.rows, hi, pastBest(pr, p.past), p.past).L; } catch (e) { return null; }
+  }
+  function matchOdds(rows, rank, mine, best, past) {
+    var c = ctx(), me = c.cur < 0 ? 0 : c.cur, ln = levelNow(c), myL = ln.ms ? ln.mean : me, hi = E.idx(T.normRank(rank));
+    if (hi == null || c.proj.status === "top") return null;
+    var ol = oppLevelOf(rows, hi, best, past), his = ol.his, hisL = ol.L, bestPull = ol.pull;
     // 1. niveaux réels  2. formes du moment (5 derniers matchs)  3. vos matchs directs, qui pèsent lourd
     // Face à face, deux joueurs de même niveau, c'est 50/50 (lvP a un léger biais, utile seulement pour estimer un niveau)
     var p0 = 1 / (1 + Math.exp(0.75 * (hisL - myL))), lg = function (x) { return Math.log(x / (1 - x)); }, ex = function (z) { return 1 / (1 + Math.exp(-z)); };
@@ -10299,6 +10311,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       lastLoss = hb.filter(function (x) { return x.result === "D"; })[0] || null;
       var hpl = playedOf(hp.map(function (x) { return { date: x.date, result: x.result, oppRank: x.oppRank, score: x.score }; }));
       if (hpl.length >= 6 && hi != null) hisL = levelFit(hpl, hi).mean;
+      var scL = scoutLevel(m.oid || pal.id); if (scL != null) hisL = scL; // 4.0.4 : même niveau que sa fiche
       sp = simProj(pal.sim, pal.rank || m.oppRank);
       hisStats = hp; hisLosses = hp.filter(function (x) { return x.result === "D" && x.date !== m.date; });
       var vs = hb.slice(0, 8), vsW = vs.filter(function (x) { return x.result === "V"; }).length;
