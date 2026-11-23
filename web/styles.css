@@ -6266,6 +6266,10 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .ts-bar.mx i { transform-origin: left; animation: mxGrow .8s cubic-bezier(.2,.8,.3,1) both; animation-delay: .25s; }
 .mx-in2:not(.mx-on) .ts-bar.mx i { animation: none; transform: scaleX(0); }
 .ts-t b { position: relative; }
+button.ts-t { position: relative; padding-right: 30px; }
+.ts-go { position: absolute; top: 12px; right: 10px; width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; background: var(--chip); color: var(--muted); transition: transform .25s ease; }
+.ts-go svg { width: 13px; height: 13px; }
+.ts-t.on .ts-go { transform: rotate(90deg); color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .mx-ml, .mx-mr, .ts-bar.mx i { animation: none !important; opacity: 1; transform: none !important; } }
 /* 3.75 : petites touches d'humour (une par écran, chantier/09) */
 .jk { margin: 0; font-size: 13px; line-height: 1.35; font-style: italic; color: var(--muted); }

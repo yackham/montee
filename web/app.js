@@ -9013,7 +9013,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
           { ic: "pts", ey: "Ton meilleur tournoi", t: "Les points gagnés, tour par tour", s: plural(X.G.length, "tournoi") + " classé" + (X.G.length > 1 ? "s" : "") + " par points rapportés." },
           { ic: "pct", ey: "Tes tours passés", t: "Face à ce qu'on attendait", s: "Tour par tour : ce que tu as gagné en plus, ou laissé, face à " + pwX("ton niveau") + "." }].map(pwRow).join("") + "</div>" +
         plusCta() + '<button class="linkbtn pw-all" data-a="goSoutenirComp">Voir toutes les formules ›</button></div>'; }
-    var tile = function (k, v, l, sub, col) { return '<button class="ts-t' + (UI.tsExp === k ? " on" : "") + '" data-a="tsExp" data-v="' + k + '"><b style="color:' + (col || "var(--ink)") + '">' + v + "</b><span>" + l + " <i>ⓘ</i></span><small>" + esc(sub) + "</small></button>"; };
+    var tile = function (k, v, l, sub, col) { return '<button class="ts-t' + (UI.tsExp === k ? " on" : "") + '" data-a="tsExp" data-v="' + k + '" aria-expanded="' + (UI.tsExp === k) + '"><b style="color:' + (col || "var(--ink)") + '">' + v + "</b><span>" + l + "</span><small>" + esc(sub) + '</small><i class="ts-go" aria-hidden="true">' + I.next + "</i></button>"; }; // 3.83 (Yann) : un chevron en coin plutôt qu'un ⓘ, il pivote quand l'explication est ouverte
     var mo = function (iso) { var d = E.parseDate(iso); return MOIS[d.getMonth()]; };
     var best = X.G[0], pct = X.n ? Math.round(X.w * 100 / X.n) : 0, epct = X.n ? Math.round(X.exp * 100 / X.n) : 0;
     s += '<div class="grid2 ts-g">' +
