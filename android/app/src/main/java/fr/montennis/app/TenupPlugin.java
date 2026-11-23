@@ -241,12 +241,23 @@ public class TenupPlugin extends Plugin {
             File f = new File(ctx.getCacheDir(), name);
             try (FileOutputStream os = new FileOutputStream(f)) { os.write(bytes); }
             Uri uri = FileProvider.getUriForFile(ctx, ctx.getPackageName() + ".fileprovider", f);
+            // 3.94 : un fichier calendrier s'ouvre directement dans l'appli d'agenda quand il y en a une
+            if ("text/calendar".equals(mime)) {
+                Intent view = new Intent(Intent.ACTION_VIEW);
+                view.setDataAndType(uri, mime);
+                view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                try {
+                    getActivity().startActivity(view);
+                    JSObject r = new JSObject(); r.put("saved", "calendar"); call.resolve(r);
+                    return;
+                } catch (android.content.ActivityNotFoundException e) { /* pas d'agenda qui ouvre les .ics : on partage */ }
+            }
             Intent send = new Intent(Intent.ACTION_SEND);
             send.setType(mime);
             send.putExtra(Intent.EXTRA_STREAM, uri);
             send.putExtra(Intent.EXTRA_SUBJECT, name);
             send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            Intent chooser = Intent.createChooser(send, "Enregistrer la sauvegarde");
+            Intent chooser = Intent.createChooser(send, "text/calendar".equals(mime) ? "Ajouter à ton agenda" : "Enregistrer la sauvegarde");
             chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             getActivity().startActivity(chooser);
             JSObject r = new JSObject(); r.put("saved", "share"); call.resolve(r);
