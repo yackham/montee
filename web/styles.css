@@ -5172,7 +5172,7 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .hx.d .sb .sb-ball { color: var(--muted); }
 /* mini-tableau des listes */
 .mscr { display: grid; grid-auto-flow: column; grid-template-rows: auto auto; gap: 1px 10px; font-variant-numeric: tabular-nums; font-size: 13.5px; line-height: 1.15; margin-right: 6px; padding-left: 10px; border-left: 1px solid var(--line); flex: none; }
-.mscr span { color: var(--muted); font-weight: 600; text-align: center; position: relative; }
+.mscr span { color: var(--muted); font-weight: 600; text-align: center; position: relative; white-space: nowrap; }
 .mscr span.w { color: var(--ink); font-weight: 800; }
 .mscr sup { font-size: 8px; position: absolute; top: -2px; right: -6px; font-weight: 700; }
 /* « Jeu, set et match » : les sets tombent un par un, une fois */
@@ -5557,7 +5557,7 @@ button.h3h-r:active { opacity: .7; }
 .row .t.t2, .tg-r .t.t2 { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
 .rk-tag { display: inline-block; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; } /* 3.60.1 (Yann) : une balle devant le classement */
 .rk-tag::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--balle); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 25%, transparent); margin-right: 5px; vertical-align: 1px; }
-.mscr { justify-content: end; grid-auto-columns: 17px; gap: 1px 8px; width: 77px; box-sizing: border-box; font-size: 14px; }
+.mscr { justify-content: end; grid-auto-columns: minmax(17px, max-content); gap: 1px 8px; min-width: 77px; box-sizing: border-box; font-size: 14px; }
 /* 3.61.3 (Yann, retours build 3.61) */
 /* Feuille face-à-face : classement en pastille, nom d'épreuve lisible sur une ligne, score calé à droite */
 .h2s-l .row .grow { min-width: 0; }
@@ -6231,3 +6231,122 @@ button.acr, a.acr { cursor: pointer; }
 /* 3.74.1 (Yann) : la date de l'en-tête reste sur une ligne ; c'est la bulle d'Ace qui se raccourcit */
 .hd-dr .hd-d { flex: none; max-width: 55%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hd-dr .ace-hd { flex: 0 1 auto; }
+
+/* 3.74.2 (audit accessibilité) : zone tactile agrandie sans changer la mise en page (petits liens et pastilles < 30 px) */
+:is(.num-l, .go-pill, .fo-p, button.lnk, .ce-fl, .linkbtn, .lnk) { position: relative; }
+:is(.num-l, .go-pill, .fo-p, button.lnk, .ce-fl, .linkbtn, .lnk)::after { content: ""; position: absolute; inset: -8px -2px; }
+
+/* 3.74.5 (Yann, maquette bon-moment v4 V3) : frise du risque dans la case large ; l'explication se déplie en touchant la frise */
+.bz-why { margin-top: 8px; }
+.bz-why summary { list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.bz-why summary::-webkit-details-marker { display: none; }
+.bz-tl { position: relative; display: flex; height: 8px; margin: 2px 0; }
+.bz-tl i.a { background: color-mix(in srgb, var(--gazon) 70%, transparent); border-radius: 4px 0 0 4px; }
+.bz-tl i.b { background: repeating-linear-gradient(90deg, var(--terre) 0 4px, transparent 4px 7px); border-radius: 0 4px 4px 0; }
+.bz-tl em { position: absolute; top: -4px; width: 2px; height: 16px; margin-left: -1px; background: var(--terre); }
+.bz-tlx { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 700; color: var(--muted); }
+.bz-tlx .w { color: var(--terre); margin-left: auto; }
+.bz-whyt { display: block; margin-top: 8px; font-size: 12.5px; line-height: 1.4; color: var(--muted); white-space: normal; }
+.bz-whyt b { color: var(--ink); font-size: inherit; font-weight: 800; }
+.bz-lg i.risk { background: repeating-linear-gradient(90deg, var(--terre) 0 3px, transparent 3px 5px); }
+
+/* 3.74.7 : poule, « Les résultats » à plat (lignes séparées d'un trait fin, sans encadré) */
+.pl-flat .pl-g, .pl-flat .pl-g.me { border: 0; border-top: 1px solid var(--line); border-radius: 0; margin: 0; padding: 11px 0; background: none; box-shadow: none; gap: 12px; font-size: 14.5px; }
+.pl-flat > .eyebrow + .pl-g { border-top: 0; }
+.pl-lead { width: 32px; flex: none; display: flex; justify-content: center; }
+.pl-ok { width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; box-shadow: inset 0 0 0 2px var(--gazon); color: var(--gazon); }
+.pl-ok.d { box-shadow: inset 0 0 0 2px var(--terre); color: var(--terre); }
+.pl-dt { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.15; }
+.pl-st .pl-r .rk-tag { margin-left: 3px; }
+
+/* 3.75.0 : poule, frise du temps (maquette poule-matchs D validée par Yann) */
+:root { --fq-w: #B4501E; --fq-now: #6E7C0A; }
+:root[data-theme="nuit"] { --fq-w: #E88A5E; --fq-now: var(--balle); }
+.fq-card .aj-sub { display: block; font-size: 13px; color: var(--muted); margin: 4px 0 10px; }
+.fq { display: flex; flex-direction: column; }
+.fq-ax, .fq-r { display: grid; grid-template-columns: 74px minmax(0, 1fr) 40px; align-items: center; column-gap: 8px; }
+.fq-t { position: relative; height: 54px; }
+.fq-ax .fq-t { height: 18px; }
+.fq-ax em { position: absolute; top: 0; font-style: normal; font-size: 11px; font-weight: 800; color: color-mix(in srgb, var(--ink) 70%, transparent); transform: translateX(3px); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.fq-r { padding: 8px 0; border-top: 1px solid var(--line); }
+.fq-ax + .fq-r { border-top: 0; }
+.fq-l { display: flex; align-items: center; min-width: 0; }
+.fq-nm { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.fq-nm > b:first-child { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fq-nm .rk-tag { font-size: 12px; color: var(--muted); }
+.fq-r.done .fq-nm > b:first-child { color: var(--muted); }
+.fq-past { position: absolute; left: 0; top: -8px; bottom: -8px; background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.fq-rel { position: absolute; top: -8px; bottom: -8px; width: 0; border-left: 1.5px dashed color-mix(in srgb, var(--ink) 25%, transparent); }
+.fq-now { position: absolute; top: -8px; bottom: -8px; width: 2px; margin-left: -1px; background: var(--fq-now); border-radius: 1px; }
+.fq-s { position: absolute; top: 12px; height: 38px; margin-left: 1px; border-radius: 8px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-style: normal; line-height: 1.05; overflow: visible; }
+.fq-rk { white-space: nowrap; }
+.fq-rk .rk-tag { font-size: 11px; color: var(--ink); }
+.fq-rk .rk-tag::before { width: 6px; height: 6px; margin-right: 3px; }
+.fq-pt { font-size: 13px; font-weight: 800; white-space: nowrap; }
+.fq-s.nar .fq-rk { display: none; }
+.fq-s.ok { box-shadow: inset 0 0 0 2px var(--gazon); color: var(--gazon); }
+.fq-s.best { background: color-mix(in srgb, var(--gazon) 22%, transparent); box-shadow: inset 0 0 0 2px var(--gazon); color: var(--ink); }
+.fq-s.poss { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 30%, transparent); color: var(--muted); }
+.fq-s.early { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--ink) 14%, transparent) 0 2px, transparent 2px 6px); color: var(--ink); }
+.fq-s.early .rk-tag { color: var(--muted); }
+.fq-s.lo { box-shadow: inset 0 0 0 1.5px var(--fq-w); color: var(--fq-w); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--fq-w) 14%, transparent) 0 2px, transparent 2px 6px); }
+.fq-s.lo .fq-rk .rk-tag { color: var(--fq-w); }
+.fq-s.unk { border: 1.5px dashed var(--line); color: var(--muted); }
+.fq-s.unk .fq-pt { font-weight: 600; font-size: 12px; }
+.fq-ar { font-style: normal; font-weight: 900; font-size: 12px; }
+.fq-ar.up { color: var(--gazon); } .fq-ar.dn { color: var(--fq-w); }
+.fq-s .fq-ar { position: absolute; top: -8px; left: -6px; width: 18px; height: 18px; border-radius: 9px; background: var(--card); display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1.5px currentColor; font-size: 11px; line-height: 1; }
+.fq-pv { position: absolute; top: -6px; width: 22px; height: 22px; margin-left: -11px; border-radius: 11px; background: var(--gazon); color: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px var(--card); z-index: 1; }
+:root[data-theme="nuit"] .fq-pv { color: #10251A; }
+.fq-pv svg { width: 12px; height: 12px; }
+.fq-pv.warn { background: var(--fq-w); font-weight: 900; font-size: 13px; }
+:root[data-theme="nuit"] .fq-pv.warn { color: #2A1208; }
+.fq-dn { position: absolute; top: 13px; width: 28px; height: 28px; margin-left: -14px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; background: var(--card); z-index: 1; }
+.fq-dn.v { box-shadow: inset 0 0 0 2px var(--gazon); color: var(--gazon); }
+.fq-dn.d, .fq-dn.q { box-shadow: inset 0 0 0 2px var(--fq-w); color: var(--fq-w); }
+.fq-dt { position: absolute; top: 18px; font-size: 12.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.fq-btn { width: 40px; height: 40px; border-radius: 20px; border: 0; background: var(--chip); color: var(--gazon); display: flex; flex-direction: column; align-items: center; justify-content: center; font: inherit; font-weight: 800; font-size: 14px; line-height: 1; padding: 0; }
+.fq-btn svg { width: 18px; height: 18px; }
+.fq-btn small { font-size: 9.5px; font-weight: 700; }
+.fq-btn.on { background: none; box-shadow: inset 0 0 0 1.5px var(--gazon); }
+.fq-btn.warn, .fq-btn.late { background: none; box-shadow: inset 0 0 0 1.5px var(--fq-w); color: var(--fq-w); }
+.fq-lg { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 12px 0 0; font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.fq-lg span { display: flex; align-items: center; gap: 5px; }
+.fq-lg i { width: 18px; height: 11px; border-radius: 3px; display: inline-block; }
+.fq-lg i.ok { box-shadow: inset 0 0 0 1.5px var(--gazon); }
+.fq-lg i.best { background: color-mix(in srgb, var(--gazon) 22%, transparent); box-shadow: inset 0 0 0 1.5px var(--gazon); }
+.fq-lg i.poss { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 30%, transparent); }
+.fq-lg i.early { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--ink) 18%, transparent) 0 2px, transparent 2px 5px); box-shadow: inset 0 0 0 1px var(--line); }
+.fq-lg i.lo { box-shadow: inset 0 0 0 1.5px var(--fq-w); }
+.fq-rel2 { width: 0; height: 11px; border-left: 1.5px dashed color-mix(in srgb, var(--ink) 35%, transparent); }
+.fq-now2 { width: 3px; height: 13px; border-radius: 2px; background: var(--fq-now); }
+.fq-say { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--muted); line-height: 1.35; }
+.fq-sy { display: block; }
+.fq-say b { color: var(--ink); }
+.fq-say b.w { color: var(--fq-w); } .fq-say b.g { color: var(--gazon); }
+.fq-res { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.fq-card .bz-how { margin-top: 12px; }
+/* 3.75.0 : « Les coordonnées » (lignes à plat, trait fin) */
+.ctc { display: flex; flex-direction: column; }
+.ct-r { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
+.ctc > .eyebrow + .ct-r { border-top: 0; }
+.ct-n { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; }
+.ct-n > b { font-size: 14.5px; }
+.ct-n .rk-tag { margin-left: 3px; font-size: 13px; }
+.ct-n small { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ct-b { width: 40px; height: 40px; border-radius: 20px; border: 0; background: var(--chip); color: var(--gazon); display: flex; align-items: center; justify-content: center; flex: none; }
+.ct-b svg { width: 17px; height: 17px; }
+.ct-add { height: 36px; padding: 0 12px; border-radius: 18px; border: 0; background: none; box-shadow: inset 0 0 0 1.5px var(--line); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; }
+.fq-s.unk { padding-left: 16px; }
+/* 3.76.0 : copie automatique et copies à restaurer (lignes à plat, trait fin) */
+.dn-auto { flex-direction: row; align-items: center; gap: 12px; }
+.dn-auto .grow { display: flex; flex-direction: column; gap: 3px; }
+.dn-auto small { font-size: 13px; color: var(--muted); }
+.dn-bk { gap: 0; }
+.dn-bkr { display: flex; align-items: center; gap: 8px; padding: 11px 0; border-top: 1px solid var(--line); }
+.dn-bkr:first-child { border-top: 0; }
+.dn-bkr .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dn-bkr b { font-size: 14.5px; }
+.dn-bkr small { font-size: 12.5px; color: var(--muted); }
+.dn-bkb { height: 36px; padding: 0 12px; border-radius: 18px; border: 0; background: var(--chip); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; flex: none; }
+.dn-bkb.go { background: var(--terre); color: #fff; }
