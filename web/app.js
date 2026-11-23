@@ -1852,7 +1852,9 @@
     played.forEach(function (o) { if (o.d && o.d < stI) stI = o.d; });
     (t.pool || []).forEach(function (x) { if (!x.res && x.day && x.day < stI) stI = String(x.day).slice(0, 10); });
     var t0 = E.parseDate(stI).getTime(), span = Math.max(864e5, E.parseDate(endI).getTime() - t0);
-    var pc = function (iso) { return Math.max(0, Math.min(100, (E.parseDate(String(iso).slice(0, 10)).getTime() - t0) / span * 100)); }, P2 = function (v) { return v.toFixed(2) + "%"; };
+    // 3.90.2 (Yann) : le passé ne prend qu'une colonne étroite (les matchs joués y sont posés), tout le reste de la place va à ce qui reste à jouer
+    var tN = E.parseDate(T0).getTime(), tE = t0 + span, PAST = tN <= t0 ? 0 : played.length || (t.pool || []).some(function (x) { return x.day && x.day < T0 && !x.res; }) ? 12 : Math.min(3, (tN - t0) / span * 100);
+    var pc = function (iso) { var v = E.parseDate(String(iso).slice(0, 10)).getTime(); return Math.max(0, Math.min(100, v < tN ? (v - t0) / Math.max(1, tN - t0) * PAST : PAST + (v - tN) / Math.max(864e5, tE - tN) * (100 - PAST))); }, P2 = function (v) { return v.toFixed(2) + "%"; };
     var nowP = pc(T0), REL = {}, LG = {};
     // le meilleur moment : plus de points (5 et plus d'écart), sinon, à points proches, le mieux classé
     var better = fqBetter;
@@ -1877,8 +1879,8 @@
         var w = pc(z2) - pc(a), pt = c.g == null ? "?" : k === "lo" && b >= 0 && C[b].g - c.g >= 1 ? "−" + (C[b].g - c.g) : c.g > 0 ? "+" + c.g : "0 pt";
         var rk = c.rank != null ? lab(c.rank) : "";
         var al = (rk ? rk + ", " : "") + (c.g == null ? "valeur inconnue" : c.g + " pts") + ", " + { best: "le meilleur moment", ok: "bon moment", poss: "possible", early: "trop tôt", lo: "il vaut moins", unk: "" }[k] + (ar === "up" ? ", il monte" : ar === "dn" ? ", il descend" : "");
-        return '<i class="fq-s ' + k + (w < 13 ? " nar" : "") + '" style="left:' + P2(pc(a)) + ";width:calc(" + P2(w) + ' - 2px)" role="img" aria-label="' + esc((j === 0 ? "Jusqu'au " + dm(new Date(E.parseDate(z2).getTime() - 864e5)) : "À partir du " + dm(c.d)) + " : " + al) + '">' +
-          (ar ? '<span class="fq-ar ' + ar + '" aria-hidden="true">' + (ar === "up" ? "↗" : "↘") + "</span>" : "") + (rk ? '<span class="fq-rk" aria-hidden="true"><b class="rk-tag">' + esc(rk) + "</b></span>" : "") + '<span class="fq-pt" aria-hidden="true">' + pt + "</span></i>";
+        return '<i class="fq-s ' + k + (w < 10 ? " nar xs" : w < 12 ? " nar" : w < 24 ? " sm" : "") + '" style="left:' + P2(pc(a)) + ";width:calc(" + P2(w) + ' - 2px)" role="img" aria-label="' + esc((j === 0 ? "Jusqu'au " + dm(new Date(E.parseDate(z2).getTime() - 864e5)) : "À partir du " + dm(c.d)) + " : " + al) + '">' +
+          (ar ? '<span class="fq-ar ' + ar + '" aria-hidden="true">' + (ar === "up" ? "↗" : "↘") + "</span>" : "") + (rk ? '<span class="fq-rk" aria-hidden="true"><b class="rk-tag">' + esc(rk) + "</b></span>" : "") + '<span class="fq-pt" aria-hidden="true">' + (w < 24 && pt === "0 pt" ? "0" : pt) + "</span></i>";
       }).join("");
       // le match prévu : bien placé, ou « ! » s'il tombe hors du meilleur moment
       var mk = "", btn;
@@ -1903,7 +1905,7 @@
       var btn = day ? btnHtml(u.x, i, " on", dd.getDate() + "<small>" + MOIS[dd.getMonth()] + "</small>", "Prévu le " + dm(dd) + " : modifier") : u.x.day ? btnHtml(u.x, i, " late", E.parseDate(u.x.day).getDate() + "<small>" + MOIS[E.parseDate(u.x.day).getMonth()] + "</small>", "Match sans résultat") : btnHtml(u.x, i, "", CAL, "Programmer le match contre " + trNm(u.x.name));
       rows.push('<div class="fq-r">' + nmHtml(u.x, u.x.rank) + '<span class="fq-t">' + lines() + '<i class="fq-s unk" style="left:' + P2(nowP) + ";width:calc(" + P2(100 - nowP) + ' - 2px)"><span class="fq-pt">' + (u.g != null ? "+" + u.g + " · pas de projection" : "calcul en cours") + "</span></i>" + (day ? '<span class="fq-pv" style="left:' + P2(pc(day)) + '" aria-hidden="true">' + CAL + "</span>" : "") + lateRow(u.x, i) + '</span><span class="fq-b">' + btn + "</span></div>"); });
     played.forEach(function (o) { var v = o.x.res === "V", p0 = o.d ? pc(o.d) : 3; LG.done = 1;
-      rows.push('<div class="fq-r done">' + nmHtml(o.x, o.x.rank) + '<span class="fq-t">' + lines() + '<span class="fq-dn ' + (v ? "v" : "d") + '" style="left:' + P2(p0) + '">' + (v ? "V" : "D") + '</span><span class="fq-dt" style="left:calc(' + P2(p0) + ' + 18px)">' + (v ? "Gagné" : "Perdu") + (o.sc ? " " + esc(o.sc) : "") + (o.d ? '<span class="sr"> le ' + esc(dm(E.parseDate(o.d))) + "</span>" : "") + '</span></span><span class="fq-b"></span></div>'); });
+      rows.push('<div class="fq-r done">' + nmHtml(o.x, o.x.rank) + '<span class="fq-t">' + lines() + '<span class="fq-dn ' + (v ? "v" : "d") + '" style="left:max(14px, ' + P2(p0) + ')">' + (v ? "V" : "D") + '</span><span class="fq-dt" style="left:calc(max(14px, ' + P2(p0) + ') + 18px)">' + (v ? "Gagné" : "Perdu") + (o.sc ? " " + esc(o.sc) : "") + (o.d ? '<span class="sr"> le ' + esc(dm(E.parseDate(o.d))) + "</span>" : "") + '</span></span><span class="fq-b"></span></div>'); });
     var mo = [], m0 = E.parseDate(stI); m0 = new Date(m0.getFullYear(), m0.getMonth() + 1, 1);
     for (var md = m0; E.iso(md) < endI; md = new Date(md.getFullYear(), md.getMonth() + 1, 1)) { var mp = pc(E.iso(md)); if (mp > 4 && mp < 94) mo.push('<em style="left:' + P2(mp) + '">' + MOIS[md.getMonth()] + "</em>"); }
     var grid = '<div class="fq" role="group" aria-label="Frise de la poule, du ' + esc(dm(E.parseDate(stI))) + " au " + esc(dm(E.parseDate(endI))) + '"><div class="fq-ax" aria-hidden="true"><span></span><span class="fq-t">' + mo.join("") + "</span><span></span></div>" + rows.join("") + "</div>" +
