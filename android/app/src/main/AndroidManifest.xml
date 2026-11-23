@@ -124,6 +124,36 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_adversaire" />
         </receiver>
+        <receiver android:name=".WidgetAce" android:label="@string/w_ace" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_ace" />
+        </receiver>
+        <receiver android:name=".WidgetAvenir" android:label="@string/w_avenir" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_avenir" />
+        </receiver>
+        <receiver android:name=".WidgetEquipe" android:label="@string/w_equipe" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_equipe" />
+        </receiver>
+        <receiver android:name=".WidgetChances" android:label="@string/w_chances" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_chances" />
+        </receiver>
+        <receiver android:name=".WidgetSuivis" android:label="@string/w_suivis" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_suivis" />
+        </receiver>
         <receiver android:name=".WidgetFaf" android:label="@string/w_faf" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

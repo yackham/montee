@@ -31,9 +31,11 @@ public final class MonteeWidgets {
     static final Class<?>[] ALL = {
             WidgetClassement.class, WidgetSortie.class, WidgetCordage.class, WidgetForme.class, WidgetMini.class,
             WidgetSemaine.class, WidgetTableau.class, WidgetTruc.class, WidgetDefend.class, WidgetSac.class,
-            WidgetJoueurs.class, WidgetAdversaire.class, WidgetObjectif.class, WidgetFaf.class
+            WidgetJoueurs.class, WidgetAdversaire.class, WidgetObjectif.class, WidgetFaf.class,
+            // 3.81
+            WidgetAce.class, WidgetAvenir.class, WidgetEquipe.class, WidgetChances.class, WidgetSuivis.class
     };
-    static final String[] KINDS = {"classement", "sortie", "cordage", "forme", "mini", "semaine", "tableau", "truc", "defend", "sac", "joueurs", "adversaire", "objectif", "faf"};
+    static final String[] KINDS = {"classement", "sortie", "cordage", "forme", "mini", "semaine", "tableau", "truc", "defend", "sac", "joueurs", "adversaire", "objectif", "faf", "ace", "avenir", "equipe", "chances", "suivis"};
 
     static String kindOf(Class<?> c) {
         for (int i = 0; i < ALL.length; i++) if (ALL[i] == c) return KINDS[i];
@@ -121,7 +123,10 @@ public final class MonteeWidgets {
             case "sac": return "montee://open/materiel";
             case "forme": return "montee://open/palmares";
             case "semaine": return "montee://open/materiel";
-            case "truc": return "montee://open/courbes";
+            case "truc": case "ace": return "montee://open/ace";
+            case "avenir": case "equipe": return "montee://open/";
+            case "chances": return "montee://open/projection";
+            case "suivis": return "montee://open/faf?tab=suivis";
             case "defend": return "montee://open/courbes?to=defend";
             case "tableau": return "montee://open/";
             case "joueurs": return "montee://open/faf?focus=1";
