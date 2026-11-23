@@ -444,8 +444,16 @@
           Object.keys(K).forEach(function (id) { add(id, "", "déjà trouvés"); });
           var tries = [];
           if (A.full || !Object.keys(K).length) [y0, y0 - 1].forEach(function (y) { tries.push("v1/championnats-equipes?millesime=" + y + "&typeRecherche=N"); if (code.length >= 4) tries.push("v1/championnats-equipes?millesime=" + y + "&typeRecherche=R&codeLigue=" + code.slice(0, 2), "v1/championnats-equipes?millesime=" + y + "&typeRecherche=D&codeComite=" + code.slice(0, 4)); });
-          return tries.reduce(function (ch, t) { return ch.then(function () { return jg(t).then(function (j) { var n0 = Object.keys(C).length; (Array.isArray(j) ? j : []).forEach(function (c) { add(c.id, c.nom, "liste"); }); src.push(t.replace(/^.*\?/, "") + " : " + (Object.keys(C).length - n0) + " en plus"); }, function (e) { src.push(t + " : " + String(e && e.message || e)); }); }); }, Promise.resolve()).then(function () {
-            var L = Object.keys(C).map(function (k) { return C[k]; }).slice(0, 160);
+          return tries.reduce(function (ch, t) { return ch.then(function () { return jg(t).then(function (j) { var n0 = Object.keys(C).length; var lv = (t.match(/typeRecherche=(\w)/) || [])[1], yy = +(t.match(/millesime=(\d+)/) || [])[1]; (Array.isArray(j) ? j : []).forEach(function (c) { add(c.id, c.nom, "liste"); var e = C[String(c.id)]; if (e && !e.lv) { e.lv = lv; e.y = yy; } }); src.push(t.replace(/^.*\?/, "") + " : " + (Object.keys(C).length - n0) + " en plus"); }, function (e) { src.push(t + " : " + String(e && e.message || e)); }); }); }, Promise.resolve()).then(function () {
+            // 3.74.1 (rapport de Davy : 200 championnats lus dans la ligue, lecture jamais finie) : un championnat marqué pour un autre
+            // département (« … - 58 », « - 25/90 », « CD57-… ») est écarté ; ensuite les plus probables d'abord : déjà trouvés et les tiens,
+            // ton département, la ligue, saison en cours avant la précédente, le national en dernier.
+            var dep = code.length >= 4 ? code.slice(2, 4) : "", nDrop = 0;
+            var deps = function (n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; };
+            var rank = function (c) { if (K[c.id] || !c.lv) return 0; var d = deps(c.nom), old = c.y && c.y < y0 ? 3 : 0; if (c.lv === "N") return 6 + (old ? 1 : 0); return (d ? 1 : 2) + old; };
+            var L = Object.keys(C).map(function (k) { return C[k]; }).filter(function (c) { var d = dep && c.lv && c.lv !== "N" && !K[c.id] && deps(c.nom); if (d && d.indexOf(dep) < 0) { nDrop++; return false; } return true; });
+            L.sort(function (a, b) { return rank(a) - rank(b); }); L = L.slice(0, 120);
+            src.push("écartés (autre département que " + (dep || "?") + ") : " + nDrop + " · à lire : " + L.length);
             return { u: u, calls: 0, club: 1, src: src, cs: L.map(function (c) { var cs = mkCs(c, K[String(c.id)]); if (!A.full && K[String(c.id)] && K[String(c.id)].length) { cs.q = cs.q.filter(function (x) { return x.k !== "root"; }); cs.only = true; } cs.all = true; cs.cl = {}; cs.clk = []; return cs; }) };
           });
         });
