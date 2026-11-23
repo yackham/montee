@@ -347,7 +347,15 @@
     return sets;
   }
 
+  // 4.2.3 : LA chance d'un joueur de niveau cur contre un adversaire de niveau o (échelons), partagée par l'app et les notifications
+  function expWin(o, cur) { return 1 / (1 + Math.exp(0.75 * (o - (cur < 0 ? 0 : cur)))); }
+  // la chance de gagner un set qui donne la chance p de gagner un match en 2 sets gagnants
+  function setP(p) { var lo = 0, hi = 1; for (var k = 0; k < 30; k++) { var md = (lo + hi) / 2; if (md * md * (3 - 2 * md) < p) lo = md; else hi = md; } return (lo + hi) / 2; }
+  // le verdict d'un groupe de matchs (v victoires, e attendues, n matchs) : Perf, Solidité, Mental, Endurance… dans l'app ET les notifications
+  function skillSt(v, e, n, min) { if (n < (min || 4)) return "lock"; var vd = v - e >= 1 ? "above" : e - v >= 0.9 ? "below" : "par"; if (vd === "par" && v >= 1.5 * e && v - e >= 0.6) vd = "above"; return vd === "above" ? "fort" : vd === "below" ? "faible" : "norme"; }
+
   var api = {
+    expWin: expWin, setP: setP, skillSt: skillSt,
     ECHELONS: ECHELONS, TOP: TOP, MAX_CALC: MAX_CALC, BAREME: BAREME,
     idx: idx, label: label, serie: serie, serieLabel: serieLabel, ajustement: ajustement,
     bilanAt: bilanAt, project: project, simulateWin: simulateWin, dropOuts: dropOuts,
