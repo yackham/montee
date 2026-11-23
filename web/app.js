@@ -8613,10 +8613,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Ace partout : sa pastille au-dessus des onglets (Yann, maquette v2 façon Bevel : la grosse balle prenait trop de place)
   function coHomeTip(c) {
     var tips = [], hier = null, jm = null, t0 = E.iso(today());
-    try { var yd = E.iso(new Date(today().getTime() - 864e5)); hier = knownMatches(false).filter(function (m) { return m.date === yd && !m.wo && (m.result === "V" || m.result === "D"); })[0]; } catch (e) {}
+    try { var yd = E.iso(new Date(today().getTime() - 864e5)); hier = knownMatches(false).filter(function (m) { return (m.date === yd || m.date === t0) && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0]; } catch (e) {} // 3.74.1 : Ace réagit aussi au match saisi aujourd'hui (bulle + point rouge, sans fenêtre automatique)
+    var hj = hier && hier.date === t0 ? "aujourd'hui" : "hier";
     try { jm = friseItems().filter(function (z) { return z.d === t0 && !z.todo && !z.rel && !z.dim && !z.team && !z.bd; })[0]; } catch (e) {}
-    if (hier && hier.result === "D") tips.push({ id: "home:loss:" + hier.id, t: "Défaite hier, ça arrive. On regarde ce qui vient ensuite ?", v: "loss" });
-    if (hier && hier.result === "V") tips.push({ id: "home:win:" + hier.id, t: "Bien joué hier ! Tu veux savoir ce que ça t'a rapporté ?", v: "win" });
+    if (hier && hier.result === "D") tips.push({ id: "home:loss:" + hier.id, t: "Défaite " + hj + ", ça arrive. On regarde ce qui vient ensuite ?", v: "loss" });
+    if (hier && hier.result === "V") tips.push({ id: "home:win:" + hier.id, t: "Bien joué " + hj + " ! Tu veux savoir ce que ça t'a rapporté ?", v: "win" });
     toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
       if (t.fmt === "poule") { var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }); if (left.length) tips.push({ id: "home:pl:" + t.id + ":" + left.length, t: (left.length > 1 ? left.length + " matchs de poule à caler" : "Un match de poule à caler") + ", on regarde ?", v: "poule:" + t.id }); }
       else { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r && r.day && r.day >= t0) tips.push({ id: "home:tb:" + t.id + ":" + r.day, t: "Ton prochain tour " + (r.day === t0 ? "aujourd'hui" : "le " + fdate(r.day).replace(/\.$/, "")) + " : on le prépare ?", v: "tour:" + t.id }); }
