@@ -2289,6 +2289,10 @@ html:root[data-theme="nuit"] .card.hero.h3.up .eyebrow { color: var(--hacc); }
 .ws3-k em { font-style: normal; }
 .ws3-row .ws3-k:nth-child(n+5) { display: none; }
 .d3n { z-index: 1; } .d3nl { z-index: 2; background: var(--card); padding: 1px 6px; border-radius: 6px; }
+/* 3.78.1 (Yann) : légende de la norme au-dessus du graphique, et les valeurs des mois passent devant les pointillés */
+.d3leg { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 6px; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+.d3leg i { width: 16px; border-top: 2px dashed var(--muted); opacity: .6; }
+.d3b b { position: relative; z-index: 2; background: var(--card); padding: 0 3px; border-radius: 4px; }
 .cr3-say.c { text-align: center; }
 
 /* ---------- 3.30 : Ton service (carte, état vide, détail) ---------- */
@@ -5378,6 +5382,7 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .tf-toi, .tim-tg { color: var(--on-balle); }
 .tf-sc.D, .tf-it .dn { color: var(--terre-dark); }
 .d3m { color: var(--terre-dark); }
+.d3r-up .d3m { background: color-mix(in srgb, var(--gazon) 14%, transparent); color: var(--gazon-dark); } .d3r-up .d3p { color: var(--gazon); } /* 3.78.1 : victoire qui prend le relais, bonus qui revient */
 :root[data-theme="terre"] .av-me:not(.ghost) { color: var(--ink); }
 .tr-del { color: var(--terre-dark); }
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .tr-del { color: var(--page-ink); text-decoration: underline; text-underline-offset: 3px; }
