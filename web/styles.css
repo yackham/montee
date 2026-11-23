@@ -6576,3 +6576,11 @@ button.acr, a.acr { cursor: pointer; }
 .bo-inbar { display: block; background: none; border: 0; padding: 6px 0 0; font: inherit; font-size: 13.5px; color: inherit; opacity: .9; text-align: left; cursor: pointer; }
 .bo-inbar b { color: inherit; }
 .bo-inbar svg { width: 12px; height: 12px; vertical-align: -1px; }
+
+/* 3.82.1 (maquette M4) : « À faire » montre 2 tâches, le reste derrière une ligne */
+.td3-more { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 12px 0 2px; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; font-size: 14.5px; font-weight: 600; color: var(--muted); text-align: left; cursor: pointer; }
+.td3-more span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td3-more b { flex: none; color: var(--acc-ink); }
+
+/* 3.82.1 (maquette M3) : Ace accueille à l'inscription */
+.w-ball { display: flex; justify-content: center; padding-top: 8px; }
