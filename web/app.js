@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.76.0",
+    VERSION: "3.77.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1422,6 +1422,8 @@
   function poolApplyAll(tid, r) {
     if (!tid) return; tid = String(tid);
     try { toursAll().forEach(function (t) { (t.pool || []).forEach(function (y) { if (y.tid && String(y.tid) === tid) poolApply(y, r); }); }); } catch (e) {}
+    // 3.77 : sa fiche a changé, la projection aussi : on revoit les rappels (dont « ton match tombe trop tôt »)
+    clearTimeout(poolApplyAll.tm); poolApplyAll.tm = setTimeout(function () { try { scheduleTimingNotif(); } catch (e) {} }, 3000);
   }
   function poolSync(t) {
     if (!NATIVE || !t.pool || t.pool.length < 2) return;
@@ -1562,6 +1564,15 @@
     }
     return out;
   }
+  // 3.77 : le meilleur moment de la frise, partagé entre l'écran et les rappels. Tranches identiques fusionnées ;
+  // meilleur = plus de points (5 et plus d'écart), sinon, à points proches, le mieux classé. jd = la tranche où tombe le match prévu.
+  function fqBetter(a, b) { var ga = a.g == null ? -99 : a.g, gb = b.g == null ? -99 : b.g; if (ga >= gb + 5) return true; if (gb >= ga + 5) return false; return a.rank != null && b.rank != null && a.rank > b.rank; }
+  function fqPlan(q, endI, T0, day) {
+    var C = []; q.cells.forEach(function (c, j) { if (j > 0 && c.dI > endI) return; var p0 = C[C.length - 1]; if (p0 && p0.rank === c.rank && p0.g === c.g) return; C.push(c); });
+    var b = -1; C.forEach(function (c, j) { if (C.every(function (d, k) { return k === j || fqBetter(c, d); })) b = j; });
+    var jd = -1; if (day) C.forEach(function (c, j) { if ((j === 0 ? T0 : c.dI) <= day) jd = j; });
+    return { C: C, b: b, jd: jd, warn: !!day && b >= 0 && jd !== b };
+  }
   function poolTimingHtml(t) {
     var L = poolTiming(t); if (!L.length) return "";
     var head = '<span class="eyebrow">Le bon moment pour les jouer</span>';
@@ -1591,7 +1602,7 @@
     var pc = function (iso) { return Math.max(0, Math.min(100, (E.parseDate(String(iso).slice(0, 10)).getTime() - t0) / span * 100)); }, P2 = function (v) { return v.toFixed(2) + "%"; };
     var nowP = pc(T0), REL = {}, LG = {};
     // le meilleur moment : plus de points (5 et plus d'écart), sinon, à points proches, le mieux classé
-    var better = function (a, b) { var ga = a.g == null ? -99 : a.g, gb = b.g == null ? -99 : b.g; if (ga >= gb + 5) return true; if (gb >= ga + 5) return false; return a.rank != null && b.rank != null && a.rank > b.rank; };
+    var better = fqBetter;
     var say = [], rows = [];
     var btnHtml = function (x, i, cls, lab0, aria) { return '<button class="fq-btn' + cls + '" data-a="plSched" data-i="' + i + '" aria-label="' + esc(aria) + '">' + lab0 + "</button>"; };
     var nmHtml = function (x, rk) { var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : ""; return '<span class="fq-l' + tap + '"><span class="fq-nm"><b>' + esc(trNm(x.name).split(" ")[0] || "Un joueur") + "</b>" + (rk ? '<b class="rk-tag">' + esc(rk) + "</b>" : "") + "</span></span>"; };
@@ -1603,8 +1614,7 @@
     P.forEach(function (o) {
       var q = o.q, x = o.z.x, i = o.z.i, nm = esc(trNm(x.name).split(" ")[0]);
       // les tranches identiques (même classement, mêmes points) n'en font qu'une
-      var C = []; q.cells.forEach(function (c, j) { if (j > 0 && c.dI > endI) return; var p0 = C[C.length - 1]; if (p0 && p0.rank === c.rank && p0.g === c.g) return; C.push(c); });
-      var b = -1; C.forEach(function (c, j) { if (C.every(function (d, k) { return k === j || better(c, d); })) b = j; });
+      var day = x.day && x.day >= T0 ? String(x.day).slice(0, 10) : "", F = fqPlan(q, endI, T0, day), C = F.C, b = F.b, jd = F.jd, warn = F.warn;
       var segs = C.map(function (c, j) {
         var a = j === 0 ? T0 : c.dI, z2 = j < C.length - 1 ? C[j + 1].dI : endI, k;
         if (c.g == null) k = "unk"; else if (b < 0) k = "ok"; else if (j === b) k = "best"; else if (j < b) k = c.g <= C[b].g - 5 ? "early" : "poss"; else k = c.g <= C[b].g - 5 || (c.rank != null && C[b].rank != null && c.rank < C[b].rank) ? "lo" : "poss";
@@ -1618,9 +1628,7 @@
           (ar ? '<span class="fq-ar ' + ar + '" aria-hidden="true">' + (ar === "up" ? "↗" : "↘") + "</span>" : "") + (rk ? '<span class="fq-rk" aria-hidden="true"><b class="rk-tag">' + esc(rk) + "</b></span>" : "") + '<span class="fq-pt" aria-hidden="true">' + pt + "</span></i>";
       }).join("");
       // le match prévu : bien placé, ou « ! » s'il tombe hors du meilleur moment
-      var day = x.day && x.day >= T0 ? String(x.day).slice(0, 10) : "", mk = "", btn, jd = -1;
-      if (day) { C.forEach(function (c, j) { if ((j === 0 ? T0 : c.dI) <= day) jd = j; }); }
-      var warn = day && b >= 0 && jd !== b;
+      var mk = "", btn;
       if (day) { mk = '<span class="fq-pv' + (warn ? " warn" : "") + '" style="left:' + P2(pc(day)) + '" aria-hidden="true">' + (warn ? "!" : CAL) + "</span>"; var dd = E.parseDate(day); btn = btnHtml(x, i, " on" + (warn ? " warn" : ""), dd.getDate() + "<small>" + MOIS[dd.getMonth()] + "</small>", "Prévu le " + dm(dd) + (warn ? ", pas le meilleur moment" : "") + " : modifier"); }
       else if (x.day && !x.res) { var dl = E.parseDate(x.day); btn = btnHtml(x, i, " late", dl.getDate() + "<small>" + MOIS[dl.getMonth()] + "</small>", "Match du " + dm(dl) + " sans résultat"); }
       else btn = btnHtml(x, i, "", CAL, "Programmer le match contre " + trNm(x.name));
@@ -1726,8 +1734,43 @@
       list.push({ id: 1200 + list.length, title: "Joue " + trNm(z.x.name) + " avant le " + z.rel.getDate() + " " + MOIS_L[z.rel.getMonth()], body: (z.sp.dir === "down" ? "Il redescend " + lab(z.sp.proj) + " : " : "") + "ta victoire vaudra " + (z.now - z.after) + " pts de moins après.", schedule: { at: at }, extra: url });
     }); });
     if (!np("poule")) list = [];
+    try { fqNotif(list); } catch (e) {}
     var key = JSON.stringify(list.map(function (n) { return [n.title, n.schedule.at.getTime()]; })); if (key === lastTimingKey) return; lastTimingKey = key;
-    LN.cancel({ notifications: [{ id: 1200 }, { id: 1201 }, { id: 1202 }, { id: 1203 }, { id: 1204 }] }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
+    LN.cancel({ notifications: [1200, 1201, 1202, 1203, 1204, 1205, 1206, 1207].map(function (i) { return { id: i }; }) }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
+  }
+  // 3.77 (Yann) : un match programmé hors du meilleur moment. Un rappel « au cas où » 5 jours avant le match (s'il est toujours mal placé),
+  // et une notif tout de suite quand le calcul change après coup (il a joué des matchs, il devrait monter) : « décale ta rencontre ».
+  // Une seule notif par état du calcul (S.fqN). Pas au moment où tu programmes : l'écran montre déjà le « ! ».
+  function fqMisplaced() {
+    var out = [], T0 = E.iso(today());
+    toursAll().forEach(function (t) { if (tourOver(t)) return; TR_KIND = t.kind === "champ" ? "champ" : "tournoi"; poolTiming(t).forEach(function (z) {
+      var x = z.x, day = x.day && !x.res && x.day >= T0 ? String(x.day).slice(0, 10) : ""; if (!day) return;
+      var q; try { q = bmPlan(t, z); } catch (e) { return; }
+      var F = fqPlan(q, String(t.dl || t.to || "9999-12-31").slice(0, 10), T0, day), id = t.id + ":" + (x.tid || trNm(x.name));
+      if (!F.warn) { out.push({ id: id, ok: 1, day: day }); return; }
+      var B = F.C[F.b], J = F.C[F.jd], soon = F.jd < F.b, nm = trNm(x.name).split(" ")[0] || "ton adversaire", dB = dm(B.d);
+      var why = (soon ? "Il devrait monter " + lab(B.rank) + " le " + dB : "Il risque de descendre " + lab(J.rank) + " le " + dm(J.d)) + " : " +
+        (Math.abs(B.g - J.g) >= 5 ? (soon ? "après, ta victoire vaudra " : "avant, ta victoire vaut ") + (B.g - J.g) + " pts de plus." : "même nombre de points, mais mieux vaut le jouer " + lab(B.rank) + ".");
+      out.push({ id: id, t: t, day: day, key: day + "|" + B.dI + "|" + B.rank + "|" + B.g + "|" + J.rank, title: "Ton match contre " + nm + " tombe trop " + (soon ? "tôt" : "tard"), body: why + " Décale-le si tu peux." });
+    }); });
+    return out;
+  }
+  function fqNotif(list) {
+    var M = fqMisplaced(), N = S.fqN || (S.fqN = {}), now = new Date(), url, ch = 0, imm = [];
+    M.forEach(function (m) {
+      if (m.ok) { if (!N[m.id] || N[m.id].k !== "ok" || N[m.id].d !== m.day) { N[m.id] = { k: "ok", d: m.day }; ch = 1; } return; }
+      url = { url: "montee://open/tournoi/" + m.t.id };
+      var r = N[m.id];
+      // le calcul a changé depuis que tu l'as programmé (ou depuis la dernière notif), ou un match prévu avant cette version : tout de suite, hors 21 h - 8 h
+      if ((!r || r.k !== m.key) && imm.length < 2) { var a = new Date(now.getTime() + 5e3); if (a.getHours() >= 21 || a.getHours() < 8) { if (a.getHours() >= 21) a = new Date(a.getTime() + 864e5); a.setHours(9, 0, 0, 0); } imm.push({ id: 1210 + imm.length, title: m.title, body: m.body, schedule: { at: a }, extra: url }); }
+      if (!r || r.k !== m.key || r.d !== m.day) { N[m.id] = { k: m.key, d: m.day }; ch = 1; }
+      // le rappel « au cas où » : 5 jours avant le match, 9 h
+      var at = E.parseDate(m.day); at = new Date(at.getTime() - 5 * 864e5); at.setHours(9, 0, 0, 0);
+      if (at > now && list.length < 8 && np("poule")) list.push({ id: 1200 + list.length, title: m.title, body: m.body, schedule: { at: at }, extra: url });
+    });
+    var live = {}; M.forEach(function (m) { live[m.id] = 1; }); Object.keys(N).forEach(function (k) { if (!live[k]) { delete N[k]; ch = 1; } });
+    if (ch) save();
+    if (imm.length && np("poule")) LN.schedule({ notifications: imm }).catch(function () {});
   }
   var SMS_IC = svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', 2), CALL_IC = svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>', 2);
   // 3.44.4 (Yann) : le lien du comité pour envoyer tes résultats (lu dans le mail ou collé après coup), toujours sous la main
@@ -16446,6 +16489,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (!d) { toast("Choisis le jour du match."); return; }
       x.day = d; x.time = h; if (UI.plHost != null) x.host = UI.plHost; UI.plHost = null;
       trPlan(t, x.tid, x.name, x.rank, x.day); try { schedulePlanNotif(); } catch (e) {}
+      try { var Nq = S.fqN || (S.fqN = {}); fqMisplaced().forEach(function (m) { Nq[m.id] = { k: m.ok ? "ok" : m.key, d: m.day }; }); lastTimingKey = ""; scheduleTimingNotif(); } catch (e) {}
       UI.plSched = null; save(); haptic("success"); toast("Match programmé : " + trWhen(x).replace(/\.$/, "") + (hostLab(x) ? ", " + hostLab(x) : "") + "."); render();
     },
     plSchedClear: function () {
