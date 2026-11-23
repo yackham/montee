@@ -2318,7 +2318,7 @@
       s += '<h2 class="tm-gh lc-h"><span>Dernier week-end<svg class="lc-wb" viewBox="0 0 50 14" aria-hidden="true"><circle cx="3" cy="11" r="3" fill="var(--balle)"/></svg></span><small>' + lcDay(last) + "</small></h2>" +
         '<div class="blk lc-list">' + WE.map(function (o, i) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
           return '<a class="lc-r lc-w" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '" style="--i:' + i + '"><span class="grow"><b>' + esc(champNm(o.x.c) + (o.x.num ? " · éq. " + o.x.num : "")) + (o.x.mine ? ' <span class="lc-me">toi</span>' : "") + "</b><small>" + (r.dom === me ? "contre " : "chez ") + esc(tmNm(r.a === me ? r.bn : r.an)) + '</small></span><span class="lc-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span></a>"; }).join("") +
-        '<button class="lc-more" data-a="sheet" data-k="lcRes" data-v="">Toutes les rencontres de la saison ›</button>' + (nxt ? '<button class="lc-more" data-a="sheet" data-k="clubNx" data-v="' + nx7 + '">7 prochains jours : ' + plural(nxt, "rencontre", "rencontres") + " ›</button>" : "") + "</div>";
+        '<button class="lc-more lc-sh" data-a="lcShare" data-k="we">' + I.share + "Partager les scores du week-end</button>" + '<button class="lc-more" data-a="sheet" data-k="lcRes" data-v="">Toutes les rencontres de la saison ›</button>' + (nxt ? '<button class="lc-more" data-a="sheet" data-k="clubNx" data-v="' + nx7 + '">7 prochains jours : ' + plural(nxt, "rencontre", "rencontres") + " ›</button>" : "") + "</div>";
     }
     // les équipes, groupées au choix
     if (L.length) {
@@ -2362,6 +2362,7 @@
       (F.length ? '<h3 class="lc-st">Premières de poule</h3><div class="lc-flat">' + F.map(row).join("") + "</div>" : "") +
       '<h3 class="lc-st">Toutes les équipes</h3><div class="lc-flat">' + ["mes", "dam", "jeu", "plus"].filter(function (c) { return cats[c]; }).map(function (c) { return '<div class="lc-sub">' + CLUB_CAT[c] + "<small>" + plural(cats[c].length, "équipe", "équipes") + "</small></div>" + cats[c].sort(function (a, b) { return a.pos - b.pos; }).map(row).join(""); }).join("") + "</div>";
     var ch = {}; T.forEach(function (x) { ch[x.c.cid || x.c.id] = 1; });
+    body += '<button class="go-pill lc-shp" data-a="lcShare" data-k="sea" data-v="' + esc(k) + '">' + I.share + "Partager le bilan de la saison</button>";
     return { title: "Saison " + (k - 1) + "-" + String(k).slice(2), sub: tmNm(((S.teams || {}).club || {}).nom || "") + " · " + plural(T.length, "équipe", "équipes") + " · " + plural(Object.keys(ch).length, "championnat", "championnats"), body: body };
   }
   // La place de l'équipe journée après journée (fiche d'une équipe du club), recalculée depuis les résultats
@@ -2385,6 +2386,33 @@
     if (mRM()) return lcIo();
     mxQ(".lc-vnd b").forEach(function (b, i) { mxCount(b, null, { delay: 300 + i * 120, ms: 900 }); });
     lcIo();
+  }
+  function lcShort(x) { var t = champNm(x.c); t = t.length > 20 ? t.slice(0, 19).trim() + "…" : t; return t + (x.num ? " · éq. " + x.num : ""); }
+  function lcShareV(k, v) {
+    var club = tmNm(((S.teams || {}).club || {}).nom || "Mon club"), cnt = function (x, r) { return x.res.filter(function (z) { return z === r; }).length; };
+    if (k === "sea") {
+      var T = lcAll().filter(clubDone).filter(function (c) { return (clubSeason(c) || "0") === String(v); }).map(lcT); if (!T.length) return null;
+      var F = T.filter(function (x) { return x.pos === 1; }), nV = T.reduce(function (a, x) { return a + cnt(x, "v"); }, 0), se = "saison " + (v - 1) + "-" + String(v).slice(2);
+      return { key: "club-saison-" + v, eb: club + " · " + se, col: "#D4E64A", title: F.length ? plural(F.length, "équipe première de poule", "équipes premières de poule") : plural(T.length, "équipe engagée", "équipes engagées"), big: F.length ? [[F.length, "#D4E64A"]] : null,
+        rows: F.map(function (x) { return [lcShort(x), "1" + lcOrd(1, x.fem), true]; }), line: plural(T.length, "équipe", "équipes") + " engagées, " + plural(nV, "victoire", "victoires") + " sur la saison.", foot: "bilan de la " + se,
+        text: club + ", " + se + " : " + plural(F.length, "première de poule", "premières de poule") + " sur " + plural(T.length, "équipe", "équipes") + ", " + plural(nV, "victoire", "victoires") + ".\n" + F.map(function (x) { return "• " + champNm(x.c) + (x.num ? " équipe " + x.num : "") + " : 1" + lcOrd(1, x.fem) + " de poule"; }).join("\n") };
+    }
+    if (k === "we") {
+      var L = lcCur(), all = []; L.forEach(function (x) { x.R.forEach(function (r, i) { all.push({ x: x, r: r, res: x.res[i] }); }); });
+      var last = all.reduce(function (m, o) { var d = String(o.r.d).slice(0, 10); return d > m ? d : m; }, ""); if (!last) return null;
+      var from = E.iso(new Date(E.parseDate(last).getTime() - 2 * 864e5)), WE = all.filter(function (o) { return String(o.r.d).slice(0, 10) >= from; });
+      var sc = function (o) { var me = o.x.c.me.mine, a = o.r.a === me ? o.r.s1 : o.r.s2, b = o.r.a === me ? o.r.s2 : o.r.s1; return a + "–" + b; }, c3 = { v: 0, n: 0, d: 0 }; WE.forEach(function (o) { c3[o.res]++; });
+      return { key: "club-we-" + last, eb: club + " · " + lcDay(last), col: c3.v >= c3.d ? "#6FC28F" : "#E88A5E", title: "Le week-end du club", big: [[c3.v, "#6FC28F"], [c3.n, "#C9C7C1"], [c3.d, "#E88A5E"]], sep: "·",
+        rows: WE.map(function (o) { return [lcShort(o.x), o.res.toUpperCase() + " " + sc(o), o.res === "v"]; }), line: plural(c3.v, "victoire", "victoires") + ", " + plural(c3.n, "nul", "nuls") + ", " + plural(c3.d, "défaite", "défaites") + ".", foot: "scores du week-end",
+        text: club + ", week-end du " + lcDay(last) + " :\n" + WE.map(function (o) { return "• " + champNm(o.x.c) + (o.x.num ? " équipe " + o.x.num : "") + " : " + o.res.toUpperCase() + " " + sc(o) + " " + (o.r.dom === o.x.c.me.mine ? "contre " : "chez ") + tmNm(o.r.a === o.x.c.me.mine ? o.r.bn : o.r.an); }).join("\n") };
+    }
+    if (k === "team") {
+      var c = tmFind(v); if (!c || !c.teams) return null; var x = lcT(c), tv = x.t.v || 0, tn = x.t.n || 0, td = x.t.d || 0, T2 = c.teams.slice().sort(function (a, b) { return (a.cl || 99) - (b.cl || 99); }), me = c.me.mine;
+      return { key: "club-equipe-" + c.id, eb: club + " · " + champNm(c), col: x.pos === 1 ? "#D4E64A" : "#6FC28F", title: (x.num ? "Équipe " + x.num : tmNm(x.t.nom)) + (x.pos ? " : " + x.pos + lcOrd(x.pos, x.fem) + " sur " + x.n : ""), big: tv + tn + td ? [[tv, "#6FC28F"], [tn, "#C9C7C1"], [td, "#E88A5E"]] : null, sep: "·",
+        rows: T2.map(function (t) { return [tmNm(t.nom).slice(0, 22), (t.pts != null ? t.pts : 0) + " pts", t.id === me]; }), line: [tmDiv(c.div), tmDiv(c.poule)].filter(Boolean).join(" · ") + (tv + tn + td ? " · " + tv + " V, " + tn + " N, " + td + " D" : "") + ".", foot: c.cloture ? "championnat terminé" : "classement en cours",
+        text: tmNm(x.t.nom) + " (" + champNm(c) + ", " + [tmDiv(c.div), tmDiv(c.poule)].filter(Boolean).join(", ") + ") : " + (x.pos ? x.pos + lcOrd(x.pos, x.fem) + " sur " + x.n + ", " : "") + tv + " V, " + tn + " N, " + td + " D." };
+    }
+    return null;
   }
   // Les listes du club qui apparaissent (à l'arrivée, ou après une lecture de Ten'Up) s'animent quand elles sont à l'écran
   function lcIo() {
@@ -2521,7 +2549,7 @@
       '<span class="small">Victoire ' + c.pts.v + " pts, nul " + c.pts.n + ", défaite " + c.pts.d + ". " + (c.cloture ? "Championnat terminé." : "Mis à jour " + agoLab(S.teams.at) + (UI.tmBusy ? " · lecture de Ten'Up…" : "") + ".") + "</span></div>";
     // 3.50.4 (Yann) : ton impact sur l'équipe : avec toi / sans toi, tes matchs, ta part des matchs gagnés
     if (!c.cl) s += teamImpactHtml(c);
-    else s += lcHill(c); // 3.81 : équipe du club : sa place journée après journée
+    else s += lcHill(c) + '<button class="go-pill lc-shp" data-a="lcShare" data-k="team" data-v="' + esc(c.id) + '">' + I.share + "Partager le bilan de l'équipe</button>"; // 3.81 : équipe du club : sa place journée après journée, partage
     // Les rencontres par JOURNÉE (date prévue par la FFT), avec la date réelle quand elle a été décalée ; lecture en deux lignes
     var jOf = function (r) { var k = r.dt || r.d, j = cal.filter(function (x) { return x.d === k; })[0]; return j ? j.j : null; };
     var tm = function (r) {
@@ -16932,6 +16960,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     epTab: function (el) { S.prefs = S.prefs || {}; S.prefs.epTab = el.dataset.v; save(); render(); window.scrollTo(0, 0); if (el.dataset.v === "club") { try { clubRefresh(); lcMotion(); } catch (e) {} } },
     // 3.81 : Le club : filtre par place (puces de la carte), regroupement des équipes
     lcF: function (el) { UI.lcF = UI.lcF === el.dataset.v ? "" : el.dataset.v; render(); },
+    // 3.81 : partager le bilan d'une saison du club, les scores du dernier week-end, le bilan d'une équipe (image, comme les autres partages)
+    lcShare: function (el) { var V = lcShareV(el.dataset.k, el.dataset.v); if (V) shareVisual(V); },
     lcGrp: function (el) { S.prefs = S.prefs || {}; S.prefs.lcGrp = el.dataset.v; save(); render(); },
     resCancel: function () { UI.resEdit = false; render(); },
     resDel: function () { var t = tourOf(route().split("/")[1]); if (!t) return; t.resUrl = ""; UI.resEdit = false; save(); render(); },

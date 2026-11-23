@@ -6492,3 +6492,7 @@ button.acr, a.acr { cursor: pointer; }
   .lc-hill .ln { stroke-dasharray: 600; stroke-dashoffset: 600; animation: mxDraw 1.2s ease-out .3s forwards; }
   .lc-hill .bl { transform-box: fill-box; transform-origin: 50% 50%; animation: mxPop .45s cubic-bezier(.3,1.6,.5,1) 1.4s both; }
 }
+.lc-more.lc-sh { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--ink); }
+.lc-more.lc-sh svg { width: 16px; height: 16px; }
+.lc-shp { align-self: center; margin: 14px auto 4px; }
+.screen > .lc-shp { display: flex; }
