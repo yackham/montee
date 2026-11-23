@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.94.1",
+    VERSION: "3.94.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -3714,20 +3714,33 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       key ? (n === 1 ? "Une semaine à un seul match, " + dl(key.day) + " contre " + (key.name && key.name !== "Ton adversaire" ? key.name + " (" + key.rank + ")" : "un " + key.rank) + ". C'est lui qui compte." :
         plural(n, "rendez-vous", "rendez-vous") + " cette semaine. Celui qui compte : " + dl(key.day) + " contre " + (key.name && key.name !== "Ton adversaire" ? key.name + " (" + key.rank + ")" : "un " + key.rank) + (g ? ", +" + g + " pts si tu gagnes" : "") + ".") :
       plural(n, "rendez-vous", "rendez-vous") + " cette semaine, dans « Ce qui arrive ».";
-    return { n: n, key: key, lv: lv, gain: g, r: r, t: t1 };
+    var who = function (k, h) { var nm = k.name && k.name !== "Ton adversaire"; return h ? (nm ? esc(k.name) + " " : "un ") + mpRk(k.rank) : nm ? k.name + " (" + k.rank + ")" : "un " + k.rank; };
+    var h1 = !n ? esc(t1) : key ? (n === 1 ? "Une semaine à un seul match, " + dl(key.day) + " contre " + who(key, 1) + ". C'est lui qui compte." :
+      plural(n, "rendez-vous", "rendez-vous") + " cette semaine. Le plus important : " + dl(key.day) + " contre " + who(key, 1) + (g ? " (+" + g + " pts)" : "") + ".") : esc(t1);
+    return { n: n, key: key, lv: lv, gain: g, r: r, t: t1, h: h1 };
   }
+  // 3.93.1 (Yann, retour build) : Ace dans la carte (plus chaleureux) et le cap en vrai compteur à cocher, relié au match de la semaine
   function weekHtml(c) {
     var t = today(); if (t.getDay() !== 1 || !S.matches.length || S.demo || isRelDay()) return "";
     if ((S.wkSeen || "") === E.iso(t)) return "";
-    var W = weekInfo(c), open = !PLUS_LOCK(), rows = "", cp = null; try { cp = capData(c); } catch (e) {}
-    if (cp && !cp.done) rows += mpRow("Ton cap", mpX(cp.won.length + " victoire" + (cp.won.length > 1 ? "s" : "") + " sur " + cp.n, open) + " contre des " + mpRk(lab(cp.lvl)) + " avant le " + esc(chRelLab(cp.rel)), !open);
-    if (W.lv && W.r && !W.r.down) rows += mpRow("Si tu gagnes " + JOURS[E.parseDate(W.key.day).getDay()], "Tes chances de monter : " + mpX(Math.round(W.r.p * 100) + " → " + Math.round(W.lv.ifW * 100) + " %", open), !open);
+    var W = weekInfo(c), open = !PLUS_LOCK(), cp = null; try { cp = capData(c); } catch (e) {}
+    var s = '<div class="card mp-c mp-wk"><div class="mp-wk-top">' + coBall("wk" + E.iso(t), W.key ? "concentree" : "joie", "sm") +
+      '<div class="mp-wk-tx"><span class="eyebrow">Ton lundi avec Ace</span><b class="mp-t mp-t2">' + W.h + "</b></div>" +
+      '<button class="iconbtn sm" data-a="wkHide" aria-label="Masquer jusqu\'à lundi prochain">' + I.cross + "</button></div>";
+    if (cp && !cp.done) {
+      var k = cp.won.length, lvl = mpRk(lab(cp.lvl)), counts = W.key && E.idx(T.normRank(W.key.rank || "")) >= cp.lvl;
+      var jd = W.key ? JOURS[E.parseDate(W.key.day).getDay()] : "";
+      var nx = W.key ? (counts ? "Gagne " + jd + " et tu coches ta " + (k ? (k + 1) + "e" : "1re") + " balle." : "Vendredi ne coche pas de balle, mais une victoire compte quand même pour ton bilan.".replace("Vendredi", jd.charAt(0).toUpperCase() + jd.slice(1))) : "Pas de match prévu cette semaine pour cocher une balle.";
+      s += '<div class="mp-sep"></div><div class="mp-cap"><div class="mp-cap-h"><small>Ton cap pour monter ' + mpRk(lab(cp.tgt)) + (open ? "" : ' <span class="ch-plus">Montée+</span>') + "</small>" +
+        "</div>" +
+        '<div class="mp-cap-d' + (open ? "" : " ch-blur") + '">' + capDots(cp.n, k) + "<b>" + (cp.n - k > 1 ? "Encore " + (cp.n - k) + " à aller chercher" : "Plus qu'une à aller chercher") + "</b></div>" +
+        '<span class="mp-s">Bats ' + (open ? cp.n : pwX(cp.n)) + " " + (cp.n > 1 ? "joueurs classés " : "joueur classé ") + lvl + " ou mieux d'ici la sortie du " + esc(chRelLab(cp.rel)) + ". Chaque victoire coche une balle toute seule.</span>" +
+        (open ? '<span class="mp-cap-nx">' + nx + "</span>" : "") + "</div>";
+    }
     var cd = null; try { cd = coachData(); } catch (e) {}
     var tip = cd && Array.isArray(cd.plan) && cd.plan[0];
-    if (tip) rows += mpRow("À travailler cette semaine", open ? esc(tip.t) : pwX(tip.t), !open);
-    var mon = new Date(t.getTime()), lbl = "semaine du " + mon.getDate() + " " + MOIS[mon.getMonth()];
-    return '<div class="card mp-c mp-wk"><div class="mp-hd"><span class="eyebrow">Ton lundi avec Ace · ' + esc(lbl) + '</span><button class="iconbtn sm" data-a="wkHide" aria-label="Masquer jusqu\'à lundi prochain">' + I.cross + "</button></div>" +
-      '<b class="mp-t mp-t2">' + esc(W.t) + "</b>" + (rows ? '<div class="mp-sep mp-sep2"></div>' + rows : "") + (open ? '<a class="go-pill mp-go" href="#/coach">Ma semaine en entier ' + I.next + "</a>" : mpPill("week", "Ma semaine en entier")) + "</div>";
+    if (tip) s += '<div class="mp-sep mp-sep2"></div>' + mpRow("À travailler cette semaine", open ? esc(tip.t) : pwX(tip.t), !open);
+    return s + (open ? '<a class="go-pill mp-go" href="#/coach">Ma semaine en entier ' + I.next + "</a>" : mpPill("week", "Ma semaine en entier")) + "</div>";
   }
   // 6. Ton objectif : le bilan d'Ace à chaque sortie (pendant la semaine qui suit), mois cochés quand tu as gagné
   function goalSortieHtml(c) {
@@ -10990,10 +11003,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function capDots(n, k) { if (n > 6) return '<span class="cap-bar" role="img" aria-label="' + k + " sur " + n + '"><i style="width:' + Math.round(100 * Math.min(k, n) / n) + '%"></i></span>'; var o = ""; for (var i = 0; i < n; i++) o += '<i class="' + (i < k ? "on" : "") + '"></i>'; return '<span class="cap-dots">' + o + "</span>"; }
   function capHtml(cp) {
     if (!cp) return "";
-    var L = function (r) { return esc(lab(r)); }, who = "joueurs classés " + L(cp.lvl) + " ou mieux";
+    var L = function (r) { return esc(lab(r)); }, who = "joueurs classés " + mpRk(lab(cp.lvl)) + " ou mieux"; // 3.93.1 : balle jaune devant le classement
     var s = '<div class="card cap"><div class="cap-hd"><span class="eyebrow">Ton cap · avant la sortie du ' + esc(fdate(cp.rel).replace(/\.$/, "")) + '</span><span class="cap-j">' + (cp.done ? "atteint" : "J-" + cp.days) + "</span></div>" +
       '<b class="cap-t">' + (cp.done ? "Cap atteint : " + plural(cp.n, "victoire") + " contre des " + who + "." : "Bats " + (cp.n > 1 ? cp.n + " " + who : "1 " + who.replace(/^joueurs classés/, "joueur classé").replace(/ ou mieux$/, " ou mieux")) + ".") + "</b>" +
-      '<div class="cap-row">' + capDots(cp.n, cp.won.length) + '<small>' + cp.won.length + " sur " + cp.n + " · coché tout seul dès qu'un match entre</small></div>" +
+      '<div class="cap-row mp-cap-d">' + capDots(cp.n, cp.won.length) + (cp.done ? '<small>' + cp.won.length + " sur " + cp.n + "</small>" : "<b>" + (cp.n - cp.won.length > 1 ? "Encore " + (cp.n - cp.won.length) + " à aller chercher" : "Plus qu'une à aller chercher") + '</b><small>coché tout seul dès qu\'un match entre</small>') + "</div>" + // 3.93.1 (Yann) : un compteur, pas un bilan
+
       '<div class="cap-kv">' +
       (cp.gap ? "<span>Pourquoi " + cp.n + "</span><b>il te manque " + cp.gap + " pts" + (cp.pts ? ", un " + L(cp.lvl) + " battu en vaut " + cp.pts : "") + "</b>" : "") +
       "<span>Le rythme</span><b>1 victoire par mois" + (cp.n > 1 ? (cp.m1 === cp.m2 ? "" : ", de " + cp.m1 + " à " + cp.m2) : "") + "</b>" +
@@ -11064,6 +11078,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var d = coachData(), P = d.P;
     if (d.ms.length < 6) return s + '<h1>Ton bilan avec Ace</h1><div class="card"><span>Encore ' + plural(6 - d.ms.length, "match") + " sur 12 mois pour un vrai bilan.</span></div></div>";
     s += '<h1 class="co-h1">Ton bilan avec Ace</h1><span class="small co-sub">Tes 12 derniers mois · ' + plural(d.ms.length, "match", "matchs") + " · à jour après chaque match</span>";
+    // 3.93.1 (Yann : « il est où Ace ? ») : Ace ouvre son bilan en une phrase (ton point fort, ce qui coûte, ton cap)
+    try {
+      var acp = capData(ctx()), fo = d.strong && d.strong[0] ? d.strong[0].t : "", fa = P.faibs && P.faibs[0] ? CP_LAB[P.faibs[0]] : "";
+      var at = "<b>J'ai lu tes " + plural(d.ms.length, "match", "matchs") + ".</b> " + (fo ? "Ton point fort : <b>" + esc(fo) + "</b>. " : "") + (fa ? "À travailler : <b>" + esc(fa) + "</b>. " : "") +
+        (acp && !acp.done ? "Ton cap : " + plural(acp.n, "victoire") + " contre des " + mpRk(lab(acp.lvl)) + " ou mieux, je les coche pour toi." : "On garde le rythme, je te suis à chaque match.");
+      s += '<div class="card cbl mp-ace co-ace" role="note">' + coBall("coach-intro", fa ? "concentree" : "joie") + '<div class="cbl-t"><span>' + at + "</span></div></div>";
+    } catch (e) {}
     // 1 · Le compétiteur que tu es
     var tags = d.strong.slice(0, 2).map(function (x) { return '<span class="g">' + esc(x.t) + "</span>"; }).concat(P.faibs.slice(0, 2).map(function (k) { return '<span class="r">' + esc(CP_LAB[k]) + "</span>"; })).join("");
     var perf = P.R.perf && P.R.perf.g, solid = P.R.solid && P.R.solid.g;
