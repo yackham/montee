@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.0.0",
+    VERSION: "4.0.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -13882,8 +13882,28 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (file && navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: "Mes matchs" }).then(done).catch(function () {}); return; }
       var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/calendar" })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500); done();
     };
-    if (NATIVE && Tenup) { Promise.resolve().then(function () { return Tenup.saveFile({ name: name, content: txt, mime: "text/calendar", share: true }); }).then(done).catch(web); return; }
+    var file = function () { Promise.resolve().then(function () { return Tenup.saveFile({ name: name, content: txt, mime: "text/calendar", share: true }); }).then(done).catch(web); };
+    // 4.0.3 : plusieurs dates → ajout natif, le joueur choisit son calendrier (l'aperçu .ics groupé d'iOS ne le permet pas)
+    if (NATIVE && Tenup && L.length > 1 && Tenup.addEvents) {
+      Promise.resolve().then(function () { return Tenup.addEvents({ events: calEvents(L) }); }).then(function (r) {
+        if (r && r.cancelled) return;
+        if (!r || !r.added) { file(); return; }
+        S.calX = S.calX || {}; L.forEach(function (z) { S.calX[z.k] = calSig(z); }); save(); UI.sheet = null; UI.calSel = null; haptic("success");
+        toast(r.added > 1 ? "Tes " + r.added + " dates sont dans " + (r.calendar ? "« " + r.calendar + " »" : "ton calendrier") + "." : "Ta date est dans ton calendrier."); render();
+      }).catch(file);
+      return;
+    }
+    if (NATIVE && Tenup) { file(); return; }
     web();
+  }
+  // Mêmes dates que le .ics, pour l'ajout natif : heure locale, 2 h de match, rappel 2 h avant (6 h avant la journée sans heure)
+  function calEvents(L) {
+    return L.map(function (z) {
+      var hm = obHm(z.time), st = E.parseDate(z.d), en;
+      if (hm) { st.setHours(hm.h, hm.m, 0, 0); en = new Date(st.getTime() + 2 * 3600e3); }
+      else { st.setHours(0, 0, 0, 0); en = E.parseDate(z.to || z.d); en.setHours(0, 0, 0, 0); en.setDate(en.getDate() + 1); }
+      return { title: z.rel ? "Sortie du classement" : "Tennis · " + z.title, start: st.getTime(), end: en.getTime(), allDay: !hm, loc: z.loc || "", notes: z.sub ? z.sub + " · ajouté par Montée" : "", alarmMin: z.rel ? 0 : hm ? 120 : 360 };
+    });
   }
 
   // ---------- 6 · Les règles en poche ----------
@@ -13923,7 +13943,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function rgBtn(key, lab) { return '<button class="row ob-rg" data-a="rgOpen" data-v="' + esc(key) + '"><span class="badge">' + svg('<path d="M5 4h11l3 3v13H5z"/><path d="M9 10h6M9 14h6"/>', 2.2) + '</span><span class="grow"><span class="t">Les règles en poche</span><span class="s">' + esc(lab) + "</span></span>" + I.next + "</button>"; }
 
   // ---------- 7 · Ta saison ----------
-  function saisonRowHtml() { return '<a class="row ob-sr" href="#/saison"><span class="badge">' + P_CAL + '</span><span class="grow"><span class="t">Ta saison, mois par mois</span><span class="s">Tes épreuves, ton équipe, tes indispos et les sorties</span></span>' + I.next + "</a>"; }
+  function saisonRowHtml() {
+    var L = obUpcoming(183), n = L.length, nx = L[0];
+    var sub = nx ? "Prochaine date : " + esc(obDayLab(nx.d).toLowerCase()) + " · " + plural(n, "date", "dates") + " d'ici 6 mois" : "Tes épreuves, ton équipe, tes indispos et les sorties";
+    return '<a class="card ob-st" href="#/saison"><span class="ob-sti">' + P_CAL + '</span><span class="grow"><b>Ta saison, mois par mois</b><small>' + sub + "</small></span>" + I.next + "</a>";
+  }
   function saisonAlerts(L, offs) {
     var A = [], td = today();
     // Week-ends : un week-end « joué » = un match prévu samedi ou dimanche ; 3 de suite, hors indispos
@@ -13945,6 +13969,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var offs = (S.off || []).filter(function (o) { return o && o.to >= td; }).sort(function (a, b) { return a.from < b.from ? -1 : 1; });
     var A = saisonAlerts(L, offs);
     var s = '<div class="screen">' + topbar("Ta saison", backLab("Mes épreuves")) + '<p class="lead" style="margin-top:-8px">Tes tournois, tes indivs, ton équipe et tes pauses, sur un seul fil. Les sorties du classement en repère.</p>';
+    if (L.length) { var nCh = calChanged().length; s += '<div class="ob-btns col ob-calcta"><button class="btn balle" data-a="calOpen">' + P_CAL + "<span>" + (nCh ? plural(nCh, "date a changé", "dates ont changé") + " : mets ton calendrier à jour" : "Ajouter mes dates à mon calendrier") + "</span></button></div>"; }
     if (A.length && !lock) s += obAce("repos", A.map(function (a) { return "<b>" + esc(a.t) + ".</b> " + esc(a.s); }).join(" "));
     var nM = 0;
     for (var k = 0; k < 6; k++) {
@@ -13959,7 +13984,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         '<div class="card ob-c ob-cl">' + (ev.length ? ev.map(function (x) { return x.h; }).join("") : '<span class="ob-s" style="padding:12px 0">Rien de prévu pour l\'instant.</span>') + al + "</div>";
     }
     if (lock && A.length) s += '<div class="ob-btns"><button class="btn balle small" data-a="goSoutenirComp">Voir mes alertes avec Montée+</button></div>';
-    s += '<div class="ob-btns"><button class="btn soft small" data-a="offOpen">+ Ajouter une indispo</button>' + (L.length ? '<button class="btn soft small" data-a="calOpen">Ajouter à mon calendrier</button>' : "") + "</div>";
+    s += '<div class="ob-btns"><button class="btn soft small" data-a="offOpen">+ Ajouter une indispo</button></div>';
     if (!nM && !offs.length) s += '<span class="small" style="text-align:center;margin:6px 16px">Tes tournois et indivs arrivent ici dès ton inscription sur Ten\'Up, et tes rencontres par équipes dès qu\'elles sont programmées.</span>';
     return s + "</div>";
   };

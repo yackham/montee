@@ -33,6 +33,10 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Montée ajoute les dates de tes matchs dans le calendrier que tu choisis. Elle n'utilise pas tes autres rendez-vous et rien n'est envoyé ailleurs.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Montée ajoute les dates de tes matchs dans le calendrier que tu choisis. Elle n'utilise pas tes autres rendez-vous et rien n'est envoyé ailleurs.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Montée lit tes séances de tennis (date, heure, durée), ta fréquence cardiaque et tes calories pendant ces séances, ta fréquence cardiaque au repos et ta date de naissance (pour tes zones cardio), pour les ajouter à tes entraînements et tracer la courbe cardio de tes matchs. Rien n'est écrit dans Santé ni envoyé ailleurs.</string>
 	<key>NSHealthUpdateUsageDescription</key>

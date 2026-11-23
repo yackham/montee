@@ -6798,3 +6798,13 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .mp-cap-nx { font-size: 14.5px; font-weight: 700; color: var(--ink); line-height: 1.4; }
 .cap-row.mp-cap-d small { white-space: normal; flex-basis: 100%; }
 .co-ace { margin-top: 4px; }
+/* 4.0.3 : « Ta saison » en vraie tuile, bouton calendrier en action principale */
+.ob-st { flex-direction: row; align-items: center; gap: 14px; text-decoration: none; color: inherit; margin-bottom: 4px; }
+.ob-st .grow { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ob-st b { font-size: 17px; font-weight: 700; }
+.ob-st small { font-size: 14px; color: var(--muted); line-height: 1.35; }
+.ob-st > svg { flex: none; color: var(--muted); }
+.ob-sti { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--gazon); box-shadow: inset 0 0 0 2px currentColor; }
+.ob-sti svg { width: 22px; height: 22px; }
+.ob-calcta { margin: 0 0 14px; }
+.ob-calcta .btn svg { width: 20px; height: 20px; flex: none; }
