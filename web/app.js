@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.77.1",
+    VERSION: "3.78.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -8081,7 +8081,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var nx = c.proj.next; if (!nx) return null;
     var cm = countedMap(nx), t0 = today(), best = null;
     allMatches().forEach(function (m) { if (cm[m.id] == null || !m.date) return; var lv = E.leaveDate(m); if (lv >= t0 && (!best || lv < best.d)) best = { d: lv, m: m, pts: cm[m.id] }; });
-    return best && (best.d - t0) / 864e5 <= 100 ? { dt: fdate(E.iso(best.d)).replace(/\.$/, ""), rank: best.m.oppRank, pts: best.pts } : null;
+    return best && (best.d - t0) / 864e5 <= 100 ? { dt: fdate(E.iso(best.d)).replace(/\.$/, ""), rank: best.m.oppRank, pts: best.pts, days: Math.round((best.d - t0) / 864e5), iso: E.iso(best.d) } : null;
   }
   function coRoute(c, pl) {
     var ez = pl && pl.list && pl.list[0]; if (!ez) return null;
@@ -8109,6 +8109,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       d >= 2 && L.every(function (m) { return sets(m).length === 2; }) ? "Il t'a battu " + d + " fois en 2 sets : prépare ton plan avant, c'est là que ça se gagne." : "";
     if (!tail) return [];
     return [{ id: "adv:" + key + ":" + pl.length, mood: v >= d ? "joie" : "concentree", fresh: true, t: "<b>" + head + ".</b> " + tail }];
+  }
+  // 3.75 : sur sa fiche, Ace propose de préparer le match (tes chances, ce qu'il rapporte) et ouvre la carte « Contre lui »
+  function coAdvPrep(key) {
+    var o = coMatchFind("vs:" + key); if (!o || !o.rank) return null;
+    var st = coStake(o); if (st.p == null) return null;
+    return { id: "adv:prep:" + key + ":" + (o.d || ""), mood: "concentree", fresh: true, t: "<b>" + (o.d ? esc(coWhen(o)) + " contre lui : " : "Contre lui : ") + st.p + " % de chances" + (st.g > 0 ? ", +" + st.g + " pts si tu gagnes" : "") + ".</b> Je te prépare le match ?", act: { l: "Prépare-moi le match", a: "ace", v: "vs:" + key } };
   }
   // Courbes : ton niveau joué face à ton classement, et ce qu'il manque
   function coCbTips(c) {
@@ -8146,20 +8152,150 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var pts = g ? "Une victoire rapporte " + g + " pts" + (now < nm ? (now + g >= nm ? " et te fait passer la norme " + esc(nx.label) + "." : " et te laisse à " + plural(nm - now - g, "pt") + " de la norme " + esc(nx.label) + ".") : ".") : "";
     return [{ id: "tb:" + t.id + ":" + (t.rounds || []).indexOf(r) + ":" + rk, mood: pr != null && pr <= 40 ? "concentree" : "reflexion", fresh: true, t: "<b>" + when + (nmO ? esc(nmO) + " (" + esc(rk) + ")" : "un " + esc(rk)) + odds + ".</b> " + pts }];
   }
+  // ---- 3.75 (Yann, 23/11 : « un super assistant qui propose de voir des cartes au bon moment ») ----
+  // Une seule intervention à la fois (match > résultat > sortie de bilan > le reste), jamais de fenêtre qui s'ouvre seule,
+  // rien que des chiffres déjà calculés dans l'app. « Pas utile » coupe la carte 3 semaines (CO_MUTE).
+  // Tes prochains matchs en simple (tableau, poule ou match prévu) dont on connaît l'adversaire, d'aujourd'hui à J+days
+  function coUpMatches(days) {
+    var td = E.iso(today()), lim = E.iso(new Date(today().getTime() + (days || 7) * 864e5)), out = [];
+    toursAll().filter(function (t) { return !tourOver(t) && !t.wait; }).forEach(function (t) {
+      (t.rounds || []).forEach(function (r) { if (r.res || !r.day || r.day < td || r.day > lim || !r.opp || !r.opp.rank) return; out.push({ d: r.day, time: r.time || "", name: r.opp.name ? trNm(r.opp.name) : "", rank: r.opp.rank, tid: r.opp.tid || "", t: t, comp: t.name || "Tournoi", href: "#/tournoi/" + t.id }); });
+      (t.pool || []).forEach(function (x) { if (x.res || !x.day || x.day < td || x.day > lim || !x.name) return; out.push({ d: x.day, time: x.time || "", name: trNm(x.name), rank: x.rank || "", tid: x.tid || "", t: t, comp: "Poule · " + (t.name || "Épreuve"), href: "#/tournoi/" + t.id }); });
+    });
+    plans().forEach(function (pl) { if (pl.day < td || pl.day > lim || (pl.tour && tourOf(pl.tour))) return; out.push({ d: pl.day, time: pl.time || "", name: pl.name ? nameCase(pl.name) : "", rank: pl.rank || "", tid: pl.id || "", pl: pl, comp: pl.hom ? "Match homologué" : "Match libre", href: "#/joueur/" + encodeURIComponent(pl.id || "") }); });
+    out.forEach(function (o) { o.key = o.name ? nameKey(o.name) : ""; o.id = "next:" + o.d + ":" + (o.key || o.rank); });
+    return out.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : (a.time || "99") < (b.time || "99") ? -1 : 1; });
+  }
+  // tes chances et ce que rapporte une victoire : les mêmes calculs que sa fiche et la page de l'épreuve
+  function coStake(o) {
+    var trk = TR_KIND, p = null, g = null; TR_KIND = o.t && o.t.kind === "champ" ? "champ" : "tournoi";
+    try { p = o.pl && o.pl.p != null ? o.pl.p : o.rank ? trP(o.rank, o.tid) : null; g = o.rank ? trGain(o.rank) : null; } catch (e) {}
+    TR_KIND = trk; return { p: p, g: g };
+  }
+  function coHour(t) { var m = /^(\d{1,2})[:h](\d{2})?/.exec(t || ""); return m ? +m[1] + " h" + (m[2] && m[2] !== "00" ? " " + m[2] : "") : ""; }
+  function coWhen(o, low) { var g = dGap(o.d), x = E.parseDate(o.d), d = g === 0 ? "aujourd'hui" : g === 1 ? "demain" : JOURS[x.getDay()] + " " + x.getDate() + " " + MOIS[x.getMonth()], h = coHour(o.time); d += h ? " " + h : ""; return low ? d : cap1(d); }
+  function coH2h(key) {
+    if (!key) return null;
+    var ms = knownMatches(false).filter(function (m) { return m.opp && !isAnon(m.opp) && nameKey(m.opp) === key && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
+    if (!ms.length) return null; var v = ms.filter(function (m) { return m.result === "V"; }).length; return { ms: ms, v: v, d: ms.length - v };
+  }
+  // sa forme : ses 3 derniers simples lus sur sa fiche Ten'Up (seulement si elle est déjà dans le téléphone)
+  function coForm(tid) {
+    var sc = tid && (S.scout || {})[String(tid)]; if (!sc || !sc.rows) return null;
+    var r = sc.rows.filter(function (x) { return x.date && !x.dbl && !x.wo && (x.result === "V" || x.result === "D"); }).sort(function (a, b) { return a.date < b.date ? 1 : -1; }).slice(0, 3);
+    return r.length ? { rows: r, at: sc.got || sc.ts || 0 } : null;
+  }
+  function coAgo(iso) { var g = -dGap(iso); return g <= 0 ? "aujourd'hui" : g === 1 ? "hier" : g < 14 ? "il y a " + g + " jours" : g < 60 ? "il y a " + Math.round(g / 7) + " semaines" : "en " + MOIS_L[E.parseDate(iso).getMonth()]; }
+  function coMatchFind(q) {
+    var up = coUpMatches(30); if (q === "next") return up[0] || null;
+    var key = q.slice(3), o = up.filter(function (x) { return x.key === key; })[0]; if (o) return o;
+    var h = coH2h(key); if (!h) return null;
+    var m0 = h.ms[0], sc = m0.oid && (S.scout || {})[String(m0.oid)], rk = (sc && sc.profil && T.normRank(sc.profil.classement)) || m0.oppRank || "";
+    return { name: nameCase(m0.opp), rank: rk, tid: m0.oid || "", key: key, d: "", comp: "" };
+  }
+  // « Ton match de demain » (ou « Contre lui » depuis sa fiche) : tes chances, ce qu'il rapporte, le face-à-face, sa forme, ta consigne
+  function coMatchAns(c, q) {
+    var o = coMatchFind(q), A = [], F = [], XH = "", p = c.proj, sup = isSup();
+    if (!o) return { a: ["Ajoute ton prochain match (tableau, poule ou match prévu) : je te le prépare."], f: [], facts: [], x: "", mood: "reflexion" };
+    var st = coStake(o), pc = st.p, g = st.g, h = coH2h(o.key), nx = p.status !== "top" ? p.next : null, nm = esc(o.name || "ton adversaire");
+    A.push("<b>" + (pc == null ? "Je n'ai pas encore de quoi calculer tes chances" : pc >= 60 ? "Tu pars favori : " + pc + " % de chances" : pc >= 40 ? "Match jouable : " + pc + " % de chances" : "Il part favori, rien d'impossible : " + pc + " % de chances") + ".</b>" +
+      (nx && g ? (nx.total < nx.norme && nx.total + g >= nx.norme ? " Gagne-le et tu passes la norme " + esc(nx.label) + "." : " Gagne-le et ton bilan passe à " + (nx.total + g) + " / " + nx.norme + ".") : ""));
+    var d = coD(), wk = d ? coWeak(d) : null;
+    if (sup && wk && CP_HOW[wk.k] && CP_HOW[wk.k].m) A.push("<b>Ta consigne :</b> " + esc(CP_HOW[wk.k].m.charAt(0).toLowerCase() + CP_HOW[wk.k].m.slice(1)));
+    var fiche = o.tid ? "#/joueur/" + encodeURIComponent(o.tid) : h ? "#/adversaire/" + encodeURIComponent(o.key) : o.href || "";
+    var last = h ? E.parseDate(h.ms[0].date) : null;
+    XH += acCard(o.d ? "Ton match" : "Contre lui", acRow({ l: nm + acRk(o.rank), s: (o.d ? esc(coWhen(o)) + (o.comp ? " · " : "") : "") + esc(o.comp || (o.rank ? "classé " + o.rank : "")), href: fiche || null }) +
+      (pc != null ? acRow({ l: "Tes chances", bar: pc, cl: acTone(pc), v: pc + " %" }) : "") +
+      (nx && g ? acRow({ l: "Une victoire rapporte", s: "dans ton bilan " + esc(nx.label), v: "+" + g, cl: "g", sheet: ["mmBilan", "up"] }) : "") +
+      acRow(h ? { l: "Face-à-face", s: plural(h.ms.length, "match", "matchs") + ", " + (h.ms[0].result === "V" ? "gagné" : "perdu") + " le dernier" + (last ? " en " + last.getFullYear() : ""), v: h.v + "-" + h.d, cl: h.v > h.d ? "g" : h.v < h.d ? "r" : "", sheet: ["h2hm", o.key] } : { l: "Face-à-face", s: "première fois contre lui" }) +
+      (pc != null ? '<span class="acd-f">% : tes chances, d\'après tes résultats contre les ' + esc(o.rank) + " et les siens</span>" : ""));
+    var f = coForm(o.tid);
+    if (f) XH += acCard("Lui, en ce moment", f.rows.map(function (r) { return acRow({ sq: r.result, l: "Contre un " + esc(r.oppRank || "joueur non classé"), s: esc(coAgo(r.date)) + (r.score ? " · " + esc(r.score) : "") }); }).join("") + '<span class="acd-f">Tiré de sa fiche Ten\'Up' + (f.at ? ", lue " + esc(agoLab(f.at)) : "") + "</span>");
+    if (!sup && wk) XH += '<a class="acd acd-up" href="#/soutenir"><span class="ace-pl">Montée+</span><span>Ajoute ta consigne pour ce match, tirée de ton point faible</span><b>Découvrir ' + I.next + "</b></a>";
+    var acts = fiche ? '<a class="btn soft small acd-btn" href="' + fiche + '">Voir sa fiche</a>' : "";
+    if (o.d && NATIVE && LN) {
+      var rem = (S.aceRem || []).some(function (r) { return r.d === o.d && r.name === (o.name || ""); }), planOk = o.pl && S.notif && np("avant");
+      acts += planOk ? '<span class="acd-f">Je te le rappelle le matin du match.</span>' : rem ? '<span class="acd-f">' + I.check + "Rappel prévu le jour J</span>" : '<button class="btn soft small acd-btn" data-a="aceRemind" data-v="' + esc([o.d, o.time || "", o.name || "", o.rank || ""].join("|")) + '">Le jour J, rappelle-moi</button>';
+    }
+    if (acts) XH += '<div class="acd-acts">' + acts + "</div>";
+    if (o.t && o.t.fmt === "poule") F.push(["Mes autres matchs de poule", "poule:" + o.t.id]); else if (o.t) F.push(["Voir le tournoi", "", o.href]);
+    if (nx) F.push(["Comment je monte ?", "up"]);
+    return { a: A, f: F, facts: [], x: XH, mood: pc != null && pc >= 60 ? "joie" : "concentree" };
+  }
+  // Après une synchro Ten'Up : les nouveaux résultats (7 jours), notés par importPayload
+  function coNews(days) {
+    var n = S.aceNews; if (!n || !n.ids || !n.at || Date.now() - n.at > (days || 7) * 864e5) return null;
+    var by = {}; S.matches.forEach(function (m) { by[m.id] = m; });
+    var ms = n.ids.map(function (id) { return by[id]; }).filter(function (m) { return m && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
+    return ms.length ? { ms: ms, n: n } : null;
+  }
+  function coNewsSum(c, N) {
+    var p = c.proj, nx = p.status !== "top" ? p.next : null, cm = nx ? countedMap(nx) : {}, cur = c.cur < 0 ? 0 : c.cur, gain = 0, perf = 0, wins = 0;
+    var rows = N.ms.map(function (m) { var pts = cm[m.id], o = E.idx(T.normRank(m.oppRank || "")), pf = m.result === "V" && !m.wo && o != null && o > cur; if (pts) gain += pts; if (pf) perf++; if (m.result === "V") wins++; return { m: m, pts: pts, pf: pf }; });
+    return { nx: nx, rows: rows, gain: gain, perf: perf, wins: wins, before: N.n.b && nx && N.n.b.l === nx.label ? N.n.b.t : null };
+  }
+  function coNewsRow(x, link) { var m = x.m; return acRow({ sq: m.result, l: esc(nameCase(m.opp || "Adversaire")) + acRk(m.oppRank), s: esc(fdate(m.date).replace(/\.$/, "")) + (m.score ? " · " + esc(m.score) : "") + (x.pf ? " · une perf" : ""), scl: x.pf ? "g" : "", v: x.pts ? "+" + x.pts : "", cl: x.pts ? "g" : "", href: link ? "#/match/" + m.id : null }); }
+  function coNewsBig(z) { var nx = z.nx, gp = Math.max(0, nx.norme - nx.total); return acBig(nx.total + "<small> / " + nx.norme + "</small>", z.before != null && z.before !== nx.total ? "avant : " + z.before : "", gp ? "y" : "g", 100 * nx.total / (nx.norme || 1), gp ? '<b class="r">− ' + gp + "</b> pts" : '<b class="g">Atteint</b>'); }
+  function coNewsAns(c) {
+    var N = coNews(), A = [], F = [], XH = "";
+    if (!N) return { a: ["Rien de neuf depuis ta dernière synchro avec Ten'Up."], f: [], facts: [], x: "", mood: "repos" };
+    var z = coNewsSum(c, N), nx = z.nx, pl = null; try { pl = pistes(c); } catch (e) {}
+    var ez = pl && pl.list && pl.list[0], gp = nx ? Math.max(0, nx.norme - nx.total) : 0;
+    A.push("<b>" + (z.perf ? (z.perf > 1 ? z.perf + " perfs" : "Une perf") : z.wins ? plural(z.wins, "victoire") : "Pas de victoire cette fois") + (z.gain ? ", +" + z.gain + " pts" : "") + ".</b>" +
+      (nx ? (gp ? " Il te manque " + plural(gp, "pt") + " pour " + esc(nx.label) + (ez && pl.goal !== "keep" ? " : " + esc(pisteLabel(ez)) + " et c'est fait." : ".") : " Tu as les points pour " + esc(nx.label) + (nx.winAtLevel === false ? ", il manque la victoire qui valide." : ".")) : ""));
+    XH += acCard("Nouveau sur Ten'Up · " + plural(N.ms.length, "résultat"), z.rows.map(function (x) { return coNewsRow(x, true); }).join(""));
+    if (nx) XH += acCard("Ton bilan pour " + esc(nx.label), coNewsBig(z) + acRow({ l: "Les matchs qui comptent", s: "ce que rapporte chacun", sheet: ["mmBilan", "up"] }));
+    var lo = coLastPlayed("D", 60), wi = coLastPlayed("V", 60);
+    if (lo && N.n.ids.indexOf(lo.id) >= 0) F.push(["Ma défaite contre " + nameCase(lo.opp) + ", on en tire quoi ?", "loss"]);
+    if (wi && N.n.ids.indexOf(wi.id) >= 0) F.push(["Ma victoire contre " + nameCase(wi.opp) + ", ça m'a rapporté quoi ?", "win"]);
+    if (nx) F.push(["Je joue qui pour finir le travail ?", "up"]);
+    return { a: A, f: F, facts: [], x: XH, mood: z.gain ? "joie" : "reflexion" };
+  }
+  // importPayload : retient ce qui vient d'arriver de Ten'Up (pas au premier import, ni pour un gros rattrapage)
+  function coNewsMark(b4, bef) {
+    try {
+      if (!bef || !Object.keys(b4).length) return;
+      var ids = S.matches.filter(function (m) { return !b4[m.id] && !m.dbl && (m.result === "V" || m.result === "D"); }).map(function (m) { return m.id; });
+      if (!ids.length || ids.length > 8) return;
+      S.aceNews = { at: Date.now(), ids: ids, b: bef };
+    } catch (e) {}
+  }
+  function coNewsBefore() { try { var p = ctx().proj; return p.status !== "top" && p.next ? { t: p.next.total, n: p.next.norme, l: p.next.label } : { t: 0, n: 0, l: "" }; } catch (e) { return null; } }
+  // « Pour toi, maintenant » : 1 à 3 vraies cartes en tête d'Ace (match qui arrive, nouveaux résultats, bon moment)
+  function coFeed(c) {
+    var m = coMem(), now = Date.now(), ok = function (id) { return !(m.no[id] && now - m.no[id] < CO_MUTE); }, out = [];
+    var acts = function (l, q, id) { return '<div class="acd-acts"><button class="btn soft small acd-btn" data-a="aceQ" data-v="' + q + '">' + l + '</button><button class="acd-no" data-a="coachNo" data-s="feed" data-id="' + esc(id) + '">Pas utile</button></div>'; };
+    var nm = null; try { nm = coUpMatches(7)[0]; } catch (e) {}
+    if (nm && ok(nm.id)) { var st = coStake(nm);
+      out.push({ q: "next", h: acCard('<span class="acd-tag"><i></i>' + esc(coWhen(nm)) + "</span>", acRow({ l: esc(nm.name || "Ton adversaire") + acRk(nm.rank), s: esc(nm.comp), cl: acTone(st.p), v: st.p != null ? st.p + " %" : "" }) + (st.g && c.proj.next ? acRow({ l: "Une victoire rapporte", v: "+" + st.g, cl: "g" }) : "") + acts("Préparer le match", "next", nm.id)) }); }
+    var N = null; try { N = coNews(3); } catch (e) {}
+    if (N && ok("news:" + N.n.at)) { var z = coNewsSum(c, N);
+      out.push({ q: "news", h: acCard("Nouveau sur Ten'Up", coNewsRow(z.rows[0], false) + (z.rows.length > 1 ? '<span class="acd-f">+ ' + plural(z.rows.length - 1, "autre résultat", "autres résultats") + "</span>" : "") + (z.nx ? coNewsBig(z) : "") + acts("Ce qui a changé", "news", "news:" + N.n.at)) }); }
+    var o = null; try { o = c.proj.status !== "top" ? coNextOut(c) : null; } catch (e) {}
+    if (o && o.days <= 30 && ok("when:" + o.iso)) out.push({ q: "when", h: acCard("Le bon moment", acBig(esc(o.dt), "ta victoire contre un " + esc(o.rank) + " sort ce jour-là", "y", null, '<b class="r">− ' + o.pts + "</b> pts") + acts("Je joue quand ?", "when", "when:" + o.iso)) });
+    return out;
+  }
   // Ace partout : sa pastille au-dessus des onglets (Yann, maquette v2 façon Bevel : la grosse balle prenait trop de place)
   function coHomeTip(c) {
     var tips = [], hier = null, jm = null, t0 = E.iso(today());
     try { var yd = E.iso(new Date(today().getTime() - 864e5)); hier = knownMatches(false).filter(function (m) { return (m.date === yd || m.date === t0) && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0]; } catch (e) {} // 3.74.1 : Ace réagit aussi au match saisi aujourd'hui (bulle + point rouge, sans fenêtre automatique)
     var hj = hier && hier.date === t0 ? "aujourd'hui" : "hier";
     try { jm = friseItems().filter(function (z) { return z.d === t0 && !z.todo && !z.rel && !z.dim && !z.team && !z.bd; })[0]; } catch (e) {}
+    // 3.75 : priorité au match qui arrive (aujourd'hui, demain), puis aux nouveaux résultats Ten'Up, puis au match saisi, puis à la victoire qui sort du bilan
+    var nm = null; try { nm = coUpMatches(1)[0]; } catch (e) {}
+    if (nm) tips.push({ id: nm.id, hot: 1, t: coWhen(nm) + " contre " + (nm.name || "un " + nm.rank) + " : ton match est prêt", v: "next" });
+    var N = null; try { N = coNews(3); } catch (e) {}
+    if (N) tips.push({ id: "news:" + N.n.at, hot: 1, t: "Nouveau sur Ten'Up : " + plural(N.ms.length, "résultat") + ". On regarde ce qui a changé ?", v: "news" });
     if (hier && hier.result === "D") tips.push({ id: "home:loss:" + hier.id, t: "Défaite " + hj + ", ça arrive. On regarde ce qui vient ensuite ?", v: "loss" });
     if (hier && hier.result === "V") tips.push({ id: "home:win:" + hier.id, t: "Bien joué " + hj + " ! Tu veux savoir ce que ça t'a rapporté ?", v: "win" });
+    var oW = null; try { oW = c.proj.status !== "top" ? coNextOut(c) : null; } catch (e) {}
+    if (oW && oW.days <= 21) tips.push({ id: "when:" + oW.iso, hot: 1, t: "Ta victoire contre un " + oW.rank + " sort le " + oW.dt + " : c'est le bon moment pour jouer.", v: "when" });
     toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
       if (t.fmt === "poule") { var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }); if (left.length) tips.push({ id: "home:pl:" + t.id + ":" + left.length, t: (left.length > 1 ? left.length + " matchs de poule à caler" : "Un match de poule à caler") + ", on regarde ?", v: "poule:" + t.id }); }
-      else { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r && r.day && r.day >= t0) tips.push({ id: "home:tb:" + t.id + ":" + r.day, t: "Ton prochain tour " + (r.day === t0 ? "aujourd'hui" : "le " + fdate(r.day).replace(/\.$/, "")) + " : on le prépare ?", v: "tour:" + t.id }); }
+      else { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r && r.day && r.day >= t0 && !(nm && nm.t === t)) tips.push({ id: "home:tb:" + t.id + ":" + r.day, t: "Ton prochain tour " + (r.day === t0 ? "aujourd'hui" : "le " + fdate(r.day).replace(/\.$/, "")) + " : on le prépare ?", v: "tour:" + t.id }); }
     });
     if (c.proj.status !== "top" && c.proj.next) { var gap = Math.max(0, c.proj.next.norme - c.proj.next.total); tips.push({ id: "home:up:" + gap, t: c.proj.status === "montee" ? "Tu montes " + lab(c.proj.projected) + " à la sortie. On en parle ?" : gap ? "Il te manque " + plural(gap, "pt") + " pour " + c.proj.next.label + ", on voit comment ?" : "Il te manque une victoire pour " + c.proj.next.label + ", on voit laquelle ?", v: "up" }); }
-    var m = coMem(), now = Date.now(), tip = tips.filter(function (x) { return !(m.no[x.id] && now - m.no[x.id] < CO_MUTE); })[0] || null;
+    var m = coMem(), now = Date.now(), tip = tips.filter(function (x) { return !(m.no[x.id] && now - m.no[x.id] < CO_MUTE) && !(x.hot && m.op[x.id]); })[0] || null; // une carte du moment déjà ouverte laisse la place à la suivante
     return { tip: tip, mood: jm ? "concentree" : hier ? (hier.result === "V" ? "joie" : "decue") : "repos" };
   }
   // Accueil : Ace à côté de la roue des réglages (Yann, 23/11) : petit, il cligne des yeux ; quand il a un truc à te dire,
@@ -8181,6 +8317,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function coQs(c) {
     // [groupe, id, question, titre de tuile, chiffre clé, icône]
     var Q = [], p = c.proj, t0 = E.iso(today()), loss = coLastPlayed("D", 60), win = coLastPlayed("V", 60), cur = c.cur < 0 ? 0 : c.cur;
+    // 3.75 : les sujets « du moment » (hors tuiles : ils passent par « Pour toi, maintenant », la bulle ou la fiche adversaire)
+    try { var up = coUpMatches(30)[0]; if (up) { var ug = dGap(up.d); Q.push(["feed", "next", coWhen(up) + " contre " + (up.name || "un " + up.rank) + ", je fais quoi ?", ug === 0 ? "Ton match d'aujourd'hui" : ug === 1 ? "Ton match de demain" : "Ton prochain match", up.name || up.rank, "versus"]); } } catch (e) {}
+    try { var Nw = coNews(); if (Nw) Q.push(["feed", "news", "Qu'est-ce qui a changé ?", "Nouveau sur Ten'Up", plural(Nw.ms.length, "résultat"), "spark"]); } catch (e) {}
+    var aq = UI.ace && UI.ace.q || ""; if (/^vs:/.test(aq)) { var ov = coMatchFind(aq); if (ov) Q.push(["feed", aq, "Prépare-moi le match contre " + ov.name, "Contre lui", ov.name, "versus"]); }
     if (p.status !== "top" && p.next) { var gap = Math.max(0, p.next.norme - p.next.total);
       Q.push(["now", "up", p.status === "descente" ? "Comment je reste " + lab(cur) + " ?" : "Comment je monte " + p.next.label + " ?", p.status === "descente" ? "Rester " + lab(cur) : "Monter " + p.next.label, p.status === "montee" ? "Tu montes le " + fdate(p.release).replace(/\.$/, "") : gap ? "Il manque " + plural(gap, "pt") : "Il manque une victoire", "chart"]); }
     toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
@@ -8235,6 +8375,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function coAnswer(c, q) {
     var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], XH = "", mood = "repos", pl = null, k = q.split(":");
     try { pl = pistes(c); } catch (e) {}
+    if (k[0] === "next" || k[0] === "vs") return coMatchAns(c, q);
+    if (k[0] === "news") return coNewsAns(c);
     var ez = pl && pl.list && pl.list[0], rel = p.release ? fdate(p.release).replace(/\.$/, "") : "";
     var routeLine = function () { return ez ? esc(pisteLabel(ez)) + (pl.goal === "keep" ? " et tu restes " : " et tu montes ") + esc(lab(pl.target)) + "." : ""; };
     if (k[0] === "up") {
@@ -8391,6 +8533,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var h = coHomeTip(c), hot = h.tip ? h.tip.v : "";
       var g = c.proj.status !== "top" && c.proj.next ? (c.proj.status === "montee" ? "Tu montes " + esc(lab(c.proj.projected)) + " à la prochaine sortie." : "Il te manque " + plural(Math.max(0, c.proj.next.norme - c.proj.next.total), "pt") + " pour " + esc(c.proj.next.label) + ".") : "";
       s += top('<span class="small ace-pv">Gratuit · tout reste dans ton téléphone</span>') + '<div class="ace-hero">' + coBall("ace:hero", h.mood, "xl") + "<span><b>Salut" + (name ? " " + esc(name) : "") + " !</b><small>" + g + " On parle de quoi ?</small></span></div>";
+      // 3.75 : « Pour toi, maintenant », les vraies cartes du moment avant les sujets (un sujet en carte n'est pas répété en tuile)
+      var fd = []; try { fd = coFeed(c); } catch (e) {}
+      var inFd = {}; fd.forEach(function (x) { inFd[x.q] = 1; });
+      if (fd.length) s += '<div class="acf-k"><span class="ace-k">Pour toi, maintenant</span>' + (fd.length > 1 ? "<small>" + fd.length + " cartes</small>" : "") + '</div><div class="acf' + (fd.length === 1 ? " one" : "") + '">' + fd.map(function (x) { return x.h; }).join("") + "</div>";
+      Q = Q.filter(function (x) { return !inFd[x[1]]; });
       [["now", "Maintenant"], ["match", "Tes derniers matchs"], ["long", "Sur la durée"], ["toi", "Toi, en compétiteur"]].forEach(function (gr) {
         var qs = Q.filter(function (x) { return x[0] === gr[0]; }); if (!qs.length) return;
         s += '<span class="ace-k">' + gr[1] + '</span><div class="ace-grid">' + qs.map(function (x) { return '<button class="ace-tile' + (x[1] === hot ? " hot" : "") + '" data-a="aceQ" data-v="' + esc(x[1]) + '"><i>' + (I[x[5]] || I.spark) + "</i><b>" + esc(x[3]) + "</b><small>" + esc(x[4]) + "</small></button>"; }).join("") + "</div>";
@@ -12723,7 +12870,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var name = ms[0].opp, v = ms.filter(function (m) { return m.result === "V" && !m.wo; }).length, d = ms.filter(function (m) { return m.result === "D" && !m.wo; }).length;
     var on = (S.oppNotes || {})[key] || {}, IL = window.MonteeIll;
     var s = '<div class="screen">' + topbar(name, ms[0].oppRank ? "Classé " + ms[0].oppRank + " au dernier match" : "");
-    s += coachBubble("adv", coAdvTips(key, ms)); // 3.73
+    var prep = null; try { prep = coAdvPrep(key); } catch (e) {}
+    s += coachBubble("adv", (prep ? [prep] : []).concat(coAdvTips(key, ms))); // 3.73 ; 3.75 : « Prépare-moi le match » d'abord
     s += '<div class="card opp-head">' +  '<span class="grow"><span class="eyebrow">Face-à-face</span><span class="opp-score" style="color:' + (v > d ? "var(--gazon)" : v < d ? "var(--terre)" : "var(--ink)") + '">' + v + " – " + d + '</span><span class="small">' + plural(ms.length, "match", "matchs") + " contre lui</span></span></div>";
     // Le vrai plus de Montée : sa saison, tes chances, ton plan de jeu. Bien en vue, juste sous le score.
     var first = name.split(" ")[0];
@@ -13487,6 +13635,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.43.2 : fiches de joueurs suivis relues pendant la relance en arrière-plan (déjà notifiées par l'iPhone)
     if (pl && pl.fol && pl.fol.length) { try { pl.fol.forEach(function (x) { var f = (S.follow || {})[x.id], r = x.d; if (r && !r.error) { try { trWatchHit(x.id, T.rows({ raw: r.raw })); } catch (e) {} } if (!f || !r || r.error) return; scoutStore(x.id, f.hit, r, true); /* 3.66.1 : garde ses saisons passées */ folUpdate(x.id, false); }); } catch (e) {} delete pl.fol; }
     if (pl && pl.folOnly) { save(); render(); return; } // relance « joueurs suivis » : ton palmarès n'a pas été relu
+    var aceBef = S.matches.length ? coNewsBefore() : null; // 3.75 : ton bilan avant la synchro, pour « Ce qui a changé »
     opts = opts || {};
     if (!opts.quiet) history.replaceState(null, "", location.pathname + "#/tenup");
     if (pl.error) { if (opts.quiet) return; UI.importError = pl.error; UI.importRows = null; render(); return; }
@@ -13537,7 +13686,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var todo = rows.filter(function (r) { return !r.ok && !r.dup; });
     if (opts.quiet) {
       var addq = rows.filter(function (r) { return r.keep; });
-      var b4q = idSet(); addq.forEach(addImported); hcMergeToast(hcMergeNew(b4q)); try { watchAttach(); } catch (e) {}
+      var b4q = idSet(); addq.forEach(addImported); coNewsMark(b4q, aceBef); hcMergeToast(hcMergeNew(b4q)); try { watchAttach(); } catch (e) {}
       calibrateFromTenup(); setTimeout(anAfterSync, 400); setTimeout(folRefresh, 3000);
       S.tenup.lastAuto = Date.now(); save(); syncNative();
       var parts = [];
@@ -13551,7 +13700,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     if (!todo.length) {
       var add = rows.filter(function (r) { return r.keep; });
-      var b4 = idSet(); add.forEach(addImported); hcMergeToast(hcMergeNew(b4)); try { watchAttach(); } catch (e) {}
+      var b4 = idSet(); add.forEach(addImported); coNewsMark(b4, aceBef); hcMergeToast(hcMergeNew(b4)); try { watchAttach(); } catch (e) {}
       calibrateFromTenup(); setTimeout(anAfterSync, 400); setTimeout(folRefresh, 3000);
       save(); syncNative();
       toast((add.length ? plural(add.length, "nouveau match", "nouveaux matchs") + " depuis Ten'Up" : "Ton palmarès est à jour") +
@@ -14104,6 +14253,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function np(k) { var p = S.notifP || {}; if (k === "lvl") return p.lvl || "norm"; return p[k] == null ? !!NP_DEF[k] : !!p[k]; }
   function npKey(date, a, b) { var tk = function (n) { return String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z]+/).filter(function (t) { return t.length >= 3; }).join(" "); }; return date ? date + "|" + [tk(a), tk(b)].sort().join("|") : ""; }
   function npApply() { lastPlanKey = ""; lastTimingKey = ""; lastTeamNotifKey = ""; lastPoolNotifKey = ""; lastSjKey = ""; try { scheduleSjNotif(); } catch (e) {} try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
+  // 3.75 : les rappels « le jour J » demandés à Ace (4 au plus, ids 2100-2103)
+  function aceRemSync() {
+    if (!NATIVE || !S.notif || !LN) return;
+    var now = new Date(), list = (S.aceRem || []).map(function (r, i) {
+      var d = E.parseDate(r.d); if (!d) return null; var at = new Date(d.getTime()), hm = /^(\d{1,2})[:h](\d{2})?/.exec(r.time || "");
+      if (hm) at.setHours(Math.max(0, +hm[1] - 2), +(hm[2] || 0), 0, 0); else at.setHours(8, 30, 0, 0);
+      if (at <= now) return null;
+      return { id: 2100 + i, title: "Aujourd'hui" + (coHour(r.time) ? " à " + coHour(r.time) : "") + " contre " + (r.name || "un " + r.rank), body: "Ton match est prêt : tes chances, ce qu'il rapporte et votre face-à-face.", schedule: { at: at }, extra: { url: "montee://open/ace/next" } };
+    }).filter(Boolean);
+    LN.cancel({ notifications: [2100, 2101, 2102, 2103].map(function (i) { return { id: i }; }) }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
+  }
   // 3.49 (Montée+) : le lundi du coach, 8 h 30 : tes chances qui bougent et le match qui compte cette semaine
   var lastCoachKey = "";
   function scheduleCoachNotif(force) {
@@ -16720,9 +16880,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       toast("Compris, je ne te le redis pas avant 3 semaines.");
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
-    ace: function (el) { var m = coMem(); if (UI.coHomeId) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; save(); render(); haptic("light"); },
+    ace: function (el) { var m = coMem(); if (UI.coHomeId && el.classList.contains("ace-hd")) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; save(); render(); haptic("light"); },
     aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
     aceClose: function () { UI.ace = null; render(); },
+    // 3.75 : « Le jour J, rappelle-moi » : une notification locale le matin du match (ou 2 h avant l'heure prévue)
+    aceRemind: function (el) {
+      if (!NATIVE || !LN) return;
+      var v = (el.dataset.v || "").split("|"), r = { d: v[0], time: v[1] || "", name: v[2] || "", rank: v[3] || "" };
+      var ok = function () { var td = E.iso(today()); S.aceRem = (S.aceRem || []).filter(function (x) { return x.d >= td && !(x.d === r.d && x.name === r.name); }).concat([r]).slice(-4); save(); aceRemSync(); toast("C'est noté : je te le rappelle le jour J."); render(); };
+      if (S.notif) return ok();
+      if (LN.requestPermissions) LN.requestPermissions().then(function (p) { S.notif = p && p.display === "granted"; save(); if (S.notif) ok(); else toast("Active les notifications de Montée dans les réglages du téléphone."); }).catch(function () {});
+    },
     aceIntro: function (el) { S.aceSeen = 1; save(); if (el.dataset.v === "go") UI.ace = { q: "" }; render(); },
     coachGo: function (el) { var h = el.dataset.h || "", q = h.split("?")[1]; if (q) UI.mmTab = q; UI.sheet = null; UI.ace = null; if (location.hash === h.split("?")[0]) render(); else location.hash = h.split("?")[0]; },
     goSeasonCard: function (ev) { UI.cardWhich = "season"; UI.cardStyle = null; go("carte"); },
@@ -17684,6 +17852,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var mt = u && /tournoi\/(\w+)/.exec(u); if (mt && tourOf(mt[1])) go("tournoi/" + mt[1]);
         if (u && /open\/coach/.test(u)) go(PLUS_LOCK() ? "courbes" : "coach");
         if (u && /open\/seance/.test(u)) go("seance");
+        if (u && /open\/ace/.test(u)) { if (location.hash !== "#/" && location.hash !== "") go(""); setTimeout(function () { UI.ace = { q: "next" }; render(); }, 80); } // 3.75 : le rappel du jour J ouvre ton match dans Ace
         if (u && /open\/plus/.test(u)) { if (trialInfo()) UI.sheet = { k: "trialEnd" }; go(trialInfo() ? "" : "soutenir"); }
       });
       if (ln && ln.catch) ln.catch(function () {});
