@@ -10934,7 +10934,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function ringsWait(n) {
     var sz = 92, w = 7, r = (sz - w) / 2;
     var one = function (k) { return '<a class="cr3-c" href="#/victoires"><svg width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + " " + sz + '" aria-hidden="true"><circle cx="' + sz / 2 + '" cy="' + sz / 2 + '" r="' + r + '" stroke="var(--line)" stroke-width="' + w + '" fill="none" stroke-dasharray="4 6"/><text x="' + sz / 2 + '" y="' + (sz / 2 + 1) + '" text-anchor="middle" dominant-baseline="middle" font-weight="800" font-size="18" fill="var(--muted)">' + n + '<tspan font-size="12">/3</tspan></text></svg><b>' + k + "</b></a>"; };
-    return '<div class="card cr3 cr3-wait"><div class="cr3-row">' + one("Victoires") + one("Forme") + one("Classement réel") + '</div><div class="cr3-say"><b>' + (3 - n === 1 ? "Encore 1 match" : "Encore " + (3 - n) + " matchs") + ' et tes anneaux s\'allument</b><span class="small">Victoires, forme et classement réel se calculent à partir de 3 matchs sur 12 mois.</span></div></div>';
+    return '<div class="card cr3 cr3-wait"><div class="cr3-row">' + one("Victoires") + one("Forme") + one("Niveau") + '</div><div class="cr3-say"><b>' + (3 - n === 1 ? "Encore 1 match" : "Encore " + (3 - n) + " matchs") + ' et tes anneaux s\'allument</b><span class="small">Victoires, forme et classement réel se calculent à partir de 3 matchs sur 12 mois.</span></div></div>';
   }
   function ring3(pct, col, size, w, txt, sub) {
     var r = (size - w) / 2, C = 2 * Math.PI * r, f = Math.max(0, Math.min(1, pct));
@@ -11043,7 +11043,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return '<div class="card cr3' + (go ? " cr3-go" : "") + '"><div class="cr3-row">' +
       cell(ring3(pv, "var(--gazon)", 92, 9, Math.round(pv * 100) + "%"), "Victoires", "victoires") +
       cell(ring3(pf, acc, 92, 9, Math.round(pf * 100) + "%"), "Forme", "!forme") +
-      (lvl != null ? cell(ring3(Math.max(.08, Math.min(1, .5 + (lvl - cur) * .25)), "var(--bleu3)", 92, 9, lab(lvl)), "Classement réel", "!rrWhy") : cell(ring3(nv / Math.max(1, w12.length), "var(--bleu3)", 92, 9, String(w12.length)), "Matchs", "victoires")) +
+      (lvl != null ? cell(ring3(Math.max(.08, Math.min(1, .5 + (lvl - cur) * .25)), "var(--bleu3)", 92, 9, lab(lvl)), "Niveau", "!rrWhy") /* 3.84 (Yann) : « Niveau » comme sur la montre ; « Classement réel » = l'officiel, dans Courbes */ : cell(ring3(nv / Math.max(1, w12.length), "var(--bleu3)", 92, 9, String(w12.length)), "Matchs", "victoires")) +
       "</div>" + (function () {
         var P = null; try { P = pointDuJour(c); } catch (e) {}
         if (!P) return '<div class="cr3-say' + (say.length <= 46 ? " c" : "") + '">' + esc(say) + "</div>";
