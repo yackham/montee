@@ -3164,26 +3164,21 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
   // ---------- Bienvenue ----------
   V.welcome = function () {
-    var st = UI.wStep || 0, dots = '<div class="w-dots">' + [0, 1, 2].map(function (i) { return '<i class="' + (i === st ? "on" : "") + '"></i>'; }).join("") + "</div>";
-    var it = function (ic, t) { return '<div class="alert"><span class="badge ok">' + ic + "</span><span>" + t + "</span></div>"; };
-    var P = [
-      { k: "1 / 3 · Ta projection", h: "Tu montes ce mois&#8209;ci&nbsp;?<br>On te le dit avant mardi.", l: "Ton bilan recalculé après chaque match, ce qui te manque pour l'échelon suivant, et la date de la sortie.",
-        L: [it(I.check, "Ta prochaine sortie de classement, expliquée en une phrase"), it(I.spark, "« Et si… » : simule ton tournoi avant de le jouer")] },
-      { k: "2 / 3 · Chaque match analysé", h: "Ce que valait<br>vraiment ton match.", l: "Les points qu'il t'a rapportés, le vrai niveau de ton adversaire, et ce qui a fait la différence : sets serrés, tie-breaks, raquette, cordage.",
-        L: [it(I.racket, "Avec quelle raquette, quel cordage et quelle tension tu gagnes"), it(I.chart, "Tes courbes : niveau réel, plafond, mental, records")] },
-      { k: "3 / 3 · Ton prochain adversaire", h: "Tape son nom.<br>Prépare ton match.", l: "Tes chances de le battre, son vrai niveau, et un plan de jeu en 3 points tiré de ses résultats et de tes notes.",
-        L: [it(I.versus, "Suis tes adversaires : Montée te prévient s'ils montent"), it(svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>'), "Tout reste sur ton téléphone, rien n'est envoyé")] }
-    ][st];
-    return '<div class="screen welcome">' +
-      '<div class="brand">' + I.logo(30) + "montée" + (st < 2 ? '<button class="linkbtn w-skip" data-a="wSkip">Passer</button>' : "") + "</div>" +
-      (st === 0 ? '<div class="welcome-ill">' + (window.MonteeIll ? window.MonteeIll.welcome() : "") + "</div>" : "") +
-      '<span class="w-k">' + P.k + "</span>" +
-      '<h1 class="xl">' + P.h + "</h1>" +
-      '<p class="lead">' + P.l + "</p>" +
-      '<div class="stack" style="margin-top:6px">' + P.L.join("") + "</div>" +
-      '<div class="spacer"></div>' + dots +
-      (st === 2 ? '<p class="small">Montée n\'est pas lié à la FFT ni à Ten\'Up. Le calcul est indicatif : seul le classement officiel fait foi.</p><a class="btn primary" href="#/tenup">C\'est parti</a><button class="linkbtn" data-a="demo" style="align-self:center">Essayer avec un exemple, sans compte</button>' :
-        '<button class="btn primary" data-a="wNext">Suivant</button>') +
+    // 3.82.1 (Yann, maquette M3 du 23/11) : un seul écran, Ace se présente avec les 3 promesses, puis Ten'Up tout de suite
+    // (avant : 3 écrans de promesses, puis Ace dans une feuille par-dessus l'accueil). Il est présenté : pas de 2e présentation.
+    S.aceSeen = 1;
+    var it = function (b, t) { return '<div class="alert"><span class="badge ok">' + I.check + "</span><span><b>" + b + "</b> " + t + "</span></div>"; };
+    return '<div class="screen welcome w-ace">' +
+      '<div class="brand">' + I.logo(30) + "montée</div>" +
+      '<div class="welcome-ill w-ball">' + coBall("w:intro", "arrivee", "xl") + "</div>" +
+      '<span class="w-k">Ton copain de compète</span>' +
+      '<h1 class="xl">Salut, moi c\'est Ace&nbsp;!</h1>' +
+      '<p class="lead">Je lis tes matchs sur Ten\'Up et je te dis le bon truc au bon moment. Tout reste dans ton téléphone.</p>' +
+      '<div class="stack" style="margin-top:6px">' + it("Tu montes à la sortie ?", "Je te le dis avant, avec ce qui te manque.") + it("Après chaque match :", "ce qu'il t'a rapporté et pourquoi.") + it("Avant le prochain :", "tes chances et comment le jouer.") + "</div>" +
+      '<div class="spacer"></div>' +
+      '<p class="small">Montée n\'est pas lié à la FFT ni à Ten\'Up. Le calcul est indicatif : seul le classement officiel fait foi.</p>' +
+      '<a class="btn primary" href="#/tenup">' + I.link + " Connecter mon compte Ten\'Up</a>" +
+      '<button class="linkbtn" data-a="demo" style="align-self:center">Voir un exemple d\'abord</button>' +
       "</div>";
   };
 
