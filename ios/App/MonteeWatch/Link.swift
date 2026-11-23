@@ -83,6 +83,54 @@ struct WCtx: Codable {
     var lastM: WLastM? = nil
 }
 
+/// 3.92.1 : lecture tolérante. Avant, un seul champ illisible faisait rejeter tout l'envoi de l'iPhone, et la montre gardait les anciennes données (ex. celles d'un autre compte).
+extension WCtx {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        rank = (try? c.decodeIfPresent(String.self, forKey: .rank)) ?? ""
+        next = (try? c.decodeIfPresent(String.self, forKey: .next)) ?? ""
+        pct = try? c.decodeIfPresent(Int.self, forKey: .pct)
+        short = (try? c.decodeIfPresent(String.self, forKey: .short)) ?? ""
+        plus = (try? c.decodeIfPresent(Bool.self, forKey: .plus)) ?? false
+        gap = try? c.decodeIfPresent(Int.self, forKey: .gap)
+        defend = try? c.decodeIfPresent(Int.self, forKey: .defend)
+        defendWhen = try? c.decodeIfPresent(String.self, forKey: .defendWhen)
+        record = try? c.decodeIfPresent(String.self, forKey: .record)
+        rel = try? c.decodeIfPresent(Int.self, forKey: .rel)
+        name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? ""
+        relLabel = try? c.decodeIfPresent(String.self, forKey: .relLabel)
+        form = try? c.decodeIfPresent([String].self, forKey: .form)
+        season = try? c.decodeIfPresent(String.self, forKey: .season)
+        streak = try? c.decodeIfPresent(String.self, forKey: .streak)
+        forces = try? c.decodeIfPresent([WForce].self, forKey: .forces)
+        serve = try? c.decodeIfPresent(WServe.self, forKey: .serve)
+        nextOpp = try? c.decodeIfPresent(WNext.self, forKey: .nextOpp)
+        last = try? c.decodeIfPresent(String.self, forKey: .last)
+        racket = try? c.decodeIfPresent(WRacket.self, forKey: .racket)
+        week = try? c.decodeIfPresent(String.self, forKey: .week)
+        recent = try? c.decodeIfPresent([WRecent].self, forKey: .recent)
+        defNow = try? c.decodeIfPresent(Int.self, forKey: .defNow)
+        defMonths = try? c.decodeIfPresent([WDefMonth].self, forKey: .defMonths)
+        defLabel = try? c.decodeIfPresent(String.self, forKey: .defLabel)
+        thisMonth = try? c.decodeIfPresent(String.self, forKey: .thisMonth)
+        rings = try? c.decodeIfPresent(WRings.self, forKey: .rings)
+        photo = try? c.decodeIfPresent(String.self, forKey: .photo)
+        initial = try? c.decodeIfPresent(String.self, forKey: .initial)
+        mental = try? c.decodeIfPresent([WMental].self, forKey: .mental)
+        opps = (try? c.decodeIfPresent([WOpp].self, forKey: .opps)) ?? []
+        cal = try? c.decodeIfPresent([WCal].self, forKey: .cal)
+        fol = try? c.decodeIfPresent([WFol].self, forKey: .fol)
+        faf = try? c.decodeIfPresent(WFaf.self, forKey: .faf)
+        chances = try? c.decodeIfPresent(WChances.self, forKey: .chances)
+        hrThr = try? c.decodeIfPresent([Int].self, forKey: .hrThr)
+        seance = try? c.decodeIfPresent(String.self, forKey: .seance)
+        sjOk = try? c.decodeIfPresent(Bool.self, forKey: .sjOk)
+        ace = try? c.decodeIfPresent(WAce.self, forKey: .ace)
+        day = try? c.decodeIfPresent(WDay.self, forKey: .day)
+        lastM = try? c.decodeIfPresent(WLastM.self, forKey: .lastM)
+    }
+}
+
 /// 3.49 : un face-à-face : prénom, quand (« Sam. »), victoires, défaites, carrés du plus ancien au plus récent
 struct WFaf: Codable, Hashable { var n: String; var when: String; var v: Int; var d: Int; var seq: String }
 /// 3.49 : tes chances d'être « t » à la sortie du « rel » (down = se maintenir), et l'écart avec la semaine dernière
