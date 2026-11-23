@@ -27,9 +27,22 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+import com.getcapacitor.PermissionState;
+import com.getcapacitor.JSArray;
+import android.Manifest;
+import android.database.Cursor;
+import android.provider.CalendarContract;
+import androidx.appcompat.app.AlertDialog;
+import org.json.JSONObject;
+import java.util.ArrayList;
+import java.util.TimeZone;
 
 /** Plugin appelé depuis l'app web (même interface que sur iPhone). */
-@CapacitorPlugin(name = "Tenup")
+@CapacitorPlugin(name = "Tenup", permissions = {
+    @Permission(alias = "calendar", strings = { Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR })
+})
 public class TenupPlugin extends Plugin {
 
     @PluginMethod
@@ -216,6 +229,110 @@ public class TenupPlugin extends Plugin {
     }
 
     /** Sauvegarde : enregistre le fichier dans Téléchargements (Android 10+), sinon ouvre le partage. */
+    // 4.0 : plusieurs dates d'un coup dans le calendrier choisi par le joueur.
+    @PluginMethod
+    public void addEvents(final PluginCall call) {
+        JSArray list = call.getArray("events");
+        if (list == null || list.length() == 0) { call.reject("vide"); return; }
+        if (getPermissionState("calendar") != PermissionState.GRANTED) {
+            requestPermissionForAlias("calendar", call, "calendarPermsDone");
+            return;
+        }
+        pickCalendar(call);
+    }
+
+    @PermissionCallback
+    private void calendarPermsDone(final PluginCall call) {
+        if (getPermissionState("calendar") == PermissionState.GRANTED) pickCalendar(call);
+        else call.reject("denied");
+    }
+
+    private void pickCalendar(final PluginCall call) {
+        final ArrayList<Long> ids = new ArrayList<>();
+        final ArrayList<String> labels = new ArrayList<>();
+        int primary = 0;
+        String[] cols = { CalendarContract.Calendars._ID, CalendarContract.Calendars.CALENDAR_DISPLAY_NAME, CalendarContract.Calendars.ACCOUNT_NAME, CalendarContract.Calendars.IS_PRIMARY };
+        String sel = CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL + " >= " + CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR + " AND " + CalendarContract.Calendars.VISIBLE + " = 1";
+        try (Cursor c = getContext().getContentResolver().query(CalendarContract.Calendars.CONTENT_URI, cols, sel, null, null)) {
+            while (c != null && c.moveToNext()) {
+                String name = c.getString(1), acc = c.getString(2);
+                if (c.getInt(3) == 1 && primary == 0) primary = ids.size();
+                ids.add(c.getLong(0));
+                labels.add(name == null ? "Calendrier" : (acc != null && !acc.equals(name) && acc.contains("@") ? name + " · " + acc : name));
+            }
+        } catch (Exception e) { call.reject("nocal"); return; }
+        if (ids.isEmpty()) { call.reject("nocal"); return; }
+        final int def = primary;
+        getActivity().runOnUiThread(() -> {
+            final boolean[] done = { false };
+            new AlertDialog.Builder(getActivity())
+                .setTitle("Dans quel calendrier ?")
+                .setItems(labels.toArray(new String[0]), (d, w) -> {
+                    done[0] = true;
+                    insertEvents(call, ids.get(w), labels.get(w));
+                })
+                .setNegativeButton("Annuler", null)
+                .setOnDismissListener(d -> {
+                    if (!done[0]) { JSObject r = new JSObject(); r.put("cancelled", true); call.resolve(r); }
+                })
+                .show();
+        });
+    }
+
+    private void insertEvents(final PluginCall call, long calId, String calName) {
+        JSArray list = call.getArray("events");
+        int added = 0;
+        try {
+            for (int k = 0; k < list.length(); k++) {
+                JSONObject e = list.getJSONObject(k);
+                boolean allDay = e.optBoolean("allDay", false);
+                long st = e.optLong("start", 0), en = e.optLong("end", 0);
+                if (en <= st) en = st + 2 * 3600_000L;
+                ContentValues v = new ContentValues();
+                v.put(CalendarContract.Events.CALENDAR_ID, calId);
+                v.put(CalendarContract.Events.TITLE, e.optString("title", "Tennis"));
+                String loc = e.optString("loc", ""), notes = e.optString("notes", "");
+                if (!loc.isEmpty()) v.put(CalendarContract.Events.EVENT_LOCATION, loc);
+                if (!notes.isEmpty()) v.put(CalendarContract.Events.DESCRIPTION, notes);
+                if (allDay) {
+                    // un événement « journée entière » se cale sur minuit UTC
+                    v.put(CalendarContract.Events.DTSTART, toUtcMidnight(st));
+                    v.put(CalendarContract.Events.DTEND, toUtcMidnight(en));
+                    v.put(CalendarContract.Events.ALL_DAY, 1);
+                    v.put(CalendarContract.Events.EVENT_TIMEZONE, "UTC");
+                } else {
+                    v.put(CalendarContract.Events.DTSTART, st);
+                    v.put(CalendarContract.Events.DTEND, en);
+                    v.put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
+                }
+                int alarm = e.optInt("alarmMin", 0);
+                if (alarm > 0) v.put(CalendarContract.Events.HAS_ALARM, 1);
+                Uri uri = getContext().getContentResolver().insert(CalendarContract.Events.CONTENT_URI, v);
+                if (uri == null) continue;
+                added++;
+                if (alarm > 0) {
+                    ContentValues r = new ContentValues();
+                    r.put(CalendarContract.Reminders.EVENT_ID, Long.parseLong(uri.getLastPathSegment()));
+                    r.put(CalendarContract.Reminders.MINUTES, alarm);
+                    r.put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT);
+                    try { getContext().getContentResolver().insert(CalendarContract.Reminders.CONTENT_URI, r); } catch (Exception ignored) {}
+                }
+            }
+        } catch (Exception e) {
+            if (added == 0) { call.reject("Impossible d'ajouter : " + e.getMessage()); return; }
+        }
+        JSObject r = new JSObject(); r.put("added", added); r.put("calendar", calName); call.resolve(r);
+    }
+
+    private static long toUtcMidnight(long localMs) {
+        java.util.Calendar l = java.util.Calendar.getInstance();
+        l.setTimeInMillis(localMs);
+        java.util.Calendar u = java.util.Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        u.clear();
+        u.set(l.get(java.util.Calendar.YEAR), l.get(java.util.Calendar.MONTH), l.get(java.util.Calendar.DAY_OF_MONTH));
+        return u.getTimeInMillis();
+    }
+
     @PluginMethod
     public void saveFile(final PluginCall call) {
         String name = call.getString("name", "montee-sauvegarde.json");
