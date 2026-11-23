@@ -6473,3 +6473,11 @@ button.acr, a.acr { cursor: pointer; }
 .dn-bkr small { font-size: 12.5px; color: var(--muted); }
 .dn-bkb { height: 36px; padding: 0 12px; border-radius: 18px; border: 0; background: var(--chip); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; flex: none; }
 .dn-bkb.go { background: var(--terre); color: #fff; }
+
+/* 3.82.1 (maquette M4) : « À faire » montre 2 tâches, le reste derrière une ligne */
+.td3-more { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 12px 0 2px; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; font-size: 14.5px; font-weight: 600; color: var(--muted); text-align: left; cursor: pointer; }
+.td3-more span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td3-more b { flex: none; color: var(--acc-ink); }
+
+/* 3.82.1 (maquette M3) : Ace accueille à l'inscription */
+.w-ball { display: flex; justify-content: center; padding-top: 8px; }
