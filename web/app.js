@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.80.0",
+    VERSION: "3.81.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -14884,6 +14884,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     else if (ls.name) nx = { id: ls.id || "", name: nameCase(ls.name), rank: ls.rank || "", when: "", p: ls.p != null ? ls.p : null, h2h: ls.h2h || "", tip: ls.tip || "", tipS: ls.tipS || "", mode: ls.k || null, gap: ls.gap != null ? ls.gap : null };
     if (nx) Object.assign(nx, watchCoach(nx.name));
     var last = null; try { var pm = sortedMatches().filter(function (m) { return m.date && !m.wo && (m.result === "V" || m.result === "D"); })[0]; if (pm) last = pm.result + " " + (pm.score || "") + " · " + (pm.opp || "") ; } catch (e) {}
+    var day = null; try { var dz = friseItems().filter(function (z) { return !z.dim && dGap(z.d) === 0 && (z.pl || z.t || z.team) && !z.todo && !z.rel && !z.bd; })[0];
+      if (dz) { var dn = String(dz.title || "").replace(/<[^>]+>/g, "").split(" · "), oid = dz.pl ? String(dz.pl.id) : dz.oid ? String(dz.oid) : null;
+        day = { k: dz.team ? "team" : dz.pl ? "match" : "tour", t: dn[0], r: dn[1] || (dz.pl && dz.pl.rank) || "", s: String(dz.sub || "").replace(/<[^>]+>/g, ""), time: dz.time ? dz.time.replace(":", "h") : "", st: String(dz.st || "").replace(/<[^>]+>/g, ""), oid: oid };
+        if (oid && !dz.team && !seen[oid]) { seen[oid] = 1; o.unshift(Object.assign({ id: oid, name: dn[0], rank: day.r, p: dz.pl ? dz.pl.p : null, tag: "Aujourd'hui", hom: dz.pl ? dz.pl.hom : null, fmt: dz.pl ? dz.pl.fmt : null }, watchCoach(dn[0]))); } } } catch (e) {}
+    var lastM = null; try { var pl0 = sortedMatches().filter(function (m) { return m.date && !m.wo && (m.result === "V" || m.result === "D"); })[0];
+      if (pl0 && dGap(pl0.date) >= -3 && dGap(pl0.date) <= 0) lastM = { r: pl0.result, opp: pl0.opp && !isAnon(pl0.opp) ? nameCase(pl0.opp) : "Un " + pl0.oppRank, rank: pl0.oppRank || "", score: pl0.score || "", pts: d.last && d.last[0] && d.last[0].r === pl0.result ? d.last[0].right : "", when: dayLab(pl0.date) }; } catch (e) {}
     var rel = d.releaseIso ? E.parseDate(d.releaseIso) : null;
     return { v: 1, rank: d.rankNow || d.rank || effRank() || "", next: d.label || "", pct: d.pct != null ? d.pct : null, short: d.short || d.line || "", plus: isSup(), name: S.profile.name || "",
       gap: gap, defend: dp, defendWhen: dw ? MOIS[["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"].indexOf(dw)] || dw : null, record: d.recordShort || null, rel: d.releaseIso ? dGap(d.releaseIso) : null, relLabel: rel ? rel.getDate() + " " + MOIS[rel.getMonth()] : null,
@@ -14893,7 +14899,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       faf: (function () { try { var f = faData()[0]; return f ? { n: shortNm(f.name), when: f.next || "", v: f.v, d: f.d, seq: f.seq.slice(-8) } : null; } catch (e) { return null; } })(),
       chances: (function () { try { return watchChances(); } catch (e) { return null; } })(),
       // 3.46.5 (maquette 448) : « À venir » (la frise de l'accueil, 3 éléments) et « Tes copains » (joueurs suivis, ce qui a bougé)
-      cal: (function () { try { var J = ["DIM.", "LUN.", "MAR.", "MER.", "JEU.", "VEN.", "SAM."]; return friseItems().filter(function (z) { return !z.dim; }).slice(0, 3).map(function (z) { var x = E.parseDate(z.d); return { d: String(x.getDate()), w: dGap(z.d) === 0 ? "AUJ." : dGap(z.d) === 1 ? "DEM." : J[x.getDay()], m: MOIS[x.getMonth()].replace(/\.$/, "").toUpperCase(), t: z.title, s: [z.sub, z.time ? z.time.replace(":", "h") : ""].filter(Boolean).join(" · "), st: z.st || null, oid: z.pl ? String(z.pl.id) : z.oid ? String(z.oid) : null }; }); } catch (e) { return []; } })(),
+      // 3.81 : billets « Ce qui arrive » avec leur en-tête (le badge s'affichait sans son titre), Ace, jour de match, après-match
+      cal: (d.cal || []).slice(0, 6),
+      ace: d.ace || null, day: day, lastM: lastM,
       fol: (function () { try { return Object.keys(S.follow || {}).map(function (k) { var f = S.follow[k], nw = f.news && Date.now() - (f.newsAt || 0) < 14 * 864e5 ? f.news : null; return { n: nameCase(f.name || ""), r: f.rank || "", s: nw ? (nw.t || nw.tag || "") : "rien de neuf", up: nw && nw.k === "up" ? 1 : nw && nw.k === "dn" ? -1 : 0, at: nw ? f.newsAt : 0 }; }).sort(function (a, b) { return b.at - a.at; }).slice(0, 6).map(function (x) { delete x.at; return x; }); } catch (e) { return []; } })(),
       // 3.34 : ta photo (petite) et ton initiale, en bas de l'écran de score du mode avancé
       photo: photoThumb(), initial: (S.profile.name || ((S.tenup.me || {}).prenom) || "?").charAt(0).toUpperCase(),
