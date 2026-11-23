@@ -1220,7 +1220,77 @@
       var pl = document.querySelector(".pc-l"); if (pl) { mxQ(":scope > span > svg", pl).forEach(function (s, i) { mxSet(s, "mx-ck", i); }); mxIo([pl], function (x) { x.classList.add("mx-on"); }, 0.5); }
       var ls = mxQ(".screen .list").filter(function (l) { return l.querySelector(".vd"); })[0];
       if (ls) { mxQ(".vd", ls).forEach(function (v, i) { mxSet(v, "mx-pop2", Math.min(i, 10)); }); mxIo([ls], function (x) { x.classList.add("mx-on"); }, 0.3); }
+      ffMotion(false);
     }
+  }
+  // ---------- 3.91 (Yann, 23/11 : « manque des animations sur ces pages et dans tous les onglets ») ----------
+  // Un onglet qu'on choisit : ses cartes arrivent l'une après l'autre (8 premières, 70 ms d'écart). Même langage que l'arrivée d'un écran.
+  function mxRe(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+  function mxTabIn(btn) {
+    if (mRM() || !btn) return;
+    var bar = document.querySelector('[data-a="' + btn.dataset.a + '"]'), seg = bar && bar.closest(".seg, [role=tablist]"); if (!seg) return;
+    var n = 0;
+    for (var e = seg.nextElementSibling; e && n < 8; e = e.nextElementSibling) {
+      if (!e.offsetHeight || /^(SCRIPT|STYLE)$/.test(e.tagName) || e.classList.contains("tabbar")) continue;
+      e.style.setProperty("--d", (60 + n++ * 70) + "ms"); mxRe(e, "mx-in");
+    }
+  }
+  // Fiche joueur / Face-à-face : chaque chiffre et chaque barre se remplit quand on le voit (onglets Plan de jeu, Statistiques, Palmarès)
+  // tab = true : on vient de changer d'onglet (l'en-tête ne rejoue pas)
+  function ffMotion(tab) {
+    if (mRM()) return;
+    var scr = document.querySelector(".screen"); if (!scr) return;
+    var grow = function (els, d) { els.filter(Boolean).forEach(function (b) { b.classList.remove("mx-on"); if (d != null) b.style.setProperty("--d", d + "ms"); b.classList.add("mx-g0"); }); mxIo(els, function (b) { mxRe(b, "mx-on"); }, 0.5); };
+    var pct = function (el, d) { if (el && /^\d+ ?%/.test(el.textContent)) mxCount(el, null, { delay: d || 0, ms: 800 }); };
+    var num = function (el, d) { if (el && /^[+−-]?\d+( ?pts?)?$/.test(el.textContent.trim())) { var v = +(/\d+/.exec(el.textContent) || [0])[0]; if (v > 1) mxCount(el, v, { delay: d || 0, ms: 700 }); } };
+    // En-tête : sur la ligne de classement, les repères partent de son classement actuel et glissent à leur place
+    if (!tab) {
+      var tr = scr.querySelector(".pl-trk2 .tr"), mk = tr ? mxQ("i", tr) : [], c0 = tr && tr.querySelector("i.c");
+      if (mk.length > 1 && c0) {
+        var x0 = parseFloat(c0.style.left) || 0, xs = mk.map(function (m) { return m.style.left; });
+        mk.forEach(function (m) { if (m !== c0) m.style.left = x0 + "%"; });
+        mTw(900, 350, function (k) { mk.forEach(function (m, i) { if (m !== c0) m.style.left = (x0 + ((parseFloat(xs[i]) || 0) - x0) * k).toFixed(2) + "%"; }); }, function () { mk.forEach(function (m, i) { m.style.left = xs[i]; }); });
+        mxQ(".pl-trk2 .e", scr).forEach(function (e, i) { e.style.setProperty("--d", (i ? 1100 : 150) + "ms"); mxRe(e, "mx-in"); });
+      }
+    }
+    // Plan de jeu : l'anneau de tes chances se remplit et le % défile
+    var rg = scr.querySelector(".ff-ring"), arc = rg && rg.querySelectorAll("circle")[1], da = arc && (arc.getAttribute("stroke-dasharray") || "").split(" ");
+    if (da && da.length === 2) {
+      var L = +da[0], C = da[1]; arc.setAttribute("stroke-dasharray", "0 " + C);
+      mxIo([rg], function () { mTw(900, 150, function (k) { arc.setAttribute("stroke-dasharray", (L * k).toFixed(1) + " " + C); }, function () { arc.setAttribute("stroke-dasharray", L + " " + C); }); pct(rg.querySelector("b"), 150); }, 0.5);
+      var oh = scr.querySelector(".ff-odds .row1 .h"); if (oh) { oh.style.setProperty("--d", "350ms"); mxRe(oh, "mx-in"); }
+    }
+    // Ce qui se joue : « Si tu gagnes » puis « Si tu perds » arrivent, les points défilent, la barre du bilan se remplit
+    var stk = scr.querySelector(".ff-stake");
+    if (stk) {
+      var sb = mxQ(".stk2 > div, .ff-deal-r > div", stk); sb.forEach(function (b, i) { b.style.setProperty("--i", i); b.classList.remove("mx-on"); b.classList.add("mx-in2"); });
+      mxIo([stk], function () { sb.forEach(function (b, i) { mxRe(b, "mx-on"); num(b.querySelector("b"), 250 + i * 90); }); mxSet(stk.querySelector(".pl .g"), "mx-pop", 0, 1200); }, 0.3);
+      grow([stk.querySelector(".prog")], 350);
+    }
+    var deal = scr.querySelector(".ff-deal");
+    if (deal) { var db = mxQ(".ff-deal-r > div", deal); db.forEach(function (b, i) { b.style.setProperty("--i", i); b.classList.add("mx-in2"); }); mxIo([deal], function () { db.forEach(function (b) { mxRe(b, "mx-on"); }); }, 0.3); }
+    // Ton plan de match : les barres « Toi / Lui » partent du centre ; les objectifs du jour arrivent un à un
+    var tug = mxQ(".tp-card .tug-r"); if (tug.length) { tug.forEach(function (r, i) { r.style.setProperty("--d", (150 + i * 90) + "ms"); }); grow(tug); }
+    mxQ(".ff-goals, .ff-fe").forEach(function (c) { var it = mxQ(".ff-g, .ff-pl, .it", c); it.forEach(function (x, i) { x.style.setProperty("--i", Math.min(i, 8)); x.classList.add("mx-in2"); }); mxIo([c], function () { it.forEach(function (x) { mxRe(x, "mx-on"); }); }, 0.3); });
+    // Statistiques : « Toi » et « lui » glissent l'un vers l'autre, le VS claque, la corde se tend depuis les deux bouts
+    var vs = scr.querySelector(".ff-vs");
+    if (vs) { var av = mxQ(":scope > div", vs); if (av.length === 2) { av[0].style.setProperty("--d", "80ms"); mxRe(av[0], "mx-ml"); av[1].style.setProperty("--d", "80ms"); mxRe(av[1], "mx-mr"); } var x = vs.querySelector(".x"); if (x) { x.style.setProperty("--d", "550ms"); mxRe(x, "mx-vs"); } }
+    grow([scr.querySelector(".ff-tug")], 650);
+    var fps = mxQ(".ff-rf .fps > .fp"); fps.forEach(function (f, i) { f.style.setProperty("--i", Math.min(i, 8)); f.classList.add("mx-in2"); }); mxIo([scr.querySelector(".ff-rf .fps")], function () { fps.forEach(function (f) { mxRe(f, "mx-on"); }); }, 0.2);
+    // Vos vrais niveaux : chaque flèche part du classement officiel, le point arrive au bout
+    var trk = scr.querySelector(".ff-track");
+    if (trk) { grow([trk], 200); mxQ(".dt, .lb", trk).forEach(function (d) { d.classList.add("mx-pop2"); d.style.setProperty("--d", "850ms"); }); }
+    // À adversité égale, Vos repères, Palmarès : les barres se remplissent, les chiffres défilent
+    grow(mxQ(".ff-same .cell i"), 150);
+    mxQ(".ff-duo .dl").forEach(function (d, i) { var b = d.querySelector(".bars"); if (b) { b.style.setProperty("--d", (100 + Math.min(i, 6) * 60) + "ms"); grow([b]); } mxQ(".vals .v", d).forEach(function (v) { if (/^\d+ %/.test(v.textContent)) mxIo([d], function () { pct(v, 100); }, 0.5); }); });
+    var band = scr.querySelector(".ff-band");
+    if (band) { mxQ(".res .vd", band).forEach(function (v, i) { v.style.setProperty("--i", Math.min(i, 10)); v.classList.add("mx-pop2"); }); mxIo([band], function (x) { mxRe(x, "mx-on"); }, 0.3); }
+    var ps = scr.querySelector(".pal-sum");
+    if (ps) {
+      mxQ(".pal-big b", ps).forEach(function (b, i) { if (/%/.test(b.textContent)) pct(b, 150); else num(b, 150 + i * 100); });
+      grow([ps.querySelector(":scope > .pb")], 250); mxQ(".pal-b .pb", ps).forEach(function (b, i) { b.style.setProperty("--d", (500 + i * 120) + "ms"); }); grow(mxQ(".pal-b .pb", ps));
+    }
+    var pr = mxQ(".pal-l .pal-r").slice(0, 8); pr.forEach(function (r, i) { r.style.setProperty("--i", i); r.classList.remove("mx-on"); r.classList.add("mx-in2"); }); mxIo(pr, function (r) { mxRe(r, "mx-on"); }, 0.2);
   }
   // 3.49.1 : mise à jour sur place du DOM (même nœuds conservés quand ils sont du même type)
   function morphInto(root, html) {
@@ -17180,7 +17250,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     followHit: function (el) { var h = (UI.fafHits || [])[+el.dataset.v]; if (h) folAdd({ id: h.id, idp: h.idp, nom: h.nom, prenom: h.prenom, rank: h.rank, club: h.club }, [h.prenom ? h.prenom.charAt(0) + h.prenom.slice(1).toLowerCase() : "", h.nom].join(" ").trim(), h.rank, h.club); },
     followKnown: function (el) { var x = oppIndex().filter(function (o) { return o.key === el.dataset.v; })[0]; if (!x || !x.oid) return; var pr = x.name.split(" "); folAdd({ id: x.oid, nom: pr.slice(1).join(" "), prenom: pr[0], rank: x.rank, club: x.oclub || "" }, x.name, x.rank, x.oclub); },
     folHelpOk: function () { S.folHelp = true; save(); render(); },
-    fafTab: function (el) { UI.fafTab = el.dataset.v; render(); },
+    fafTab: function (el) { UI.fafTab = el.dataset.v; render(); try { mxTabIn(el); } catch (e) {} },
     folOpen: function (el) { var f = (S.follow || {})[el.dataset.id]; if (f && f.hit) openScout(f.hit); },
     recOpen: function (el) { var sc = (S.scout || {})[el.dataset.id]; if (sc && sc.hit) openScout(sc.hit); },
     hcSwap: function (el) {
@@ -17371,7 +17441,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     gEdit: function (el) { UI.gEdit = el.dataset.v; render(); },
     gDone: function () { UI.gEdit = null; render(); },
     // 3.54.1 (Yann) : changer d'onglet ne remonte plus en haut de la fiche : les onglets restent là où tu les as touchés
-    plTab: function (el) { var y0 = el.getBoundingClientRect().top; UI.plTab = el.dataset.v; render(); var t = document.querySelector(".pl-tabs"); if (t) { var y1 = t.getBoundingClientRect().top; window.scrollTo(0, Math.max(0, window.scrollY + y1 - y0)); } },
+    plTab: function (el) { var y0 = el.getBoundingClientRect().top; UI.plTab = el.dataset.v; render(); var t = document.querySelector(".pl-tabs"); if (t) { var y1 = t.getBoundingClientRect().top; window.scrollTo(0, Math.max(0, window.scrollY + y1 - y0)); } try { mxTabIn(el); ffMotion(true); } catch (e) {} },
     dfToggle: function (el) { UI.dfOpen = UI.dfOpen || {}; var k = el.getAttribute("data-id"); UI.dfOpen[k] = !UI.dfOpen[k]; render(); },
     rvToggle: function (el) { UI.rvOpen = UI.rvOpen || {}; var k = el.getAttribute("data-id"); UI.rvOpen[k] = !UI.rvOpen[k]; render(); },
     oppGame: function (el) {
@@ -17458,7 +17528,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     apTrain: function () { UI.actPlus = false; UI.draft = null; go("entrainement/new"); },
     apTour: function () { UI.actPlus = false; UI.trNew = null; go("tournoi/new"); },
     tsxTg: function () { S.prefs = S.prefs || {}; S.prefs.tsxOpen = !S.prefs.tsxOpen; save(); render(); },
-    epTab: function (el) { S.prefs = S.prefs || {}; S.prefs.epTab = el.dataset.v; save(); render(); window.scrollTo(0, 0); if (el.dataset.v === "club") { try { clubRefresh(); lcMotion(); } catch (e) {} } },
+    epTab: function (el) { S.prefs = S.prefs || {}; S.prefs.epTab = el.dataset.v; save(); render(); window.scrollTo(0, 0); try { mxTabIn(el); } catch (e) {} if (el.dataset.v === "club") { try { clubRefresh(); lcMotion(); } catch (e) {} } },
     // 3.81 : Le club : filtre par place (puces de la carte), regroupement des équipes
     lcF: function (el) { UI.lcF = UI.lcF === el.dataset.v ? "" : el.dataset.v; render(); },
     // 3.81 : partager le bilan d'une saison du club, les scores du dernier week-end, le bilan d'une équipe (image, comme les autres partages)
@@ -17980,7 +18050,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.83 : profil lu sur Ten'Up, écran « Je t'ai reconnu », carrière
     tmeOk: function () { S.tuMet = 1; save(); go(""); },
     tmeFix: function () { S.tuMet = 1; save(); UI.profEdit = true; go("profil"); },
-    pfTab: function (el) { UI.pfTab = el.dataset.v; render(); },
+    pfTab: function (el) { UI.pfTab = el.dataset.v; render(); try { mxTabIn(el); } catch (e) {} },
     boGo: function () { var b = document.getElementById("bo-card"); if (b) b.scrollIntoView({ behavior: "smooth", block: "start" }); },
     crrMode: function (el) { UI.crrMode = el.dataset.v; render(); },
     crrRg: function (el) { UI.crrRg = el.dataset.v; render(); },
@@ -18058,10 +18128,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     teOpen: function (el) { UI.teOpen = UI.teOpen === el.dataset.v ? null : el.dataset.v; render(); },
     szTog: function (el) { UI.szOpen = UI.szOpen || {}; var y = el.dataset.v; UI.szOpen[y] = !UI.szOpen[y]; render(); },
     h2hAll: function () { UI.h2hAll = !UI.h2hAll; render(); },
-    actTab: function (el) { UI.actTab = el.dataset.v; render(); window.scrollTo(0, 0); },
+    actTab: function (el) { UI.actTab = el.dataset.v; render(); window.scrollTo(0, 0); try { mxTabIn(el); } catch (e) {} },
     freshHide: function () { S.prefs = S.prefs || {}; S.prefs.freshHi = 1; save(); render(); },
     palTodo: function () { UI.palTodo = true; UI.actTab = "m"; go("palmares"); },
-    matTab: function (el) { UI.matTab = el.dataset.v; render(); },
+    matTab: function (el) { UI.matTab = el.dataset.v; render(); try { mxTabIn(el); } catch (e) {} },
     projLevel: function (el) { UI.projLevel = +el.dataset.v; render(); },
     // fiche match
     trWork: function (el) { var t = UI.draft; if (!t) return; t.work = t.work || []; var i = t.work.indexOf(el.dataset.v); if (i >= 0) t.work.splice(i, 1); else t.work.push(el.dataset.v); haptic("light"); render(); },
