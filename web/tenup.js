@@ -449,7 +449,7 @@
             // département (« … - 58 », « - 25/90 », « CD57-… ») est écarté ; ensuite les plus probables d'abord : déjà trouvés et les tiens,
             // ton département, la ligue, saison en cours avant la précédente, le national en dernier.
             var dep = code.length >= 4 ? code.slice(2, 4) : "", nDrop = 0;
-            var deps = function (n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; };
+            var deps = champDeps;
             var rank = function (c) { if (K[c.id] || !c.lv) return 0; var d = deps(c.nom), old = c.y && c.y < y0 ? 3 : 0; if (c.lv === "N") return 6 + (old ? 1 : 0); return (d ? 1 : 2) + old; };
             var L = Object.keys(C).map(function (k) { return C[k]; }).filter(function (c) { var d = dep && c.lv && c.lv !== "N" && !K[c.id] && deps(c.nom); if (d && d.indexOf(dep) < 0) { nDrop++; return false; } return true; });
             L.sort(function (a, b) { return rank(a) - rank(b); }); L = L.slice(0, 120);
@@ -852,7 +852,7 @@
   var VERSION = "2.4";
   // Version pour l'app iPhone : corps d'une fonction async (WKWebView callAsyncJavaScript)
   // Le script embarque la recherche v2, utilisée en repli par tenupFetch
-  function src(fn) { return "var v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
+  function src(fn) { return "var champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
   // 3.47 : page de maintenance / file d'attente Ten'Up : on le dit au lieu de « Ten'Up n'a pas répondu »
   var MAINT = "var __mt = (document.title || \"\") + \" \" + Array.prototype.map.call(document.querySelectorAll(\"h1,h2\"), function (e) { return e.innerText; }).slice(0, 3).join(\" \");\n" +
     "if (/maintenance|mise à jour du site|file d'attente|queue-it|service (momentanément )?indisponible/i.test(__mt) || /maintenance/i.test(location.pathname)) return \"MONTEE-ERR maintenance\";\n";
@@ -1068,8 +1068,10 @@
     };
   }
 
+  // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
+  function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);

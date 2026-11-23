@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "sync": "node scripts/copy-web.js && npx cap sync ios",
-    "sync:android": "node scripts/copy-web.js && npx cap sync android"
+    "sync:android": "node scripts/copy-web.js && npx cap sync android",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.9",
