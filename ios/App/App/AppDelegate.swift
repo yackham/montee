@@ -8,6 +8,8 @@ import HealthKit
 import StoreKit
 import WidgetKit
 import WatchConnectivity
+import EventKit
+import EventKitUI
 
 // Montée — partie native iPhone.
 // - TenupPlugin : connexion à Ten'Up dans une vraie page web (WKWebView), puis lecture du
@@ -516,7 +518,6 @@ enum TenupSilentRefresh {
 
 // MARK: - Plugin Capacitor appelé depuis l'app web
 
-@objc(TenupPlugin)
 /// 3.94 : aperçu Quick Look d'un fichier calendrier (.ics), gardé en mémoire le temps de l'aperçu
 final class IcsPreview: NSObject, UIDocumentInteractionControllerDelegate {
     static var current: IcsPreview?
@@ -536,6 +537,68 @@ final class IcsPreview: NSObject, UIDocumentInteractionControllerDelegate {
     }
 }
 
+/// 4.0 : ajout groupé au calendrier. Le joueur choisit le calendrier (sélecteur iOS), puis toutes les dates y sont ajoutées.
+final class CalAdder: NSObject, EKCalendarChooserDelegate {
+    static var current: CalAdder?
+    let store = EKEventStore()
+    let events: [[String: Any]]
+    let call: CAPPluginCall
+    var nav: UINavigationController?
+    init(events: [[String: Any]], call: CAPPluginCall) { self.events = events; self.call = call; super.init() }
+
+    func start(from vc: UIViewController) {
+        let go: (Bool) -> Void = { ok in
+            DispatchQueue.main.async {
+                guard ok else { CalAdder.current = nil; self.call.reject("denied"); return }
+                let ch = EKCalendarChooser(selectionStyle: .single, displayStyle: .writableCalendarsOnly, entityType: .event, eventStore: self.store)
+                ch.delegate = self
+                ch.title = "Dans quel calendrier ?"
+                ch.showsDoneButton = true
+                ch.showsCancelButton = true
+                if let def = self.store.defaultCalendarForNewEvents { ch.selectedCalendars = [def] }
+                let nav = UINavigationController(rootViewController: ch)
+                self.nav = nav
+                vc.present(nav, animated: true)
+            }
+        }
+        if #available(iOS 17.0, *) {
+            store.requestFullAccessToEvents { ok, _ in go(ok) }
+        } else {
+            store.requestAccess(to: .event) { ok, _ in go(ok) }
+        }
+    }
+
+    func calendarChooserDidCancel(_ calendarChooser: EKCalendarChooser) {
+        nav?.dismiss(animated: true)
+        CalAdder.current = nil
+        call.resolve(["cancelled": true])
+    }
+
+    func calendarChooserDidFinish(_ calendarChooser: EKCalendarChooser) {
+        guard let cal = calendarChooser.selectedCalendars.first ?? store.defaultCalendarForNewEvents else { return }
+        nav?.dismiss(animated: true)
+        var added = 0
+        for e in events {
+            let ev = EKEvent(eventStore: store)
+            ev.calendar = cal
+            ev.title = e["title"] as? String ?? "Tennis"
+            if let loc = e["loc"] as? String, !loc.isEmpty { ev.location = loc }
+            if let notes = e["notes"] as? String, !notes.isEmpty { ev.notes = notes }
+            let st = Date(timeIntervalSince1970: ((e["start"] as? NSNumber)?.doubleValue ?? 0) / 1000)
+            let en = Date(timeIntervalSince1970: ((e["end"] as? NSNumber)?.doubleValue ?? 0) / 1000)
+            ev.isAllDay = (e["allDay"] as? Bool) ?? false
+            ev.startDate = st
+            ev.endDate = en > st ? en : st.addingTimeInterval(7200)
+            if let m = (e["alarmMin"] as? NSNumber)?.doubleValue, m > 0 { ev.addAlarm(EKAlarm(relativeOffset: -m * 60)) }
+            do { try store.save(ev, span: .thisEvent, commit: false); added += 1 } catch {}
+        }
+        do { try store.commit() } catch { added = 0 }
+        CalAdder.current = nil
+        call.resolve(["added": added, "calendar": cal.title])
+    }
+}
+
+@objc(TenupPlugin)
 public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "TenupPlugin"
     public let jsName = "Tenup"
@@ -553,6 +616,7 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setWidgetImages", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "renderWidgets", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "saveFile", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "addEvents", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "shareText", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "shareImage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setBars", returnType: CAPPluginReturnPromise),
@@ -807,6 +871,18 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             share.completionWithItemsHandler = { _, done, _, _ in call.resolve(["saved": done, "shared": true]) }
             vc.present(share, animated: true)
+        }
+    }
+
+    /// 4.0 : plusieurs dates d'un coup dans le calendrier choisi par le joueur.
+    @objc func addEvents(_ call: CAPPluginCall) {
+        let list = (call.getArray("events") as? [[String: Any]]) ?? []
+        if list.isEmpty { call.reject("vide"); return }
+        DispatchQueue.main.async {
+            guard let vc = self.bridge?.viewController else { call.reject("pas d'écran"); return }
+            let a = CalAdder(events: list, call: call)
+            CalAdder.current = a
+            a.start(from: vc)
         }
     }
 

@@ -2647,6 +2647,7 @@ button.pdj { font: inherit; color: var(--ink); background: none; border: 0; bord
 .ss2-r .y { width: 54px; flex: none; font-weight: 800; font-size: 15px; display: flex; flex-direction: column; }
 .ss2-r .y small { font-size: 10.5px; color: var(--acc-ink, var(--gazon)); }
 .ss2-r .b { flex: 1; font-size: 13.5px; color: var(--muted); } .ss2-r .b > b { color: var(--ink); }
+.ss2-best.na { color: var(--muted); background: none; border: 1px solid var(--line, color-mix(in srgb, var(--muted) 35%, transparent)); font-weight: 700; }
 .ss2-best { font-size: 11px; font-weight: 800; color: var(--gazon); background: color-mix(in srgb, var(--gazon) 14%, transparent); border-radius: 99px; padding: 2px 7px; margin-left: 4px; white-space: nowrap; }
 .ss2-pc { font-weight: 800; font-size: 18px; white-space: nowrap; } .ss2-pc small { font-size: 11px; color: var(--muted); }
 .ss2-pc.is-rec { color: var(--gazon); }
@@ -6703,7 +6704,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .ob-lk { border: 0; background: none; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
 .ob-ck { flex: none; width: 24px; height: 24px; border-radius: 7px; box-shadow: inset 0 0 0 2px var(--line); display: grid; place-items: center; font-size: 14px; font-weight: 900; }
 .ob-ck.on { box-shadow: inset 0 0 0 2px var(--gazon); color: var(--gazon); }
-.ob-rg, .ob-sr { background: var(--card); border-radius: 20px; border: 0; width: 100%; text-align: left; font: inherit; color: inherit; text-decoration: none; cursor: pointer; }
+.ob-sr { background: var(--card); border-radius: 20px; border: 0; width: 100%; text-align: left; font: inherit; color: inherit; text-decoration: none; cursor: pointer; }
 .ob-frt { display: inline-flex; align-items: center; gap: 12px; }
 .ob-calb { position: relative; border: 0; background: none; padding: 2px; color: var(--page-muted, var(--muted)); cursor: pointer; display: grid; place-items: center; }
 .ob-calb svg { width: 19px; height: 19px; }
@@ -6798,3 +6799,13 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .mp-cap-nx { font-size: 14.5px; font-weight: 700; color: var(--ink); line-height: 1.4; }
 .cap-row.mp-cap-d small { white-space: normal; flex-basis: 100%; }
 .co-ace { margin-top: 4px; }
+/* 4.0.4 : « Ta saison » en vraie tuile, bouton calendrier en action principale */
+.ob-st { flex-direction: row; align-items: center; gap: 14px; text-decoration: none; color: inherit; margin-bottom: 4px; }
+.ob-st .grow { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ob-st b { font-size: 17px; font-weight: 700; }
+.ob-st small { font-size: 14px; color: var(--muted); line-height: 1.35; }
+.ob-st > svg { flex: none; color: var(--muted); }
+.ob-sti { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--gazon); box-shadow: inset 0 0 0 2px currentColor; }
+.ob-sti svg { width: 22px; height: 22px; }
+.ob-calcta { margin: 0 0 14px; }
+.ob-calcta .btn svg { width: 20px; height: 20px; flex: none; }
