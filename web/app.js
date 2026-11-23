@@ -2356,7 +2356,9 @@
     var tabs = showEq ? '<div class="seg ep-tabs"><button data-a="epTab" data-v="toi" class="' + (tab === "toi" ? "on" : "") + '">Toi</button><button data-a="epTab" data-v="eq" class="' + (tab === "eq" ? "on" : "") + '">Mes équipes</button></div>' : "";
     var seas = (function () { var y = today().getMonth() >= 8 ? today().getFullYear() : today().getFullYear() - 1; return "saison " + y + "-" + String(y + 1).slice(2); })();
     if (tab === "eq") return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs + (myTeams(true).length ? teamsTabHtml() :
-      viduel("eq", "Pas encore de rencontre par équipes", "Montée suit ton palmarès Ten'Up : dès ta première rencontre avec ton club, ton équipe s'affiche ici avec son classement et ses résultats.", [S.teams && S.teams.club && S.teams.club.nom ? tmNm(S.teams.club.nom) : "", seas].filter(Boolean).join(" · "))) + tmTraceHtml() + "</div>";
+      viduel("eq", "Pas encore de rencontre par équipes", "Montée suit ton palmarès Ten'Up : dès ta première rencontre avec ton club, ton équipe s'affiche ici avec son classement et ses résultats.", [S.teams && S.teams.club && S.teams.club.nom ? tmNm(S.teams.club.nom) : "", seas].filter(Boolean).join(" · ")) +
+      // 3.74.0 : un responsable sportif qui ne joue dans aucune équipe voit quand même celles du club
+      ((S.teams && S.teams.club && S.teams.club.code) || S.tenup.clubCode || S.club ? clubHtml() : "")) + tmTraceHtml() + "</div>";
     return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs +
       (!all.length ? viduel("toi", "Aucun tournoi ni indivs cette saison", "Dès que tu t'inscris sur Ten'Up, ton tournoi ou ta poule d'indivs arrive ici tout seul : tableau, adversaires, tes chances.", "Ta " + seas) : "") +
 sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
