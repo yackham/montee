@@ -3433,7 +3433,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       Object.keys(o).forEach(function (k) { if (y || !/millesime|annee|saison|year|^_k$/i.test(k)) return; var t = String(o[k]), m2 = t.match(/(20\d\d)\s*[-\/]\s*(\d{2,4})/), m1 = t.match(/(20\d\d)/);
         if (m2) y = m2[2].length === 2 ? 2000 + +m2[2] : +m2[2]; else if (m1) y = +m1[1]; });
       var v = num(o, /victoire|^nbv|^v$|gagne/i), d = num(o, /defaite|^nbd|^d$|perdu/i);
-      if (y && v != null && d != null && v + d > 0) by[y] = { y: y, v: v, d: d };
+      // 4.0.2 : le classement de la saison quand Ten'Up le donne (pour la feuille de bilan)
+      var cl = ""; Object.keys(o).forEach(function (k) { if (!cl && /classement|clt/i.test(k) && !/meilleur|best|max/i.test(k) && typeof o[k] !== "object") cl = T.normRank(String(o[k])) || ""; });
+      if (y && v != null && d != null && v + d > 0) by[y] = { y: y, v: v, d: d, cl: cl };
     });
     return Object.keys(by).map(function (k) { return by[k]; });
   }
@@ -7243,7 +7245,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var cv = cur.filter(function (m) { return m.result === "V"; });
     rows.push({ y: y0, cl: effRank() || "", v: cv.length, d: cur.length - cv.length, best: cv.filter(function (m) { return !m.double && !m.partner && (S.doubles || []).indexOf(m) < 0; }).map(function (m) { return E.idx(m.oppRank); }).sort(function (a, b) { return b - a; })[0], now: true });
     var y1 = rows.length > 1 ? rows[0].y : y0;
-    histSeasons().forEach(function (h) { if (h.y < y1) rows.push({ y: h.y, cl: "", v: h.v, d: h.d, best: null, tu: 1 }); });
+    histSeasons().forEach(function (h) { if (h.y < y1) rows.push({ y: h.y, cl: h.cl || "", v: h.v, d: h.d, best: null, tu: 1 }); });
     return rows.filter(function (r) { return r.now || r.v + r.d > 0; }).sort(function (a, b) { return a.y - b.y; }).slice(-10);
   }
   // l'histogramme des saisons (victoires + défaites empilées), le même dans Tes saisons et Ta carrière
@@ -7255,7 +7257,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var step = Math.max(1, Math.ceil(38 / (bw + gp))), showL = function (i) { return (n - 1 - i) % step === 0; };
     var chart = '<svg class="ss2-chart" viewBox="0 0 ' + Wd + " " + Hh + '" aria-hidden="true">' + rows.map(function (r, i) {
       var x = gp + i * (bw + gp), hv = r.v * sc, hd = r.d * sc, op = r.now ? ' opacity=".5"' : "";
-      return '<g class="ss2-g"' + (r.tu ? ' role="img" aria-label="Saison ' + lbl(r) + " : " + plural(r.v, "victoire") + ", " + plural(r.d, "défaite") + ' (bilan Ten\'Up)"' : ' data-a="sheet" data-k="season" data-v="' + r.y + '" role="button" aria-label="Saison ' + lbl(r) + '"') + '><rect x="' + (x - gp / 2).toFixed(1) + '" y="0" width="' + (bw + gp).toFixed(1) + '" height="' + Hh + '" fill="transparent"/>' + (hv ? '<rect x="' + x.toFixed(1) + '" y="' + (base - hv).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hv.toFixed(1) + '" rx="5" fill="var(--gazon)"' + op + "/>" : "") +
+      return '<g class="ss2-g"' + (r.tu ? ' data-a="sheet" data-k="season" data-v="' + r.y + '" role="button" aria-label="Saison ' + lbl(r) + " : " + plural(r.v, "victoire") + ", " + plural(r.d, "défaite") + ' (bilan Ten\'Up)"' : ' data-a="sheet" data-k="season" data-v="' + r.y + '" role="button" aria-label="Saison ' + lbl(r) + '"') + '><rect x="' + (x - gp / 2).toFixed(1) + '" y="0" width="' + (bw + gp).toFixed(1) + '" height="' + Hh + '" fill="transparent"/>' + (hv ? '<rect x="' + x.toFixed(1) + '" y="' + (base - hv).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hv.toFixed(1) + '" rx="5" fill="var(--gazon)"' + op + "/>" : "") +
         (hd ? '<rect x="' + x.toFixed(1) + '" y="' + (base - hv - hd - (hv ? 3 : 0)).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hd.toFixed(1) + '" rx="5" fill="var(--terre)"' + op + "/>" : "") +
         (showL(i) ? '<text x="' + (x + bw / 2).toFixed(1) + '" y="144" text-anchor="middle" font-size="11" font-weight="800" fill="' + (r.now ? "var(--acc-ink, var(--gazon))" : "var(--muted)") + '">' + lbl(r) + "</text>" :
           '<circle cx="' + (x + bw / 2).toFixed(1) + '" cy="140" r="1.6" fill="var(--muted)" opacity=".6"/>') + "</g>";
@@ -12058,8 +12060,20 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     season: function (y) {
       y = +y; var from = E.iso(new Date(y - 1, 8, 1)), to = E.iso(new Date(y, 8, 1)), list = [];
       list = seasonMatches(y);
+      var tt = "Saison " + (y - 1) + "-" + String(y).slice(2);
+      // 4.0.2 (retour testeur : « 2016-17 ne s'ouvre pas ») : une saison connue seulement par son bilan Ten'Up s'ouvre aussi, sur ce bilan
+      var R0 = seasonRows().filter(function (r) { return r.y === y; })[0];
+      if (R0 && (R0.tu || !list.some(function (m) { return m.result === "V" || m.result === "D"; }))) {
+        var me0 = tuMe(), bestHere = me0.meilleur && me0.meilleurAn && String(me0.meilleurAn).indexOf(String(y)) >= 0;
+        var b0 = '<div class="sz-k"><span><b class="g">' + R0.v + ' V</b></span><span><b class="r">' + R0.d + " D</b></span><span><b>" + (R0.v + R0.d ? Math.round(R0.v * 100 / (R0.v + R0.d)) : 0) + " %</b> de victoires</span></div>";
+        if (R0.best != null) b0 += '<p class="tx-p">Ta plus belle victoire : <b class="rk-tag">' + esc(lab(R0.best)) + "</b>.</p>";
+        if (R0.cl) b0 += '<p class="tx-p">Ton classement cette saison-là : <b class="rk-tag">' + esc(R0.cl) + "</b>" + (bestHere && T.normRank(me0.meilleur) === R0.cl ? ", ton meilleur classement." : ".") + "</p>";
+        else if (bestHere) b0 += '<p class="tx-p">C\'est la saison de ton meilleur classement : <b class="rk-tag">' + esc(me0.meilleur) + "</b>.</p>";
+        b0 += '<p class="tx-p">Ten\'Up ne donne que le bilan de cette saison, pas le détail des matchs : tes adversaires et tes scores n\'y figurent plus.</p>';
+        return { title: tt, sub: "Bilan Ten'Up, en simple, hors forfaits.", body: b0 };
+      }
       var body = seasonBodyHtml(list);
-      return { title: "Saison " + (y - 1) + "-" + String(y).slice(2), sub: "Le classement de l'adversaire est celui du jour du match.", body: body };
+      return { title: tt, sub: "Le classement de l'adversaire est celui du jour du match.", body: body };
 
     },
     // 3.48.5 (Yann) : le détail d'une courbe, ouvert par-dessus (le coach ne fait plus quitter l'écran)
