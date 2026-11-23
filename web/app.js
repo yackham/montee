@@ -1857,7 +1857,12 @@
   function tmSeason(c) { var d = c.last && E.parseDate(c.last); if (!d) return ""; var y = d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear(); return (y - 1) + "-" + String(y).slice(2); }
   function teamsOn() { return !(S.prefs || {}).teamsOff && myTeams(true).length > 0; }
   function tmNm(n) { var SW = ["de", "du", "des", "la", "le", "les", "et", "en", "sur", "sous", "aux"]; return String(n || "").toLowerCase().split(/\s+/).map(function (w) { return SW.indexOf(w) >= 0 ? w : /\./.test(w) || /^[a-z]{1,2}$/.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1); }).join(" ").replace(/^./, function (x) { return x.toUpperCase(); }); }
-  function champNm(c) { var n = String(c.nom || "").replace(/\s*-\s*\d+\s*\/\s*\d+\s*$/, "").toLowerCase(); return n.charAt(0).toUpperCase() + n.slice(1); }
+  // 3.74.0 : les sigles restent en capitales (BFC, IDF, HDS, CD57) et les initiales aussi (« T. de Belfort »)
+  function champNm(c) {
+    var n = String(c.nom || "").replace(/\s*-\s*\d+\s*\/\s*\d+\s*$/, "");
+    n = n.split(/(\s+|[()-])/).map(function (w) { var b = w.replace(/[^A-Za-zÀ-ÿ0-9]/g, ""); if (/^[A-Z]\.$/.test(w) || /^(BFC|IDF|HDS|ALS|PACA|AURA|TE|TC|AS|US|CD\d*|U\d+)$/.test(b) || (/^[A-Z]{2,4}$/.test(b) && !/[AEIOUY]/.test(b))) return w; return w.toLowerCase(); }).join("");
+    return n.charAt(0).toUpperCase() + n.slice(1);
+  }
   function tmDiv(x) { x = String(x || "").toLowerCase().replace(/\b([a-z])\b/g, function (l) { return l.toUpperCase(); }); return x.charAt(0).toUpperCase() + x.slice(1); }
   function tmOrd(n) { return n === 1 ? "1er" : n + "e"; }
   function tmOf(c, id) { return (c.teams || []).filter(function (t) { return t.id === id; })[0]; }

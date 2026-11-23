@@ -6071,7 +6071,12 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .ce-g.op .ce-gh > svg { transform: rotate(180deg); }
 .ce-r { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--line, rgba(127,127,127,.18)); }
 .ce-st { flex: none; width: 34px; height: 44px; border: 0; background: transparent; font-size: 20px; color: var(--muted); cursor: pointer; padding: 0; }
-.ce-st.on { color: #B7A100; }
+.ce-st.on { color: color-mix(in srgb, #B7A100 72%, var(--ink)); }
+/* 3.74.0 : contraste (étoile ≥ 3:1 sur carte claire ; filtres et compteurs posés sur le fond travaillé de terre / dur) */
+.ce-st { color: color-mix(in srgb, var(--muted) 60%, var(--ink)); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .ce-chips button { color: var(--page-muted); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--page-ink) 40%, transparent); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .ce-chips button.on { color: var(--page-ink); box-shadow: inset 0 0 0 2px var(--page-ink); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) :is(.ce-h small, .screen > .ce-ld, .screen > .ce-ld .lnk) { color: var(--page-ink); }
 :root[data-theme="nuit"] .ce-st.on { color: var(--balle); }
 .ce-a { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto 44px; align-items: center; gap: 8px; padding: 10px 0; color: var(--ink); text-decoration: none; }
 .ce-a .n b { display: block; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
