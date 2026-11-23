@@ -6237,3 +6237,6 @@ button.acr, a.acr { cursor: pointer; }
 .num-c { display: flex; flex-direction: column; }
 .acd-btn { align-self: flex-start; width: auto; margin-top: 8px; padding: 8px 16px; border: 1.5px solid var(--acc-ink) !important; border-radius: 99px; color: var(--acc-ink); font-weight: 700; background: transparent; }
 .ace-me:focus, .ace-hero b:focus { outline: none; }
+/* 3.74.1 (Yann) : la date de l'en-tête reste sur une ligne ; c'est la bulle d'Ace qui se raccourcit */
+.hd-dr .hd-d { flex: none; max-width: 55%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd-dr .ace-hd { flex: 0 1 auto; }
