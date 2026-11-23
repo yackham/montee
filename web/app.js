@@ -2316,7 +2316,7 @@
     }
     var pid = S.teams && S.teams.pid ? String(S.teams.pid) : "", who = function (p) { return pid && String(p.id) === pid ? "<b>Toi</b>" : esc(nameCase(p.n)) + (p.r ? ' <span class="muted">(' + esc(p.r) + ")</span>" : ""); };
     if (!F.L || !F.L.length) {
-      return s + '<div class="card"><b>Ten\'Up présente cette feuille de match autrement</b><span class="small">Montée ne sait pas encore la lire. Envoie sa structure (sans les noms) et la prochaine version saura.</span><button class="btn soft small" data-a="fdmDiag" data-v="' + esc(rid) + '" style="background:var(--chip)">Envoyer la structure à Claude</button></div></div>';
+      return s + '<div class="card"><b>Feuille de match pas encore lisible</b><span class="small">Ten\'Up la présente d\'une façon que Montée ne lit pas encore. Le score de la rencontre reste juste.</span></div></div>';
     }
     var nS = 0, nD = 0;
     s += '<div class="card tm-fdm"><span class="eyebrow">Les matchs</span>' + F.L.map(function (m) {
@@ -11459,14 +11459,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }
       return { title: "Préparer un adversaire", body: body };
     },
-    insp: function () {
-      var r = UI.insProbe; if (!r) return null;
-      var okT = (r.tries || []).filter(function (x) { return x.st === 200 && x.len > 2; });
-      return { title: "Lecture des inscriptions", sub: r.error ? "Ten'Up n'a pas répondu : " + r.error : r.page ? "Page mes inscriptions : " + (r.page.st === 200 && !r.page.redirected ? "lue" : "code " + r.page.st + (r.page.redirected ? ", redirigée" : "")) + " · " + plural((r.apis || []).length, "route trouvée", "routes trouvées") : plural((r.paths || []).length, "piste trouvée", "pistes trouvées") + " · " + plural(okT.length, "adresse qui répond", "adresses qui répondent"),
-        body: '<p class="tx-p">Ce test lit (sans rien modifier) les pages d\'inscription de Ten\'Up avec ta session. Envoie-moi le résultat : je m\'en sers pour afficher tes tournois à venir.</p>' +
-          '<button class="btn primary" data-a="insShare" style="margin-top:14px">Envoyer le résultat à Claude</button>' +
-          (okT.length ? '<div class="small" style="margin-top:12px">' + okT.map(function (x) { return esc(x.u) + " · " + x.len + " car."; }).join("<br>") + "</div>" : "") };
-    },
     // 3.45.2 (Yann) : « Tes tournois » : chaque chiffre expliqué dans une vraie fiche, en clair et en image
     tsx: function (k) {
       var X = tourStats(); if (!X.G.length) return null;
@@ -16863,11 +16855,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     defToggle: function () { UI.defOpen = !UI.defOpen; var y = window.scrollY; render(); window.scrollTo(0, y); },
     trNew: function () { UI.trNew = null; go("tournoi/new"); },
     trImportInto: function () { var id = route().split("/")[1]; UI.trImp = { text: "", into: id }; go("tournoi/import"); setTimeout(function () { var x = document.querySelector("[data-ti=text]"); if (x) x.focus(); }, 350); },
-    // 3.49 : championnats par équipes : diagnostic de la page de ton club sur Ten'Up (lecture seule), à envoyer à Claude
-    plProbe: function () {
-      var t = tourOf(route().split("/")[1]); if (!t || !t.tuid || UI.insBusy) return; UI.insBusy = true; render();
-      tenupQuery("probePoule", { tuid: t.tuid, idEp: t.ins && t.ins.idEp || "" }).then(function (r) { UI.insBusy = false; UI.insProbe = r || { error: "pas de réponse" }; UI.sheet = { k: "insp" }; render(); });
-    },
     trImport: function () { UI.trImp = { text: "" }; go("tournoi/import"); setTimeout(function () { var t = document.querySelector("[data-ti=text]"); if (t) t.focus(); }, 350); },
     trImpPaste: function () { try { navigator.clipboard.readText().then(function (x) { if (x) { UI.trImp.text = x; render(); } }, function () { toast("Appuie longuement dans le cadre, puis « Coller »."); }); } catch (e) {} },
     trImpRead: function () {
@@ -16905,24 +16892,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     apMatch: function () { UI.actPlus = false; UI.draft = null; go("match/new"); },
     apTrain: function () { UI.actPlus = false; UI.draft = null; go("entrainement/new"); },
     apTour: function () { UI.actPlus = false; UI.trNew = null; go("tournoi/new"); },
-    insProbe: function () {
-      if (!NATIVE || UI.insBusy) return; UI.insBusy = true; render();
-      tenupQuery("probeIns", { id: S.tenup.id || "" }).then(function (r) { UI.insBusy = false; UI.insProbe = r || { error: "pas de réponse" }; UI.sheet = { k: "insp" }; render(); });
-    },
     tsxTg: function () { S.prefs = S.prefs || {}; S.prefs.tsxOpen = !S.prefs.tsxOpen; save(); render(); },
     epTab: function (el) { S.prefs = S.prefs || {}; S.prefs.epTab = el.dataset.v; save(); render(); window.scrollTo(0, 0); },
-    fdmDiag: function (el) {
-      var F = (UI.fdm || {})[el.dataset.v] || {}, raw = F.raw || {};
-      var sk = function (o, d) { if (o == null || typeof o !== "object") return typeof o === "string" ? (o.length > 3 ? o.length + "c" : o) : o; if (d > 6) return "…"; if (Array.isArray(o)) return o.length ? ["×" + o.length, sk(o[0], d + 1)] : []; var r = {}; Object.keys(o).slice(0, 50).forEach(function (k) { r[k] = /nom|prenom|photo/i.test(k) ? "·" : sk(o[k], d + 1); }); return r; };
-      var txt = "Montée " + CONFIG.VERSION + " · feuille de match Ten'Up (structure, sans les noms)\n" + JSON.stringify({ src: raw.src, key: raw.key, tried: raw.tried, keys: raw.keys, data: sk(raw.data, 0) }, null, 1).slice(0, 60000);
-      if (Tenup && typeof Tenup.shareText === "function") Promise.resolve(Tenup.shareText({ title: "Diagnostic Montée", text: txt })).catch(function () {});
-      else if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast("Copié : colle-le dans ta conversation avec Claude."); });
-    },
-    insShare: function () {
-      var txt = "Montée · diagnostic inscriptions Ten'Up\n" + JSON.stringify(UI.insProbe || {}, null, 1).slice(0, 60000);
-      if (Tenup && typeof Tenup.shareText === "function") Promise.resolve(Tenup.shareText({ title: "Diagnostic Montée", text: txt })).catch(function () {});
-      else if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast("Copié : colle-le dans ta conversation avec Claude."); });
-    },
     resCancel: function () { UI.resEdit = false; render(); },
     resDel: function () { var t = tourOf(route().split("/")[1]); if (!t) return; t.resUrl = ""; UI.resEdit = false; save(); render(); },
     plSched: function (el) { UI.plSched = +el.dataset.i; UI.plHost = null; render(); },
@@ -17839,12 +17810,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var ok = function () { toast("Script copié. Colle-le dans l'action du raccourci."); };
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(ok, function () { fallbackCopy(code); ok(); });
       else { fallbackCopy(code); ok(); }
-    },
-    copyDiag: function () {
-      var comps = {}; S.matches.forEach(function (m) { if (m.comp) comps[m.comp] = m.kind; });
-      var d = JSON.stringify({ comps: comps, v: "3.7.0", sample: S.tenup.sample, official: S.tenup.official, doubles: (S.doubles || []).map(function (m) { return { date: m.date, r: m.result, opp: m.opp, oppRanks: m.oppRanks, partner: m.partner, partnerRank: m.partnerRank, officialPts: m.officialPts }; }), lastError: S.tenup.lastError, ua: navigator.userAgent }, null, 1);
-      var ok = function () { toast("Diagnostic copié : colle-le dans ta conversation avec Claude."); };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(d).then(ok, function () { fallbackCopy(d); ok(); }); else { fallbackCopy(d); ok(); }
     },
     parseImport: function () {
       var t = UI.importText || "";
