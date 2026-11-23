@@ -6644,3 +6644,11 @@ button.acr, a.acr { cursor: pointer; }
 .lc-more.lc-sh svg { width: 16px; height: 16px; }
 .lc-shp { align-self: center; margin: 14px auto 4px; }
 .screen > .lc-shp { display: flex; }
+.pj-glue { white-space: nowrap; }
+/* 3.90.2 (Yann) : frise de poule, plus de place pour ce qui reste à jouer ; les tranches étroites gardent classement et points lisibles */
+.fq-ax, .fq-r { grid-template-columns: 64px minmax(0, 1fr) 40px; }
+.fq-s.sm .fq-rk .rk-tag { font-size: 10.5px; }
+.fq-s.sm .fq-rk .rk-tag::before { display: none; }
+.fq-s.sm .fq-pt { font-size: 11.5px; letter-spacing: -.02em; }
+.fq-s.xs .fq-pt { display: none; }
+@media (max-width: 360px) { .fq-ax em { font-size: 10px; letter-spacing: 0; } }
