@@ -117,6 +117,11 @@
   }
   function minus12Months(dt) { return new Date(dt.getFullYear() - 1, dt.getMonth(), dt.getDate()); }
   function plus12Months(dt) { return new Date(dt.getFullYear() + 1, dt.getMonth(), dt.getDate()); }
+  // Date où un match sort du calcul : celle de Ten'Up (dateFinPEC) quand on l'a, sinon 12 mois après le match
+  function leaveDate(m) {
+    if (m && m.finPec && /^\d{4}-\d{2}-\d{2}/.test(m.finPec)) return d(m.finPec.slice(0, 10));
+    return m && m.date ? plus12Months(d(m.date)) : null;
+  }
 
   // Matchs pris en compte pour un calcul à la date `at`, joués au plus tard le `upTo`
   // Les matchs sans date (import Ten'Up : la date n'est pas affichée) sont ceux de la période en cours.
@@ -126,7 +131,9 @@
     return matches.filter(function (m) {
       if (!m.date) return undated !== false && idx(m.oppRank) !== null;
       var md = d(m.date);
-      return md > from && md <= lim && idx(m.oppRank) !== null;
+      if (idx(m.oppRank) === null || md > lim) return false;
+      // Ten'Up donne la date exacte de fin de prise en compte : elle fait foi
+      return m.finPec ? at < leaveDate(m) : md > from;
     });
   }
 
@@ -210,6 +217,32 @@
     };
   }
 
+  // ---------- D'une sortie à la suivante ----------
+  // Tout ce qui fait bouger le bilan entre deux calculs au même échelon, pour que la liste
+  // s'additionne exactement à l'écart des totaux :
+  //  out   : victoire comptée qui sort des 12 mois (−)
+  //  drop  : victoire encore là mais plus comptée (moins de victoires prises en compte) (−)
+  //  in    : victoire qui prend le relais (hors quota jusqu'ici, ou plus de victoires comptées) (+)
+  //  bonus : bonus qui part ou qui revient (sans défaite significative, championnat indivs, doubles) (±)
+  var BONUS_KEYS = [["bonusSD", "Bonus sans défaite significative"], ["bonusCh", "Bonus championnat (indivs)"], ["bonusDbl", "Bonus doubles"]];
+  function releaseDiff(prev, next) {
+    var nowC = next.counted.map(function (w) { return w.m; }), nowX = (next.extra || []).map(function (w) { return w.m; });
+    var wasC = prev.counted.map(function (w) { return w.m; });
+    var rows = [];
+    prev.counted.forEach(function (w) {
+      if (nowC.indexOf(w.m) >= 0) return;
+      rows.push({ k: nowX.indexOf(w.m) >= 0 ? "drop" : "out", w: w, pts: -w.pts });
+    });
+    next.counted.forEach(function (w) { if (wasC.indexOf(w.m) < 0) rows.push({ k: "in", w: w, pts: w.pts }); });
+    BONUS_KEYS.forEach(function (b) {
+      var dl = (next[b[0]] || 0) - (prev[b[0]] || 0);
+      if (dl) rows.push({ k: "bonus", key: b[0], label: b[1], pts: dl });
+    });
+    var adj = (next.adjust || 0) - (prev.adjust || 0);
+    if (adj) rows.push({ k: "adjust", label: "Ajustement d'après Ten'Up", pts: adj });
+    return rows;
+  }
+
   // ---------- Classement projeté ----------
   // current : index du classement actuel ; sex : "H" | "F"
   function project(matches, current, sex, opts) {
@@ -267,12 +300,12 @@
     opts = opts || {};
     var today = opts.today || new Date();
     var release = opts.release || nextRelease(today);
-    var fromNow = minus12Months(today), fromRel = minus12Months(release);
     return matches.filter(function (m) {
-      var md = d(m.date);
-      return !m.dbl && m.result === "V" && md > fromNow && md <= fromRel;
+      if (m.dbl || m.result !== "V" || !m.date) return false;
+      var lv = leaveDate(m);
+      return lv > today && lv <= release;
     }).map(function (m) {
-      return { m: m, leaves: plus12Months(d(m.date)), pts: BAREME.win(idx(m.oppRank) - Math.min((current < 0 ? 0 : current) + 1, MAX_CALC)) };
+      return { m: m, leaves: leaveDate(m), pts: BAREME.win(idx(m.oppRank) - Math.min((current < 0 ? 0 : current) + 1, MAX_CALC)) };
     });
   }
 
@@ -306,7 +339,7 @@
     idx: idx, label: label, serie: serie, serieLabel: serieLabel, ajustement: ajustement,
     bilanAt: bilanAt, project: project, simulateWin: simulateWin, dropOuts: dropOuts,
     history: history, nextRelease: nextRelease, windowMatches: windowMatches, doublesBonus: doublesBonus,
-    parseScore: parseScore, iso: iso, parseDate: d, plus12Months: plus12Months
+    parseScore: parseScore, iso: iso, parseDate: d, plus12Months: plus12Months, leaveDate: leaveDate, releaseDiff: releaseDiff
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeEngine = api;

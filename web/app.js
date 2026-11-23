@@ -3968,12 +3968,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     for (var k = 0; k < 7 && rel <= limit; k++) {
       var b = E.bilanAt(E.windowMatches(all, rel, today()), calc, c.sex, c.cur, c.opts.extra);
       if (!b.reached && !(pu && rel < pu)) {
-        var gone = b0.counted.filter(function (w) { return w.m.date && E.plus12Months(E.parseDate(w.m.date)) <= rel; }).sort(function (a, b2) { return b2.pts - a.pts; });
+        // 3.78.1 (retour testeur) : ce qui sort, ce qui prend le relais et les bonus, calculés d'un bilan à l'autre (comme Ten'Up)
+        var dif = E.releaseDiff(b0, b), gone = dif.filter(function (r) { return r.k === "out" || r.k === "drop"; }).map(function (r) { return r.w; }).sort(function (a, b2) { return b2.pts - a.pts; });
         var fake = { id: "_d", date: E.iso(today()), result: "V", oppRank: lab(calc), kind: "tournoi" }, need = null;
         for (var L = Math.max(0, calc - 2); L <= calc + 1 && need == null; L++) { fake.oppRank = lab(L); if (E.bilanAt(E.windowMatches(all.concat([fake]), rel, today()), calc, c.sex, c.cur, c.opts.extra).reached) need = L; }
         var w0 = gone[0];
-        var ids0 = b0.counted.map(function (w) { return w.m.id; }), cameIn = b.counted.filter(function (w) { return ids0.indexOf(w.m.id) < 0; }).sort(function (a, b2) { return b2.pts - a.pts; });
-        return { rel: rel, calc: calc, prot: pu || null, lost: Math.max(0, b0.total - b.total), total: b.total, norme: b.norme, b0: b0.total, gone: gone, need: need, cameIn: cameIn, bonusLost: Math.max(0, (b0.bonusCh || 0) - (b.bonusCh || 0)),
+        var cameIn = dif.filter(function (r) { return r.k === "in"; }).map(function (r) { return r.w; }).sort(function (a, b2) { return b2.pts - a.pts; });
+        var bon = dif.filter(function (r) { return r.k === "bonus" || r.k === "adjust"; });
+        return { rel: rel, calc: calc, prot: pu || null, lost: Math.max(0, b0.total - b.total), total: b.total, norme: b.norme, b0: b0.total, gone: gone, need: need, cameIn: cameIn, bonus: bon,
+          bonusLost: bon.reduce(function (a, r) { return a + (r.pts < 0 ? -r.pts : 0); }, 0),
           short: (w0 ? "Ta victoire contre " + (w0.m.opp && !isAnon(w0.m.opp) ? w0.m.opp : "un " + w0.m.oppRank) + " sort" : "Des victoires sortent") + (need != null ? " : une victoire contre un " + lab(need) + " la remplace." : ".") };
       }
       rel = E.nextRelease(rel);
@@ -3994,8 +3997,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var line = function (t, sub, v, col) { return '<div class="d4-l"><span><b>' + t + "</b><small>" + sub + '</small></span><b style="color:' + col + '">' + v + "</b></div>"; };
     var rows = z.gone.slice(0, 3).map(function (w) { var d = E.parseDate(w.m.date); return line("V contre " + esc(oppN(w.m)), esc(w.m.oppRank) + " · jouée le " + d.getDate() + " " + MOIS[d.getMonth()] + " " + d.getFullYear(), "−" + w.pts, "var(--terre)"); });
     if (z.gone.length > 3) rows.push(line("Et " + plural(z.gone.length - 3, "autre victoire", "autres victoires"), "qui sortent aussi", "−" + z.gone.slice(3).reduce(function (a, w) { return a + w.pts; }, 0), "var(--terre)"));
-    if (z.bonusLost) rows.push(line("Bonus indiv", "lié à " + (z.gone.filter(function (w) { return w.m.kind === "champ"; }).length > 1 ? "ces matchs" : "ce match"), "−" + z.bonusLost, "var(--terre)"));
-    var gross = z.gone.reduce(function (a, w) { return a + w.pts; }, 0) + z.bonusLost, relay = gross - z.lost;
+    // 3.78.1 : tous les bonus qui bougent (sans défaite significative, indivs, doubles), dans un sens ou dans l'autre
+    var bGain = 0; (z.bonus || []).forEach(function (r) { if (r.pts > 0) bGain += r.pts; rows.push(line(esc(r.label), r.pts < 0 ? "ne compte plus à cette sortie" : "revient à cette sortie", (r.pts < 0 ? "−" : "+") + Math.abs(r.pts), r.pts < 0 ? "var(--terre)" : "var(--gazon)")); });
+    var gross = z.gone.reduce(function (a, w) { return a + w.pts; }, 0) + z.bonusLost, relay = gross - bGain - z.lost;
     // 3.37 : on dit quelle victoire prend le relais (elle était hors quota, elle remonte dans tes victoires comptées)
     if (relay > 0) {
       var ci = (z.cameIn || []).slice(0, 2), ciPts = ci.reduce(function (a, w) { return a + w.pts; }, 0);
@@ -7758,9 +7762,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var b0 = c.proj.status === "descente" ? c.proj.here : c.proj.next;
     if (b0 && b0.counted) {
       var lim = today(); lim.setDate(lim.getDate() + 92);
-      var soon = b0.counted.filter(function (w) { if (!w.m.date) return false; var l = E.plus12Months(E.parseDate(w.m.date)); return l > today() && l <= lim; }).sort(function (a, b) { return b.pts - a.pts; });
+      var soon = b0.counted.filter(function (w) { if (!w.m.date) return false; var l = E.leaveDate(w.m); return l > today() && l <= lim; }).sort(function (a, b) { return b.pts - a.pts; });
       if (soon.length && soon[0].pts >= 30) {
-        var w = soon[0], lv = E.plus12Months(E.parseDate(w.m.date));
+        var w = soon[0], lv = E.leaveDate(w.m);
         out.push({ id: "defend-" + w.m.id, score: 20 + w.pts / 3, go: "courbes",
           text: "En " + MOIS_L[lv.getMonth()] + ", ta victoire contre " + (w.m.opp || "un " + w.m.oppRank) + " (" + w.m.oppRank + ", +" + w.pts + " pts) sort de tes 12 mois." + (soon.length > 1 ? " Et " + plural(soon.length - 1, "autre") + " d'ici 3 mois." : "") });
       }
@@ -8011,7 +8015,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function calendarHtml(c) {
     var nx = c.proj.next; if (!nx || c.proj.status === "top") return "";
     var cm = countedMap(nx), ev = [], t0 = today(), lim = new Date(t0.getTime() + 100 * 864e5);
-    allMatches().forEach(function (m) { if (cm[m.id] == null || !m.date) return; var lv = E.plus12Months(E.parseDate(m.date)); if (lv >= t0 && lv <= lim) ev.push({ d: lv, k: "out", pts: cm[m.id], m: m }); });
+    allMatches().forEach(function (m) { if (cm[m.id] == null || !m.date) return; var lv = E.leaveDate(m); if (lv >= t0 && lv <= lim) ev.push({ d: lv, k: "out", pts: cm[m.id], m: m }); });
     var r = new Date(t0); for (var i = 0; i < 3; i++) { var nr = E.nextRelease(r); if (nr > lim) break; ev.push({ d: nr, k: "rel" }); r = new Date(nr.getTime() + 864e5); }
     if (!ev.some(function (x) { return x.k === "out"; })) return "";
     ev.sort(function (a, b) { return a.d - b.d; });
@@ -8076,7 +8080,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function coNextOut(c) {
     var nx = c.proj.next; if (!nx) return null;
     var cm = countedMap(nx), t0 = today(), best = null;
-    allMatches().forEach(function (m) { if (cm[m.id] == null || !m.date) return; var lv = E.plus12Months(E.parseDate(m.date)); if (lv >= t0 && (!best || lv < best.d)) best = { d: lv, m: m, pts: cm[m.id] }; });
+    allMatches().forEach(function (m) { if (cm[m.id] == null || !m.date) return; var lv = E.leaveDate(m); if (lv >= t0 && (!best || lv < best.d)) best = { d: lv, m: m, pts: cm[m.id] }; });
     return best && (best.d - t0) / 864e5 <= 100 ? { dt: fdate(E.iso(best.d)).replace(/\.$/, ""), rank: best.m.oppRank, pts: best.pts } : null;
   }
   function coRoute(c, pl) {
@@ -8284,7 +8288,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var w = coLastPlayed("V", 60); mood = "joie";
       if (w && p.next) {
         var cmU = countedMap(p.next), ptsW = cmU[w.id], oW = E.idx(T.normRank(w.oppRank || ""));
-        var untilW = esc(fdate(E.iso(E.plus12Months(E.parseDate(w.date)))).replace(/\.$/, ""));
+        var untilW = esc(fdate(E.iso(E.leaveDate(w))).replace(/\.$/, ""));
         XH += acCard("Ta victoire", acRow({ sq: "V", l: esc(nameCase(w.opp || "")) + acRk(w.oppRank), s: esc(fdate(w.date).replace(/\.$/, "")) + (w.score ? " · " + esc(w.score) : ""), href: "#/match/" + w.id }) +
           (ptsW != null ? acBig("+" + ptsW + "<small> pts</small>", "dans ton bilan " + esc(p.next.label) + ", jusqu'au " + untilW, "g") : ""));
         A.push(ptsW != null ? (oW != null && oW > cur ? "<b>Une perf :</b> il était mieux classé que toi. Elle pèse dans ton bilan pendant 12 mois." : "<b>Bien joué.</b> Elle pèse dans ton bilan pendant 12 mois.") : "<b>Elle ne rentre pas dans ton bilan " + esc(p.next.label) + "</b> : tes victoires comptées valent déjà plus. Elle te protège quand une autre sortira.");
@@ -12589,13 +12593,20 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // Points à défendre : ton bilan aux prochaines sorties si tu ne rejoues pas
   // Bilan à ton classement actuel aux 6 prochaines sorties, et les victoires qui sortent à chacune
+  // 3.78.1 : pour chaque sortie, les mouvements depuis la précédente (E.releaseDiff) et ce qui est perdu (montre, alertes)
+  function defendDiffs(pts) {
+    pts.forEach(function (x, i) {
+      x.diff = i ? E.releaseDiff(pts[i - 1].b, x.b) : [];
+      x.lost = x.diff.filter(function (r) { return r.pts < 0 && r.k !== "adjust"; }).map(function (r) { return r.k === "bonus" ? { bonus: r.label, pts: -r.pts } : r.w; });
+    });
+    return pts;
+  }
   function defendSeries(c) {
     var p = c.proj; if (p.status === "top" || c.cur <= 0) return null;
     var b0 = p.here, calc = b0.calc, all = allMatches(), rel = p.release, pts = [];
     for (var k = 0; k < 6; k++) { var b = E.bilanAt(E.windowMatches(all, rel, today()), calc, c.sex, c.cur, c.opts.extra); pts.push({ rel: rel, total: b.total, norme: b.norme, lost: [], b: b }); rel = E.nextRelease(rel); }
-    b0.counted.forEach(function (w) { if (!w.m.date) return; var leave = E.plus12Months(E.parseDate(w.m.date)); for (var i = 1; i < pts.length; i++) if (leave <= pts[i].rel && leave > pts[i - 1].rel) { pts[i].lost.push(w); break; } });
-    // 3.49 : les bonus qui sautent (mêmes libellés que le détail du mois)
-    for (var j = 1; j < pts.length; j++) [["bonusCh", "Bonus championnat (indivs)"], ["bonusSD", "Bonus sans défaite significative"], ["bonusDbl", "Bonus doubles"]].forEach(function (k2) { var dl = (pts[j - 1].b[k2[0]] || 0) - (pts[j].b[k2[0]] || 0); if (dl > 0) pts[j].lost.push({ bonus: k2[1], pts: dl }); });
+    // 3.78.1 (retour testeur) : d'un mois à l'autre, ce qui part (victoires, bonus) : les relais sont déjà dans le total
+    defendDiffs(pts);
     var now = (c.drops || []).reduce(function (s2, x) { return s2 + (x.pts || 0); }, 0);
     return { pts: pts, label: b0.label, now: now };
   }
@@ -12609,12 +12620,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       pts.push({ rel: rel, total: b.total, norme: b.norme, lost: [], b: b });
       rel = E.nextRelease(rel);
     }
-    // victoires comptées qui sortent à chaque sortie
-    b0.counted.forEach(function (w) {
-      if (!w.m.date) return;
-      var leave = E.plus12Months(E.parseDate(w.m.date));
-      for (var i = 1; i < pts.length; i++) if (leave <= pts[i].rel && leave > pts[i - 1].rel) { pts[i].lost.push(w); break; }
-    });
+    // 3.78.1 (retour testeur) : ce qui sort, ce qui prend le relais et les bonus, d'une sortie à l'autre
+    defendDiffs(pts);
     var drop = pts[0].total - pts[pts.length - 1].total;
     UI._defend = { pts: pts, label: b0.label };
     if (drop <= 0) {
@@ -12637,22 +12644,29 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var lostHere = i === 0 || x.lost.length || x.total < pts[i - 1].total, low = x.total < x.norme && !isProt(x), col = (low ? "var(--terre)" : "var(--gazon)") + (lostHere ? "" : ";opacity:.4");
       return '<button class="d3b" data-a="sheet" data-k="defend" data-v="' + i + '" aria-label="' + MOIS_L[x.rel.getMonth()] + " : " + x.total + ' pts"><b style="color:' + (low ? "var(--terre)" : "var(--ink)") + '">' + x.total + '</b><i style="height:' + Math.max(6, x.total / mx * BH).toFixed(0) + "px;background:" + col + '"></i><span>' + MOIS[x.rel.getMonth()].replace(/\.$/, "") + "</span></button>";
     }).join("");
-    var line = '<i class="d3n" style="bottom:' + (nor / mx * BH + 20).toFixed(0) + 'px"></i><span class="d3nl" style="bottom:' + (nor / mx * BH + 23).toFixed(0) + 'px">bilan à ' + esc(b0.label) + " · norme " + nor + "</span>"; // 3.55 (audit R14) : dire de quel bilan on parle (≠ « Ton bilan pour » l'échelon visé)
-    var gone = []; pts.slice(1).forEach(function (x, j) {
-      x.lost.forEach(function (w) { gone.push({ w: w, rel: x.rel }); });
-      // 3.49 (Yann) : les points bonus qui sautent aussi (championnat indivs, sans défaite significative, doubles), comme dans le détail du mois
-      var pb = pts[j].b, nb = x.b;
-      [["bonusCh", "Bonus championnat (indivs)"], ["bonusSD", "Bonus sans défaite significative"], ["bonusDbl", "Bonus doubles"]].forEach(function (k) { var dl = (pb[k[0]] || 0) - (nb[k[0]] || 0); if (dl > 0) gone.push({ bonus: k[1], pts: dl, rel: x.rel }); });
-    });
-    var list = gone.slice(0, 6).map(function (g) {
-      if (g.bonus) return '<div class="d3r"><span class="d3m">' + MOIS[g.rel.getMonth()].replace(/\.$/, "").slice(0, 3).toUpperCase() + '</span><span class="d3o"><b>' + esc(g.bonus) + "</b> · sort le " + g.rel.getDate() + " " + MOIS[g.rel.getMonth()] + "</span><b class=\"d3p\">−" + g.pts + "</b></div>";
-      var w = g.w, d = E.plus12Months(E.parseDate(w.m.date));
-      return '<div class="d3r"><span class="d3m">' + MOIS[g.rel.getMonth()].replace(/\.$/, "").slice(0, 3).toUpperCase() + '</span><span class="d3o"><b>' + esc(w.m.opp && !isAnon(w.m.opp) ? nameCase(w.m.opp) : "Un " + w.m.oppRank) + "</b> " + esc(w.m.oppRank) + " · sort le " + d.getDate() + " " + MOIS[d.getMonth()] + "</span><b class=\"d3p\">−" + w.pts + "</b></div>";
+    // 3.78.1 (Yann) : la légende de la norme passe au-dessus du graphique : elle ne cache plus jamais la valeur d'un mois
+    var line = '<i class="d3n" style="bottom:' + (nor / mx * BH + 20).toFixed(0) + 'px"></i>', leg = '<div class="d3leg"><i></i>bilan à ' + esc(b0.label) + " · norme " + nor + "</div>"; // 3.55 (audit R14) : dire de quel bilan on parle
+    // 3.78.1 (retour testeur, écart avec Ten'Up) : la liste suit le calcul de Ten'Up. Une victoire qui sort est remplacée
+    // par la meilleure hors quota (« prend le relais »), les bonus partent ou reviennent : la liste s'additionne à la baisse des barres.
+    var gone = []; pts.slice(1).forEach(function (x) { x.diff.forEach(function (r) { if (r.k !== "adjust") gone.push({ r: r, rel: x.rel }); }); });
+    var MAXR = 8, shown = gone.length > MAXR ? gone.slice(0, MAXR - 1) : gone, rest = gone.slice(shown.length);
+    var tag = function (dt) { return MOIS[dt.getMonth()].replace(/\.$/, "").slice(0, 3).toUpperCase(); };
+    var sgn = function (v) { return (v < 0 ? "−" : "+") + Math.abs(v); };
+    var row = function (rel, up, txt, v) { return '<div class="d3r' + (up ? " d3r-up" : "") + '"><span class="d3m">' + tag(rel) + '</span><span class="d3o">' + txt + '</span><b class="d3p">' + sgn(v) + "</b></div>"; };
+    var list = shown.map(function (g) {
+      var r = g.r;
+      if (r.k === "bonus") return row(g.rel, r.pts > 0, "<b>" + esc(r.label) + "</b> · " + (r.pts < 0 ? "ne compte plus" : "revient"), r.pts);
+      var m = r.w.m, who = "<b>" + esc(m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "Un " + m.oppRank) + "</b> " + esc(m.oppRank) + " · ";
+      if (r.k === "in") return row(g.rel, true, who + "prend le relais", r.pts);
+      if (r.k === "drop") return row(g.rel, false, who + "ne compte plus (moins de victoires prises en compte)", r.pts);
+      var d = E.leaveDate(m);
+      return row(g.rel, false, who + "sort le " + d.getDate() + " " + MOIS[d.getMonth()], r.pts);
     }).join("");
+    if (rest.length) list += row(rest[0].rel, false, "<b>Et " + plural(rest.length, "autre mouvement", "autres mouvements") + "</b> · touche un mois", rest.reduce(function (a, g) { return a + g.r.pts; }, 0));
     return '<div class="card d3 d3m-card">' + '<div class="d3-h"><span class="eyebrow">Points à défendre · ' + esc(b0.label) + '</span><span class="d3-when">si tu ne rejoues pas</span></div>' +
       '<b class="d3-title">' + esc(title) + "</b>" +
       (pu ? '<span class="small d4-prot">' + protLine(pu) + "</span>" : "") +
-      '<div class="d3bars">' + line + bars + "</div>" +
+      leg + '<div class="d3bars">' + line + bars + "</div>" +
       (list ? '<div class="d3list">' + list + "</div>" : "") +
       '<div class="d3-foot"><span class="d3-pill">' + (z && z.need != null ? "1 victoire contre un " + lab(z.need) + " suffit" : "Une victoire hors quota peut prendre le relais") + '</span></div>' +
       '<span class="small">Touche un mois pour le détail.</span></div>';
@@ -13431,6 +13445,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         }
         if (r.oppRank) m.oppRank = r.oppRank;
         if (r.oid) m.oid = r.oid; if (r.olic) m.olic = r.olic; if (r.oclub) m.oclub = r.oclub; if (r.oyear) m.oyear = r.oyear;
+        if (r.finPec) m.finPec = r.finPec; else delete m.finPec;
         if (r.score) m.score = r.score; if (!m.kindSet || m.kind === "amical") m.kind = r.kind; m.wo = r.wo; m.source = "tenup"; if (r.comp) m.comp = r.comp;
         if (before) recap.push({ before: before, after: { date: m.date, opp: m.opp, oppRank: m.oppRank, result: m.result, score: m.score } });
       }
@@ -13625,7 +13640,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var nid = r.id || uid();
     // Nouveau match récent (pas l'import initial) : Montée l'analyse et le met en avant sur l'accueil
     if (S.matches.length > 5 && r.date && r.date >= E.iso(new Date(Date.now() - 21 * 864e5)) && !r.wo) { S.anNew = (S.anNew || []).filter(function (x) { return x !== nid; }); S.anNew.unshift(nid); S.anNew = S.anNew.slice(0, 3); }
-    S.matches.push({ id: nid, date: r.date, opp: r.opp, oppRank: r.oppRank, result: r.result, wo: r.wo, score: r.score, kind: r.kind, comp: r.comp || "", surface: "", indoor: null, racketId: "", string: "", tension: null, tensionCross: null, feel: null, note: "", source: "tenup", oid: r.oid || "", olic: r.olic || "", oclub: r.oclub || "", oyear: r.oyear || null });
+    S.matches.push({ id: nid, date: r.date, opp: r.opp, oppRank: r.oppRank, result: r.result, wo: r.wo, score: r.score, kind: r.kind, comp: r.comp || "", surface: "", indoor: null, racketId: "", string: "", tension: null, tensionCross: null, feel: null, note: "", source: "tenup", oid: r.oid || "", olic: r.olic || "", oclub: r.oclub || "", oyear: r.oyear || null, finPec: r.finPec || "" });
   }
   function officialHtml(full) {
     var o = S.tenup && S.tenup.official;
