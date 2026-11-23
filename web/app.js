@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.72.0",
+    VERSION: "3.73.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -623,7 +623,7 @@
   document.addEventListener("focusout", function () { setTimeout(function () { if (!kbField(document.activeElement)) document.body.classList.remove("kb"); }, 80); });
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
-    var r = route(); UI.sheet = null; UI.flAnim = true; // 3.66 : la fleur s'anime à chaque arrivée sur une page
+    var r = route(); UI.sheet = null; UI.ace = null; UI.flAnim = true; // 3.66 : la fleur s'anime à chaque arrivée sur une page
     // 3.57.3 (testeur) : la feuille « Programmer le match » restait ouverte en quittant la poule et se rouvrait au retour
     UI.plSched = null; UI.plHost = null;
     if (!/^tournoi\//.test(r)) { UI.trR = null; UI.trHits = null; }
@@ -759,10 +759,12 @@
     if (UI.qaSheet && parts[0] === "" && !qaList().length) UI.qaSheet = false;
     if (UI.qaSheet && parts[0] === "") html += '<div class="sheet-bg" data-a="qaClose"></div><div class="sheet qa-sheet" role="dialog" aria-modal="true" aria-label="Annoter ton match"><span class="sheet-grab"></span>' + qaFormHtml() + "</div>";
     if (UI.actPlus) html += actPlusHtml();
+    if (UI.ace) html += aceHtml(); // 3.73 : Ace, le coach
+    else if (parts[0] === "" && S.onboarded && S.matches.length && !S.aceSeen && !UI.sheet && !UI.notesOpen && !UI.qaSheet && !UI.actPlus) html += aceIntroHtml();
     if (!UI.sheet && !UI.leaveAsk && notesDue()) html += notesHtml();
     document.body.classList.toggle("has-pill", html.indexOf('class="mm-pill"') >= 0);
     document.body.classList.toggle("glow", ["", "bienvenue"].indexOf(parts[0]) < 0);
-    document.body.classList.toggle("locked", !!(UI.menu || UI.rkMenu || UI.sheet || UI.actPlus || UI.qaSheet || UI.jj || UI.leaveAsk || UI.notesOpen));
+    document.body.classList.toggle("locked", !!(UI.ace || UI.menu || UI.rkMenu || UI.sheet || UI.actPlus || UI.qaSheet || UI.jj || UI.leaveAsk || UI.notesOpen));
     // 3.49.1 (Yann : l'accueil « clignote » au lancement) : chaque synchro (Ten'Up, montre, joueurs suivis, widgets…) refaisait
     // tout l'écran, et l'écran rejoue son apparition. Sur la même page, on ne met à jour que ce qui a changé (rien ne réapparaît,
     // le défilement, les images et la feuille ouverte restent en place). Changement de page : on redessine tout, comme avant.
@@ -775,6 +777,7 @@
     UI.lastRKey = rKey;
     if (S.onboarded && !UI.capCkT) UI.capCkT = setTimeout(function () { UI.capCkT = null; try { capCheck(); } catch (e) {} }, 600); // 3.62
     Array.prototype.forEach.call(app.querySelectorAll("textarea"), growTa);
+    try { mountBalles(document.body); } catch (e) {} // 3.73 : la Balle (bulles du coach, accueil, discussion)
     // Barre des courbes : recréée par le rendu, on remet tout de suite son fond « collé » et le bon onglet (sinon transparente jusqu'au prochain défilement)
     try { cbSpy(true); } catch (e) {}
     if (UI.cbTo && parts[0] === "courbes") {
@@ -1010,6 +1013,7 @@
     for (i = a.attributes.length - 1; i >= 0; i--) { at = a.attributes[i]; if (!b.hasAttribute(at.name)) a.removeAttribute(at.name); }
     for (i = 0; i < b.attributes.length; i++) { at = b.attributes[i]; if (a.getAttribute(at.name) !== at.value) { if (at.namespaceURI) a.setAttributeNS(at.namespaceURI, at.name, at.value); else a.setAttribute(at.name, at.value); } }
     if (tg === "DETAILS") a.open = b.hasAttribute("open");
+    if (a.classList && a.classList.contains("cbl-b") && a.firstChild) return; // 3.73 : la Balle déjà dessinée n'est pas effacée
     morphKids(a, b);
   }
 
@@ -1743,7 +1747,8 @@
       '<button class="linkbtn pe-probe" data-a="trFmtSet" data-v="tableau">Pas de poule : élimination directe ?</button>' +
       "</div>";
   }
-  function poolHtml(t) {
+  // 3.73 : le classement de la poule, partagé entre la poule et la Balle
+  function poolStand(t) {
     var mem = poolMembers(t), games = poolGames(t), n = mem.length;
     var key = function (nm) { return nm === "Toi" ? "toi" : nameKey(nm); };
     var st = mem.map(function (m) {
@@ -1758,6 +1763,10 @@
       var d = res.filter(function (x) { return x === "D"; }).length;
       return { m: m, res: res, v: v, d: d, p: 2 * v + d, sd: sd, gd: gd, scN: scN };
     }).sort(function (a, b) { return (b.p - a.p) || (b.v - a.v) || (b.sd - a.sd) || (b.gd - a.gd); });
+    return { mem: mem, games: games, n: n, st: st, key: key };
+  }
+  function poolHtml(t) {
+    var P = poolStand(t), mem = P.mem, games = P.games, n = P.n, st = P.st, key = P.key;
     var tieUsed = st.some(function (x, i) { var y = st[i + 1]; return y && x.p === y.p; });
     var sgn = function (x) { return (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x); };
     var s = '<div class="card pl-st"><span class="eyebrow">Le classement</span>' + poolProgHtml(t) + st.map(function (x, i) {
@@ -2363,6 +2372,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var pot = rs.reduce(function (a, r) { if (r.res) return a; var A3 = trAlt(r), rk = r.opp && r.opp.rank ? r.opp.rank : A3 ? A3.fav.rank : ""; var g = rk ? trGain(rk) : null; return a + (g || 0); }, 0) +
         (poule ? (t.pool || []).reduce(function (a, x) { return a + (x.res ? 0 : (trGain(x.rank) || 0)); }, 0) : 0);
       var c = ctx(), tgtI = Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC);
+      if (!ren) s += coachBubble(poule ? "pl" : "tb", coTrTips(t, pot, c)); // 3.73
       if (pot > 0 && c.proj.status !== "top" && c.proj.next) { var now = c.proj.next.total, nm = c.proj.next.norme, pc = Math.min(100, Math.round(now * 100 / Math.max(1, nm))), pc2 = Math.min(100, Math.round((now + pot) * 100 / Math.max(1, nm)));
         s += '<div class="card tq-bil"><div class="tq-bh"><span class="eyebrow">Ton bilan ' + esc(lab(tgtI)) + '</span><b>' + now + ' → <span style="color:var(--gazon)">' + (now + pot) + "</span> / " + nm + '</b></div><span class="tq-bar"><i style="width:' + pc + '%"></i><i class="p" style="width:' + Math.max(0, pc2 - pc) + '%"></i></span><span class="small">' + (now + pot >= nm ? "Si tu gagnes tous tes matchs prévus, tu passes la norme " + esc(lab(tgtI)) + "." : "Si tu gagnes tous tes matchs prévus.") + "</span></div>";
       }
@@ -3020,7 +3030,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (spK && !S.demo) dl0 = '<span class="small hd-d">' + esc(flong(d).replace(/^./, function (x) { return x.toUpperCase(); })) + "</span>";
     var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })();
     // 3.70.9 (Yann, maquette 1) : la roue des réglages, discrète, en face de la date ; la barre de profil prend toute la largeur
-    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + dl0 + '<button class="iconbtn gearbtn hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + ' data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div></div></div></div>" : av0 +
+    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + dl0 + '' + aceHd() + '<button class="iconbtn gearbtn hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + ' data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div></div></div></div>" : av0 +
       '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div></div></div></div>");
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
@@ -7368,60 +7378,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var d = E.iso(today());
     return (list || []).map(function (x, i) { return { id: "_simu" + i, date: d, result: x.r, oppRank: lab(x.l), kind: "tournoi", score: x.r === "V" ? "6-4 6-4" : "4-6 4-6" }; });
   }
-  V.simu = function () {
-    var c = ctx(), p = c.proj; tryMark("simu");
-    if (p.status === "top") return '<div class="screen">' + topbar("Et si…") + '<p class="lead">Les joueurs numérotés sont classés au concours des meilleurs bilans : pas de simulation possible.</p></div>';
-    var cur = c.cur < 0 ? 0 : c.cur, lv = [];
-    for (var L = Math.max(-1, cur - 4); L <= Math.min(E.MAX_CALC, cur + 4); L++) lv.push(L);
-    UI.simu = UI.simu || [];
-    if (UI.simuLv == null || lv.indexOf(UI.simuLv) < 0) UI.simuLv = Math.min(cur + 1, E.MAX_CALC);
-    var all = allMatches(), fakes = simuFakes(UI.simu), rel = p.release;
-    var after = fakes.length ? E.project(all.concat(fakes), c.cur, c.sex, c.opts) : p;
-    // Le bilan qu'on suit : celui de l'échelon visé (ou du maintien si tu es menacé)
-    var danger = p.status === "descente", calc = danger ? cur : p.next.calc;
-    var bil = function (ms) { return E.bilanAt(E.windowMatches(ms, rel, today()), calc, c.sex, c.cur, c.opts.extra); };
-    var b0 = bil(all), prev = b0, rows = [];
-    fakes.forEach(function (f, i) {
-      var b = bil(all.concat(fakes.slice(0, i + 1))), d = b.total - prev.total, raw = f.result === "V" ? E.BAREME.win(E.idx(f.oppRank) - calc) : 0;
-      rows.push({ x: UI.simu[i], d: d, raw: raw, weak: prev.weakest, full: prev.slotsFree === 0 });
-      prev = b;
-    });
-    var bf = prev, up = after.projected > cur && after.status === "montee", down = after.status === "descente";
-    // 3.71.5 (Yann) : « 15/4 → 15/4 Maintien » se lisait « rien ne bouge » : tant que tu ne montes pas, on montre l'objectif et ce qu'il manque
-    var aim = !up && !down && !danger, miss = Math.max(0, bf.norme - bf.total);
-    var head = up ? "Tu montes" : down ? "Descente" : danger ? "Tu te maintiens" : miss ? "Il manque " + plural(miss, "pt") : "Il manque 1 victoire";
-    var s = '<div class="screen">' + topbar("Et si…", "Sortie du " + flong(rel));
-    s += '<p class="small" style="margin-top:-6px">Ajoute des matchs imaginaires : ta projection bouge en direct. Rien n\'est enregistré.</p>';
-    // Projection après les matchs imaginaires
-    var pc = Math.max(3, Math.min(100, Math.round(bf.total / Math.max(1, bf.norme) * 100)));
-    s += '<div class="card simu-top"><div class="sp-row"><span class="sp-r muted">' + esc(lab(cur)) + '</span><span class="sp-a">→</span><span class="sp-r ' + (up ? "up" : down ? "dn" : "") + '">' + esc(aim ? bf.label : lab(after.projected)) + '</span><span class="badge2 ' + (up ? "b-me" : down ? "b-him" : "b-eq") + '">' + head + "</span></div>" +
-      '<div class="sp-bar"><i class="' + (bf.total >= bf.norme ? "ok" : "") + '" style="width:' + pc + '%"></i></div>' +
-      '<span class="small">' + (danger ? "Pour rester " : "Pour monter ") + esc(bf.label) + " : <b>" + bf.total + " pts</b> sur " + bf.norme +
-      (bf.total >= bf.norme ? ', <b class="pos">+' + (bf.total - bf.norme) + " de marge</b>" : aim ? "" : ', <b class="neg">il manque ' + (bf.norme - bf.total) + "</b>") +
-      (!danger && bf.total >= bf.norme && !bf.winAtLevel ? ", et une victoire contre un " + esc(bf.label) + " ou mieux" : "") + "." +
-      (fakes.length ? " Sans ces matchs : " + b0.total + "." : "") + "</span>" + whyAtLevel(bf.label, danger) + "</div>";
-    // Le conseil qui va droit au but
-    if (!fakes.length) {
-      var mw = minWinToRise(c);
-      if (mw !== null && mw !== undefined) s += '<div class="card simu-tip">' + I.spark + "<span><b>Une victoire contre un " + esc(lab(mw)) + " ou mieux suffit</b> pour monter à cette sortie.</span></div>";
-    }
-    // Les matchs imaginaires
-    if (rows.length) {
-      s += '<div class="card simu-l"><span class="eyebrow">Tes matchs imaginaires</span>' + rows.map(function (r, i) {
-        var sub = r.x.r === "D" ? (r.d < 0 ? "fait baisser le nombre de victoires comptées" : "ne change rien au bilan") :
-          r.d <= 0 ? (r.raw ? "ne dépasse pas tes victoires déjà comptées" : "trop loin en dessous : 0 pt à " + lab(calc)) :
-            r.raw > r.d && r.full ? "vaut " + r.raw + ", remplace une victoire à " + r.weak : "vaut " + r.raw + " pts";
-        return '<div class="simu-r"><span class="res ' + (r.x.r === "V" ? "v" : "d") + '">' + r.x.r + '</span><span class="grow"><b>' + (r.x.r === "V" ? "Victoire" : "Défaite") + " contre un " + esc(lab(r.x.l)) + "</b><span>" + esc(sub) + "</span></span>" +
-          '<span class="pts ' + (r.d > 0 ? "up" : r.d < 0 ? "dn" : "") + '">' + (r.d > 0 ? "+" : r.d < 0 ? "−" : "") + Math.abs(r.d) + '</span><button class="iconbtn sm" data-a="simuDel" data-i="' + i + '" aria-label="Retirer ce match">' + I.cross + "</button></div>";
-      }).join("") + '<button class="linkbtn" data-a="simuClear" style="align-self:flex-start;padding:6px 0 0;min-height:0">Tout effacer</button></div>';
-    }
-    // Ajouter un match
-    s += '<div class="card simu-add"><span class="eyebrow">Ajouter un match</span><div class="simu-lv" role="group" aria-label="Classement de l\'adversaire">' +
-      lv.map(function (i) { return '<button class="' + (UI.simuLv === i ? "on" : "") + '" data-a="simuLv" data-v="' + i + '" aria-pressed="' + (UI.simuLv === i) + '">' + esc(lab(i)) + "</button>"; }).join("") + "</div>" +
-      '<div class="simu-btns"><button class="btn small simu-v" data-a="simuAdd" data-v="V"' + (UI.simu.length >= 10 ? " disabled" : "") + '>+ Victoire</button><button class="btn soft small" data-a="simuAdd" data-v="D"' + (UI.simu.length >= 10 ? " disabled" : "") + '>+ Défaite</button></div></div>';
-    s += '<p class="small">Les matchs imaginaires sont datés d\'aujourd\'hui et comptent comme des matchs de tournoi. Une défaite contre un joueur moins bien classé peut réduire le nombre de victoires qui comptent (V − E − 2I − 5G).</p>';
-    return s + "</div>";
-  };
+  V.simu = function () { tryMark("simu"); UI.mmTab = "etsi"; return V.projection(); };
 
   // ---------- Ta carte du mois : une image à partager en story ----------
   function lastReleases() {
@@ -8443,6 +8400,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     s += '<div class="pj-bar">' + ballBar(hb.norme ? Math.min(100, hb.total * 100 / hb.norme) : 0, hb.total + " sur " + hb.norme, p.status === "descente" ? "var(--terre)" : "var(--hacc3)") +
       '<div class="pj-leg"><span>' + (p.status === "descente" ? "Pour rester " : "Pour monter ") + esc(hb.label) + " : <b>" + hb.total + "</b> / " + hb.norme + " pts</span><span>" + plural(hb.n, "victoire comptée", "victoires comptées") + "</span></div>" + whyAtLevel(hb.label, p.status === "descente") + "</div>";
 
+    // 3.73 (Yann, maquettes validées) : « Ma montée » : projection, Et si… et bon moment sur une seule page, en 3 onglets
+    var tab = ["pistes", "etsi", "quand"].indexOf(UI.mmTab) >= 0 ? UI.mmTab : "pistes";
+    s += '<div class="seg mmo-tabs" role="tablist" aria-label="Ma montée">' + [["pistes", "Tes pistes"], ["etsi", "Et si…"], ["quand", "Quand jouer"]].map(function (x) { return '<button role="tab" aria-selected="' + (tab === x[0]) + '" class="' + (tab === x[0] ? "on" : "") + '" data-a="mmTab" data-v="' + x[0] + '">' + x[1] + "</button>"; }).join("") + "</div>";
     // simulateur
     var lv = levelsAround(c.cur), danger = p.status === "descente";
     if (UI.projLevel == null || lv.indexOf(UI.projLevel) < 0) UI.projLevel = danger ? cur : Math.min(cur + 1, E.MAX_CALC);
@@ -8464,21 +8424,19 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     // 3.34 : classements sur une ligne, puis « cette victoire → ton bilan »
     var aft = danger && !rose ? sim.after.here : sim.after.next, rest = Math.max(0, aft.norme - aft.total);
-    s += '<div class="card pj-sim"><b style="font-size:15px">Et si tu gagnais contre un…</b><div class="pj-lv" role="group" aria-label="Classement de l\'adversaire">' +
+    if (tab === "etsi") s += '<div class="card pj-sim"><b style="font-size:15px">Et si tu gagnais contre un…</b><div class="pj-lv" role="group" aria-label="Classement de l\'adversaire">' +
       lv.map(function (i) { return '<button class="' + (UI.projLevel === i ? "on" : "") + '" data-a="projLevel" data-v="' + i + '" aria-pressed="' + (UI.projLevel === i) + '">' + lab(i) + "</button>"; }).join("") + "</div>" +
       '<div class="pj-res"><div><small>Cette victoire</small><b style="color:' + (sim.gain > 0 ? "var(--gazon)" : "var(--muted)") + '">+' + Math.max(0, sim.gain) + " pts</b><span>" + (sim.pts > sim.gain && sim.gain > 0 ? "+" + sim.pts + ", moins ta plus faible" : sim.pts === 0 ? "trop loin pour compter" : sim.gain > 0 ? "au bilan " + esc(aft.label) : "ne dépasse pas tes victoires comptées") + '</span></div><i>→</i><div><small>Ton bilan</small><b>' + aft.total + " <em>/ " + aft.norme + "</em></b><span style=\"color:" + (good ? "var(--gazon)" : "var(--terre)") + '">' + (good ? esc(verdict) : rest ? "encore " + rest + " pts" : esc(verdict)) + "</span></div></div>" +
-      '<a class="linkbtn simu-link" href="#/simu">Plusieurs matchs ? Simule ton tournoi ' + I.next + "</a></div>";
-
-    s += pistesHtml(c);
-    s += calendarHtml(c);
+      "</div>";
+    if (tab === "etsi") s += etsiTourHtml(c);
+    else if (tab === "quand") s += quandHtml(c);
+    else { var pl0 = null; try { pl0 = pistes(c); } catch (e) {} s += coachBubble("pj", coProjTips(c, pl0)) + pistesHtml(c); }
     var mw = null;
     if (mw !== undefined && mw !== null) s += '<div class="card menthe" style="flex-direction:row;align-items:center;gap:10px;padding:12px 14px">' + I.spark + '<span style="font-size:14px;line-height:1.4"><b>À retenir :</b> une victoire contre un ' + lab(mw) + " ou mieux suffit. Joue-la tôt pour qu'elle soit homologuée à temps.</span></div>";
 
+    // 3.73 : le détail du bilan passe dans une feuille du bas, derrière une seule ligne (sans répéter les points)
+    s += '<button class="card mmo-det" data-a="sheet" data-k="mmBilan" data-v="' + (danger ? "keep" : "up") + '"><span class="grow"><b>Les matchs qui comptent</b><span class="small">' + plural(hb.n, "victoire prise", "victoires prises") + " en compte, et ce que rapporte chacune</span></span>" + I.next + "</button>";
     s += officialHtml(true);
-    // détail du bilan
-    var keep = cur > 0 && p.status !== "montee" ? bilanDetail(p.here, "Pour rester " + lab(cur) + " : ton bilan à " + lab(cur)) : "";
-    var up = bilanDetail(nx, "Pour monter " + nx.label + " : ton bilan à " + nx.label);
-    s += danger ? keep + up : up + keep;
     s += '<a class="btn soft small" href="#/methode">Comment c\'est calculé</a>';
     return s + '<p class="small">Calcul indicatif d\'après le barème FFT. Seul le classement officiel fait foi.</p></div>';
   };
@@ -8500,6 +8458,325 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return '<div class="evx out"><b>' + dt + " · sort de ton bilan</b><small>Ta victoire contre un " + esc(x.m.oppRank) + " (" + MOIS[E.parseDate(x.m.date).getMonth()] + " " + E.parseDate(x.m.date).getFullYear() + ") : −" + x.pts + " pts</small></div>";
     }).join("");
     return '<div class="card cal-card"><span class="eyebrow">Ton calendrier</span><div class="tml">' + rows + "</div>" + (tip ? '<span class="p">' + tip + "</span>" : "") + "</div>";
+  }
+  // ---------- 3.73 : le coach, la Balle (Yann, 23/11/2026 : personnage, animations et maquettes validés) ----------
+  // Ton : un copain qui t'aide avec tes chiffres, te dit le bon truc au bon moment et te relève après une défaite.
+  // Tout reste dans le téléphone (pas de serveur) ; la Balle ne dit que des faits déjà dans l'app, reformulés en consigne.
+  // Une bulle par écran au plus. « Pas utile » : ce conseil se tait 21 jours ; 3 refus sur un écran : elle n'y revient que pour un fait nouveau.
+  // Un conseil vu sur un écran n'est pas répété sur un autre pendant 21 jours.
+  var CO_MUTE = 21 * 864e5;
+  function coMem() { var m = S.coach || (S.coach = {}); m.no = m.no || {}; m.scr = m.scr || {}; m.seen = m.seen || {}; m.op = m.op || {}; return m; }
+  function coPurge(m) { var t = Date.now() - 45 * 864e5; ["no", "op"].forEach(function (k) { Object.keys(m[k]).forEach(function (id) { if (m[k][id] < t) delete m[k][id]; }); }); Object.keys(m.seen).forEach(function (id) { if (m.seen[id].t < t) delete m.seen[id]; }); }
+  function coPick(scr, tips) {
+    var m = coMem(), now = Date.now(), quiet = (m.scr[scr] || 0) >= 3;
+    var t = (tips || []).filter(function (x) {
+      if (!x || !x.id || !x.t) return false;
+      if (m.no[x.id] && now - m.no[x.id] < CO_MUTE) return false;
+      var sn = m.seen[x.id]; if (sn && sn.s !== scr && now - sn.t < CO_MUTE) return false;
+      return !quiet || x.fresh;
+    })[0];
+    if (t && (!m.seen[t.id] || (m.seen[t.id].s !== scr && now - m.seen[t.id].t >= CO_MUTE))) m.seen[t.id] = { s: scr, t: now };
+    return t || null;
+  }
+  function coAct(a) {
+    if (!a) return "";
+    return a.href ? '<a class="cbl-go" href="' + a.href + '">' + esc(a.l) + " ›</a>" : '<button class="cbl-go" data-a="' + a.a + '"' + (a.k ? ' data-k="' + esc(a.k) + '"' : "") + (a.v != null ? ' data-v="' + esc(a.v) + '"' : "") + ">" + esc(a.l) + " ›</button>";
+  }
+  function coBall(id, mood, sz) { return '<span class="cbl-b' + (sz ? " " + sz : "") + '" data-k="' + esc(id) + '" data-id="' + esc(id) + '" data-m="' + (mood || "repos") + '" aria-hidden="true"></span>'; }
+  function coachBubble(scr, tips) {
+    var t = coPick(scr, tips); if (!t) return "";
+    return '<div class="card cbl" role="note" aria-label="Le conseil de la Balle">' + coBall(t.id, t.mood) + '<div class="cbl-t"><span>' + t.t + '</span><div class="cbl-ac">' + coAct(t.act) +
+      '<button class="cbl-no" data-a="coachNo" data-id="' + esc(t.id) + '" data-s="' + esc(scr) + '">Pas utile</button></div></div></div>';
+  }
+  // Pose les balles dessinées après chaque rendu ; l'animation se joue une fois par conseil et par lancement
+  function mountBalles(root) {
+    if (!window.Balle) return;
+    UI.coPlayed = UI.coPlayed || {};
+    Array.prototype.forEach.call(root.querySelectorAll(".cbl-b"), function (el) {
+      if (el.firstChild) return;
+      var sz = el.classList.contains("xl") ? 72 : el.classList.contains("xs") ? 32 : el.classList.contains("sm") ? 40 : 50, b = Balle.make(sz), id = el.getAttribute("data-id") || "", md = el.getAttribute("data-m") || "repos";
+      el.appendChild(b);
+      var fin = md === "joie" || md === "arrivee" ? 1 : md === "repos" ? 0.1 : 0.55;
+      if (UI.coPlayed[id + md] || sz < 30) b.pose(Balle.M[md] ? Balle.M[md](fin) : {});
+      else { UI.coPlayed[id + md] = 1; Balle.play(b, md, md === "repos" ? 3000 : 1600); }
+      // Ace de l'accueil : il cligne des yeux et regarde autour de lui toutes les 7 s (rien si mouvement réduit)
+      if (el.classList.contains("sm") && md === "repos" && !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) { var iv = setInterval(function () { if (!b.isConnected) return clearInterval(iv); Balle.play(b, "repos", 3000); }, 7000); }
+    });
+  }
+  function coLastPlayed(res, days) {
+    var lim = E.iso(new Date(today().getTime() - (days || 60) * 864e5));
+    return knownMatches(false).filter(function (m) { return m.result === res && !m.wo && m.date && m.date >= lim && m.opp; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0] || null;
+  }
+  function coNextOut(c) {
+    var nx = c.proj.next; if (!nx) return null;
+    var cm = countedMap(nx), t0 = today(), best = null;
+    allMatches().forEach(function (m) { if (cm[m.id] == null || !m.date) return; var lv = E.plus12Months(E.parseDate(m.date)); if (lv >= t0 && (!best || lv < best.d)) best = { d: lv, m: m, pts: cm[m.id] }; });
+    return best && (best.d - t0) / 864e5 <= 100 ? { dt: fdate(E.iso(best.d)).replace(/\.$/, ""), rank: best.m.oppRank, pts: best.pts } : null;
+  }
+  function coRoute(c, pl) {
+    var ez = pl && pl.list && pl.list[0]; if (!ez) return null;
+    var cap = plafondIdx(c), out = coNextOut(c), rel = fdate(c.proj.release).replace(/\.$/, ""), mine = cap != null && ez.top <= cap && ez.top >= (c.cur < 0 ? 0 : c.cur);
+    return { id: "route:" + pisteLabel(ez) + ":" + E.iso(c.proj.release), mood: "concentree",
+      t: "<b>" + esc(pisteLabel(ez)) + (pl.goal === "keep" ? " et tu restes " : " et tu montes ") + esc(lab(pl.target)) + ".</b> " + (mine ? "Tu sais faire : tu bats régulièrement les " + esc(lab(cap)) + ". " : "") +
+        (out ? "Le bon moment, c'est avant le " + esc(out.dt) + " : après, ta victoire contre un " + esc(out.rank) + " sort du bilan." : "C'est jouable avant le " + esc(rel) + ".") };
+  }
+  // Ma montée, onglet « Tes pistes »
+  function coProjTips(c, pl) {
+    var p = c.proj, tips = []; if (p.status === "top" || !p.next) return tips;
+    if (p.status === "montee") tips.push({ id: "pj:up:" + p.projected + ":" + E.iso(p.release), mood: "joie", t: "<b>Tu montes " + esc(lab(p.projected)) + " le " + esc(fdate(p.release).replace(/\.$/, "")) + ".</b> Chaque victoire d'ici là, c'est de la marge pour la suite." });
+    var r = coRoute(c, pl); if (r) { r.act = { l: "Simule-le", a: "mmTab", v: "etsi" }; tips.push(r); }
+    return tips;
+  }
+  // Fiche adversaire : le face-à-face et la façon dont les matchs se sont joués
+  function coAdvTips(key, ms) {
+    var pl = ms.filter(function (m) { return (m.result === "V" || m.result === "D") && !m.wo; }); if (pl.length < 2) return [];
+    var sets = function (m) { return String(m.score || "").match(/\d{1,2}\s*[-\/]\s*\d{1,2}/g) || []; };
+    var tight = function (m) { var ss = sets(m); return ss.length >= 3 || ss.some(function (x) { var q = x.split(/[-\/]/).map(Number); return (q[0] === 7 && q[1] === 6) || (q[0] === 6 && q[1] === 7); }); };
+    var L = pl.filter(function (m) { return m.result === "D"; }), W = pl.filter(function (m) { return m.result === "V"; }), last = pl[0], v = W.length, d = L.length;
+    var head = (v > d ? v + " – " + d + " pour toi" : v < d ? d + " – " + v + " pour lui" : v + " partout") + (last.result === "V" ? ", et tu as gagné la dernière" + (last.score ? " (" + esc(last.score) + ")" : "") : ", et il a gagné la dernière");
+    var tail = d && L.every(tight) ? (d > 1 ? "Tes " + d + " défaites se sont jouées" : "Ta défaite s'est jouée") + " au tie-break ou au 3e set : quand ça se resserre, reste patient, ça se joue à rien." :
+      v >= 2 && !d && W.every(function (m) { return sets(m).length === 2; }) ? "Tu l'as toujours battu en 2 sets : impose ton jeu dès le début, comme d'habitude." :
+      d >= 2 && L.every(function (m) { return sets(m).length === 2; }) ? "Il t'a battu " + d + " fois en 2 sets : prépare ton plan avant, c'est là que ça se gagne." : "";
+    if (!tail) return [];
+    return [{ id: "adv:" + key + ":" + pl.length, mood: v >= d ? "joie" : "concentree", fresh: true, t: "<b>" + head + ".</b> " + tail }];
+  }
+  // Courbes : ton niveau joué face à ton classement, et ce qu'il manque
+  function coCbTips(c) {
+    var p = c.proj, tips = [], cur = c.cur < 0 ? 0 : c.cur; if (p.status === "top" || !p.next) return tips;
+    var f = null, pl = null; try { f = levelNow(c); } catch (e) {} try { pl = pistes(c); } catch (e) {}
+    var ez = pl && pl.list && pl.list[0], gap = Math.max(0, p.next.norme - p.next.total);
+    var how = p.status === "descente" && ez ? "Pour rester " + esc(lab(cur)) + " : " + esc(pisteLabel(ez)) + "." : gap ? "Il te manque " + plural(gap, "pt") + " pour " + esc(p.next.label) + (ez && pl.goal === "up" ? " : " + esc(pisteLabel(ez)) + ", et c'est fait." : ".") : "";
+    if (f && f.ms) {
+      var d = Math.round((f.mean - cur) * 10) / 10, tgt = Math.max(0, Math.min(E.MAX_CALC, cur + Math.round(d)));
+      if (d >= 0.8 && tgt > cur) tips.push({ id: "cb:lvl:" + tgt + ":" + gap, mood: "joie", t: "<b>Tu joues déjà " + esc(lab(tgt)) + ", ton classement est en retard sur ton niveau.</b> " + how, act: { l: "Ma montée", href: "#/projection" } });
+      else if (d <= -0.5) tips.push({ id: "cb:low:" + gap, mood: "reflexion", t: "<b>Tu joues un peu sous ton " + esc(lab(cur)) + " ces derniers mois.</b> " + (p.status === "descente" ? how : "Ton bilan, lui, tient : une bonne série et ça repart."), act: { l: "Ma montée", href: "#/projection" } });
+    }
+    if (how && p.status !== "montee") tips.push({ id: "cb:gap:" + gap, mood: "concentree", t: "<b>" + how.replace(/ : /, ".</b> ").replace(/^([^<]*)$/, "$1</b>"), act: { l: "Ma montée", href: "#/projection" } });
+    return tips;
+  }
+  // Épreuve : poule (place, ce qu'il reste, la norme) ou tableau (prochain tour, chances, points)
+  function coTrTips(t, pot, c) {
+    var p = c.proj; if (p.status === "top" || !p.next || tourOver(t)) return [];
+    var nx = p.next, now = nx.total, nm = nx.norme;
+    if (t.fmt === "poule") {
+      var P = null; try { P = poolStand(t); } catch (e) {} if (!P || !P.st.length) return [];
+      var pos = 0; P.st.forEach(function (x, i) { if (x.m.me) pos = i + 1; });
+      var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }); if (!left.length) return [];
+      var names = left.map(function (x) { return nameCase(x.name); }), played = P.st.some(function (x) { return x.v + x.d > 0; });
+      var who = left.length === 1 ? "Reste " + names[0] : "Restent " + names.slice(0, -1).join(", ") + " et " + names[names.length - 1];
+      var top = played && pos ? (pos === 1 ? "Tu es 1er de ta poule. " : "Tu es " + pos + "e de ta poule. ") : "";
+      var gain = now < nm && now + pot >= nm ? " : " + (left.length > 1 ? "gagne les " + left.length : "gagne-le") + " et tu passes la norme " + esc(nx.label) + "." : pot > 0 ? " : jusqu'à +" + pot + " pts pour ton bilan " + esc(nx.label) + "." : ".";
+      return [{ id: "pl:" + t.id + ":" + pos + ":" + left.length, mood: pos === 1 && played ? "joie" : "concentree", fresh: true, t: "<b>" + top + esc(who) + "</b>" + gain, act: { l: "Je joue qui d'abord ?", a: "ace", v: "poule:" + t.id } }];
+    }
+    var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (!r) return [];
+    var A3 = trAlt(r), rk = r.opp && r.opp.rank ? r.opp.rank : A3 ? A3.fav.rank : "", nmO = r.opp && r.opp.name ? trNm(r.opp.name) : "", g = rk ? trGain(rk) : null, pr = trRoundP(r);
+    if (!rk) return [];
+    var when = r.day ? "Le " + fdate(r.day).replace(/\.$/, "") + ", " : "Prochain tour, ";
+    var odds = pr == null ? "" : pr >= 60 ? " : tu pars favori" : pr <= 40 ? " : il part favori, rien d'impossible" : " : du 50/50";
+    var pts = g ? "Une victoire rapporte " + g + " pts" + (now < nm ? (now + g >= nm ? " et te fait passer la norme " + esc(nx.label) + "." : " et te laisse à " + plural(nm - now - g, "pt") + " de la norme " + esc(nx.label) + ".") : ".") : "";
+    return [{ id: "tb:" + t.id + ":" + (t.rounds || []).indexOf(r) + ":" + rk, mood: pr != null && pr <= 40 ? "concentree" : "reflexion", fresh: true, t: "<b>" + when + (nmO ? esc(nmO) + " (" + esc(rk) + ")" : "un " + esc(rk)) + odds + ".</b> " + pts }];
+  }
+  // Ace partout : sa pastille au-dessus des onglets (Yann, maquette v2 façon Bevel : la grosse balle prenait trop de place)
+  function coHomeTip(c) {
+    var tips = [], hier = null, jm = null, t0 = E.iso(today());
+    try { var yd = E.iso(new Date(today().getTime() - 864e5)); hier = knownMatches(false).filter(function (m) { return m.date === yd && !m.wo && (m.result === "V" || m.result === "D"); })[0]; } catch (e) {}
+    try { jm = friseItems().filter(function (z) { return z.d === t0 && !z.todo && !z.rel && !z.dim && !z.team && !z.bd; })[0]; } catch (e) {}
+    if (hier && hier.result === "D") tips.push({ id: "home:loss:" + hier.id, t: "Défaite hier, ça arrive. On regarde ce qui vient ensuite ?", v: "loss" });
+    if (hier && hier.result === "V") tips.push({ id: "home:win:" + hier.id, t: "Bien joué hier ! Tu veux savoir ce que ça t'a rapporté ?", v: "win" });
+    toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
+      if (t.fmt === "poule") { var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }); if (left.length) tips.push({ id: "home:pl:" + t.id + ":" + left.length, t: (left.length > 1 ? left.length + " matchs de poule à caler" : "Un match de poule à caler") + ", on regarde ?", v: "poule:" + t.id }); }
+      else { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r && r.day && r.day >= t0) tips.push({ id: "home:tb:" + t.id + ":" + r.day, t: "Ton prochain tour " + (r.day === t0 ? "aujourd'hui" : "le " + fdate(r.day).replace(/\.$/, "")) + " : on le prépare ?", v: "tour:" + t.id }); }
+    });
+    if (c.proj.status !== "top" && c.proj.next) { var gap = Math.max(0, c.proj.next.norme - c.proj.next.total); tips.push({ id: "home:up:" + gap, t: c.proj.status === "montee" ? "Tu montes " + lab(c.proj.projected) + " à la sortie. On en parle ?" : gap ? "Il te manque " + plural(gap, "pt") + " pour " + c.proj.next.label + ", on voit comment ?" : "Il te manque une victoire pour " + c.proj.next.label + ", on voit laquelle ?", v: "up" }); }
+    var m = coMem(), now = Date.now(), tip = tips.filter(function (x) { return !(m.no[x.id] && now - m.no[x.id] < CO_MUTE); })[0] || null;
+    return { tip: tip, mood: jm ? "concentree" : hier ? (hier.result === "V" ? "joie" : "decue") : "repos" };
+  }
+  // Accueil : Ace à côté de la roue des réglages (Yann, 23/11) : petit, il cligne des yeux ; quand il a un truc à te dire,
+  // un point rouge, un petit rebond de temps en temps et sa phrase en une ligne à sa gauche
+  function aceHd() {
+    if (!S.onboarded || !S.matches.length) return "";
+    var h = null; try { h = coHomeTip(ctx()); } catch (e) { return ""; }
+    var m = coMem(), t = h.tip, dot = !!(t && !m.op[t.id]); UI.coHomeId = t ? t.id : null;
+    return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach' + (dot ? " : " + esc(t.t) : "") + '">' +
+      (dot ? '<span class="ace-bub">' + esc(t.t) + "</span>" : "") + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot ? '<span class="ace-dot"></span>' : "") + "</span></button>";
+  }
+  // La présentation d'Ace, une seule fois
+  function aceIntroHtml() {
+    return '<div class="sheet-bg" data-a="aceIntro"></div><div class="sheet ace-intro" role="dialog" aria-modal="true" aria-label="Voici Ace, ton coach"><div class="sh-grab"></div>' +
+      coBall("intro", "arrivee", "xl") + '<b class="ace-it">Salut, moi c\'est Ace !</b><span class="ace-is">Je suis ton copain de compète. Je regarde tes matchs et je te dis le bon truc au bon moment : comment monter, qui jouer d\'abord, comment rebondir après une défaite.</span>' +
+      '<span class="small ace-is2">Gratuit, et tout reste dans ton téléphone.</span><button class="btn primary" data-a="aceIntro" data-v="go">On fait connaissance</button><button class="linkbtn" data-a="aceIntro">Plus tard</button></div>';
+  }
+  // ---- La discussion : questions proposées, réponses faites de tes chiffres (pas de texte libre en V1, rien ne sort du téléphone) ----
+  function coQs(c) {
+    // [groupe, id, question, titre de tuile, chiffre clé, icône]
+    var Q = [], p = c.proj, t0 = E.iso(today()), loss = coLastPlayed("D", 60), win = coLastPlayed("V", 60), cur = c.cur < 0 ? 0 : c.cur;
+    if (p.status !== "top" && p.next) { var gap = Math.max(0, p.next.norme - p.next.total);
+      Q.push(["now", "up", p.status === "descente" ? "Comment je reste " + lab(cur) + " ?" : "Comment je monte " + p.next.label + " ?", p.status === "descente" ? "Rester " + lab(cur) : "Monter " + p.next.label, p.status === "montee" ? "Tu montes le " + fdate(p.release).replace(/\.$/, "") : gap ? "Il manque " + plural(gap, "pt") : "Il manque une victoire", "chart"]); }
+    toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
+      var left = (t.pool || []).filter(function (x) { return !x.res && x.name; });
+      if (t.fmt === "poule" && left.length) Q.push(["now", "poule:" + t.id, "Je joue qui en premier dans ma poule ?", "Ta poule", left.length > 1 ? left.length + " matchs à caler : lequel d'abord ?" : "Un match à caler", "list"]);
+      else if (t.fmt !== "poule") { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r) Q.push(["now", "tour:" + t.id, "Mon prochain tour, il vaut quoi ?", "Ton prochain tour", (r.day ? fdate(r.day).replace(/\.$/, "") + " · " : "") + (t.name || "Tournoi"), "versus"]); }
+    });
+    if (p.status !== "top" && p.next) { var o = coNextOut(c); Q.push(["now", "when", "C'est quand, le bon moment pour jouer ?", "Le bon moment", o ? "Une victoire sort le " + o.dt : "Pas d'urgence", "clock"]); }
+    if (win) { var cmW = p.next ? countedMap(p.next)[win.id] : null; Q.push(["match", "win", "Ma victoire contre " + nameCase(win.opp) + ", ça m'a rapporté quoi ?", "Ta victoire", "contre " + nameCase(win.opp) + (cmW != null ? ", +" + cmW + " pts" : ""), "check"]); }
+    if (loss) Q.push(["match", "loss", "Pourquoi j'ai perdu contre " + nameCase(loss.opp) + " ?", "Ta défaite", "contre " + nameCase(loss.opp) + " : on en tire quoi ?", "back"]);
+    Q.push(["long", "prog", "Je progresse ou pas ?", "Je progresse ?", "Ton niveau, mois par mois", "spark"]);
+    return Q;
+  }
+  function coAnswer(c, q) {
+    var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], mood = "repos", pl = null, k = q.split(":");
+    try { pl = pistes(c); } catch (e) {}
+    var ez = pl && pl.list && pl.list[0], rel = p.release ? fdate(p.release).replace(/\.$/, "") : "";
+    var routeLine = function () { return ez ? esc(pisteLabel(ez)) + (pl.goal === "keep" ? " et tu restes " : " et tu montes ") + esc(lab(pl.target)) + "." : ""; };
+    if (k[0] === "up") {
+      mood = "concentree";
+      if (p.status === "montee") A.push("<b>Tu montes déjà " + esc(lab(p.projected)) + " le " + esc(rel) + ".</b> Continue : chaque victoire d'ici là, c'est de la marge.");
+      else if (p.next) A.push((p.status === "descente" ? "Pour rester " + esc(lab(cur)) : "Pour monter " + esc(p.next.label)) + ", ton bilan est à <b>" + (p.status === "descente" ? p.here.total + " / " + p.here.norme : p.next.total + " / " + p.next.norme) + "</b>.");
+      if (ez) A.push("<b>Le plus court : " + routeLine() + "</b>" + (pl.list[1] ? " Autre piste : " + esc(pisteLabel(pl.list[1])) + "." : ""));
+      if (p.next && p.status !== "montee") { X.push(["Ton bilan", (p.status === "descente" ? p.here.total + " / " + p.here.norme : p.next.total + " / " + p.next.norme)]); }
+      // Montée+ : les chances de chaque piste (le gratuit garde la piste et le chemin)
+      if (ez && isSup()) pl.list.slice(0, 3).forEach(function (x) { X.push([pisteLabel(x), Math.round(x.p * 100) + " % de chances"]); });
+      var out = coNextOut(c); if (out) A.push("Le bon moment, c'est avant le <b>" + esc(out.dt) + "</b> : après, ta victoire contre un " + esc(out.rank) + " sort du bilan (−" + out.pts + " pts).");
+      F.push(["Simuler un tournoi", "", "#/projection?etsi"]); F.push(["C'est quand, le bon moment ?", "when"]);
+    } else if (k[0] === "when") {
+      mood = "reflexion"; var o2 = coNextOut(c);
+      A.push(o2 ? "<b>Avant le " + esc(o2.dt) + ".</b> Ce jour-là, ta victoire contre un " + esc(o2.rank) + " quitte ton bilan : " + o2.pts + " pts en moins." : "<b>Pas d'urgence.</b> Aucune de tes victoires ne sort du bilan dans les 3 prochains mois.");
+      if (rel) A.push("La prochaine sortie du classement, c'est le <b>" + esc(rel) + "</b>." + (ez ? " D'ici là : " + routeLine() : ""));
+      F.push(["Voir mon calendrier", "", "#/projection?quand"]);
+    } else if (k[0] === "poule") {
+      var t = tourOf(k[1]), trk = TR_KIND; mood = "concentree";
+      if (t) { TR_KIND = t.kind === "champ" ? "champ" : "tournoi"; // les points comme sur la page de l'épreuve (bonus championnat)
+        var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }).map(function (x) { return { n: nameCase(x.name), r: x.rank, p: trP(x.rank, x.tid), g: trGain(x.rank) || 0 }; }).sort(function (a, b) { return (b.p || 0) - (a.p || 0) || b.g - a.g; });
+        if (left.length) {
+          var a0 = left[0]; left.forEach(function (x) { X.push([x.n, (x.p != null ? x.p + " %" : "?") + (x.g ? " · +" + x.g + " pts" : "")]); });
+          A.push("<b>" + esc(a0.n) + " d'abord.</b> " + (a0.p != null ? "C'est le plus jouable (" + a0.p + " % de chances)" : "C'est le plus jouable") + (a0.g ? " et une victoire vaut <b>+" + a0.g + " pts</b>." : "."));
+          if (left[1]) A.push("Ensuite " + left.slice(1).map(function (x) { return esc(x.n) + (x.p != null ? " (" + x.p + " %" + (x.g ? ", +" + x.g + " pts" : "") + ")" : ""); }).join(", ") + ".");
+          var pot = left.reduce(function (s, x) { return s + x.g; }, 0);
+          if (p.next && pot) X.push(["Si tu gagnes tout", (p.next.total + pot) + " / " + p.next.norme]);
+          if (p.next && pot && p.next.total < p.next.norme) A.push(p.next.total + pot >= p.next.norme ? (left.length > 1 ? "Gagne les " + left.length : "Gagne-le") + " et ton bilan passe à <b>" + (p.next.total + pot) + " / " + p.next.norme + "</b> : tu montes " + esc(p.next.label) + "." : "Même en gagnant tout, il manquera " + plural(p.next.norme - p.next.total - pot, "pt") + " pour " + esc(p.next.label) + " : chaque victoire compte quand même 12 mois.");
+          if (t.dl) A.push("Le comité veut les scores avant le <b>" + esc(fdate(t.dl).replace(/\.$/, "")) + "</b>.");
+        } else A.push("Tous tes matchs de poule sont joués. Beau boulot.");
+        F.push(["Voir ma poule", "", "#/tournoi/" + t.id]); TR_KIND = trk;
+      }
+    } else if (k[0] === "tour") {
+      var tt = tourOf(k[1]), trk2 = TR_KIND; if (tt) TR_KIND = tt.kind === "champ" ? "champ" : "tournoi"; var tip = tt ? coTrTips(tt, 0, c)[0] : null; TR_KIND = trk2; mood = tip ? tip.mood : "reflexion";
+      A.push(tip ? tip.t : "Ajoute ton prochain tour dans l'épreuve : je te dirai ce qu'il vaut.");
+      if (tt) F.push(["Voir le tournoi", "", "#/tournoi/" + tt.id]);
+    } else if (k[0] === "loss") {
+      var m = coLastPlayed("D", 60); mood = "decue";
+      if (m) {
+        var o = E.idx(T.normRank(m.oppRank || "")), ss = String(m.score || "").match(/\d{1,2}\s*[-\/]\s*\d{1,2}/g) || [];
+        var tightL = ss.length >= 3 || ss.some(function (x) { var q2 = x.split(/[-\/]/).map(Number); return (q2[0] === 7 && q2[1] === 6) || (q2[0] === 6 && q2[1] === 7); });
+        A.push("<b>" + (tightL ? "Ça s'est joué à rien" : "Il a été plus solide ce jour-là") + "</b> (" + esc(m.score || "score non noté") + ")" + (o != null ? (o > cur ? ", contre un joueur mieux classé que toi : ce n'est pas une contre-perf." : o === cur ? ", contre un joueur de ton classement." : ", contre un joueur moins bien classé : ça arrive, et une seule ne fait pas une saison.") : "."));
+        if (o != null) { var same = knownMatches(false).filter(function (x) { return !x.wo && (x.result === "V" || x.result === "D") && E.idx(T.normRank(x.oppRank || "")) === o; }), wv = same.filter(function (x) { return x.result === "V"; }).length; if (same.length >= 3) A.push("Contre les " + esc(lab(o)) + ", tu en es à <b>" + wv + " sur " + same.length + "</b> : " + (wv * 2 >= same.length ? "tu sais les battre." : "c'est ton prochain palier à passer.")); }
+        if (ez) A.push("<b>Et maintenant :</b> " + routeLine() + " On repart.");
+        F.push(["Voir le match", "", "#/match/" + m.id]); if (ez) F.push(["Comment je monte ?", "up"]);
+      } else A.push("Pas de défaite ces deux derniers mois. Continue comme ça.");
+    } else if (k[0] === "win") {
+      var w = coLastPlayed("V", 60); mood = "joie";
+      if (w && p.next) {
+        var cmU = countedMap(p.next), ptsW = cmU[w.id], oW = E.idx(T.normRank(w.oppRank || ""));
+        A.push("<b>" + (ptsW != null ? "+" + ptsW + " pts dans ton bilan " + esc(p.next.label) : "Elle ne rentre pas dans ton bilan " + esc(p.next.label) + " : tes victoires comptées valent déjà plus") + ".</b>" + (oW != null && oW > cur ? " Et c'est une perf : il était mieux classé que toi." : ""));
+        A.push("Elle compte jusqu'au <b>" + esc(fdate(E.iso(E.plus12Months(E.parseDate(w.date)))).replace(/\.$/, "")) + "</b>.");
+        if (ez && p.status !== "montee") A.push("Prochaine étape : " + routeLine());
+        F.push(["Voir le match", "", "#/match/" + w.id]);
+      } else A.push("Pas de victoire ces deux derniers mois : la prochaine sera la bonne.");
+    } else if (k[0] === "prog") {
+      var f = null; try { f = levelNow(c); } catch (e) {} mood = "reflexion";
+      if (f && f.ms) {
+        var dl = Math.round((f.mean - cur) * 10) / 10, hist = []; try { hist = levelHistory(cur).filter(function (x) { return x.v != null; }); } catch (e) {}
+        var dm = hist.length >= 2 ? Math.round((hist[hist.length - 1].v - hist[hist.length - 2].v) * 10) / 10 : null;
+        A.push(dl >= 0.3 ? "<b>Oui : tu joues au-dessus de ton " + esc(lab(cur)) + "</b> (" + (dl > 0 ? "+" : "") + String(dl).replace(".", ",") + " classement)." : dl <= -0.3 ? "<b>Un peu sous ton " + esc(lab(cur)) + " en ce moment</b> (" + String(dl).replace(".", ",") + ")." : "<b>Tu joues pile ton " + esc(lab(cur)) + ".</b>");
+        if (dm != null && dm !== 0) A.push("Ce mois-ci : <b>" + (dm > 0 ? "+" : "−") + String(Math.abs(dm)).replace(".", ",") + "</b>, " + (dm > 0 ? "ça monte." : "petit creux, rien d'alarmant."));
+        mood = dl >= 0.3 ? "joie" : "reflexion";
+        F.push(["Voir mes courbes", "", "#/courbes"]);
+      } else A.push("Encore " + plural(Math.max(1, 8 - ((f && f.n) || 0)), "match") + " et je pourrai te le dire chiffres à l'appui.");
+    }
+    return { a: A, f: F, facts: X, mood: mood };
+  }
+  // L'écran d'Ace : les sujets en tuiles, puis une réponse en gros texte, ses chiffres et les suites (maquette v2 validée)
+  function aceHtml() {
+    var c = ctx(), Q = coQs(c), q = UI.ace.q || "", name = S.profile.name || "", ask = q ? Q.filter(function (x) { return x[1] === q; })[0] : null;
+    var top = function (mid) { return '<div class="ace-top">' + mid + '<button class="ace-x" data-a="aceClose" aria-label="Fermer">' + I.cross + "</button></div>"; };
+    var s = '<div class="ace" role="dialog" aria-modal="true" aria-label="Ace, ton coach"><div class="ace-in">';
+    if (!ask) {
+      var h = coHomeTip(c), hot = h.tip ? h.tip.v : "";
+      var g = c.proj.status !== "top" && c.proj.next ? (c.proj.status === "montee" ? "Tu montes " + esc(lab(c.proj.projected)) + " à la prochaine sortie." : "Il te manque " + plural(Math.max(0, c.proj.next.norme - c.proj.next.total), "pt") + " pour " + esc(c.proj.next.label) + ".") : "";
+      s += top('<span class="small ace-pv">Gratuit · tout reste dans ton téléphone</span>') + '<div class="ace-hero">' + coBall("ace:hero", h.mood, "xl") + "<span><b>Salut" + (name ? " " + esc(name) : "") + " !</b><small>" + g + " On parle de quoi ?</small></span></div>";
+      [["now", "Maintenant"], ["match", "Tes derniers matchs"], ["long", "Sur la durée"]].forEach(function (gr) {
+        var qs = Q.filter(function (x) { return x[0] === gr[0]; }); if (!qs.length) return;
+        s += '<span class="ace-k">' + gr[1] + '</span><div class="ace-grid">' + qs.map(function (x) { return '<button class="ace-tile' + (x[1] === hot ? " hot" : "") + '" data-a="aceQ" data-v="' + esc(x[1]) + '"><i>' + (I[x[5]] || I.spark) + "</i><b>" + esc(x[3]) + "</b><small>" + esc(x[4]) + "</small></button>"; }).join("") + "</div>";
+      });
+    } else {
+      var an = coAnswer(c, q);
+      s += top('<span class="ace-ctx">' + coBall("ace:" + q, an.mood, "xs") + "<span>" + esc(ask[3]) + " · " + esc(ask[4]) + "</span></span>");
+      s += '<div class="ace-me">' + esc(ask[2]) + '</div><div class="ace-a">' + an.a.map(function (x) { return "<p>" + x + "</p>"; }).join("") + "</div>";
+      if (an.facts && an.facts.length) s += '<div class="ace-fact">' + an.facts.map(function (f) { return "<span><em>" + esc(f[0]) + "</em>" + esc(f[1]) + "</span>"; }).join("") + "</div>";
+      var more = an.f.map(function (f) { return f[2] ? '<button data-a="coachGo" data-h="' + esc(f[2]) + '"><i>↳</i>' + esc(f[0]) + "</button>" : '<button data-a="aceQ" data-v="' + esc(f[1]) + '"><i>↳</i>' + esc(f[0]) + "</button>"; });
+      Q.filter(function (x) { return x[1] !== q && an.f.every(function (f) { return f[1] !== x[1]; }); }).slice(0, 2).forEach(function (x) { more.push('<button data-a="aceQ" data-v="' + esc(x[1]) + '"><i>↳</i>' + esc(x[2]) + "</button>"); });
+      s += '<span class="ace-k">Tu peux aussi me demander</span><div class="ace-f">' + more.join("") + "</div>";
+      s += '<button class="ace-bot" data-a="aceQ" data-v=""><span>Autres sujets</span><b>Tous les sujets</b></button>';
+    }
+    return s + "</div></div>";
+  }
+  // Ma montée : le détail du bilan dans une feuille (avant : deux longues listes en bas de page)
+  function DET_MMB(v) {
+    var c = ctx(), p = c.proj; if (p.status === "top" || !p.next) return null;
+    var cur = c.cur < 0 ? 0 : c.cur, nx = p.next, keepOk = cur > 0 && p.status !== "montee";
+    var k = v === "keep" && keepOk ? "keep" : "up", b = k === "keep" ? p.here : nx, L = k === "keep" ? lab(cur) : nx.label;
+    var seg = keepOk ? '<div class="seg"><button class="' + (k === "up" ? "on" : "") + '" data-a="sheet" data-k="mmBilan" data-v="up">Pour monter ' + esc(nx.label) + '</button><button class="' + (k === "keep" ? "on" : "") + '" data-a="sheet" data-k="mmBilan" data-v="keep">Pour rester ' + esc(lab(cur)) + "</button></div>" : "";
+    return { title: "Les matchs qui comptent", sub: "Pour " + (k === "keep" ? "rester " : "monter ") + L + ", la FFT garde tes meilleures victoires. Total : " + b.total + " / " + b.norme + ".", body: seg + '<div class="mcs-b">' + bilanDetail(b, "").replace(/^<h2><\/h2>/, "") + "</div>" };
+  }
+  // Ma montée, onglet « Et si… » : le tournoi imaginaire (avant : une page « Et si… » à part)
+  function etsiTourHtml(c) {
+    var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, lv = [];
+    for (var L = Math.max(-1, cur - 4); L <= Math.min(E.MAX_CALC, cur + 4); L++) lv.push(L);
+    UI.simu = UI.simu || [];
+    if (UI.simuLv == null || lv.indexOf(UI.simuLv) < 0) UI.simuLv = Math.min(cur + 1, E.MAX_CALC);
+    var all = allMatches(), fakes = simuFakes(UI.simu), rel = p.release;
+    var after = fakes.length ? E.project(all.concat(fakes), c.cur, c.sex, c.opts) : p;
+    var danger = p.status === "descente", calc = danger ? cur : p.next.calc;
+    var bil = function (ms) { return E.bilanAt(E.windowMatches(ms, rel, today()), calc, c.sex, c.cur, c.opts.extra); };
+    var b0 = bil(all), prev = b0, rows = [];
+    fakes.forEach(function (f, i) {
+      var b = bil(all.concat(fakes.slice(0, i + 1))), d = b.total - prev.total, raw = f.result === "V" ? E.BAREME.win(E.idx(f.oppRank) - calc) : 0;
+      rows.push({ x: UI.simu[i], d: d, raw: raw, weak: prev.weakest, full: prev.slotsFree === 0 });
+      prev = b;
+    });
+    var bf = prev, up = after.projected > cur && after.status === "montee", down = after.status === "descente", miss = Math.max(0, bf.norme - bf.total);
+    var s = '<div class="card simu-l"><span class="eyebrow">Ton tournoi imaginaire</span>';
+    if (!rows.length) s += '<span class="small">Ajoute plusieurs matchs d\'un coup (un tournoi, un week-end de poule) : ton bilan bouge en direct. Rien n\'est enregistré.</span>';
+    else s += rows.map(function (r, i) {
+      var sub = r.x.r === "D" ? (r.d < 0 ? "fait baisser le nombre de victoires comptées" : "ne change rien au bilan") :
+        r.d <= 0 ? (r.raw ? "ne dépasse pas tes victoires déjà comptées" : "trop loin en dessous : 0 pt à " + lab(calc)) :
+          r.raw > r.d && r.full ? "vaut " + r.raw + ", remplace une victoire à " + r.weak : "vaut " + r.raw + " pts";
+      return '<div class="simu-r"><span class="res ' + (r.x.r === "V" ? "v" : "d") + '">' + r.x.r + '</span><span class="grow"><b>' + (r.x.r === "V" ? "Victoire" : "Défaite") + " contre un " + esc(lab(r.x.l)) + "</b><span>" + esc(sub) + "</span></span>" +
+        '<span class="pts ' + (r.d > 0 ? "up" : r.d < 0 ? "dn" : "") + '">' + (r.d > 0 ? "+" : r.d < 0 ? "−" : "") + Math.abs(r.d) + '</span><button class="iconbtn sm" data-a="simuDel" data-i="' + i + '" aria-label="Retirer ce match">' + I.cross + "</button></div>";
+    }).join("") + '<span class="small mmo-sum">Avec ce tournoi : <b>' + bf.total + " / " + bf.norme + "</b>" +
+      (up ? ', <b class="pos">tu montes ' + esc(lab(after.projected)) + "</b>." : down ? ', <b class="neg">risque de descente</b>.' : miss ? ", il manque encore " + plural(miss, "pt") + "." : !danger && !bf.winAtLevel ? ", il manque une victoire contre un " + esc(bf.label) + " ou mieux." : ".") +
+      " Sans ces matchs : " + b0.total + '.</span><button class="linkbtn" data-a="simuClear" style="align-self:flex-start;padding:6px 0 0;min-height:0">Tout effacer</button>';
+    s += "</div>";
+    if (rows.length) {
+      var nV = UI.simu.filter(function (x) { return x.r === "V"; }).length, tip = null;
+      if (up) tip = { id: "etsi:up:" + JSON.stringify(UI.simu), mood: "joie", t: "<b>Avec ce tournoi, tu montes " + esc(lab(after.projected)) + ".</b> " + plural(nV, "victoire") + (nV > 1 ? " suffisent" : " suffit") + " : c'est ton objectif pour la sortie du " + esc(fdate(rel).replace(/\.$/, "")) + "." };
+      else if (miss > 0 && !down) {
+        var one = null; lv.slice().sort(function (a, b) { return a - b; }).some(function (Lv) { if (Lv < 0) return false; var b2 = bil(all.concat(fakes, simuFakes([{ r: "V", l: Lv }]))); if (b2.total >= b2.norme) { one = Lv; return true; } return false; });
+        tip = { id: "etsi:miss:" + JSON.stringify(UI.simu), mood: "reflexion", t: one != null ? "<b>Il te manque " + plural(miss, "pt") + " : une victoire de plus contre un " + esc(lab(one)) + " fait le compte.</b>" : "<b>Même avec une victoire de plus, il manquera des points.</b> Vise la sortie suivante : ces victoires comptent 12 mois." };
+      }
+      if (tip) s += coachBubble("pj-etsi", [tip]);
+    }
+    s += '<div class="card simu-add"><span class="eyebrow">Ajouter un match au tournoi</span><div class="simu-lv" role="group" aria-label="Classement de l\'adversaire">' +
+      lv.map(function (i) { return '<button class="' + (UI.simuLv === i ? "on" : "") + '" data-a="simuLv" data-v="' + i + '" aria-pressed="' + (UI.simuLv === i) + '">' + esc(lab(i)) + "</button>"; }).join("") + "</div>" +
+      '<div class="simu-btns"><button class="btn small simu-v" data-a="simuAdd" data-v="V"' + (UI.simu.length >= 10 ? " disabled" : "") + '>+ Victoire</button><button class="btn soft small" data-a="simuAdd" data-v="D"' + (UI.simu.length >= 10 ? " disabled" : "") + '>+ Défaite</button></div></div>';
+    return s;
+  }
+  // Ma montée, onglet « Quand jouer »
+  function quandHtml(c) {
+    var s = calendarHtml(c);
+    if (!s) s = '<div class="card"><span class="eyebrow">Ton calendrier</span><span style="font-size:15px;line-height:1.4"><b>Aucune victoire ne sort de ton bilan dans les 3 prochains mois.</b> Pas d\'urgence : chaque victoire que tu prends compte 12 mois.</span></div>';
+    var t0 = E.iso(today()), up = toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).sort(function (a, b) { return (a.from || "") < (b.from || "") ? -1 : 1; }).slice(0, 4);
+    if (up.length) s += '<h2>Tes épreuves à venir</h2><div class="list">' + up.map(function (t) { return '<a class="row" href="#/tournoi/' + esc(t.id) + '"><span class="grow"><span class="t">' + esc(t.name || "Épreuve") + '</span><span class="s">' + esc([t.fmt === "poule" ? "Poule" : "Tableau", t.from ? fdate(t.from).replace(/\.$/, "") + (t.to && t.to !== t.from ? " – " + fdate(t.to).replace(/\.$/, "") : "") : ""].filter(Boolean).join(" · ")) + "</span></span>" + I.next + "</a>"; }).join("") + "</div>";
+    return s;
   }
   function pistesHtml(c) {
     var pl = pistes(c), p = c.proj;
@@ -10430,7 +10707,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   V.courbes = function () {
     var c = ctx(), cur = c.cur < 0 ? 0 : c.cur, target = Math.min(cur + 1, E.MAX_CALC);
-    var s = '<div class="screen has-tabs">' + (S.matches.length ? realHero(c) : '<div class="topbar"><div class="title"><span class="small">12 derniers mois</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">Courbes</span></div></div>');
+    var s = '<div class="screen has-tabs">' + (S.matches.length ? realHero(c) + coachBubble("cb", coCbTips(c)) : '<div class="topbar"><div class="title"><span class="small">12 derniers mois</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">Courbes</span></div></div>');
     if (!S.matches.length) {
       // 3.57 (audit parcours P5, maquette 4 validée) : ce qui t'attend ici, dès combien de matchs, et les boutons pour commencer
       var cvL = function (a, b) { return '<div class="cv-li"><i></i><span><b>' + a + '</b><span class="small">' + b + "</span></span></div>"; };
@@ -12617,7 +12894,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return s + "</div>";
   }
   function sheetHtml() {
-    DET.goals = DET_GOALS; DET.tp = DET_TP; DET.trialEnd = DET_TRIAL; // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
+    DET.goals = DET_GOALS; DET.tp = DET_TP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
     var d = DET[UI.sheet.k] && DET[UI.sheet.k](UI.sheet.v);
     if (!d) { UI.sheet = null; return ""; }
     return '<div class="sheet-bg" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + '</b><button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
@@ -12793,6 +13070,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var name = ms[0].opp, v = ms.filter(function (m) { return m.result === "V" && !m.wo; }).length, d = ms.filter(function (m) { return m.result === "D" && !m.wo; }).length;
     var on = (S.oppNotes || {})[key] || {}, IL = window.MonteeIll;
     var s = '<div class="screen">' + topbar(name, ms[0].oppRank ? "Classé " + ms[0].oppRank + " au dernier match" : "");
+    s += coachBubble("adv", coAdvTips(key, ms)); // 3.73
     s += '<div class="card opp-head">' +  '<span class="grow"><span class="eyebrow">Face-à-face</span><span class="opp-score" style="color:' + (v > d ? "var(--gazon)" : v < d ? "var(--terre)" : "var(--ink)") + '">' + v + " – " + d + '</span><span class="small">' + plural(ms.length, "match", "matchs") + " contre lui</span></span></div>";
     // Le vrai plus de Montée : sa saison, tes chances, ton plan de jeu. Bien en vue, juste sous le score.
     var first = name.split(" ")[0];
@@ -16823,6 +17101,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     simuAdd: function (el) { UI.simu = (UI.simu || []).concat([{ r: el.dataset.v, l: UI.simuLv }]).slice(0, 10); var y = window.scrollY; render(); window.scrollTo(0, y); haptic("light"); },
     simuDel: function (el) { UI.simu.splice(+el.dataset.i, 1); var y = window.scrollY; render(); window.scrollTo(0, y); },
     simuClear: function () { UI.simu = []; render(); },
+    // 3.73 : Ma montée (onglets) et la Balle
+    mmTab: function (el) { UI.mmTab = el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); },
+    coachNo: function (el) {
+      var m = coMem(), id = el.dataset.id, sc = el.dataset.s; m.no[id] = Date.now(); m.scr[sc] = (m.scr[sc] || 0) + 1; coPurge(m); save();
+      toast("Compris, je ne te le redis pas avant 3 semaines.");
+      var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
+    },
+    ace: function (el) { var m = coMem(); if (UI.coHomeId) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; save(); render(); haptic("light"); },
+    aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
+    aceClose: function () { UI.ace = null; render(); },
+    aceIntro: function (el) { S.aceSeen = 1; save(); if (el.dataset.v === "go") UI.ace = { q: "" }; render(); },
+    coachGo: function (el) { var h = el.dataset.h || "", q = h.split("?")[1]; if (q) UI.mmTab = q; UI.sheet = null; UI.ace = null; if (location.hash === h.split("?")[0]) render(); else location.hash = h.split("?")[0]; },
     goSeasonCard: function (ev) { UI.cardWhich = "season"; UI.cardStyle = null; go("carte"); },
     cardWhich: function (el) { UI.cardWhich = el.dataset.v; UI.cardStyle = null; render(); },
     cardSkin: function (el) {
@@ -17790,6 +18080,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     try {
       var bl = AppP && AppP.addListener("backButton", function () {
         if (UI.leaveAsk) { UI.leaveAsk = false; render(); return; }
+        if (UI.ace) { if (UI.ace.q) UI.ace.q = ""; else UI.ace = null; render(); return; } // 3.73 : Ace : réponse → sujets → fermé
+        if (!S.aceSeen && document.querySelector(".ace-intro")) { S.aceSeen = 1; save(); render(); return; }
         if (UI.sheet) { UI.sheet = null; render(); return; }
         if (UI.plSched != null) { UI.plSched = null; UI.plHost = null; render(); return; } // 3.57.3 : feuilles de l'épreuve : le retour les ferme d'abord
         if (UI.trR) { UI.trR = null; UI.trHits = null; render(); return; }
