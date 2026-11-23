@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.74.4",
+    VERSION: "3.74.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1878,7 +1878,7 @@
   function teamsRefresh(force) {
     if (!NATIVE || !S.tenup.linked || UI.tmBusy) return;
     var t = S.teams, live = t && myTeams().some(function (c) { return (c.renc || []).some(tmLive); });
-    if (!force && t && t.qv === 8 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe ; 5 = 3.58.1, le club d'en face ; 6 = 3.62, ton nom sur la feuille de match ; 7 = 3.68, recherche découpée en plusieurs lectures ; 8 = 3.74.2, feuilles de match enfin lues)
+    if (!force && t && t.qv === 9 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe ; 5 = 3.58.1, le club d'en face ; 6 = 3.62, ton nom sur la feuille de match ; 7 = 3.68, recherche découpée en plusieurs lectures ; 8 = 3.74.2, feuilles de match enfin lues)
     UI.tmBusy = true;
     // 3.68 : les poules où tes équipes ont déjà été trouvées sont relues en premier (une lecture courte suffit le plus souvent)
     var known = {}; ((t && t.champs) || []).forEach(function (c) { if (!c.none && !c.err && c.path && c.path.q && c.me && c.me.mine) { var k = String(c.cid || c.id); (known[k] = known[k] || []).push(c.path); } });
@@ -1897,7 +1897,7 @@
           var rt = route(); if (rt.indexOf("equipe") === 0) render();
           return go(r.job);
         }
-        delete r.job; delete r.trace; delete r.partial; r.qv = 8; S.teams = r; UI.tmErr = null; save(); try { scheduleTeamsNotif(); } catch (e) {} done();
+        delete r.job; delete r.trace; delete r.partial; r.qv = 9; S.teams = r; UI.tmErr = null; save(); try { scheduleTeamsNotif(); } catch (e) {} done();
       });
     };
     go(null);
@@ -1972,9 +1972,12 @@
       (say ? '<span class="tsx-say">' + say + "</span>" : "") + detail + "</div>";
   }
   function teamsTabHtml() {
-    var L = myTeams(true), on = L.filter(function (c) { return !c.cloture; }).sort(tmOrdOn), off = L.filter(function (c) { return c.cloture; }).sort(function (a, b) { return a.last < b.last ? 1 : -1; });
+    var L = myTeams(true), byLast = function (a, b) { return a.last < b.last ? 1 : -1; }, on = L.filter(function (c) { return !c.cloture && !c.ent; }).sort(tmOrdOn), off = L.filter(function (c) { return c.cloture && !c.ent; }).sort(byLast);
+    // 3.74.5 (Davy) : tes équipes de tennis entreprise (une autre structure que ton club), dans leur propre groupe
+    var ent = L.filter(function (c) { return c.ent && !c.cloture; }).sort(tmOrdOn).concat(L.filter(function (c) { return c.ent && c.cloture; }).sort(byLast));
     var s = teamSeasonHtml();
     if (on.length) s += '<h2 class="tm-gh">Tes équipes</h2><div class="blk">' + on.map(teamRow).join("") + "</div>";
+    if (ent.length) s += '<h2 class="tm-gh">Tennis entreprise</h2><div class="blk">' + ent.map(teamRow).join("") + "</div>";
     if (off.length) s += '<h2 class="tm-gh">Tes championnats terminés</h2><div class="blk">' + off.map(teamRow).join("") + "</div>";
     if (s) s += clubHtml();
     return (s || '<div class="card"><span class="small">Montée lit tes championnats sur Ten\'Up…</span></div>');

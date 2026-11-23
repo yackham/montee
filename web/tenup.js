@@ -286,7 +286,7 @@
         var q = (known || []).filter(function (k) { return k && k.d && k.p && k.q; }).map(function (k) { return { k: "poule", d: k.d, p: k.p, q: k.q }; });
         q.push({ k: "root" });
         return { id: String(c.id), nom: c.nom || "", dates: c.dates, last: c.last, opp: (c.opp || []).filter(function (o) { return o && o.c && dayN(o.d) != null; }),
-          q: q, seen: {}, conf: {}, ck: [], done: {}, alt: {}, ak: [], cov: {}, fb: null, fw: null, best: null, d0: null, n: 0, nF: 0, fin: false, ms: 0 };
+          ent: (known || []).some(function (k) { return k && k.e; }) ? 1 : 0, q: q, seen: {}, conf: {}, ck: [], done: {}, alt: {}, ak: [], cov: {}, fb: null, fw: null, best: null, d0: null, n: 0, nF: 0, fin: false, ms: 0 };
       };
       var scan = function (cs, club) {
         var myDays = cs.dates.map(dayN).filter(function (x) { return x != null; });
@@ -305,6 +305,7 @@
         var isMine = function (det) {
           var eq = (det && det.poule && det.poule.equipes) || [];
           if (!cs.ex && eq.length) cs.ex = eq.slice(0, 3).map(function (e) { return String(e.nom || "").replace(/\s+\d+\s*$/, ""); });
+          if (cs.ent) return eq.map(function (e) { return e.id; });
           var a = eq.filter(function (e) { return nrm(e.nom).indexOf(nrm(club)) === 0; });
           // 3.72.1 : le nom des équipes du club déjà connues (« CLAMART (TC) ») quand le nom officiel du club diffère (« TENNIS CLUB DE CLAMART »)
           if (!a.length && A.tn && A.tn.length) a = eq.filter(function (e) { return A.tn.indexOf(nrm(String(e.nom || "").replace(/\s+\d+\s*$/, ""))) >= 0; });
@@ -326,6 +327,7 @@
           if (!det.championnat) o.cloture = !!c0.cloture;
           if (o.path.d == null) o.path.d = cx.d; if (o.path.p == null) o.path.p = cx.p; if (o.path.q == null) o.path.q = cx.q;
           if (!o.div && cx.dn) o.div = cx.dn;
+          if (cs.ent) { o.ent = 1; o.path.e = 1; o.me.club = [o.me.mine]; }
           return o;
         };
         // Les feuilles de match de tes jours : l'équipe où ton nom est inscrit est la tienne ce jour-là (3.62).
@@ -345,6 +347,7 @@
               // pas dans cette équipe ce jour-là : on ne la déduit plus du club d'en face (avant, seules les feuilles vides laissaient la déduction).
               if (!at) { if (pe.length >= 2) { cs.neg = cs.neg || {}; [r.idEquipe1, r.idEquipe2].forEach(function (tt) { if (ids.indexOf(tt) >= 0) md.forEach(function (x) { cs.neg[String(tt) + "|" + x] = 1; }); }); } return; }
               var i1 = ids.indexOf(r.idEquipe1) >= 0, i2 = ids.indexOf(r.idEquipe2) >= 0, t = i1 && !i2 ? r.idEquipe1 : i2 && !i1 ? r.idEquipe2 : null;
+              if (t == null && j) { var ms = j.matchs || [], sd = null; for (var mi = 0; mi < ms.length && sd == null; mi++) { var mm = ms[mi]; if (!mm) continue; if (isMe(mm.joueur1Recevant) || isMe(mm.joueur2Recevant)) sd = (j.equipeRecevante || {}).id; else if (isMe(mm.joueur1Invite) || isMe(mm.joueur2Invite)) sd = (j.equipeInvitee || {}).id; } if (sd != null && ids.indexOf(sd) >= 0) t = sd; }
               if (t == null) { // le club contre lui-même (équipe 2 contre équipe 3) : le côté de la feuille où tu es inscrit
                 var dom = r.idEquipeDomicileReelle || r.idEquipeDomicileTheorique, oth = dom === r.idEquipe1 ? r.idEquipe2 : r.idEquipe1;
                 t = /recev|domicile|equipe1|\.dom/i.test(at) ? dom : /invit|exterieur|visit|equipe2|\.ext/i.test(at) ? oth : null;
@@ -363,6 +366,7 @@
           if (cs.all) { ids.forEach(function (t) { var k = cs.id + "~" + t; if (!cs.cl[k]) cs.clk.push(k); cs.cl[k] = pick(det, ids, cx, t); }); return Promise.resolve(); }
           return chk(det, ids, cx).then(function () {
             if (allDone()) { cs.fin = true; return; }
+            if (cs.ent) return;
             if (!myDays.length) { if (!cs.best) cs.best = pick(det, ids, cx); cs.fin = true; return; }
             ids.forEach(function (t) {
               var ds = myDays.filter(function (x) { return !cs.done[x] && !cs.cov[x] && !(cs.neg && cs.neg[String(t) + "|" + x]) && covers(det, t, x); }); if (!ds.length) return;
@@ -395,7 +399,11 @@
         };
         var t0 = Date.now();
         var loop = function () {
-          if (cs.fin || !cs.q.length || cs.n > 120) { cs.fin = true; return Promise.resolve(); }
+          if (cs.fin || !cs.q.length || cs.n > 120) {
+            // 3.74.5 (Davy, tennis entreprise) : aucune équipe du club dans ce championnat : l'équipe d'une autre structure (son entreprise)
+            // où son nom figure sur les feuilles de match de ses jours. Toutes les équipes de chaque poule sont alors regardées.
+            if (!cs.ent && !cs.all && myDays.length && !cs.ck.length && !cs.ak.length && !cs.fw && !cs.fb && !cs.best) { cs.ent = 1; cs.fin = false; cs.seen = {}; cs.qd = {}; cs.q = [{ k: "root" }]; cs.n = 0; return loop(); }
+            cs.fin = true; return Promise.resolve(); }
           if (late()) return Promise.resolve();
           var batch = cs.q.splice(0, 3);
           return Promise.all(batch.map(function (tk) { return run(tk).catch(function () { cs.err = (cs.err || 0) + 1; }); })).then(loop);
