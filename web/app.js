@@ -1388,11 +1388,13 @@
   }
   function syMin(L) { var m = null; L.forEach(function (v) { v = v || 0; if (m == null || v < m) m = v; }); return m || 0; }
   // 3.70.8 : l'état de la synchro dans la barre de profil de l'accueil : un point et l'heure, touchable pour relire
+  // 3.73.1 (Yann) : pendant une synchro Ten'Up, la petite balle fait l'échange au-dessus du filet (comme dans Réglages)
+  var RALLY = '<span class="rally-l" aria-hidden="true"><i></i></span>';
   function syMini() {
     if (!NATIVE || !S.tenup.linked) return "";
     var at = S.tenup.lastAuto || (S.tenup.lastImport ? E.parseDate(S.tenup.lastImport).getTime() : 0), run = !!UI.loading, err = (S.tenup.fails || 0) > 0, old = !at || Date.now() - at > 864e5;
-    var txt = run ? "lecture…" : err ? "échec · réessayer" : !at ? "pas encore lu" : (old ? "lu " : "à jour ") + syWhen(at);
-    return '<span class="hd-sy' + (run ? " run" : err ? " err" : old ? " old" : "") + '" data-a="syTap" data-k="me" data-v="" role="button" aria-label="Actualiser tes matchs Ten\'Up"><i></i>' + txt + "</span>";
+    var txt = run ? "échange avec Ten'Up…" : err ? "échec · réessayer" : !at ? "pas encore lu" : (old ? "lu " : "à jour ") + syWhen(at);
+    return '<span class="hd-sy' + (run ? " run" : err ? " err" : old ? " old" : "") + '" data-a="syTap" data-k="me" data-v="" role="button" aria-label="Actualiser tes matchs Ten\'Up">' + (run ? RALLY : "<i></i>") + txt + "</span>";
   }
   function syPill(k, v) {
     if (!NATIVE) return "";
@@ -1406,7 +1408,7 @@
     else if (k === "team") { if (!S.teams || !S.teams.at) return ""; at = S.teams.at; run = !!UI.tmBusy; err = !!UI.tmErr; lab = "Équipes"; what = "tes équipes"; }
     var old = !at || Date.now() - at > 864e5;
     var txt = run ? "Lecture…" : err ? "Échec · <b>réessayer</b>" : !at ? "Pas encore lu · <b>lire</b>" : (old ? "Synchro · " : lab ? lab + " · " : "") + "<b>" + syWhen(at) + "</b>";
-    return '<button class="sy' + (run ? " run" : err ? " err" : old ? " old" : "") + '" data-a="syTap" data-k="' + k + '" data-v="' + esc(v || "") + '" aria-label="' + esc("Actualiser " + what + (at ? " (lu " + (old ? syWhen(at) : "à " + syWhen(at)) + ")" : "")) + '">' + SY_IC + txt + "</button>";
+    return '<button class="sy' + (run ? " run" : err ? " err" : old ? " old" : "") + '" data-a="syTap" data-k="' + k + '" data-v="' + esc(v || "") + '" aria-label="' + esc("Actualiser " + what + (at ? " (lu " + (old ? syWhen(at) : "à " + syWhen(at)) + ")" : "")) + '">' + (run ? RALLY : SY_IC) + txt + "</button>";
   }
   // Relit sa fiche sans la vider (elle reste affichée pendant la lecture)
   function scoutRefresh(id, manual) {

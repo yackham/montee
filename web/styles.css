@@ -6162,3 +6162,7 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 /* 3.73.1 : Ace reprend l'ancien coach : pastille Montée+ dans une réponse */
 .ace-pl { display: inline-block; padding: 1px 8px; border-radius: 99px; border: 1.5px solid var(--acc-ink); font-size: .7em; font-weight: 700; vertical-align: middle; margin-right: 4px; }
 .ace-a small { display: block; font-size: 14px; opacity: .7; margin-top: 4px; }
+/* 3.73.1 : l'échange Ten'Up dans la ligne de synchro de l'accueil et les pastilles « Synchro » */
+.hd-sy .rally-l, .sy .rally-l { margin-right: 0; }
+.hd-sy.run .rally-l i, .sy.run .rally-l i { width: 6px; height: 6px; border-radius: 50%; background: var(--balle); animation: rlX 1.1s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .hd-sy.run .rally-l i, .sy.run .rally-l i { animation: none; left: 14px; } }
