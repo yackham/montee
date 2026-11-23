@@ -6703,7 +6703,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .ob-lk { border: 0; background: none; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
 .ob-ck { flex: none; width: 24px; height: 24px; border-radius: 7px; box-shadow: inset 0 0 0 2px var(--line); display: grid; place-items: center; font-size: 14px; font-weight: 900; }
 .ob-ck.on { box-shadow: inset 0 0 0 2px var(--gazon); color: var(--gazon); }
-.ob-rg, .ob-sr { background: var(--card); border-radius: 20px; border: 0; width: 100%; text-align: left; font: inherit; color: inherit; text-decoration: none; cursor: pointer; }
+.ob-sr { background: var(--card); border-radius: 20px; border: 0; width: 100%; text-align: left; font: inherit; color: inherit; text-decoration: none; cursor: pointer; }
 .ob-frt { display: inline-flex; align-items: center; gap: 12px; }
 .ob-calb { position: relative; border: 0; background: none; padding: 2px; color: var(--page-muted, var(--muted)); cursor: pointer; display: grid; place-items: center; }
 .ob-calb svg { width: 19px; height: 19px; }

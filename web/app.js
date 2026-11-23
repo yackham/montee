@@ -2840,7 +2840,6 @@
     var me = c.me.mine, mySide = r.b === me ? 2 : 1, lv = tmLive(r), sc = tmScore(r), jn = (c.cal || []).filter(function (x) { return x.d === r.d; })[0];
     var short = function (n) { return tmNm(n).replace(/\s+\d+$/, function (x) { return x; }); };
     s += '<div class="tm-vs"><b class="' + (r.a === me ? "me" : "") + '">' + esc(short(r.an)) + '</b><span class="sc' + (lv ? " lv" : "") + '">' + (sc ? esc(sc) : "–") + '</span><b class="' + (r.b === me ? "me" : "") + '">' + esc(short(r.bn)) + '</b></div><p class="tm-sub" style="text-align:center;margin:0">' + esc([jn ? "Journée " + jn.j : "", (r.dom === me ? "à domicile" : "à l'extérieur"), dayLab(r.d)].filter(Boolean).join(" · ")) + (lv ? ' <span class="tm-live">En direct</span>' : "") + "</p>";
-    if (r.st !== "T" && !lv && r.d >= E.iso(today())) s += rgBtn("eq:" + c.id, "Point décisif, super jeu décisif : ce qui t'attend"); // 3.94
     if (r.st === "T" && !lv && r.w === me) s += jkLine("e-win", "Victoire de l'équipe. La buvette est au courant.");
     UI.fdm = UI.fdm || {}; var F = UI.fdm[rid] || (S.fdmCache3 || {})[rid];
     if (!F || (lv && Date.now() - (F.at || 0) > 120e3)) {
@@ -2947,7 +2946,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     else s += '<button class="linkbtn tr-del" data-a="trDel" style="align-self:center">Supprimer cette épreuve</button>';
     if (UI.trR) s += trRoundSheet(t);
     if (UI.plSched != null && (t.pool || [])[UI.plSched]) s += plSchedSheet(t);
-    if (!over) s += rgBtn("to:" + t.id, "Point décisif, super jeu décisif : ce qui t'attend"); // 3.94
     return s + "</div>";
   };
   // 3.44.2 : ta poule depuis le mail du comité (texte collé) : nom, adversaires, numéros, date limite
@@ -13948,37 +13946,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     });
   }
 
-  // ---------- 6 · Le format de ton match (4.0.4 : Yann, les règles évidentes retirées) ----------
-  // Formats de jeu : FFT, Règlements sportifs, art. 9-1 (tableau « Les formats de jeu »). Règles : FFT, Règles du jeu (règles 5, 10, 12, 22, 23, 29).
-  var RG_FMT = [
-    { k: "1", t: "Format 1", s: "3 manches à 6 jeux, jeu décisif à 6-6" },
-    { k: "2", t: "Format 2", s: "2 manches à 6 jeux, 3e manche en super jeu décisif à 10 points" },
-    { k: "3", t: "Format 3", s: "2 manches à 4 jeux, point décisif, jeu décisif à 4-4, 3e manche en super jeu décisif" },
-    { k: "4", t: "Format 4", s: "2 manches à 6 jeux, point décisif, 3e manche en super jeu décisif" },
-    { k: "5", t: "Format 5", s: "2 manches à 3 jeux, point décisif, jeu décisif à 2-2, 3e manche en super jeu décisif" },
-    { k: "6", t: "Format 6", s: "2 manches à 4 jeux, point décisif, jeu décisif à 3-3, 3e manche en super jeu décisif" },
-    { k: "7", t: "Format 7", s: "2 manches à 5 jeux, point décisif, jeu décisif à 4-4, 3e manche en super jeu décisif" },
-    { k: "8", t: "Format 8", s: "3 manches à 6 jeux, point décisif" },
-    { k: "9", t: "Format 9", s: "3 manches à 5 jeux, point décisif, jeu décisif à 4-4" }
-  ];
-  var RG_RULES = [
-    { f: /^[3-9]$/, k: "Point décisif", t: "À égalité (40-40), un seul point décide du jeu." },
-    { f: /^[2-7]$/, k: "Super jeu décisif", t: "Il remplace la 3e manche : le premier à 10 points, avec 2 points d'écart. On change de côté tous les 6 points." },
-    { k: "Jeu décisif", t: "Le premier à 7 points, avec 2 points d'écart. On change de côté tous les 6 points." }
-  ];
-  var RG_SRC = "D'après les Règles du jeu et les Règlements sportifs de la FFT. Le format de ton match est celui annoncé par l'épreuve.";
-  DET.regles = function (v) {
-    var key = String(v || ""), f = (S.fmtOf || {})[key] || "", F = RG_FMT.filter(function (x) { return x.k === f; })[0];
-    var open = UI.rgPick || !F;
-    var rows = '<div class="ob-list">' +
-      (open ? '<div class="ob-r col"><span class="grow"><small>Le format de ton match</small><b>' + (F ? "Choisis-en un autre" : "Lequel est annoncé ?") + '</b><small>Il est écrit sur ta convocation ou dans le règlement de l\'épreuve.</small></span></div>' +
-        RG_FMT.map(function (x) { return '<button class="ob-r ob-ck-r" data-a="rgFmt" data-k="' + esc(key) + '" data-v="' + x.k + '"><span class="ob-ck' + (x.k === f ? " on" : "") + '">' + (x.k === f ? "✓" : "") + '</span><span class="grow"><b>' + esc(x.t) + "</b><small>" + esc(x.s) + "</small></span></button>"; }).join("")
-        : '<button class="ob-r" data-a="rgPick"><span class="grow"><small>Le format de ton match</small><b>' + esc(F.s) + "</b><small>" + esc(F.t) + " · touche pour changer</small></span>" + OB_NX + "</button>") +
-      RG_RULES.filter(function (r) { return !r.f || (F && r.f.test(F.k)); }).map(function (r) { return '<div class="ob-r"><span class="grow"><small>' + esc(r.k) + "</small><b>" + esc(r.t) + "</b></span></div>"; }).join("") + "</div>" +
-      '<span class="ob-foot">' + esc(RG_SRC) + "</span>";
-    return { title: "Le format de ton match", sub: "Point décisif, super jeu décisif : ce qui change selon le format annoncé.", body: rows };
-  };
-  function rgBtn(key, lab) { return '<button class="row ob-rg" data-a="rgOpen" data-v="' + esc(key) + '"><span class="badge">' + svg('<path d="M5 4h11l3 3v13H5z"/><path d="M9 10h6M9 14h6"/>', 2.2) + '</span><span class="grow"><span class="t">Le format de ton match</span><span class="s">' + esc(lab) + "</span></span>" + I.next + "</button>"; }
 
   // ---------- 7 · Ta saison ----------
   function saisonRowHtml() {
@@ -17886,9 +17853,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     calOpen: function () { UI.calSel = null; UI.sheet = { k: "cal", v: 1 }; render(); },
     calTog: function (el) { var k = el.dataset.v; UI.calSel = UI.calSel || {}; if (UI.calSel[k]) delete UI.calSel[k]; else UI.calSel[k] = 1; haptic("light"); render(); },
     calGo: function () { var L = calItems().filter(function (z) { return UI.calSel && UI.calSel[z.k]; }); if (!L.length) return; calExport(L); },
-    rgOpen: function (el) { UI.rgPick = null; UI.sheet = { k: "regles", v: el.dataset.v }; render(); },
-    rgPick: function () { UI.rgPick = 1; render(); },
-    rgFmt: function (el) { S.fmtOf = S.fmtOf || {}; S.fmtOf[el.dataset.k] = el.dataset.v; save(); UI.rgPick = null; haptic("light"); render(); },
     offOpen: function () { UI.offDraft = null; UI.sheet = { k: "off", v: 1 }; render(); },
     offLab: function (el) { UI.offDraft = UI.offDraft || {}; UI.offDraft.lab = el.dataset.v; render(); },
     offSave: function () {
@@ -17978,7 +17942,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     hideWatchCard: function () { S.prefs = S.prefs || {}; S.prefs.hideWatchCard = 1; UI.sheet = null; save(); render(); toast("Carte masquée. Tu la retrouves dans Réglages."); },
     showWatchCard: function () { S.prefs = S.prefs || {}; delete S.prefs.hideWatchCard; save(); render(); },
     openWatchApp: function () { try { window.open("itms-watchs://", "_system"); } catch (e) {} },
-    sheetClose: function () { UI.pzDraft = null; UI.calSel = null; UI.rgPick = null; UI.offDraft = null; if (UI.sheet && UI.sheet.k === "recap") { delete S.syncRecap; save(); } if (UI.sheet && UI.sheet.k === "sjSet") UI.sjSet = null; UI.sheet = UI.sheet && UI.sheet.back ? { k: UI.sheet.back } : null; render(); },
+    sheetClose: function () { UI.pzDraft = null; UI.calSel = null; UI.offDraft = null; if (UI.sheet && UI.sheet.k === "recap") { delete S.syncRecap; save(); } if (UI.sheet && UI.sheet.k === "sjSet") UI.sjSet = null; UI.sheet = UI.sheet && UI.sheet.back ? { k: UI.sheet.back } : null; render(); },
     menu: function () { UI.menu = true; render(); var b = app.querySelector(".sheet .menu-item"); if (b) b.focus(); },
     closeMenu: function () { UI.menu = false; render(); },
     newMatch: function () { UI.menu = false; UI.draft = null; go("match/new"); },
