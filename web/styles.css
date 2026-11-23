@@ -6652,3 +6652,17 @@ button.acr, a.acr { cursor: pointer; }
 .fq-s.sm .fq-pt { font-size: 11.5px; letter-spacing: -.02em; }
 .fq-s.xs .fq-pt { display: none; }
 @media (max-width: 360px) { .fq-ax em { font-size: 10px; letter-spacing: 0; } }
+
+
+/* ---------- 3.91 : Face-à-face et onglets vivants (barres qui se remplissent à l'apparition) ---------- */
+@keyframes mxGrowR { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: no-preference) {
+  .mx-g0 > i, .mx-g0 > u, .mx-g0 .l > i, .mx-g0 .r > i, .mx-g0 > span > i, .mx-g0 .arr { transform: scaleX(0); transform-origin: left; }
+  .mx-g0.mx-on > i, .mx-g0.mx-on > u, .mx-g0.mx-on .r > i, .mx-g0.mx-on > span > i, .mx-g0.mx-on .arr { transform: none; animation: mxGrow .8s cubic-bezier(.2,.8,.3,1) both; animation-delay: var(--d, 0ms); }
+  .mx-g0 .l > i, .ff-tug.mx-g0 > i.t { transform-origin: right; }
+  .mx-g0.mx-on .l > i { transform: none; animation: mxGrowR .8s cubic-bezier(.2,.8,.3,1) both; animation-delay: var(--d, 0ms); }
+  .mx-g0.mx-on > i + i { animation-delay: calc(var(--d, 0ms) + .35s); }
+  .ff-tug.mx-g0.mx-on > i + i { animation-delay: var(--d, 0ms); }
+  .ff-stake .prog.mx-g0.mx-on > i + i { animation-delay: calc(var(--d, 0ms) + .7s); }
+}
+@media (prefers-reduced-motion: reduce) { .mx-g0 *, .mx-g0 .arr { animation: none !important; transform: none; } }
