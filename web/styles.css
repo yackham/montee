@@ -6515,7 +6515,7 @@ button.acr, a.acr { cursor: pointer; }
 .crr-best { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14.5px; line-height: 1.45; }
 @keyframes crrGrow { from { transform: scaleY(0); } }
 @media (prefers-reduced-motion: reduce) { .tme-rec .tme-r, .tme-rec .tme-okc, .tme-btns, .crr-b i { animation: none !important; } }
-/* 3.83 : onglets de Mon profil (Toi · Ton jeu · Matériel et créneaux) sous la carte joueur */
-.pf-tabs { margin: 2px 0 0; grid-auto-flow: initial; grid-template-columns: 1fr 1.2fr 2fr; }
+/* 3.83 : onglets de Mon profil (Toi · Ton jeu · Ta routine) sous la carte joueur */
+.pf-tabs { margin: 2px 0 0; }
 .pf-tabs button { font-size: 14px; padding-left: 4px; padding-right: 4px; white-space: nowrap; min-width: 0; }
 .me-best small { font-size: 11.5px; font-weight: 600; opacity: .8; }

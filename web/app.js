@@ -3291,9 +3291,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         })() +
         (S.ahead ? '<span class="me-ahead">' + I.check + " Montée te compte déjà " + esc(S.ahead.rank) + " pour la sortie du " + esc(fdate(S.ahead.release).replace(/\.$/, "")) + "</span>" : "") +
         '<span class="me-foot">' + I.link + " Ten'Up" + (me.licence ? " · licence " + esc(me.licence) : "") + (S.tenup.lastImport ? " · à jour du " + esc(fdate(S.tenup.lastImport).replace(/\.$/, "")) : "") + "</span></div>";
-      // 3.83 (Yann, 23/11/2026) : la carte joueur reste compacte ; dessous, des onglets Toi · Ton jeu · Matériel et créneaux
+      // 3.83 (Yann, 23/11/2026) : la carte joueur reste compacte ; dessous, des onglets Toi · Ton jeu · Ta routine (matériel et créneaux)
       var pt = UI.pfTab === "jeu" || UI.pfTab === "mat" ? UI.pfTab : "toi";
-      s0 += '<div class="seg pf-tabs" role="tablist">' + [["toi", "Toi"], ["jeu", "Ton jeu"], ["mat", "Matériel et créneaux"]].map(function (t) { return '<button role="tab" aria-selected="' + (pt === t[0]) + '" data-a="pfTab" data-v="' + t[0] + '" class="' + (pt === t[0] ? "on" : "") + '">' + t[1] + "</button>"; }).join("") + "</div>";
+      s0 += '<div class="seg pf-tabs" role="tablist">' + [["toi", "Toi"], ["jeu", "Ton jeu"], ["mat", "Ta routine"]].map(function (t) { return '<button role="tab" aria-selected="' + (pt === t[0]) + '" data-a="pfTab" data-v="' + t[0] + '" class="' + (pt === t[0] ? "on" : "") + '">' + t[1] + "</button>"; }).join("") + "</div>";
       var lic0 = tmeLicRow(me);
       s0 += pt === "jeu" ? tonJeuCard() : pt === "mat" ? matRow() + semRow() : (lic0 ? '<div class="card tme-card">' + lic0 + "</div>" : "") + careerHtml() + goalRow();
       s0 += '<button class="linkbtn" data-a="profEdit" style="align-self:center;margin-top:6px">Corriger mon classement à la main</button>';
