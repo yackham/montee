@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.74.6",
+    VERSION: "3.74.7",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1307,7 +1307,7 @@
     if (poolAutoLink(t)) { try { save(); } catch (e) {} }
     var g = [];
     // 3.47 : le score saisi dans la fiche du match (« Ajouter le score ») sert au départage
-    (t.pool || []).forEach(function (x) { if (x.res) { var mm = poolMyMatch(t, x); g.push({ a: "Toi", b: x.name, w: x.res === "V" ? "a" : "b", sc: x.score || (mm && mm.score) || poolScoreFromHim(t, x) || "", me: true, mid: mm ? mm.id : "" }); } });
+    (t.pool || []).forEach(function (x) { if (x.res) { var mm = poolMyMatch(t, x); g.push({ a: "Toi", b: x.name, w: x.res === "V" ? "a" : "b", sc: x.score || (mm && mm.score) || poolScoreFromHim(t, x) || "", me: true, mid: mm ? mm.id : "", date: (mm && mm.date) || x.day || "" }); } });
     (t.poolX || []).forEach(function (x) { g.push(x); });
     return g;
   }
@@ -1767,16 +1767,18 @@
     var tieUsed = st.some(function (x, i) { var y = st[i + 1]; return y && x.p === y.p; });
     var sgn = function (x) { return (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x); };
     var s = '<div class="card pl-st"><span class="eyebrow">Le classement</span>' + poolProgHtml(t) + st.map(function (x, i) {
-      return '<div class="pl-r' + (x.m.me ? " me" : "") + (!x.m.me && x.m.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.m.tid) + '" role="button' : "") + '"><b class="pl-k' + (i < (t.qual || 1) ? " q" : "") + '">' + (i + 1) + "</b><b>" + esc(x.m.me ? "Toi" : trNm(x.m.name)) + (x.m.rank ? ' <span class="muted">· ' + esc(x.m.rank) + "</span>" : "") + (!x.m.me && x.m.age ? '<span class="muted pl-age"> · ' + x.m.age + " ans</span>" : "") + (x.scN ? '<small class="pl-tb">sets ' + sgn(x.sd) + " · jeux " + sgn(x.gd) + "</small>" : "") + '</b><span class="pl-d">' + x.res.map(function (r) { return '<i class="' + (r === "V" ? "v" : r === "D" ? "d" : "") + '"></i>'; }).join("") + '</span><b class="pl-vd">' + x.v + "-" + x.d + '<small class="pl-pt">' + plural(x.p, "pt", "pts") + "</small></b></div>";
+      return '<div class="pl-r' + (x.m.me ? " me" : "") + (!x.m.me && x.m.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.m.tid) + '" role="button' : "") + '"><b class="pl-k' + (i < (t.qual || 1) ? " q" : "") + '">' + (i + 1) + "</b><b>" + esc(x.m.me ? "Toi" : trNm(x.m.name)) + (x.m.rank ? ' <b class="rk-tag">' + esc(x.m.rank) + "</b>" : "") + (!x.m.me && x.m.age ? '<span class="muted pl-age"> · ' + x.m.age + " ans</span>" : "") + (x.scN ? '<small class="pl-tb">sets ' + sgn(x.sd) + " · jeux " + sgn(x.gd) + "</small>" : "") + '</b><span class="pl-d">' + x.res.map(function (r) { return '<i class="' + (r === "V" ? "v" : r === "D" ? "d" : "") + '"></i>'; }).join("") + '</span><b class="pl-vd">' + x.v + "-" + x.d + '<small class="pl-pt">' + plural(x.p, "pt", "pts") + "</small></b></div>";
     }).join("") + '<span class="small">Classement aux points : victoire 2 pts, défaite 1 pt, pas encore joué 0.' + (tieUsed ? " À égalité de points : départage aux sets gagnés − perdus, puis aux jeux." + (games.some(function (gm) { return !gm.sc; }) ? " Il manque des scores : ajoute-les pour un départage juste." : "") : "") + "</span>" + (NATIVE ? "" : '<span class="small">Les matchs des autres se lisent sur Ten\'Up depuis l\'appli iPhone ou Android.</span>') + "</div>";
-    var played = games.slice().sort(function (a, b) { return (b.me ? 1 : 0) - (a.me ? 1 : 0); });
+    // 3.74.7 (maquette poule-matchs validée par Yann) : « Les résultats » à plat, tes matchs d'abord (pastille V/D), puis les autres (date), du plus récent au plus ancien
+    var played = games.slice().sort(function (a, b) { return ((b.me ? 1 : 0) - (a.me ? 1 : 0)) || (String(b.date || "") > String(a.date || "") ? 1 : String(b.date || "") < String(a.date || "") ? -1 : 0); });
+    var lead = function (gm) { if (gm.me) { var v = gm.w === "a"; return '<span class="pl-lead"><span class="pl-ok ' + (v ? "v" : "d") + '" aria-label="' + (v ? "Victoire" : "Défaite") + '">' + (v ? "V" : "D") + "</span></span>"; } var dd = gm.date && E.parseDate(String(gm.date).slice(0, 10)); return '<span class="pl-lead">' + (dd && !isNaN(dd) ? '<span class="pl-dt">' + dd.getDate() + "<br>" + MOIS[dd.getMonth()] + "</span>" : "") + "</span>"; };
     s += poolTimingHtml(t);
     var todo = (t.pool || []).map(function (x, i) { return { x: x, i: i }; }).filter(function (z) { return !z.x.res; });
-    s += '<div class="card pl-m">' + (played.length ? '<span class="eyebrow">Les matchs</span>' : "") + (played.length ? played.map(function (gm) {
-      if (gm.me && !gm.sc && gm.mid) return '<a class="pl-g me" href="#/match/' + esc(gm.mid) + '"><span class="pl-nm"><b class="' + (gm.w === "a" ? "w" : "") + '">Toi' + (gm.w === "a" ? " ✓" : "") + '</b><b class="' + (gm.w === "b" ? "w" : "") + '">' + esc(trNm(gm.b)) + (gm.w === "b" ? " ✓" : "") + '</b></span><span class="pl-add-sc">+ score</span></a>';
+    s += '<div class="card pl-m pl-flat">' + (played.length ? '<span class="eyebrow">Les résultats · ' + plural(played.length, "match", "matchs") + "</span>" : "") + (played.length ? played.map(function (gm) {
+      if (gm.me && !gm.sc && gm.mid) return '<a class="pl-g me" href="#/match/' + esc(gm.mid) + '">' + lead(gm) + '<span class="pl-nm"><b class="' + (gm.w === "a" ? "w" : "") + '">Toi' + (gm.w === "a" ? " ✓" : "") + '</b><b class="' + (gm.w === "b" ? "w" : "") + '">' + esc(trNm(gm.b)) + (gm.w === "b" ? " ✓" : "") + '</b></span><span class="pl-add-sc">+ score</span></a>';
       // 3.58.1 (testeur) : le score en tableau d'arbitre, comme partout : un joueur par ligne, set par set, le gagnant en gras
       var gA = esc(gm.a === "Toi" ? "Toi" : trNm(gm.a)), gB = esc(trNm(gm.b)), gT = gm.sc ? msbHtml({ score: gm.sc }) : "";
-      var gIn = '<span class="pl-nm"><b class="' + (gm.w === "a" ? "w" : "") + '">' + gA + (gm.w === "a" ? " ✓" : "") + '</b><b class="' + (gm.w === "b" ? "w" : "") + '">' + gB + (gm.w === "b" ? " ✓" : "") + "</b></span>" + (gT || '<span class="pl-sc0">' + esc(gm.sc || (gm.w === "a" ? "V" : "D")) + "</span>");
+      var gIn = lead(gm) + '<span class="pl-nm"><b class="' + (gm.w === "a" ? "w" : "") + '">' + gA + '</b><b class="' + (gm.w === "b" ? "w" : "") + '">' + gB + "</b></span>" + (gT || '<span class="pl-sc0">' + esc(gm.sc || (gm.w === "a" ? "V" : "D")) + "</span>");
       return gm.me && gm.mid ? '<a class="pl-g me" href="#/match/' + esc(gm.mid) + '">' + gIn + "</a>" : '<div class="pl-g' + (gm.me ? " me" : "") + '">' + gIn + "</div>";
     }).join("") : "");
     // 3.45 (Yann) : « Programmés » (date fixée, du plus proche au plus lointain) séparés de « À programmer » ;

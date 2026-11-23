@@ -6210,3 +6210,12 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .bz-whyt { display: block; margin-top: 8px; font-size: 12.5px; line-height: 1.4; color: var(--muted); white-space: normal; }
 .bz-whyt b { color: var(--ink); font-size: inherit; font-weight: 800; }
 .bz-lg i.risk { background: repeating-linear-gradient(90deg, var(--terre) 0 3px, transparent 3px 5px); }
+
+/* 3.74.7 : poule, « Les résultats » à plat (lignes séparées d'un trait fin, sans encadré) */
+.pl-flat .pl-g, .pl-flat .pl-g.me { border: 0; border-top: 1px solid var(--line); border-radius: 0; margin: 0; padding: 11px 0; background: none; box-shadow: none; gap: 12px; font-size: 14.5px; }
+.pl-flat > .eyebrow + .pl-g { border-top: 0; }
+.pl-lead { width: 32px; flex: none; display: flex; justify-content: center; }
+.pl-ok { width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; box-shadow: inset 0 0 0 2px var(--gazon); color: var(--gazon); }
+.pl-ok.d { box-shadow: inset 0 0 0 2px var(--terre); color: var(--terre); }
+.pl-dt { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.15; }
+.pl-st .pl-r .rk-tag { margin-left: 3px; }
