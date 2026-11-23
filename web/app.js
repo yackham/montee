@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.74.1",
+    VERSION: "3.74.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -757,7 +757,7 @@
     if (UI.sheet) html += sheetHtml();
     if (UI.jj) html += jjHtml();
     if (UI.qaSheet && parts[0] === "" && !qaList().length) UI.qaSheet = false;
-    if (UI.qaSheet && parts[0] === "") html += '<div class="sheet-bg" data-a="qaClose"></div><div class="sheet qa-sheet" role="dialog" aria-modal="true" aria-label="Annoter ton match"><span class="sheet-grab"></span>' + qaFormHtml() + "</div>";
+    if (UI.qaSheet && parts[0] === "") html += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="qaClose"></div><div class="sheet qa-sheet" role="dialog" aria-modal="true" aria-label="Annoter ton match"><span class="sheet-grab"></span>' + qaFormHtml() + "</div>";
     if (UI.actPlus) html += actPlusHtml();
     if (UI.ace) html += aceHtml(); // 3.73 : Ace, le coach
     else if (parts[0] === "" && S.onboarded && S.matches.length && !S.aceSeen && !UI.sheet && !UI.notesOpen && !UI.qaSheet && !UI.actPlus) html += aceIntroHtml();
@@ -1040,7 +1040,7 @@
     if (btn && d) btn.disabled = false;
   }
   function leaveSheet() {
-    return '<div class="sheet-bg" data-a="leaveStay"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Modifications non enregistrées"><b>Enregistrer tes modifications ?</b>' +
+    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="leaveStay"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Modifications non enregistrées"><b>Enregistrer tes modifications ?</b>' +
       '<span class="small">Tu as changé des choses sur cette page.</span>' +
       '<button class="btn primary" data-a="leaveSave">Enregistrer</button><button class="btn soft" data-a="leaveDiscard">Ne pas enregistrer</button><button class="linkbtn" data-a="leaveStay">Rester sur la page</button></div>';
   }
@@ -1871,10 +1871,14 @@
   // 3.51.1 : « En cours » : l'équipe qui joue aujourd'hui d'abord, puis la prochaine rencontre la plus proche
   function tmOrdOn(a, b) { var x = tmNext(a), y = tmNext(b), lx = x && tmLive(x) ? 0 : 1, ly = y && tmLive(y) ? 0 : 1; if (lx !== ly) return lx - ly; var dx = x ? x.d : "9", dy = y ? y.d : "9"; return dx < dy ? -1 : dx > dy ? 1 : (a.last < b.last ? 1 : -1); }
   function tmScore(r) { var lv = tmLive(r) && (r.c1 || r.c2); return r.st === "T" || lv ? (lv ? r.c1 : r.s1) + " – " + (lv ? r.c2 : r.s2) : null; }
+  // 3.74.2 (audit) : ces relectures sont lancées à chaque affichage de l'écran ; quand Ten'Up ne répond pas (hors ligne, déconnecté),
+  // l'échec relançait aussitôt l'affichage, donc une nouvelle relecture : boucle sans fin (écran figé, batterie). Une tentative
+  // non forcée attend maintenant 10 min après la précédente.
+  function retryOk(k, force) { var T0 = UI.tryAt || (UI.tryAt = {}); if (!force && T0[k] && Date.now() - T0[k] < 10 * 60e3) return false; T0[k] = Date.now(); return true; }
   function teamsRefresh(force) {
     if (!NATIVE || !S.tenup.linked || UI.tmBusy) return;
     var t = S.teams, live = t && myTeams().some(function (c) { return (c.renc || []).some(tmLive); });
-    if (!force && t && t.qv === 7 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe ; 5 = 3.58.1, le club d'en face ; 6 = 3.62, ton nom sur la feuille de match ; 7 = 3.68, recherche découpée en plusieurs lectures)
+    if (!force && t && t.qv === 7 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; if (!retryOk("teams", force)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe ; 5 = 3.58.1, le club d'en face ; 6 = 3.62, ton nom sur la feuille de match ; 7 = 3.68, recherche découpée en plusieurs lectures)
     UI.tmBusy = true;
     // 3.68 : les poules où tes équipes ont déjà été trouvées sont relues en premier (une lecture courte suffit le plus souvent)
     var known = {}; ((t && t.champs) || []).forEach(function (c) { if (!c.none && !c.err && c.path && c.path.q && c.me && c.me.mine) { var k = String(c.cid || c.id); (known[k] = known[k] || []).push(c.path); } });
@@ -2108,6 +2112,7 @@
     // (S.clubJob, 6 h au plus) et reprise là où elle s'était arrêtée à la prochaine ouverture de l'onglet.
     var J = S.clubJob && Date.now() - S.clubJob.at < 6 * 3600e3 ? S.clubJob : null; if (!J) S.clubJob = null;
     var c0 = S.club; if (!force && !J && c0 && c0.qv === 1 && Date.now() - c0.at < 12 * 3600e3) return;
+    if (!retryOk("club", force)) return;
     var full = J && !force ? !!J.full : force || !c0 || !c0.full || Date.now() - c0.full > 7 * 864e5;
     var known = {}; ((c0 && c0.champs) || []).forEach(function (c) { if (c.path && c.path.q) { var k = String(c.cid); (known[k] = known[k] || []).some(function (p) { return p.q === c.path.q; }) || known[k].push(c.path); } });
     var cids = myTeams(true).map(function (c) { return { id: String(c.cid || c.id), nom: c.nom }; }).concat(((c0 && c0.champs) || []).map(function (c) { return { id: String(c.cid), nom: c.nom }; }));
@@ -2131,6 +2136,12 @@
     };
     go(J && !force ? J.job : null);
   }
+  // 3.74.2 (audit) : Échap (clavier, iPad, ordinateur) ferme les feuilles comme le bouton retour d'Android ; avant, seul le menu se fermait
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape") return;
+    if (UI.leaveAsk) UI.leaveAsk = false; else if (UI.sheet) return A.sheetClose(); else if (UI.plSched != null) { UI.plSched = null; UI.plHost = null; } else if (UI.trR) { UI.trR = null; UI.trHits = null; } else return;
+    render();
+  });
   // 3.50.4 (Yann) : ton impact dans un championnat : l'équipe avec toi / sans toi, tes matchs, ta part des matchs gagnés
   function teamImpactHtml(c) {
     var me = c.me.mine, R = (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.st === "T"; });
@@ -2765,7 +2776,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   var HOME_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>';
   function plSchedSheet(t) {
     var x = t.pool[UI.plSched];
-    return '<div class="sheet-bg" data-a="plSchedClose"></div><div class="sheet tq-sheet" role="dialog" aria-modal="true" aria-label="Programmer le match"><span class="sheet-grab"></span>' +
+    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="plSchedClose"></div><div class="sheet tq-sheet" role="dialog" aria-modal="true" aria-label="Programmer le match"><span class="sheet-grab"></span>' +
       '<div class="tq-hd"><b>Programmer le match</b><span>' + esc(trNm(x.name)) + "</span></div>" +
       '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (x.day ? " v" : "") + '"><input type="date" id="ps-day" data-tn="psday" value="' + esc(x.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v"><input type="time" id="ps-time" value="' + esc(x.time || "") + '"><em></em></span></div>' +
       hostSeg(UI.plHost != null ? UI.plHost : x.host || "", "plHost") +
@@ -2776,7 +2787,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function trRoundSheet(t) {
     var R = UI.trR, pool = R.k === "pool", alt = !pool && R.mode === "alt";
     var lab = pool ? "Match de poule" : trLab(R.i === "new" ? (t.rounds || []).length : +R.i);
-    var s = '<div class="sheet-bg" data-a="trClose"></div><div class="sheet big tq-sheet" role="dialog" aria-modal="true" aria-label="Ton tour"><span class="sheet-grab"></span>' +
+    var s = '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="trClose"></div><div class="sheet big tq-sheet" role="dialog" aria-modal="true" aria-label="Ton tour"><span class="sheet-grab"></span>' +
       '<div class="tq-hd"><b>' + esc(lab) + "</b><span>" + esc(t.name || "") + "</span></div>" +
       (pool ? "" : '<div class="tq-seg"><button class="' + (alt ? "" : "on") + '" data-a="trMode" data-v="one">Un adversaire</button><button class="' + (alt ? "on" : "") + '" data-a="trMode" data-v="alt">Le vainqueur de…</button></div>');
     if (!alt) {
@@ -2940,7 +2951,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         '<span class="me-foot">' + I.link + " Ten'Up" + (me.licence ? " · licence " + esc(me.licence) : "") + (S.tenup.lastImport ? " · à jour du " + esc(fdate(S.tenup.lastImport).replace(/\.$/, "")) : "") + "</span></div>";
       s0 += goalRow() + matRow() + semRow() + tonJeuCard();
       s0 += '<button class="linkbtn" data-a="profEdit" style="align-self:center;margin-top:6px">Corriger mon classement à la main</button>';
-      if (UI.photoMenu) s0 += '<div class="sheet-bg" data-a="photoClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Ta photo"><b>Ta photo</b>' +
+      if (UI.photoMenu) s0 += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="photoClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Ta photo"><b>Ta photo</b>' +
         '<button class="btn primary" data-a="photoPick">Choisir une photo</button>' +
         (S.profile.photoTU && S.profile.photo ? '<button class="btn soft" data-a="photoTenup">Reprendre celle de Ten\'Up</button>' : "") +
         (ph ? '<button class="btn soft danger" data-a="photoDel">Retirer la photo</button>' : "") +
@@ -7307,7 +7318,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (UI.folBusy) return;
     var ids = Object.keys(S.follow || {}).filter(function (id) { return force || Date.now() - (S.follow[id].at || 0) > 4 * 3600e3; })
       .sort(function (a, b) { return (S.follow[a].at || 0) - (S.follow[b].at || 0); }).slice(0, 12), chain = Promise.resolve(), any = false;
-    if (!ids.length) return; UI.folBusy = true; if (route() === "faf") render(); // 3.67 : la pastille tourne
+    if (!ids.length || !retryOk("fol", force)) return; UI.folBusy = true; if (route() === "faf") render(); // 3.67 : la pastille tourne
     ids.forEach(function (id) {
       chain = chain.then(function () {
         var f = S.follow[id]; if (!f || !f.hit) return;
@@ -8639,7 +8650,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // La présentation d'Ace, une seule fois
   function aceIntroHtml() {
-    return '<div class="sheet-bg" data-a="aceIntro"></div><div class="sheet ace-intro" role="dialog" aria-modal="true" aria-label="Voici Ace, ton coach"><div class="sh-grab"></div>' +
+    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="aceIntro"></div><div class="sheet ace-intro" role="dialog" aria-modal="true" aria-label="Voici Ace, ton coach"><div class="sh-grab"></div>' +
       coBall("intro", "arrivee", "xl") + '<b class="ace-it">Salut, moi c\'est Ace !</b><span class="ace-is">Je suis ton copain de compète. Je regarde tes matchs et je te dis le bon truc au bon moment : comment monter, qui jouer d\'abord, comment rebondir après une défaite.</span>' +
       '<span class="small ace-is2">Gratuit, et tout reste dans ton téléphone.</span><button class="btn primary" data-a="aceIntro" data-v="go">On fait connaissance</button><button class="linkbtn" data-a="aceIntro">Plus tard</button></div>';
   }
@@ -9045,7 +9056,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   };
   function actPlusHtml() {
     var it = function (a, ic, t, sub, k) { return '<button class="row ap-r" data-a="' + a + '"><span class="ap-i ' + (k || "") + '">' + ic + '</span><span class="grow"><span class="t">' + t + '</span><span class="s">' + sub + "</span></span>" + I.next + "</button>"; };
-    return '<div class="sheet-bg" data-a="actPlusClose"></div><div class="sheet ap-sh" role="dialog" aria-modal="true" aria-label="Ajouter"><span class="sheet-grab"></span><h3>Ajouter</h3>' +
+    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="actPlusClose"></div><div class="sheet ap-sh" role="dialog" aria-modal="true" aria-label="Ajouter"><span class="sheet-grab"></span><h3>Ajouter</h3>' +
       it("apMatch", I.plus, "Un match joué", "Hors Ten'Up ou pas encore remonté", "m") +
       it("apTrain", RACKET_SVG.replace("<svg", '<svg width="20" height="20"'), "Un entraînement", "Séance, durée, ressenti", "t") +
 "</div>";
@@ -9218,7 +9229,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (UI.palSheet) {
       var ch = function (k, v, t) { var on = (k === "res" ? fRes : fType) === v; return '<button class="chip' + (on ? " on" : "") + '" data-a="palSet" data-k="' + k + '" data-v="' + v + '">' + t + "</button>"; };
       var nRes = all.filter(function (m) { return fRes === "all" || m.result === (fRes === "v" ? "V" : "D"); }).length * (fType === "d" ? 0 : 1) + (fType === "s" ? 0 : (S.doubles || []).filter(function (m) { return fRes === "all" || m.result === (fRes === "v" ? "V" : "D"); }).length);
-      s += '<div class="sheet-bg" data-a="palSheet"></div><div class="sheet act-sheet" role="dialog" aria-modal="true" aria-label="Afficher"><span class="sheet-grab"></span><b style="font-size:19px">Afficher</b>' +
+      s += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="palSheet"></div><div class="sheet act-sheet" role="dialog" aria-modal="true" aria-label="Afficher"><span class="sheet-grab"></span><b style="font-size:19px">Afficher</b>' +
         '<span class="m2-lab">Résultat</span><div class="chips">' + ch("res", "all", "Tout") + ch("res", "v", "Victoires") + ch("res", "d", "Défaites") + "</div>" +
         ((S.doubles || []).length ? '<span class="m2-lab">Type</span><div class="chips">' + ch("type", "all", "Simples et doubles") + ch("type", "s", "Simples") + ch("type", "d", "Doubles") + "</div>" : "") +
         '<button class="btn primary" data-a="palSheet">Voir ' + plural(nRes, "match", "matchs") + "</button></div>";
@@ -11721,7 +11732,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var J = UI.jj, sc = (S.scout || {})[J.id], pr = (sc && sc.profil) || {}, nm = nameCase([pr.prenom, pr.nom].filter(Boolean).join(" ") || (S.lastScout && S.lastScout.id === J.id && S.lastScout.name) || "lui");
     var head = function (t) { return '<div class="sh-grab"></div><div class="sh-head"><b>' + t + '</b><button class="iconbtn sm" data-a="jjClose" aria-label="Fermer">' + I.cross + "</button></div>"; };
     var chip = function (a, v, on, t) { return '<button class="jj-c' + (on ? " on" : "") + '" data-a="' + a + '" data-v="' + v + '">' + t + "</button>"; };
-    var s = '<div class="sheet-bg" data-a="jjClose"></div><div class="sheet jj" role="dialog" aria-modal="true" aria-label="Je joue contre lui">';
+    var s = '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="jjClose"></div><div class="sheet jj" role="dialog" aria-modal="true" aria-label="Je joue contre lui">';
     if (J.step === "ask") {
       s += head("Tu le joues quand ?") +
         '<button class="jj-opt" data-a="jjNow"><i class="now">' + svg('<path d="M8 5v14l11-7z"/>', 2) + "</i><span><b>Maintenant</b><small>Ouvre le mode match</small></span></button>" +
@@ -13009,7 +13020,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     DET.goals = DET_GOALS; DET.tp = DET_TP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
     var d = DET[UI.sheet.k] && DET[UI.sheet.k](UI.sheet.v);
     if (!d) { UI.sheet = null; return ""; }
-    return '<div class="sheet-bg" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + '</b><button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
+    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + '</b><button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
       (d.sub ? '<span class="small">' + esc(d.sub) + "</span>" : "") + '<div class="sh-body">' + d.body + "</div></div>";
   }
   // Plafond : jusqu'où tu bats régulièrement

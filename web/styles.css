@@ -6192,3 +6192,7 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .acp-bar em, .acp-how i { position: absolute; top: -4px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); }
 .acp-how { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-top: -4px; }
 .acp-how i { position: static; display: inline-block; margin: 0; height: 12px; }
+
+/* 3.74.2 (audit accessibilité) : zone tactile agrandie sans changer la mise en page (petits liens et pastilles < 30 px) */
+:is(.num-l, .go-pill, .fo-p, button.lnk, .ce-fl, .linkbtn, .lnk) { position: relative; }
+:is(.num-l, .go-pill, .fo-p, button.lnk, .ce-fl, .linkbtn, .lnk)::after { content: ""; position: absolute; inset: -8px -2px; }
