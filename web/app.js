@@ -3937,10 +3937,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     // victoires qui sortent
     B.drops = "";
+    // 4.1 (règle de Yann : une seule fonction partout) : la même phrase pour l'alerte et pour la ligne de la carte Sortie
+    var dropTx = function (x) { return (x.leaves <= p.release ? "<b>Le " + esc(fdate(x.leaves)) + "</b>" : "<b>Bientôt</b>") + ", ta victoire contre " + esc(nameCase(x.m.opp) || "un " + x.m.oppRank) + " (" + esc(x.m.oppRank) + ") sort de tes 12 mois : <span class=\"neg\">−" + x.pts + " pts</span> au bilan " + lab(Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC)) + ", déjà comptés"; };
     c.drops.forEach(function (x) {
-      var when = x.leaves <= p.release ? fdate(x.leaves) : "";
       // 3.47 (Nico) : toucher l'alerte ouvre « Points à défendre » mois par mois (même quand il y a peu à défendre)
-      B.drops += '<button class="alert al-tap" data-a="goDefend"><span class="badge ko">' + I.defendre + "</span><span><b>Le " + esc(when) + "</b>, ta victoire contre " + esc(nameCase(x.m.opp) || "un " + x.m.oppRank) + " (" + esc(x.m.oppRank) + ", " + esc(fdate(x.m.date)) + ") sort de tes 12 mois. Déjà comptée ici : <span class=\"neg\">−" + x.pts + " pts</span> au bilan " + lab(Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC)) + '. <span class="al-more">Mois par mois ›</span></span></button>';
+      B.drops += '<button class="alert al-tap" data-a="goDefend"><span class="badge ko">' + I.defendre + "</span><span>" + dropTx(x) + '. <span class="al-more">Mois par mois ›</span></span></button>';
     });
 
     // forme + cordage
@@ -3965,13 +3966,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.46.5 (Yann) : « victoire acquise / maintien » remonte sous la carte Montée ; les tuiles qui doublonnaient (à défendre, cordage, forme) disparaissent
     // 3.46.5 (Yann) : une seule carte : les conditions en bas de la carte Montée (sans le maintien quand la phrase du dessus le dit déjà)
     var condH = B.conditions || "";
-    var chT = ""; try { chT = chancesTile(c); } catch (e) {}
+    var chT = ""; try { chT = chancesLine(c, true); } catch (e) {}
     // 4.1 (Yann, audit densité validé le 23/11) : une info, un endroit. Les victoires qui sortent et tes chances deviennent des lignes de la carte Sortie, touchables
     if (s.indexOf("<!--COND-->") >= 0) {
       var xl = "";
-      c.drops.forEach(function (x) {
-        xl += '<span class="cd3-r cd3-x" data-a="goDefend"><span class="cd3-i">' + I.defendre + "</span><span>" + (x.leaves <= p.release ? "Le " + esc(fdate(x.leaves)) : "Bientôt") + ", ta victoire contre " + esc(nameCase(x.m.opp) || "un " + x.m.oppRank) + " sort : <b class=\"neg\">−" + x.pts + " pts</b>, déjà compté</span><span class=\"chev\">›</span></span>";
-      });
+      c.drops.forEach(function (x) { xl += '<span class="cd3-r cd3-x" data-a="goDefend"><span class="cd3-i">' + I.defendre + "</span><span>" + dropTx(x) + '</span><span class="chev">›</span></span>'; });
       var chL = ""; try { chL = chancesLine(c); } catch (e) { chL = ""; }
       if (xl || chL) { condH = condH ? condH.replace(/<\/span>$/, xl + chL + "</span>") : '<span class="h3-cond">' + xl + chL + "</span>"; B.drops = ""; if (chL) chT = ""; }
     }
@@ -3997,10 +3996,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0) + (B.backup ? 2 : 0) + (B.pay ? 5 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
         var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + (function () {
           // 3.82.1 (Yann, maquette M4 du 23/11) : 2 tâches visibles, le reste derrière « N autres »
-          var ord = tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK, vis = UI.tdAll || ord.length <= 3 ? ord : ord.slice(0, 2), rest = ord.slice(vis.length);
+          var ord = tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK, vis = moreOn("td") || ord.length <= 3 ? ord : ord.slice(0, 2), rest = ord.slice(vis.length);
           var TDN = { annoter: "annotation", rate: "ressenti", slot: "séance", cordage: "cordage", sync: "Ten'Up", backup: "sauvegarde", pay: "inscription" };
-          return vis.map(function (k) { return '<div class="td3-i">' + (k === "rate" && !UI.rateOpen ? rateCardHtml(true) || B[k] : B[k]) + "</div>"; }).join("") +
-            (rest.length ? '<button class="td3-more" data-a="tdMore"><span>' + esc(cap1(rest.map(function (k) { return TDN[k] || k; }).join(", "))) + "</span><b>" + (rest.length > 1 ? rest.length + " autres" : "1 autre") + " ›</b></button>" : "");
+          return vis.map(function (k) { return '<div class="td3-i">' + (k === "rate" && !moreOn("rate") ? rateCardHtml(true) || B[k] : B[k]) + "</div>"; }).join("") +
+            (rest.length ? moreBtn("td", cap1(rest.map(function (k) { return TDN[k] || k; }).join(", ")), rest.length > 1 ? rest.length + " autres" : "1 autre") : "");
         })() + "</div>";
         tdK.forEach(function (k) { B[k] = ""; }); B[tdK[0] === "pay" ? "sync" : tdK[0]] = tdH;
       }
@@ -8607,7 +8606,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var list = toRate(); if (!list.length) return "";
     var x = list[0], o = x.o;
     // 4.1 (Yann, audit densité) : dans « À faire », une ligne ; les 5 notes s'ouvrent au toucher
-    if (compact) return '<button class="card qa1 rate-c" data-a="rateOpen"><span class="eyebrow">À noter · un geste</span><span class="qa1-r"><b>Comment tu t\'es senti ?<small class="qa1-more"> ' + (x.t === "m" ? (o.result === "V" ? "Victoire" : "Défaite") + " contre " + esc(nameCase(o.opp) || "un " + o.oppRank) : "Entraînement") + " du " + esc(fdate(o.date).replace(/ \d{4}$/, "")) + '</small></b><span class="qa1-go">Noter ' + I.next + "</span></span></button>";
+    if (compact) return '<button class="card qa1 rate-c" data-a="more" data-v="rate"><span class="eyebrow">À noter · un geste</span><span class="qa1-r"><b>Comment tu t\'es senti ?<small class="qa1-more"> ' + (x.t === "m" ? (o.result === "V" ? "Victoire" : "Défaite") + " contre " + esc(nameCase(o.opp) || "un " + o.oppRank) : "Entraînement") + " du " + esc(fdate(o.date).replace(/ \d{4}$/, "")) + '</small></b><span class="qa1-go">Noter ' + I.next + "</span></span></button>";
     var what = x.t === "m" ? (o.result === "V" ? "Victoire" : "Défaite") + " contre " + esc(nameCase(o.opp) || "un " + o.oppRank) + " (" + esc(o.oppRank) + ")" + (o.score ? " · " + esc(o.score) : "") : "Entraînement · " + fmtDur(playMinutes(o));
     var gear = o.racketId ? setupLabel(o) : "";
     return '<div class="card rate"><span class="eyebrow">À noter · un geste</span><span style="font-size:20px;font-weight:600;letter-spacing:-.02em">Comment tu t\'es senti ?</span>' +
@@ -9509,8 +9508,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var mine = cap != null && x.top <= cap && x.top >= (c.cur < 0 ? 0 : c.cur);
       if (mine && !mineL) mineL = x.top === cap ? "Dans tes cordes : tu bats régulièrement les " + esc(lab(cap)) + "." : "Dans tes cordes : tu bats régulièrement des joueurs mieux classés (jusqu'à " + esc(lab(cap)) + ").";
       var lv = x.levels.slice().sort(function (a, b) { return b - a; }), gain = x.after.total - now0;
-      return '<div class="pj-p pv' + (x === ez ? " best" : "") + '"><span class="pv-n">' + (xi + 1) + '</span><span class="grow"><b class="pv-tt">' + esc(pisteLabel(x)) + "</b>" +
-        '<span class="pv-bl">' + lv.map(function (L, j) { var ch = '<span class="pv-b"><span class="rk-tag">' + esc(lab(L)) + "</span></span>"; return j ? '<span class="pv-j"><i>+</i>' + ch + "</span>" : ch; }).join("") + "</span>" +
+      return '<div class="pj-p pv' + (x === ez ? " best" : "") + '"><span class="cap-n">' + (xi + 1) + '</span><span class="grow"><b class="pv-tt">' + esc(pisteLabel(x)) + "</b>" +
+        '<span class="pv-bl">' + lv.map(function (L, j) { var ch = '<span class="rk-tag">' + esc(lab(L)) + "</span>"; return j ? '<span class="pv-j"><i>+</i>' + ch + "</span>" : ch; }).join("") + "</span>" +
         '<span class="small">' + (x.p >= 0.45 ? "À ta portée" : x.p >= 0.2 ? "Jouable" : "Ambitieux") + (x === ez ? ' · <b class="pv-best">la plus accessible</b>' : "") + "</span>" +
         (x === ez && x.levels.length === 1 ? jkLine("pj-1", "Plus qu'une. Pas de pression. Enfin, un peu.") : "") + "</span>" +
         '<span class="pv-sc"><b>' + x.after.total + "</b><small>/ " + x.after.norme + "</small>" + (gain > 0 ? '<span class="pv-up">+' + gain + " pts</span>" : "") + "</span></div>";
@@ -11445,20 +11444,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // Tuile d'accueil
   // 4.1 : tes chances en une ligne (carte Sortie de l'accueil, Courbes) ; le détail complet s'ouvre en feuille
+  // 4.1 (règle de Yann) : un seul composant pour « le reste au toucher » : la ligne td3-more, ouverte une fois par écran
+  function moreOn(k) { return !!(UI.more && UI.more[k]); }
+  function moreBtn(k, label, right) { return '<button class="td3-more" data-a="more" data-v="' + esc(k) + '"><span>' + esc(label) + "</span><b>" + right + " ›</b></button>"; }
   function chancesLine(c, row) {
     var r = null; try { r = chancesCalc(c); } catch (e) { r = null; }
     if (!r || !r.up.length) return "";
     var lock = PLUS_LOCK(), t = "Tes chances " + (r.down ? "de rester " : "d'être ") + esc(lab(r.target)) + " le " + chRelLab(r.rel);
     var v = lock ? '<span class="ch-plus">Montée+</span>' : "<b>" + Math.round(r.p * 100) + " %</b>";
-    if (row) return '<button class="card ch-row" data-a="sheet" data-k="chances" data-v="1">' + chRing(r.p, 40, 5, lock) + '<span class="grow"><b>' + t + "</b><small>" + (r.gap && !r.down ? "Il te manque ≈ " + r.gap + " pts · " : "") + plural(r.up.length, "match prévu", "matchs prévus") + " dans le calcul</small></span>" + (lock ? v : '<span class="chev">' + svg('<path d="M9 6l6 6-6 6"/>', 2.2) + "</span>") + "</button>";
+    if (row) return '<button class="card ch-tile ch-btn" data-a="sheet" data-k="chances" data-v="1">' + chRing(r.p, 40, 5, lock) + '<span class="grow"><b>' + t + "</b><small>" + (r.gap && !r.down ? "Il te manque ≈ " + r.gap + " pts · " : "") + plural(r.up.length, "match prévu", "matchs prévus") + " dans le calcul</small></span>" + (lock ? v : '<span class="chev">' + svg('<path d="M9 6l6 6-6 6"/>', 2.2) + "</span>") + "</button>";
     return '<span class="cd3-r cd3-x" data-a="sheet" data-k="chances" data-v="1"><span class="cd3-i">%</span><span>' + t + " : " + v + '</span><span class="chev">›</span></span>';
-  }
-  function chancesTile(c) {
-    var r = null; try { r = chancesCalc(c); } catch (e) { r = null; }
-    if (!r || !r.up.length) return "";
-    var lock = PLUS_LOCK(), best = r.lev[0];
-    var sub = lock ? (best ? "Ta victoire qui compte le plus : contre " + esc(best.o.name.split(" ")[0]) : "") : esc(lab(r.target)) + " le " + chRelLab(r.rel) + (best ? " · " + Math.round(best.ifW * 100) + " % si tu bats " + esc(best.o.name.split(" ")[0]) : "");
-    return '<a class="card ch-tile" href="#/courbes?to=chances">' + chRing(r.p, 54, 6, lock) + '<span class="grow"><b>Tes chances de ' + (r.down ? "te maintenir" : "monter") + "</b><span>" + sub + "</span></span>" + (lock ? '<span class="ch-plus">Montée+</span>' : '<span class="chev">' + svg('<path d="M9 6l6 6-6 6"/>', 2.2) + "</span>") + "</a>";
   }
   V.courbes = function () {
     var c = ctx(), cur = c.cur < 0 ? 0 : c.cur, target = Math.min(cur + 1, E.MAX_CALC);
@@ -14247,12 +14242,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (close >= 4) { var holds = closeV * 2 >= close; head = holds ? "Tu tiens dans les moments serrés" : "Les fins serrées t'échappent"; sub = closeV + " sur " + close + " gagnés (3es sets et jeux décisifs)."; }
     var keyR = rows.filter(function (r) { return r[3] !== "sets" && r[3] !== "games"; }), scoreR = rows.filter(function (r) { return r[3] === "sets" || r[3] === "games"; });
     // 4.1 (Yann, audit densité) : les 2 premières jauges, les autres derrière une ligne
-    var mAll = UI.m2More || keyR.length + scoreR.length <= 3, hid = mAll ? [] : keyR.slice(2).concat(scoreR);
+    var mAll = moreOn("m2") || keyR.length + scoreR.length <= 3, hid = mAll ? [] : keyR.slice(2).concat(scoreR);
     if (!mAll) { keyR = keyR.slice(0, 2); scoreR = []; }
     return '<div class="card m2-card' + (close >= 4 && closeV * 2 < close ? " low" : "") + '"><span class="eyebrow">Mental · 12 mois</span><b class="m2-t">' + esc(head) + "</b>" + (sub ? '<span class="small m2-s">' + esc(sub) + "</span>" : "") +
       (keyR.length ? '<span class="m2-lab">Dans les moments clés</span>' + keyR.map(line).join("") : "") +
       (scoreR.length ? '<span class="m2-lab">Au score</span>' + scoreR.map(line).join("") : "") +
-      (hid.length ? '<button class="more-ln" data-a="m2More"><span>' + esc(cap1(hid.map(function (r) { return r[0].toLowerCase(); }).join(", "))) + "</span><b>" + hid.length + " de plus ›</b></button>" : '<span class="m2-leg"><u></u>ce qu\'on voit d\'habitude · touche une ligne pour le détail</span>') + "</div>";
+      (hid.length ? moreBtn("m2", cap1(hid.map(function (r) { return r[0].toLowerCase(); }).join(", ")), hid.length + " de plus") : '<span class="m2-leg"><u></u>ce qu\'on voit d\'habitude · touche une ligne pour le détail</span>') + "</div>";
   }
   // Face-à-face : adversaires rencontrés plusieurs fois
   // ---------- Notes pour la revanche ----------
@@ -14411,8 +14406,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     L += bagels ? li("0", "var(--gazon)", "Bulles mises", bagels + (bagelAt ? " · dernière le " + fdate(bagelAt).replace(/ \d{4}$/, "") : ""), "bagel") : li("0", "var(--muted)", "Ta 1re bulle", "pas encore"); // 3.40.1 : « bulle » = set gagné 6-0
     // 4.1 (Yann, audit densité) : la liste des records secondaires derrière une ligne
     var nL = (L.match(/class="rc2-li"/g) || []).length;
-    s += UI.rcMore || nL <= 1 ? '<div class="rc2-list">' + L + '</div><span class="small">W.O. exclus. Scores lus de ton point de vue (ta manche d\'abord).</span></div>'
-      : '<button class="more-ln" data-a="rcMore"><span>Perfs, séries, mois chargé, bulles</span><b>' + nL + " records ›</b></button></div>";
+    s += moreOn("rc") || nL <= 1 ? '<div class="rc2-list">' + L + '</div><span class="small">W.O. exclus. Scores lus de ton point de vue (ta manche d\'abord).</span></div>'
+      : moreBtn("rc", "Perfs, séries, mois chargé, bulles", nL + " records") + "</div>";
     return s;
   }
   // 3.47 (Yann) : sur quoi tu joues : la part de chaque surface dans tes matchs (barre empilée + légende)
@@ -18407,10 +18402,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     simuClear: function () { UI.simu = []; render(); },
     // 3.73 : Ma montée (onglets) et la Balle
     mmTab: function (el) { UI.mmTab = el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); },
-    tdMore: function () { UI.tdAll = 1; render(); },
-    rateOpen: function () { UI.rateOpen = 1; render(); },
-    m2More: function () { UI.m2More = 1; render(); },
-    rcMore: function () { UI.rcMore = 1; render(); },
+    more: function (el) { UI.more = UI.more || {}; UI.more[el.getAttribute("data-v")] = 1; render(); }, // 4.1 : « N autres › », partout le même
     coachNo: function (el) {
       var m = coMem(), id = el.dataset.id, sc = el.dataset.s; m.no[id] = Date.now(); m.scr[sc] = (m.scr[sc] || 0) + 1; coPurge(m); save();
       toast("Compris, je ne te le redis pas avant 3 semaines.");
