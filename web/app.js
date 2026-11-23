@@ -10940,8 +10940,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var r = (size - w) / 2, C = 2 * Math.PI * r, f = Math.max(0, Math.min(1, pct));
     return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" overflow="visible" style="overflow:visible" aria-hidden="true"><circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" stroke="var(--chip)" stroke-width="' + w + '" fill="none"/>' +
       '<circle cx="' + size / 2 + '" cy="' + size / 2 + '" r="' + r + '" stroke="' + col + '" stroke-width="' + w + '" fill="none" stroke-linecap="round" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + (C * (1 - f)).toFixed(1) + '" transform="rotate(-90 ' + size / 2 + " " + size / 2 + ')"/>' +
-      // 3.58 (Yann) : une balle au bout de l'anneau, qui tourne avec lui au remplissage (svg en overflow visible : elle n'est jamais coupée)
-      (f > 0.02 ? '<g class="cr3-ball" style="transform-origin:' + size / 2 + "px " + size / 2 + "px;transform:rotate(" + (f * 360).toFixed(1) + 'deg)"><g transform="translate(' + (size / 2 - 8) + " " + (w / 2 - 8) + ') scale(.7273)"><circle cx="11" cy="11" r="12" fill="var(--card)"/><circle cx="11" cy="11" r="10" fill="' + col + '"/><path d="M3.2 5.5C7.5 8.5 7.5 13.5 3.2 16.5M18.8 5.5C14.5 8.5 14.5 13.5 18.8 16.5" stroke="var(--card)" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></g>' : "") +
+      // 3.84 (Yann, version A du 23/11) : un point lumineux au bout de l'anneau (avant, 3.58 : une balle épaisse), qui tourne avec lui au remplissage (svg en overflow visible : elle n'est jamais coupée)
+      (f > 0.02 ? '<g class="cr3-ball" style="transform-origin:' + size / 2 + "px " + size / 2 + "px;transform:rotate(" + (f * 360).toFixed(1) + 'deg)"><g transform="translate(' + size / 2 + " " + w / 2 + ')"><circle r="9" fill="' + col + '" opacity=".22"/><circle r="5.2" fill="' + col + '"/><circle r="2.4" fill="#fff"/></g></g>' : "") +
       '<text x="' + size / 2 + '" y="' + (size / 2 + 1) + '" text-anchor="middle" dominant-baseline="middle" font-weight="800" font-size="' + (size > 85 ? 20 : 19) + '" fill="var(--ink)">' + txt + (sub ? '<tspan font-size="11" fill="var(--muted)">' + sub + "</tspan>" : "") + "</text></svg>";
   }
   // 3.31 : la forme (6 derniers matchs), sa courbe glissante sur 12 mois, tes séries
@@ -11043,7 +11043,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return '<div class="card cr3' + (go ? " cr3-go" : "") + '"><div class="cr3-row">' +
       cell(ring3(pv, "var(--gazon)", 92, 9, Math.round(pv * 100) + "%"), "Victoires", "victoires") +
       cell(ring3(pf, acc, 92, 9, Math.round(pf * 100) + "%"), "Forme", "!forme") +
-      (lvl != null ? cell(ring3(Math.max(.08, Math.min(1, .5 + (lvl - cur) * .25)), "var(--bleu3)", 92, 9, lab(lvl)), "Niveau", "!rrWhy") /* 3.84 (Yann) : « Niveau » comme sur la montre ; « Classement réel » = l'officiel, dans Courbes */ : cell(ring3(nv / Math.max(1, w12.length), "var(--bleu3)", 92, 9, String(w12.length)), "Matchs", "victoires")) +
+      (lvl != null ? cell(ring3(f.mean != null ? Math.max(.04, Math.min(1, f.mean - cur)) : .04, "var(--bleu3)", 92, 9, lab(cur)), "Niveau", "!rrWhy") /* 3.84 (Yann) : ton classement au centre, l'anneau se remplit à mesure que ton niveau joué approche l'échelon du dessus */ /* 3.84 (Yann) : « Niveau » comme sur la montre ; « Classement réel » = l'officiel, dans Courbes */ : cell(ring3(nv / Math.max(1, w12.length), "var(--bleu3)", 92, 9, String(w12.length)), "Matchs", "victoires")) +
       "</div>" + (function () {
         var P = null; try { P = pointDuJour(c); } catch (e) {}
         if (!P) return '<div class="cr3-say' + (say.length <= 46 ? " c" : "") + '">' + esc(say) + "</div>";
