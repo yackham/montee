@@ -6231,6 +6231,27 @@ body { overflow-x: clip; overflow-wrap: break-word; }
   .mx-pop, .mx-in, .mx-on .mx-pop2, .mx-on .mx-flip, .mx-today, .mx-mv, .mx-vs, .mx-on .mx-ck, .mx-on .pl-d i, .mx-on .pal-i svg *, .mx-cupd .tm-cup path, .pj-balls circle, .hx-bar.mx i, .tq-bar.mx i, .tq-r.mx-hit .tq-b { animation: none !important; opacity: 1 !important; stroke-dashoffset: 0 !important; }
   .mx-sp, .mx-hb, .mx-tb { display: none; }
 }
+/* 3.81 : 2e vague (maquettes lot 3 validées 23/11/2026) : coche dessinée, pop au toucher, « À faire », coach, raquette, Tes tournois */
+@keyframes mxTap { 0% { transform: scale(1); } 30% { transform: scale(.9); } 70% { transform: scale(1.12); } 100% { transform: none; } }
+@keyframes mxRise { from { transform: scaleY(0); } }
+@keyframes mxDrop { 0% { transform: translateY(-60px); opacity: 0; } 30% { opacity: 1; } }
+.tap-pop, .rate-row.soft button.on { animation: mxTap .45s cubic-bezier(.3,1.6,.5,1); }
+.card.rate { position: relative; }
+.rate-ok { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--card); border-radius: inherit; font-weight: 700; font-size: 17px; color: var(--ink); animation: mxIn .3s ease-out both; z-index: 3; }
+.rate-ok svg { width: 34px; height: 34px; stroke: var(--gazon); flex: none; }
+.rate-ok circle, .mx-ck2 circle { stroke-dasharray: 95; stroke-dashoffset: 95; animation: mxDraw .45s ease-out forwards; }
+.rate-ok path, .mx-ck2 path { stroke-dasharray: 30; stroke-dashoffset: 30; animation: mxDraw .35s ease-out .4s forwards; }
+.toast.tk-ok { display: flex; align-items: center; gap: 8px; text-align: left; }
+.mx-ck2 { display: flex; flex: none; } .mx-ck2 svg { width: 20px; height: 20px; stroke: var(--balle); }
+.mx-in2 { opacity: 0; } .mx-in2.mx-on { opacity: 1; animation: mxIn .45s ease-out both; }
+.co-yr.mx-yr > div { opacity: 0; }
+.co-yr.mx-yr.mx-on > div { opacity: 1; transform-origin: 50% 100%; animation: mxRise .5s cubic-bezier(.3,1.3,.5,1) both; animation-delay: calc(var(--i, 0) * 45ms + .1s); }
+.mx-trn g[stroke] { stroke-dasharray: 240; stroke-dashoffset: 240; animation: mxDraw 1s ease-out .2s forwards; }
+.mx-trn [fill="url(#eTC)"], .mx-trn [stroke="#C9673D"], .mx-trn [fill="#B04A22"] { transform-box: fill-box; transform-origin: 50% 100%; animation: mxRise .6s cubic-bezier(.3,1.4,.5,1) .9s both; }
+.mx-trn [fill="url(#eTB)"], .mx-trn [stroke="#F4F7E1"] { animation: mxDrop .7s cubic-bezier(.5,0,.6,1.4) 1.4s both; }
+@media (prefers-reduced-motion: reduce) {
+  .tap-pop, .rate-row.soft button.on, .rate-ok, .rate-ok *, .mx-ck2 *, .mx-in2.mx-on, .co-yr.mx-yr.mx-on > div, .mx-trn * { animation: none !important; stroke-dashoffset: 0 !important; opacity: 1; }
+}
 /* 3.75 : petites touches d'humour (une par écran, chantier/09) */
 .jk { margin: 0; font-size: 13px; line-height: 1.35; font-style: italic; color: var(--muted); }
 .card.empty .jk { margin-top: 2px; }
