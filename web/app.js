@@ -3293,7 +3293,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (lines.length < 2) return null;
     var miss = p.next.norme != null && p.next.total != null ? Math.max(0, Math.round(p.next.norme - p.next.total)) : null, tl = p.next.label || lab(Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC));
     var free = '<span class="pmo-t">Tu es ' + esc(S.profile.rank || effRank() || "?") + "</span>" + '<span class="pmo-s">' + (p.status === "montee" ? "Tu montes <b class=\"pmo-g\">" + esc(lab(p.projected)) + "</b> à la prochaine sortie si rien ne bouge." : miss ? "Il te manque <b class=\"pmo-r\">" + miss + " points</b> pour " + esc(tl) + " à la prochaine sortie." : "") + " Ton bilan et ta projection restent gratuits.</span>";
-    return { type: "sortie", k: "sortie:" + E.iso(r1), ey: "Sortie du " + flong(r1), free: free, pt: "Le plan du coach", lines: lines, foot: "Ton bilan reste gratuit. Montée+ ajoute le plan du coach pour la prochaine sortie.", cta: "Mon plan" };
+    return { type: "sortie", k: "sortie:" + E.iso(r1), ey: "Sortie du " + flong(r1), free: free, pt: "Le plan d'Ace", lines: lines, foot: "Ton bilan reste gratuit. Montée+ ajoute le plan d'Ace pour la prochaine sortie.", cta: "Mon plan" };
   }
   function plusMomentHtml(c) {
     if (!PLUS_LOCK() || !S.onboarded || !S.matches.length) return "";
@@ -7462,7 +7462,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var T = tr.T, si = E.iso(tr.start), pl = plans().filter(function (x) { return x.name && x.id && dGap(x.day) >= 0; }).sort(function (a, b) { return a.day < b.day ? -1 : 1; })[0];
     var cp = null; try { cp = capData(ctx()); } catch (e) {}
     return [
-      { t: "Lire ton bilan du coach", s: cp && !cp.done ? "Ton cap : " + plural(cp.n, "victoire") + " contre des " + lab(cp.lvl) + " d'ici " + MOIS_L[cp.by.getMonth()] + "." : "Ton portrait, ton cap, 3 consignes chiffrées.", done: !!T.seen.coach, href: "#/coach" },
+      { t: "Lire ton bilan avec Ace", s: cp && !cp.done ? "Ton cap : " + plural(cp.n, "victoire") + " contre des " + lab(cp.lvl) + " d'ici " + MOIS_L[cp.by.getMonth()] + "." : "Ton portrait, ton cap, 3 consignes chiffrées.", done: !!T.seen.coach, href: "#/coach" },
       { t: "Préparer un match avec le plan complet", s: pl ? pl.name + " : ton plan est prêt, plan B compris." : "Sur la fiche de ton prochain adversaire, dans Joueurs.", done: T.plans.length > 0, href: pl ? "#/joueur/" + pl.id : "#/faf" },
       IOS ? { t: "Jouer un match avec ta montre", s: "Un objectif à chaque changement de côté.", done: S.matches.some(function (m) { return m.wev && m.date >= si; }) }
         : { t: "Découvrir ton profil de compétiteur", s: "7 compétences tirées de tes matchs.", done: !!T.seen.comp, href: "#/competiteur" }];
@@ -7528,7 +7528,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       out += row({ ic: "watch", ey: "Apple Watch", t: "Ton plan au poignet, à chaque match", s: "Un objectif à chaque changement de côté, le plan B quand ça tourne mal, l'échauffement guidé.", me: open ? "" : "Sans Montée+ : 1 match par mois." });
     }
     out += sec("Pour monter");
-    if (cp && !cp.done) out += row({ ic: "cap", ey: "Ton cap · d'ici le " + fdate(cp.by).replace(/\.$/, ""), t: "Bats " + X(cp.n) + " " + (cp.n > 1 ? "joueurs classés " : "joueur classé ") + esc(lab(cp.lvl)) + " ou mieux", s: "Coché tout seul dès qu'un match entre, avec 3 consignes chiffrées.", me: "À la clé : " + esc(lab(cp.tgt)) + " à la sortie du " + esc(fdate(cp.rel).replace(/\.$/, "")) + "." });
+    if (cp && !cp.done) out += row({ ic: "cap", ey: "Ton cap · avant la sortie du " + fdate(cp.rel).replace(/\.$/, ""), t: "Bats " + X(cp.n) + " " + (cp.n > 1 ? "joueurs classés " : "joueur classé ") + esc(lab(cp.lvl)) + " ou mieux", s: "Coché tout seul dès qu'un match entre, avec 3 consignes chiffrées.", me: "À la clé : " + esc(lab(cp.tgt)) + " à la sortie du " + esc(fdate(cp.rel).replace(/\.$/, "")) + "." });
     else out += row({ ic: "cap", ey: "Ton cap", t: "Les victoires qu'il te faut pour monter", s: "Avec une date, coché tout seul dès qu'un match entre, et 3 consignes chiffrées." });
     if (ch) out += row({ ic: "pct", ey: "Tes chances de " + (ch.down ? "te maintenir" : "monter"), t: X(Math.round(ch.p * 100) + " %") + " d'être " + esc(lab(ch.target)) + " le " + chRelLab(ch.rel), s: "Et le match qui les fait le plus bouger." });
     else out += row({ ic: "pct", ey: "Tes chances de monter", t: "Ton % d'être au-dessus à la prochaine sortie", s: "Match par match, dès que tu ajoutes tes prochains matchs." });
@@ -7558,7 +7558,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return s + "</div>";
     }
     s += '<div class="card sup-hero"><span class="ball"></span><span class="eyebrow" style="color:var(--acc-ink);position:relative">Montée+' + (S.profile.name ? " · pour " + esc(S.profile.name) : "") + "</span><b>" +
-      (R.has ? "Ton coach a lu tes " + plural(R.n, "match", "matchs") + ". Voilà ce qu'il ferait pour toi." : "Ton coach, de la préparation au dernier point.") + '</b><span class="small">' +
+      (R.has ? "Ace a lu tes " + plural(R.n, "match", "matchs") + ". Voilà ce qu'il ferait pour toi." : "Ace, de la préparation au dernier point.") + '</b><span class="small">' +
       (R.has ? "Tout ce qui suit vient de tes matchs. Les chiffres cachés s'ouvrent avec l'essai." : "Dès tes premiers matchs, tout ce qui suit parle de toi.") + "</span></div>";
     s += '<div class="card pw-list">' + R.html + "</div>";
     s += plusFree();
@@ -7572,7 +7572,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (cur.id !== "plus_vie") {
       var t0 = today(), tEnd = new Date(t0.getTime() + 30 * 864e5), tWarn = new Date(tEnd.getTime() - 3 * 864e5), nx = R.pl;
       s += '<div class="card"><span class="eyebrow">Ton essai, sans surprise</span><div class="pw-tl">' +
-        '<div class="on"><small>Aujourd\'hui</small><b>Tout Montée+ est ouvert</b><span>' + esc(nx ? "Ton plan contre " + nx.name + ", ton cap" + (IOS ? ", ta montre sans limite." : ", tes chances.") : "Ton bilan du coach, ton cap, tes plans de match" + (IOS ? ", ta montre sans limite." : ".")) + "</span></div>" +
+        '<div class="on"><small>Aujourd\'hui</small><b>Tout Montée+ est ouvert</b><span>' + esc(nx ? "Ton plan contre " + nx.name + ", ton cap" + (IOS ? ", ta montre sans limite." : ", tes chances.") : "Ton bilan avec Ace, ton cap, tes plans de match" + (IOS ? ", ta montre sans limite." : ".")) + "</span></div>" +
         "<div><small>" + esc(fdate(tWarn).replace(/\.$/, "")) + " · 3 jours avant la fin</small><b>Montée te prévient</b><span>Avec ce que ce mois t'a apporté. Tu décides à ce moment-là.</span></div>" +
         "<div><small>" + esc(fdate(tEnd).replace(/\.$/, "")) + "</small><b>1er paiement : " + esc(price(cur)) + " " + (cur.id === "plus_saison" ? "pour la saison" : "pour le mois") + "</b><span>Sauf si tu annules avant. Rien n'est prélevé pendant l'essai.</span></div></div></div>";
     }
@@ -10294,7 +10294,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function coachCardHtml() {
     if (!PLUS) return "";
     var P = compSkills(); if (P.n < 6) return "";
-    var head = '<div class="cp-h"><span class="eyebrow">Ton coach</span><span class="cp-plus">Montée+</span></div>';
+    var head = '<div class="cp-h"><span class="eyebrow">Ace</span><span class="cp-plus">Montée+</span></div>';
     if (!isSup()) return '<div class="card cp-card co-card">' + head + '<div class="co-top"><span class="cp-fw">' + compFlower(P, 104, null, true) + '</span><b class="co-t">Ton portrait de compétiteur, ce qui te coûte des points, et 3 priorités pour monter.</b></div><button class="btn primary ch-cta" data-a="goSoutenirComp">Découvrir avec Montée+</button></div>';
     var d = coachData(), lines = d.leaks.filter(function (l) { return !l.fallback; }).slice(0, 2).map(function (l) { return '<div class="co-l"><i class="r"></i><span>' + esc(l.t) + "</span>" + (l.pts ? '<em class="r">≈ −' + l.pts + " pts</em>" : "") + "</div>"; }).join("") +
       (d.strong[0] ? '<div class="co-l"><i class="g"></i><span>' + esc(d.strong[0].t) + '</span><em class="g">' + esc(d.strong[0].s) + "</em></div>" : "");
@@ -10356,15 +10356,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function coachTeaser() {
     var d = null; try { d = coachData(); } catch (e) {}
     var n = d ? d.ms.length : 0;
-    if (!d || n < 3) return plusTeaser({ h1: "Le bilan du coach", ey: "Dès tes premiers matchs", rows: [
+    if (!d || n < 3) return plusTeaser({ h1: "Ton bilan avec Ace", ey: "Dès tes premiers matchs", rows: [
       { ic: "cap", ey: "Ton cap", t: "Les victoires qu'il te faut pour monter", s: "Avec une date, et coché tout seul dès qu'un match entre." },
-      { ic: "goal", ey: "Ce que le coach te demande", t: "3 consignes chiffrées", s: "Chacune avec son compteur." },
+      { ic: "goal", ey: "Ce qu'Ace te demande", t: "3 consignes chiffrées", s: "Chacune avec son compteur." },
       { ic: "who", ey: "Le compétiteur que tu es", t: "Ton portrait", s: "Ce qui te réussit, ce qui te coûte des points." }] });
     var p0 = d.plan[0], cp = null, ord = [];
     try { cp = capData(d.c); } catch (e) {}
     try { ord = capOrders(d, cp); } catch (e) {}
     var L = function (r) { return esc(lab(r)); }, rows = [];
-    if (cp && !cp.done) rows.push({ ic: "cap", ey: "Ton cap · d'ici le " + fdate(cp.by).replace(/\.$/, ""), t: "Bats " + pwX(cp.n) + " " + (cp.n > 1 ? "joueurs classés " : "joueur classé ") + L(cp.lvl) + " ou mieux", s: cp.gap ? "Pourquoi ce nombre : il te manque " + cp.gap + " pts." : "" });
+    if (cp && !cp.done) rows.push({ ic: "cap", ey: "Ton cap · avant la sortie du " + fdate(cp.rel).replace(/\.$/, ""), t: "Bats " + pwX(cp.n) + " " + (cp.n > 1 ? "joueurs classés " : "joueur classé ") + L(cp.lvl) + " ou mieux", s: cp.gap ? "Pourquoi ce nombre : il te manque " + cp.gap + " pts." : "" });
     if (ord.length) rows.push({ ic: "goal", ey: "Ce qu'il te demande", t: plural(ord.length, "consigne chiffrée", "consignes chiffrées") + ", cochée" + (ord.length > 1 ? "s" : "") + " toute" + (ord.length > 1 ? "s" : "") + " seule" + (ord.length > 1 ? "s" : ""), s: cp && !cp.done ? "La 1re est à faire avant le " + pwX(fdate(cp.mEnd).replace(/\.$/, "")) + "." : "" });
     var it = (d.seen && d.seen.items) || [];
     rows.push({ ic: "who", ey: "Le compétiteur que tu es", t: d.P.title ? "Ton portrait : " + pwX(String(d.P.title).replace(/\.$/, "")) : "Ton portrait", s: it.slice(0, 2).map(function (x) { return pwX(x.v + " sur " + x.n) + " " + esc(String(x.t).charAt(0).toLowerCase() + String(x.t).slice(1)); }).join(", ") });
@@ -10372,10 +10372,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (lk.length) rows.push({ ic: "pts", ey: "Ce qui te coûte des points", t: plural(lk.length, "fuite") + (lp ? " : " + pwX("≈ −" + lp + " pts") : ""), s: "Chacune avec les matchs où elle t'a coûté." });
     if (d.seen && d.seen.plan && d.seen.plan.length) rows.push({ ic: "plan", ey: "Le scouting sur toi", t: "Ce qu'un adversaire préparé sait de toi", s: "Son plan contre toi tient en " + pwX(d.seen.plan.length) + " ligne" + (d.seen.plan.length > 1 ? "s" : "") + "." });
     return plusTeaser({
-      h1: "Ton coach a lu<br>tes " + plural(n, "match", "matchs"),
+      h1: "Ace a lu<br>tes " + plural(n, "match", "matchs"),
       tip: p0 ? p0.t + (p0.l && p0.l.s && !p0.l.fallback ? " : " + p0.l.s + "." : ".") : "", tipS: p0 ? p0.s : "",
       ey: "Ce qu'il a trouvé d'autre", rows: rows,
-      foot: lk.length ? "" : "Rien ne te coûte de points en ce moment : le coach te dit plutôt où aller les chercher."
+      foot: lk.length ? "" : "Rien ne te coûte de points en ce moment : Ace te dit plutôt où aller les chercher."
     });
   }
   // ---------- Montée+ (Yann, 19/11) : LE CAP : une action, un nombre, une date, coché tout seul ----------
@@ -10413,14 +10413,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function capHtml(cp) {
     if (!cp) return "";
     var L = function (r) { return esc(lab(r)); }, who = "joueurs classés " + L(cp.lvl) + " ou mieux";
-    var s = '<div class="card cap"><div class="cap-hd"><span class="eyebrow">Ton cap · d\'ici le ' + esc(fdate(cp.by).replace(/\.$/, "")) + '</span><span class="cap-j">' + (cp.done ? "atteint" : "J-" + cp.days) + "</span></div>" +
+    var s = '<div class="card cap"><div class="cap-hd"><span class="eyebrow">Ton cap · avant la sortie du ' + esc(fdate(cp.rel).replace(/\.$/, "")) + '</span><span class="cap-j">' + (cp.done ? "atteint" : "J-" + cp.days) + "</span></div>" +
       '<b class="cap-t">' + (cp.done ? "Cap atteint : " + plural(cp.n, "victoire") + " contre des " + who + "." : "Bats " + (cp.n > 1 ? cp.n + " " + who : "1 " + who.replace(/^joueurs classés/, "joueur classé").replace(/ ou mieux$/, " ou mieux")) + ".") + "</b>" +
       '<div class="cap-row">' + capDots(cp.n, cp.won.length) + '<small>' + cp.won.length + " sur " + cp.n + " · coché tout seul dès qu'un match entre</small></div>" +
       '<div class="cap-kv">' +
       (cp.gap ? "<span>Pourquoi " + cp.n + "</span><b>il te manque " + cp.gap + " pts" + (cp.pts ? ", un " + L(cp.lvl) + " battu en vaut " + cp.pts : "") + "</b>" : "") +
       "<span>Le rythme</span><b>1 victoire par mois" + (cp.n > 1 ? (cp.m1 === cp.m2 ? "" : ", de " + cp.m1 + " à " + cp.m2) : "") + "</b>" +
       (cp.yn ? '<span>Cette saison</span><b>tu en as battu <button class="num-l" data-a="sheet" data-k="capm" data-v="1">' + cp.yv + " sur " + cp.yn + "</button>" + (cp.yv / cp.yn < 0.34 ? " : c'est le vrai défi" : "") + "</b>" : "") +
-      '<span>Ce que ça donne</span><b class="g">' + L(cp.tgt) + " à la sortie du " + esc(fdate(cp.rel).replace(/\.$/, "")) + "</b>" +
+      '<span>Ce que ça donne</span><b class="g">' + L(cp.tgt) + " à cette sortie</b>" +
       "</div>" +
       '<button class="go-pill right" data-a="sheet" data-k="capm" data-v="1">Les matchs ' + I.next + "</button></div>";
     return s;
@@ -10467,12 +10467,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var lim = E.iso(new Date(today().getTime() - 200 * 864e5)); Object.keys(M).forEach(function (x) { if (M[x] < lim) delete M[x]; });
     S.capOk = M; save();
     if (first || !news.length) return;
-    toast((news[0].cap ? "" : "Consigne du coach remplie : ") + news[0].t.replace(/\.$/, "") + ".");
-    if (NATIVE && LN && S.notif && np("coach")) try { LN.schedule({ notifications: news.slice(0, 2).map(function (o, i) { return { id: 1700 + i, title: o.cap ? "Ton cap est atteint" : "Consigne du coach remplie ✓", body: o.cap ? o.t : o.t + " La suivante t'attend dans ton coach.", extra: { url: "montee://open/coach" } }; }) }).catch(function () {}); } catch (e) {}
+    toast((news[0].cap ? "" : "Consigne d'Ace remplie : ") + news[0].t.replace(/\.$/, "") + ".");
+    if (NATIVE && LN && S.notif && np("coach")) try { LN.schedule({ notifications: news.slice(0, 2).map(function (o, i) { return { id: 1700 + i, title: o.cap ? "Ton cap est atteint" : "Consigne d'Ace remplie ✓", body: o.cap ? o.t : o.t + " La suivante t'attend chez Ace.", extra: { url: "montee://open/coach" } }; }) }).catch(function () {}); } catch (e) {}
   }
   function capOrdersHtml(list) {
     if (!list.length) return "";
-    return '<div class="card"><span class="eyebrow">Ce que le coach te demande</span>' + list.map(function (o, i) {
+    return '<div class="card"><span class="eyebrow">Ce qu\'Ace te demande</span>' + list.map(function (o, i) {
       var ok = o.dots ? o.dots.filter(function (x) { return x === "on"; }).length >= 1 : o.k >= o.n;
       var dots = o.dots ? '<span class="cap-dots">' + [0, 1, 2].map(function (j) { return '<i class="' + (o.dots[j] || "") + '"></i>'; }).join("") + "</span>" : capDots(o.n, o.k);
       var btn = o.num ? '<button class="go-pill" data-a="sheet" data-k="num" data-v="' + esc(o.num) + '">Le détail ' + I.next + "</button>" : o.go ? (o.go[1] === "defend" ? '<button class="go-pill" data-a="goDefend">' : '<a class="go-pill" href="#/' + o.go[1] + '">') + esc(o.go[0]) + " " + I.next + (o.go[1] === "defend" ? "</button>" : "</a>") : "";
@@ -10484,8 +10484,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!isSup()) return s + coachTeaser() + "</div>";
     trialSeen("coach");
     var d = coachData(), P = d.P;
-    if (d.ms.length < 6) return s + '<h1>Le bilan du coach</h1><div class="card"><span>Encore ' + plural(6 - d.ms.length, "match") + " sur 12 mois pour un vrai bilan.</span></div></div>";
-    s += '<h1 class="co-h1">Le bilan du coach</h1><span class="small co-sub">Tes 12 derniers mois · ' + plural(d.ms.length, "match", "matchs") + " · à jour après chaque match</span>";
+    if (d.ms.length < 6) return s + '<h1>Ton bilan avec Ace</h1><div class="card"><span>Encore ' + plural(6 - d.ms.length, "match") + " sur 12 mois pour un vrai bilan.</span></div></div>";
+    s += '<h1 class="co-h1">Ton bilan avec Ace</h1><span class="small co-sub">Tes 12 derniers mois · ' + plural(d.ms.length, "match", "matchs") + " · à jour après chaque match</span>";
     // 1 · Le compétiteur que tu es
     var tags = d.strong.slice(0, 2).map(function (x) { return '<span class="g">' + esc(x.t) + "</span>"; }).concat(P.faibs.slice(0, 2).map(function (k) { return '<span class="r">' + esc(CP_LAB[k]) + "</span>"; })).join("");
     var perf = P.R.perf && P.R.perf.g, solid = P.R.solid && P.R.solid.g;
@@ -10534,7 +10534,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 5 · Ce que le coach te demande : Montée+ (Yann, 19/11) : des consignes mesurables, cochées toutes seules
     var orders = []; try { orders = capOrders(d, cap); } catch (e) { orders = []; }
     if (orders.length) s += capOrdersHtml(orders);
-    else if (d.plan.length) s += '<div class="card"><span class="eyebrow">Ce que le coach te demande</span><ol class="co-plan">' + d.plan.map(function (p) { return "<li><span><b>" + esc(p.t) + "</b><small>" + esc(p.s) + "</small>" + coachProof(p.l, P) + '<button class="co-go" data-a="sheet" data-k="cbCard" data-v="' + esc(COACH_SHEET[p.lt] || "plafond") + '">Voir ' + esc(p.lt) + " →</button></span></li>"; }).join("") + "</ol></div>";
+    else if (d.plan.length) s += '<div class="card"><span class="eyebrow">Ce qu\'Ace te demande</span><ol class="co-plan">' + d.plan.map(function (p) { return "<li><span><b>" + esc(p.t) + "</b><small>" + esc(p.s) + "</small>" + coachProof(p.l, P) + '<button class="co-go" data-a="sheet" data-k="cbCard" data-v="' + esc(COACH_SHEET[p.lt] || "plafond") + '">Voir ' + esc(p.lt) + " →</button></span></li>"; }).join("") + "</ol></div>";
     // Bonus
     if (d.best.length) s += '<div class="card"><span class="eyebrow">Ta meilleure version</span><span class="co-p">Là où tu gagnes le plus.</span><div class="co-best">' + d.best.map(function (b) { return '<div><span class="g">' + b.p + " %</span><b>" + esc(b.t) + "</b><small>" + esc(b.s) + "</small></div>"; }).join("") + "</div></div>";
     s += coachYear(d);
@@ -14584,7 +14584,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         n = { id: 1400, title: t, body: b, schedule: { at: at }, extra: { url: "montee://open/coach" } };
       } else {
         var z = null; try { z = defendThreat(c); } catch (e) {}
-        if (z) n = { id: 1400, title: "Dans " + Math.max(1, Math.round((z.rel - now) / (7 * 864e5))) + " semaines, −" + z.lost + " pts", body: (z.need != null ? "Une victoire contre un " + lab(z.need) + " les remplace." : "Il te faudra de nouvelles victoires pour garder " + lab(z.calc) + ".") + " Le plan du coach ›", schedule: { at: at }, extra: { url: "montee://open/coach" } };
+        if (z) n = { id: 1400, title: "Dans " + Math.max(1, Math.round((z.rel - now) / (7 * 864e5))) + " semaines, −" + z.lost + " pts", body: (z.need != null ? "Une victoire contre un " + lab(z.need) + " les remplace." : "Il te faudra de nouvelles victoires pour garder " + lab(z.calc) + ".") + " Le plan d'Ace ›", schedule: { at: at }, extra: { url: "montee://open/coach" } };
       }
     }
     var key = n ? n.title + n.body + at.getTime() : "off";
@@ -14679,7 +14679,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (n) list.push({ id: 1100 + i, title: n.t, body: rv ? "Il t'a battu " + rvW + (rv.score ? ", " + rv.score : "") + ". Ta revanche est prête" + (pl.p != null ? " · " + pl.p + " % de chances." : ".") : (pl.hom ? "Match homologué" : "Match libre") + odds + tip + " Ton plan de jeu est prêt.", schedule: { at: n.at }, extra: { url: "montee://open/joueur/" + pl.id } });
     });
     if (!np("avant")) list = [];
-    // 3.69 : le lendemain du match prévu, 9 h : « comment ça s'est passé ? » (score + ressenti), sinon le bilan du coach n'a rien à lire
+    // 3.69 : le lendemain du match prévu, 9 h : « comment ça s'est passé ? » (score + ressenti), sinon le bilan d'Ace n'a rien à lire
     var after = [];
     if (np("apres")) pls.forEach(function (pl, i) { var d = E.parseDate(pl.day); if (!d) return; var nx = new Date(d.getTime()); nx.setDate(nx.getDate() + 1); nx.setHours(9, 0, 0, 0); if (nx > now) after.push({ id: 1110 + i, title: "Ton match contre " + (pl.name || "ton adversaire") + " : comment ça s'est passé ?", body: "Ajoute le score et ton ressenti en 20 secondes : ton bilan du coach se met à jour.", schedule: { at: nx }, extra: { url: "montee://open/" } }); });
     list = list.concat(after);
@@ -15984,7 +15984,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     };
     var grp = function (h, rows) { return '<h2 class="nf-gh">' + h + '</h2><div class="nf-grp' + (S.notif ? "" : " off") + '">' + rows.join("") + "</div>"; };
     s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche avec Montée+" : ", avec ta revanche s'il t'a battu")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
-    s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Le coach", "Le lundi : tes chances qui bougent, le match qui compte. Et quand une consigne est remplie", true), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
+    s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Ace", "Le lundi : tes chances qui bougent, le match qui compte. Et quand une consigne est remplie", true), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
     var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
     if (HC_OK && hcOn()) oth.push('<label class="nf-row"><span class="nf-r"><b>Séances de la montre</b><small>Une nouvelle séance à enregistrer</small></span><input type="checkbox" role="switch" data-a="hcNotify"' + (S.health.notify !== false ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>");
     s += grp("Les autres", oth);
@@ -16385,7 +16385,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<div class="brand">' + I.logo(30) + "montée</div>" +
       '<div class="card"><b>Tes données restent chez toi</b><span style="font-size:15px;line-height:1.5">Pas de compte, pas de serveur, pas de pub, pas de pisteur. Ton palmarès et ton matériel sont enregistrés uniquement dans ce navigateur.</span></div>' +
       '<div class="card"><b>Pas lié à la FFT</b><span style="font-size:15px;line-height:1.5">Montée est une application indépendante. Elle n\'est ni éditée ni approuvée par la Fédération Française de Tennis. Ten\'Up est un service de la FFT. Le calcul est indicatif : seul le classement officiel fait foi.</span></div>' +
-      (PLUS ? '<div class="card"><b>' + (isSup() ? "Merci d\'être sur Montée+" : "Gratuite et sans pub") + '</b><span style="font-size:15px;line-height:1.5">' + (isSup() ? "Ton abonnement fait tourner Montée. Parle-en aussi à ton club, c\'est la meilleure pub." : (IOS ? "Le classement reste gratuit. Montée+ ajoute le coach sur l\'Apple Watch, ton profil de compétiteur, le bon moment pour jouer tes indivs et des habillages." : "Le classement reste gratuit. Montée+ ajoute ton profil de compétiteur, le bon moment pour jouer tes indivs, tes stats de tournois et des habillages.")) + '</span><button class="btn balle small" data-a="goSoutenir">' + I.heart + (isSup() ? " Montée+" : " Découvrir Montée+") + "</button></div>" : '<div class="card"><b>Gratuite et sans pub</b><span style="font-size:15px;line-height:1.5">Parle de Montée à ton club, c\'est la meilleure façon de l\'aider.</span></div>') +
+      (PLUS ? '<div class="card"><b>' + (isSup() ? "Merci d\'être sur Montée+" : "Gratuite et sans pub") + '</b><span style="font-size:15px;line-height:1.5">' + (isSup() ? "Ton abonnement fait tourner Montée. Parle-en aussi à ton club, c\'est la meilleure pub." : (IOS ? "Le classement reste gratuit. Montée+ ajoute Ace sur l\'Apple Watch, ton profil de compétiteur, le bon moment pour jouer tes indivs et des habillages." : "Le classement reste gratuit. Montée+ ajoute ton profil de compétiteur, le bon moment pour jouer tes indivs, tes stats de tournois et des habillages.")) + '</span><button class="btn balle small" data-a="goSoutenir">' + I.heart + (isSup() ? " Montée+" : " Découvrir Montée+") + "</button></div>" : '<div class="card"><b>Gratuite et sans pub</b><span style="font-size:15px;line-height:1.5">Parle de Montée à ton club, c\'est la meilleure façon de l\'aider.</span></div>') +
       '<a class="row" href="#/methode" style="background:var(--card);border-radius:20px"><span class="grow"><span class="t">Comment c\'est calculé</span><span class="s">Barème, normes, V − E − 2I − 5G</span></span>' + I.next + "</a>" +
       '<a class="row" href="#/donnees" style="background:var(--card);border-radius:20px"><span class="grow"><span class="t">Sauvegarder mes données</span><span class="s">Créer ou restaurer une sauvegarde</span></span>' + I.next + "</a>" +
       '<p class="small">Version ' + CONFIG.VERSION + "</p></div>";
