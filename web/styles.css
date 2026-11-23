@@ -7028,3 +7028,70 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .op-wait { display: inline-flex; align-items: center; gap: 2px; color: var(--muted); font-weight: 500; white-space: nowrap; }
 .op-wait .rally-l { width: 26px; height: 12px; }
 .ch-wait { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; padding: 6px 0 2px; }
+
+/* ===== 4.2.4 — Identité, passe 2 (validée par Yann le 23/11/2026) ===== */
+/* Victoire ou défaite enregistrée : un vrai moment, page assombrie, un tap ferme */
+.mmt { position: fixed; inset: 0; z-index: 95; display: flex; align-items: flex-end; justify-content: center; padding: 0 16px calc(104px + env(safe-area-inset-bottom)); }
+.mmt-scrim { position: absolute; inset: 0; background: rgba(8, 12, 20, .5); }
+.mmt .card.mmt-c { position: relative; width: min(380px, 100%); margin: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px; box-shadow: 0 18px 50px rgba(0,0,0,.35), 0 0 0 1px var(--line); }
+.mmt-on .screen .cbl-b { visibility: hidden; }
+.mmt-pl { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.mmt-c .sb-w { background: transparent !important; box-shadow: none !important; padding: 0 !important; border: 0 !important; }
+.mmt-g { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mmt-g b { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.mmt-g span { font-size: 14px; color: var(--muted); font-weight: 600; }
+.mmt-l { font-size: 14.5px; line-height: 1.4; font-weight: 600; }
+.mmt-l b { font-weight: 800; }
+.mmt-m { color: var(--muted); }
+.mmt-cap { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; padding-top: 10px; border-top: 1px solid var(--line); }
+.mmt-cap .id-slots { margin: 0 4px 0 0; }
+.mmt-tr { display: inline-flex; gap: 6px; align-items: center; font-size: 13.5px; font-weight: 800; }
+.mmt-tr svg { width: 15px; height: 15px; }
+.mmt-btn { align-self: flex-start; font: inherit; font-size: 14px; font-weight: 700; color: var(--ink); background: transparent; border: 0; border-radius: 99px; padding: 7px 13px; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 28%, transparent); cursor: pointer; }
+@media (prefers-reduced-motion: no-preference) {
+  .mmt-scrim { animation: sbFade .25s both; }
+  .mmt .card.mmt-c { animation: idPop .45s cubic-bezier(.2,.9,.3,1.2) both; }
+}
+/* Montée validée */
+.card.hero.fete .big .rk-tag { font-size: inherit; color: inherit; }
+.card.hero.fete .go { align-self: flex-start; margin-top: 4px; font: inherit; font-size: 14px; font-weight: 700; color: var(--on-panel) !important; background: transparent; border: 0; border-radius: 99px; padding: 7px 13px; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--on-panel) 35%, transparent); cursor: pointer; }
+.card.hero.fete .id-pill { color: var(--on-panel) !important; }
+/* Premier lancement : 3 promesses chiffrées dans une seule carte */
+.welcome-ill.w-ball { position: relative; }
+.welcome-ill .w-bub { left: calc(50% + 40px); right: auto; top: 4px; border-radius: 14px 14px 14px 4px; }
+.welcome .w-k.id-pill { align-self: flex-start; }
+.card.w-card { padding: 4px 16px; margin-top: 6px; text-align: left; }
+.w-r { display: flex; flex-direction: column; gap: 6px; padding: 13px 0; border-top: 1px solid var(--line); }
+.w-r:first-child { border-top: 0; }
+.w-r .id-pill { align-self: flex-start; }
+.w-r .id-pill svg { width: 13px; height: 13px; }
+.w-r p { margin: 0; font-size: 14.5px; line-height: 1.4; color: var(--muted); font-weight: 500; }
+.w-r p b { color: var(--ink); font-weight: 700; }
+.w-demo { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; flex-wrap: wrap; }
+.w-demo small { font-size: 13.5px; color: var(--muted); font-weight: 600; }
+.w-demo .id-slots { margin: 0; color: var(--muted); }
+/* Montée+ : Ace sur la carte, preuves, rubriques en couleur, essai à portée de pouce */
+.sup-hero.id-dock { margin-top: 42px; }
+.sup-hero .id-pill { align-self: flex-start; }
+.sup-proof { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.pw-sec.pw-secp { margin: 16px 0 4px; }
+.pw-list > .pw-sec.pw-secp:first-child { margin-top: 0; }
+.pw-it.pw-acc .pw-ic, .pw-it.pw-gazon .pw-ic, .pw-it.pw-dur .pw-ic { background: transparent !important; box-shadow: inset 0 0 0 1.5px currentColor !important; }
+.pw-it.pw-acc .pw-ic { color: var(--acc-ink) !important; }
+.pw-it.pw-gazon .pw-ic { color: var(--id-gazon, var(--gazon)) !important; }
+.pw-it.pw-dur .pw-ic { color: var(--id-dur) !important; }
+.sup-bar { position: fixed; left: 12px; right: 12px; bottom: calc(92px + env(safe-area-inset-bottom)); z-index: 40; max-width: 456px; margin: 0 auto; display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 16px; border-radius: 20px; background: var(--card); color: var(--ink); box-shadow: 0 10px 30px rgba(0,0,0,.28), 0 0 0 1px var(--line); }
+.sup-bar .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.sup-bar b { font-size: 14.5px; }
+.sup-bar small { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.sup-bar .btn { width: auto; margin: 0; padding: 11px 18px; font-size: 14.5px; }
+.screen:has(.sup-bar) { padding-bottom: calc(180px + env(safe-area-inset-bottom)); }
+/* Fiche joueur : classement avec sa balle, « Si tu gagnes / Si tu perds » à plat */
+.pl-top .rk-tag.pl-tagrk { flex: none; font-size: 15px; }
+.ff-odds.id-dock { margin-top: 40px; }
+.ff-stake .stk2 { gap: 0 !important; }
+.ff-stake .stk2 .sb { background: transparent !important; box-shadow: none !important; padding: 4px 14px !important; }
+.ff-stake .stk2 .sb + .sb { border-left: 1px solid var(--line); }
+.card .id-pill + .ff-jj, .ff-oh .id-pill { align-self: center; }
+.tq-bil.id-dock .id-pill { align-self: flex-start; }
+.mmt-c .sb { background: transparent !important; box-shadow: none !important; padding: 0 !important; }
