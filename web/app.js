@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.2.4",
+    VERSION: "4.2.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -6067,7 +6067,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }).join("");
     if (bd) bd = '<details class="ff-bdd"><summary>D\'où vient ce ' + p + ' %</summary><div class="ff-bd"><span class="bh">On part de 50 %</span>' + bd + "</div></details>";
     // 3.50 (Davy : « tourne autour de son revers » → « va l'embêter revers ») : ce que tes notes disent, en tête du match
-    var nd = (D.noteDer || []).filter(function (x) { return x.p && !x.own; })[0], ndH = nd ? '<div class="ff-nd"><span class="nk">D\'après ta note</span><b>' + esc(nd.p.t) + '</b><span class="small">« ' + esc(nd.q) + " »</span></div>" : "";
+    var nd = (D.noteDer || []).filter(function (x) { return x.p && !x.own; })[0], ndH = nd ? '<div class="ff-nd"><span class="nk">D\'après ta note</span><b>' + esc(nd.p.t) + '</b>' + noteHtml(nd.q) + "</div>" : "";
     return '<div class="card ff-odds"><span class="eyebrow id-pill c-dur">Le match</span><div class="row1">' + ring + '<div><span class="h">' + esc(od.head) + '</span><span class="small">' + esc(why) + '</span></div></div><span class="p">' + esc(od.txt) + "</span>" + ndH + bd + "</div>";
   }
   function ffBandCard(D) {
@@ -6504,7 +6504,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return '<div class="card sj2"><div class="sj2-h"><span class="eyebrow">Son jeu</span><a class="lnk" href="' + href + '">Modifier</a></div>' +
       (style || sub ? '<div class="sj2-s"><b>' + esc(style || "Son style ?") + "</b>" + (sub ? '<span class="small">' + esc(sub) + "</span>" : "") + "</div>" : "") +
       traitRowsHtml(rows) + (rows.some(function (r) { return r.meas; }) ? '<span class="small sj2-l"><svg class="tr-w" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">' + WATCH_IC + "</svg> mesuré par ta montre</span>" : "") +
-      (T.note ? '<div class="sj2-n"><span class="eyebrow">Ta note</span><span>« ' + esc(T.note) + " »</span></div>" : "") + "</div>";
+      (T.note ? '<div class="sj2-n"><span class="eyebrow">Ta note</span>' + noteHtml(T.note) + "</div>" : "") + "</div>";
   }
   function lastTimeCard(m, plan) {
     if (!m) return "";
@@ -6516,7 +6516,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var tagO = open ? '<a class="card lt2" href="#/match/' + esc(m.id) + '">' : '<div class="card lt2">', tagC = open ? "</a>" : "</div>";
     return tagO + '<span class="eyebrow">La dernière fois · ' + esc(fdate(m.date).replace(/\.$/, "")) + "</span><b>" + (m.result === "V" ? "Victoire" : "Défaite") + " " + esc(m.score || "") + "</b>" +
       (tags.length ? li("n", "Tu l'as senti", tags.join(" · ")) : "") + (ok.length ? li("g", "Ce qui a marché", ok.join(" · ")) : "") + (ko.length ? li("t", "Ce qui a raté", ko.join(" · ")) : "") +
-      (m.note ? li("n", "Ta note", "« " + String(m.note).trim().slice(0, 120) + " »") : "") +
+      (m.note ? noteHtml(m.note, 140) : "") +
       (!tags.length && !ok.length && !ko.length && !m.note && open ? '<span class="small">Raconte ce match pour que ta revanche en profite.</span>' : "") + tagC;
   }
   // ---------- Ton jeu (profil) ----------
@@ -7305,7 +7305,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var notesHtml = '<div class="card rev-card"><span class="eyebrow">Tes notes sur lui</span>' +
       '<div class="field"><label for="o-note2">Sa fiche · toujours valable</label><textarea id="o-note2" data-on="' + esc(fkey) + '" placeholder="Ses habitudes, son style, ce qui marche contre lui">' + esc(fiche) + "</textarea></div>" +
       (retours.length ? '<span class="lbl">Tes retours de match</span>' + retours.slice(0, 3).map(function (x) {
-        return '<a class="rv-i" href="#/match/' + x.m.id + '"><span class="rv-t">« ' + esc(x.text) + ' »</span><span class="small">' + (x.m.result === "V" ? "Victoire" : "Défaite") + (x.date ? " le " + esc(fdate(x.date).replace(/\.$/, "")) : "") + (x.m.score ? " · " + esc(x.m.score) : "") + "</span></a>";
+        return '<a class="rv-i" href="#/match/' + x.m.id + '">' + noteHtml(x.text) + '<span class="small">' + (x.m.result === "V" ? "Victoire" : "Défaite") + (x.date ? " le " + esc(fdate(x.date).replace(/\.$/, "")) : "") + (x.m.score ? " · " + esc(x.m.score) : "") + "</span></a>";
       }).join("") : (mine.length ? '<span class="small">Pas encore de retour sur vos matchs : ajoute-en un depuis la fiche du match.</span>' : "")) + "</div>";
     var gEmpty = !(hisG.hand || hisG.backhand || hisG.style) || UI.gEdit === gkey;
     if (D) { D.gkey = fkey || gkey; D.hisT = hisTraits([D.gkey, gkey, k1, k2], p.fiche); D.measured = mergeSig(watchSignals(mine), scoreSignals(sitStats(rows, D.hi)), "montre", "scores"); }
@@ -10829,7 +10829,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var note = String(m.note || "").trim();
     return '<div class="card ann-sum"><div class="sj2-h"><span class="eyebrow">Tes annotations</span><button class="lnk linkbtn" data-a="annEdit">Modifier</button></div>' +
       rows.map(function (x) { return '<div class="kv-r"><span>' + esc(x[0]) + "</span><b>" + esc(x[1]) + "</b></div>"; }).join("") +
-      (note ? '<div class="ann-note">« ' + esc(note) + " »</div>" : '<button class="linkbtn ann-add" data-a="annEdit">+ Ton retour sur ce match</button>') + "</div>";
+      (note ? '<div class="ann-note">' + noteHtml(note) + "</div>" : '<button class="linkbtn ann-add" data-a="annEdit">+ Ton retour sur ce match</button>') + "</div>";
   }
   V.match = function (id) {
     var isNew = !id || id === "new";
@@ -12152,6 +12152,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function playedWin() { var c = ctx(); return (c.proj.matches || []).filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); }); }
   function byDateDesc(a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; }
+  // 4.2.5 (Yann) : UNE SEULE « note » (ton retour sur un match, ta note sur un joueur) partout :
+  // guillemets jaunes dessinés puis le texte droit, sur toute la largeur, en dernier dans sa ligne ou sa carte.
+  var NOTE_Q = '<svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M0 12V7C0 3 2 .7 6 0l.6 1.6C4.3 2.4 3.3 3.8 3.2 5.6H6V12zm9 0V7c0-4 2-6.3 6-7l.6 1.6c-2.3.8-3.3 2.2-3.4 4H16V12z" fill="currentColor"/></svg>';
+  function noteHtml(text, max) {
+    var t = String(text || "").trim(); if (!t) return "";
+    if (max && t.length > max) t = t.slice(0, max - 2).replace(/\s+\S*$/, "") + "…";
+    return '<span class="fx-note">' + NOTE_Q + "<span>" + esc(t) + "</span></span>";
+  }
   function mrowHtml(m, right, note) {
     return '<a class="row dl" href="#/' + (m.dbl ? "double/" : "match/") + m.id + '"><span class="vd ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(nameCase(m.opp) || "Adversaire") + ' <span class="muted" style="font-weight:400">· ' + esc(m.oppRank || "") + '</span></span><span class="s">' + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + (note ? " · " + note : "") + "</span></span>" + (right != null ? '<span class="pts">' + right + "</span>" : "") + "</a>";
   }
@@ -14549,7 +14557,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var n = revNotes(name, exceptId); if (!n.length) return "";
     var IL = window.MonteeIll, x = n[0];
     return '<a class="rev-hint' + (dark ? " dark" : "") + '" href="#/' + advPath(nameKey(name)) + '">' + 
-      '<span class="grow"><span class="eyebrow">' + (x.fiche ? "Ta fiche sur lui" : "Ton retour du dernier match") + '</span><span class="rv-t">« ' + esc(x.text) + ' »</span><span class="small">' + (x.m ? (x.m.result === "V" ? "Victoire" : "Défaite") + (x.date ? " le " + esc(fdate(x.date)) : "") + (x.m.score ? " · " + esc(x.m.score) : "") : "Sur sa fiche") + (n.length > 1 ? " · " + plural(n.length - 1, "autre note", "autres notes") : "") + "</span></span></a>";
+      '<span class="grow"><span class="eyebrow">' + (x.fiche ? "Ta fiche sur lui" : "Ton retour du dernier match") + '</span>' + noteHtml(x.text) + '<span class="small">' + (x.m ? (x.m.result === "V" ? "Victoire" : "Défaite") + (x.date ? " le " + esc(fdate(x.date)) : "") + (x.m.score ? " · " + esc(x.m.score) : "") : "Sur sa fiche") + (n.length > 1 ? " · " + plural(n.length - 1, "autre note", "autres notes") : "") + "</span></span></a>";
   }
   V.adversaire = function (key) {
     key = decodeURIComponent(key || "");
@@ -14588,7 +14596,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!sjE || (on.text || "").trim() || UI.onOpen === key) s += sjC;
     s += "<h2>Vos matchs et tes retours</h2><div class=\"list\">" + ms.map(function (m) {
       var hist = !m.id; // 3.55 : un match d'une saison passée s'ouvre aussi (histPromote)
-      return (hist ? '<div class="row"' : '<a class="row" href="#/match/' + m.id + '"') + '><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.oppRank || "") + (m.comp ? " · " + esc(m.comp) : "") + "</span>" + (m.note ? '<span class="s rev">« ' + esc(m.note) + " »</span>" : "") + "</span>" + (hist ? '<span class="tag">saison passée</span></div>' : I.next + "</a>");
+      return (hist ? '<div class="row"' : '<a class="row" href="#/match/' + m.id + '"') + '><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.oppRank || "") + (m.comp ? " · " + esc(m.comp) : "") + "</span>" + "</span>" + (hist ? '<span class="tag">saison passée</span>' : I.next) + noteHtml(m.note) + (hist ? "</div>" : "</a>");
     }).join("") + "</div>";
     return s + "</div>";
   };
@@ -14620,7 +14628,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       (facts.length ? '<div class="h2s-f">' + facts.map(function (f) { return "<span><small>" + esc(f[0]) + "</small><b>" + esc(f[1]) + "</b></span>"; }).join("") + "</div>" : "") +
       '<div class="list h2s-l">' + ms.map(function (m) {
         var hist = !m.id, sub = esc([m.comp ? insName(m.comp) : "", m.wo ? "forfait" : ""].filter(Boolean).join(" · ")), rk = m.oppRank ? ' <span class="h2s-k">·</span> <span class="rk-tag" title="Son classement ce jour-là">' + esc(m.oppRank) + "</span>" : ""; // 3.61.3 (Yann) : classement en pastille comme dans l'Activité, nom d'épreuve lisible sur une ligne
-        return (hist ? '<div class="row"' : '<a class="row" href="#/match/' + m.id + '"') + '><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + rk + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + "</span>" + (sub ? '<span class="s h2s-s">' + sub + "</span>" : "") + (m.note ? '<span class="s rev">« ' + esc(m.note) + " »</span>" : "") + "</span>" + msbHtml(m) + (hist ? "</div>" : I.next + "</a>");
+        return (hist ? '<div class="row"' : '<a class="row" href="#/match/' + m.id + '"') + '><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + rk + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + "</span>" + (sub ? '<span class="s h2s-s">' + sub + "</span>" : "") + "</span>" + msbHtml(m) + (hist ? "" : I.next) + noteHtml(m.note) + (hist ? "</div>" : "</a>");
       }).join("") + "</div>" +
       '<div class="h2s-acts"><a class="btn soft h2s-go" href="#/' + advPath(key) + '">Sa fiche et ton plan contre lui ' + I.next + '</a><button class="iconbtn h2s-sh" data-a="h2hShare" data-v="' + esc(key) + '" aria-label="Partager ce face-à-face en image">' + svg('<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6h14v-6"/>', 2.2) + "</button></div>";
     return { title: name, sub: plural(pl.length, "match", "matchs") + " l'un contre l'autre, toutes saisons confondues.", body: body };
@@ -14650,14 +14658,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         return '<button class="h3h-r fx2" data-a="sheet" data-k="h2hm" data-v="' + esc(nameKey(x.name)) + '" aria-label="' + esc(nameCase(x.name) + " : " + v + " victoire" + (v > 1 ? "s" : "") + ", " + d + " défaite" + (d > 1 ? "s" : "")) + '">' +
           '<span class="fx-l1"><b>' + esc(nameCase(x.name)) + "</b>" + (ms[0].oppRank ? '<span class="rk-tag">' + esc(ms[0].oppRank) + "</span>" : "") + (x.tag ? '<span class="fx-pt ' + x.tag[0] + '">' + (x.tag[0] === "cl" ? "Meilleur client" : "Bête noire") + "</span>" : "") + "</span>" +
           '<span class="fx-l2"><span class="fx-q" aria-hidden="true">' + sq + '</span><span class="fx-s"><em class="V">' + v + '</em><span class="sep">–</span><em class="D">' + d + "</em></span></span>" +
-          (nTxt ? '<span class="fx-note"><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M0 12V7C0 3 2 .7 6 0l.6 1.6C4.3 2.4 3.3 3.8 3.2 5.6H6V12zm9 0V7c0-4 2-6.3 6-7l.6 1.6c-2.3.8-3.3 2.2-3.4 4H16V12z" fill="currentColor"/></svg><span>' + esc(nTxt) + "</span></span>" : "") + "</button>";
+          (nTxt ? noteHtml(nTxt) : "") + "</button>";
       }).join("") + (inFaf && nAll > 3 ? '<button class="linkbtn h3h-more" data-a="h2hAll">' + (UI.h2hAll ? "Réduire" : "Voir les " + (nAll - 3) + " autres") + "</button>" : "") + findBtn + "</div>";
     return '<div class="card" style="gap:4px">' + chead("h2h", "Face-à-face", "Les adversaires que tu as joués plusieurs fois") +
       list.map(function (x) {
         var ms = x.ms.sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; }), v = ms.filter(function (m) { return m.result === "V"; }).length, d = ms.length - v;
         var nt = revNotes(x.name)[0];
-        return '<a class="row" href="#/' + advPath(nameKey(x.name)) + '" style="padding:10px 0;border-bottom:1px solid var(--line)"><span class="grow"><span class="t">' + esc(x.name) + ' <span class="muted" style="font-weight:400">· ' + esc(ms[0].oppRank || "") + '</span></span><span class="s">Dernier : ' + (ms[0].result === "V" ? "victoire" : "défaite") + (ms[0].date ? " le " + esc(fdate(ms[0].date)) : "") + (ms[0].score ? " · " + esc(ms[0].score) : "") + "</span>" + (nt ? '<span class="s rev">« ' + esc(nt.text) + " »</span>" : "") + "</span>" +
-          '<span class="pts" style="color:' + (v > d ? "var(--gazon)" : v < d ? "var(--terre)" : "var(--ink)") + '">' + v + " – " + d + "</span></a>";
+        return '<a class="row" href="#/' + advPath(nameKey(x.name)) + '" style="padding:10px 0;border-bottom:1px solid var(--line)"><span class="grow"><span class="t">' + esc(x.name) + ' <span class="muted" style="font-weight:400">· ' + esc(ms[0].oppRank || "") + '</span></span><span class="s">Dernier : ' + (ms[0].result === "V" ? "victoire" : "défaite") + (ms[0].date ? " le " + esc(fdate(ms[0].date)) : "") + (ms[0].score ? " · " + esc(ms[0].score) : "") + "</span>" + "</span>" +
+          '<span class="pts" style="color:' + (v > d ? "var(--gazon)" : v < d ? "var(--terre)" : "var(--ink)") + '">' + v + " – " + d + "</span>" + noteHtml(nt && nt.text, 140) + "</a>";
       }).join("") + findBtn + "</div>";
   }
   // Tes records sur 12 mois
