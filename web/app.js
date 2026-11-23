@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.72.0",
+    VERSION: "3.72.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2057,13 +2057,19 @@
     }).join("");
   }
   // lecture des équipes du club (même recherche que les tiennes, en mode « club ») : toutes les 12 h, complète une fois par semaine
+  // 3.72.1 : noms des équipes de ton club (sans le numéro, simplifiés), pour reconnaître les autres équipes du club
+  function clubTn() {
+    var o = {}, n = function (x) { return String(x || "").replace(/\s+\d+\s*$/, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ""); };
+    ((S.teams && S.teams.champs) || []).forEach(function (c) { var ids = (c.me && c.me.club) || []; (c.teams || []).forEach(function (t) { if (ids.indexOf(t.id) >= 0 && n(t.nom)) o[n(t.nom)] = 1; }); });
+    return Object.keys(o).slice(0, 6);
+  }
   function clubRefresh(force) {
     if (!NATIVE || !S.tenup.linked || UI.clubBusy || UI.tmBusy || !clubOn()) return;
     var c0 = S.club; if (!force && c0 && c0.qv === 1 && Date.now() - c0.at < 12 * 3600e3) return;
     var full = force || !c0 || !c0.full || Date.now() - c0.full > 7 * 864e5;
     var known = {}; ((c0 && c0.champs) || []).forEach(function (c) { if (c.path && c.path.q) { var k = String(c.cid); (known[k] = known[k] || []).some(function (p) { return p.q === c.path.q; }) || known[k].push(c.path); } });
     var cids = myTeams(true).map(function (c) { return { id: String(c.cid || c.id), nom: c.nom }; }).concat(((c0 && c0.champs) || []).map(function (c) { return { id: String(c.cid), nom: c.nom }; }));
-    var t = S.teams || {}, args = { all: 1, full: full ? 1 : 0, club: (t.club && t.club.code) || S.tenup.clubCode || "", nomClub: (t.club && t.club.nom) || "", pid: t.pid || "", cids: cids, known: full ? {} : known };
+    var t = S.teams || {}, args = { all: 1, full: full ? 1 : 0, club: (t.club && t.club.code) || S.tenup.clubCode || "", nomClub: (t.club && t.club.nom) || "", pid: t.pid || "", cids: cids, known: full ? {} : known, tn: clubTn() };
     UI.clubBusy = true; var calls = 0;
     var done = function () { UI.clubBusy = false; if (route().indexOf("tournoi") === 0) render(); };
     var go = function (job) {
@@ -2075,7 +2081,7 @@
         var old = ((S.club && S.club.champs) || []).filter(function (c) { return !fin[String(c.cid)]; });
         S.club = { at: r.partial ? ((S.club && S.club.at) || 0) : Date.now(), qv: 1, full: full && !r.partial ? Date.now() : (S.club && S.club.full) || 0, champs: r.champs.concat(old) }; save();
         if (route().indexOf("tournoi") === 0 && !r.partial) render();
-        if (r.partial && r.job && calls < 12) return go(r.job);
+        if (r.partial && r.job && calls < 40) return go(r.job);
         done();
       });
     };
@@ -2993,7 +2999,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // état de la synchro en petit) ; la date au-dessus. Avant : date, pastille de synchro, salut, profil et réglages mal alignés.
     var dl0 = S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small hd-d">' + esc(dLine) + "</span>";
     var hiT = jm ? "Jour de match" : gt ? gt : S.profile.name ? "Salut " + S.profile.name : "Salut", rk0 = effRank() || "";
-    // 3.72.0 (Yann, maquette v4 validée) : jour de match, victoire de la veille ou montée détectée mettent la barre en avant
+    // 3.72.1 (Yann, maquette v4 validée) : jour de match, victoire de la veille ou montée détectée mettent la barre en avant
     // (contour couleur, pastille sur l'avatar, surtitre, action à droite) ; la ligne du haut redevient la date.
     var spK = null, spH = "";
     try {
@@ -13934,7 +13940,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var out = [], line = ""; String(txt || "").split(/\s+/).forEach(function (w) { var t = line ? line + " " + w : w; if (g.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; });
     if (line) out.push(line); return out;
   }
-  // 3.72.0 (Yann, maquettes partage-cartes : A partout, B pour la montée) : affiche sombre avec terrain en perspective, gros chiffres,
+  // 3.72.1 (Yann, maquettes partage-cartes : A partout, B pour la montée) : affiche sombre avec terrain en perspective, gros chiffres,
   // pied « Calcule ta montée · gratuit… » pour donner envie de rejoindre. V en plus : sty ("balle"), path [ancien, nouveau, note],
   // sets [[a,b]…], opp {n, rk}, badge, stats [[valeur, libellé]…], ball (balle à côté du gros chiffre), cta.
   function shvBall(g, cx, cy, r, fill, seam) {
@@ -13972,7 +13978,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     shvFoot(g, W, H, fmt, V, ink, "rgba(22,24,27,.72)", ink);
     return cv;
   }
-  // 3.72.0 : style « tableau d'affichage » (terrain vu du dessus, tuiles ancien → nouveau classement, tableau de chiffres)
+  // 3.72.1 : style « tableau d'affichage » (terrain vu du dessus, tuiles ancien → nouveau classement, tableau de chiffres)
   function shvDrawTableau(V, fmt) {
     var W = 1080, H = fmt === "916" ? 1920 : 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
     var g = cv.getContext("2d"), F = SHV_F, ink = "#F4F2EE", acc = "#D4E64A", k = fmt === "916" ? 1 : .72;
@@ -16986,7 +16992,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var old = S.profile.rank && S.profile.rank !== S.ahead.rank ? S.profile.rank : "", y1 = E.iso(new Date(today().getTime() - 365 * 864e5)), nv = 0;
       try { nv = knownMatches(false).filter(function (m) { return m.result === "V" && !m.wo && m.date >= y1; }).length; } catch (e) {}
       var rel = flong(E.parseDate(S.ahead.release)).replace(/ 1 /, " 1er ");
-      // 3.72.0 (Yann) : la montée a sa carte « balle » (fond jaune), les autres partages l'affiche sombre
+      // 3.72.1 (Yann) : la montée a sa carte « balle » (fond jaune), les autres partages l'affiche sombre
       var ci = E.idx(S.profile.rank), np = 0, tot = null; try { np = knownMatches(false).filter(function (m) { return m.result === "V" && !m.wo && m.date >= y1 && ci != null && E.idx(m.oppRank) > ci; }).length; } catch (e) {}
       try { var pr = ctx().proj, hb = pr && (pr.steps || []).filter(function (x) { return x.calc === pr.projected; })[0]; if (hb) tot = hb.total; } catch (e) {}
       var stats = [[nv, "victoires", "victoires de la saison"], [np, "perfs", "perfs de la saison"]]; if (tot != null) stats.push([tot, "points", "bilan (points)"]);

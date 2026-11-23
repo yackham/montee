@@ -301,7 +301,11 @@
           var eq = (det && det.poule && det.poule.equipes) || [];
           if (!cs.ex && eq.length) cs.ex = eq.slice(0, 3).map(function (e) { return String(e.nom || "").replace(/\s+\d+\s*$/, ""); });
           var a = eq.filter(function (e) { return nrm(e.nom).indexOf(nrm(club)) === 0; });
-          if (!a.length && cw.length) a = eq.filter(function (e) { var nn = String(e.nom || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); return cw.every(function (w) { return nn.indexOf(w) >= 0; }); });
+          // 3.72.1 : le nom des équipes du club déjà connues (« CLAMART (TC) ») quand le nom officiel du club diffère (« TENNIS CLUB DE CLAMART »)
+          if (!a.length && A.tn && A.tn.length) a = eq.filter(function (e) { return A.tn.indexOf(nrm(String(e.nom || "").replace(/\s+\d+\s*$/, ""))) >= 0; });
+          if (!a.length && cw.length) a = eq.filter(function (e) { var nn = String(e.nom || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); if (!cw.every(function (w) { return nn.indexOf(w) >= 0; })) return false;
+            // 3.72.1 : équipes du club (cs.all) : pas d'autre mot que ceux du club ou génériques (« SCHLUMBERGER CLAMART SPORTS » n'est pas « CLAMART (TC) »)
+            return !cs.all || nn.split(/[^a-z0-9]+/).every(function (w) { return w.length < 4 || cw.indexOf(w) >= 0 || /^(tennis|club|sport|sports|association|union|ville|entente)$/.test(w); }); });
           return a.map(function (e) { return e.id; });
         };
         var playedBy = function (det, ids) { return ids.filter(function (t) { return ((det.poule || {}).rencontres || []).some(function (r) { var d = rDay(r); return (r.idEquipe1 === t || r.idEquipe2 === t) && d != null && myDays.some(function (x) { return Math.abs(x - d) <= 2; }); }); }); };
@@ -432,16 +436,23 @@
             if (o.idChampionnat || o.championnatId) add(o.idChampionnat || o.championnatId, o.nomChampionnat || o.libelleChampionnat || "", from);
             if (o.championnat && typeof o.championnat === "object" && o.championnat.id) add(o.championnat.id, o.championnat.nom || o.championnat.libelle || "", from);
             Object.keys(o).forEach(function (k) { if (k !== "championnat") walk(o[k], d + 1, from); }); };
-          var code = String(u.code || A.club || ""), tries = code ? ["v1/championnats-equipes/clubs/" + code, "v1/clubs/" + code + "/equipes", "v1/clubs/" + code + "/championnats-equipes"] : [];
-          return tries.reduce(function (ch, t) { return ch.then(function () { return jg(t).then(function (j) { var n0 = Object.keys(C).length; walk(j, 0, t); src.push(t + " : " + (Object.keys(C).length - n0) + " en plus"); }, function (e) { src.push(t + " : " + String(e && e.message || e)); }); }); }, Promise.resolve()).then(function () {
-            var K = A.known || {}, L = Object.keys(C).map(function (k) { return C[k]; }).slice(0, 16);
+          // 3.72.1 (testé en vrai sur Ten'Up) : les adresses « championnats du club » n'existent pas. Ten'Up liste les championnats
+          // par niveau : national (N), ligue (R, 2 premiers chiffres du code club) et comité (D, 4 premiers chiffres). Lecture complète :
+          // saison en cours et précédente à ces 3 niveaux, puis les poules de chacun (~7 pages par championnat). Relecture courte :
+          // seulement les championnats où le club a déjà des équipes (A.known) et les tiens.
+          var code = String(u.code || A.club || "").replace(/\D/g, ""), K = A.known || {}, now = new Date(), y0 = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+          Object.keys(K).forEach(function (id) { add(id, "", "déjà trouvés"); });
+          var tries = [];
+          if (A.full || !Object.keys(K).length) [y0, y0 - 1].forEach(function (y) { tries.push("v1/championnats-equipes?millesime=" + y + "&typeRecherche=N"); if (code.length >= 4) tries.push("v1/championnats-equipes?millesime=" + y + "&typeRecherche=R&codeLigue=" + code.slice(0, 2), "v1/championnats-equipes?millesime=" + y + "&typeRecherche=D&codeComite=" + code.slice(0, 4)); });
+          return tries.reduce(function (ch, t) { return ch.then(function () { return jg(t).then(function (j) { var n0 = Object.keys(C).length; (Array.isArray(j) ? j : []).forEach(function (c) { add(c.id, c.nom, "liste"); }); src.push(t.replace(/^.*\?/, "") + " : " + (Object.keys(C).length - n0) + " en plus"); }, function (e) { src.push(t + " : " + String(e && e.message || e)); }); }); }, Promise.resolve()).then(function () {
+            var L = Object.keys(C).map(function (k) { return C[k]; }).slice(0, 160);
             return { u: u, calls: 0, club: 1, src: src, cs: L.map(function (c) { var cs = mkCs(c, K[String(c.id)]); if (!A.full && K[String(c.id)] && K[String(c.id)].length) { cs.q = cs.q.filter(function (x) { return x.k !== "root"; }); cs.only = true; } cs.all = true; cs.cl = {}; cs.clk = []; return cs; }) };
           });
         });
       };
       if (A.all) return startClub().then(function (job) {
         job.calls = (job.calls || 0) + 1;
-        return Promise.all(job.cs.filter(function (cs) { return !cs.fin; }).map(function (cs) { return scan(cs, job.u.nom); })).then(function () {
+        return Promise.all(job.cs.filter(function (cs) { return !cs.fin; }).slice(0, 8).map(function (cs) { return scan(cs, job.u.nom); })).then(function () {
           var done = job.cs.every(function (cs) { return cs.fin; });
           var champs = [].concat.apply([], job.cs.filter(function (cs) { return done || cs.fin; }).map(function (cs) { return cs.clk.map(function (k) { var o = cs.cl[k]; o.id = k; o.cid = cs.id; o.cl = 1; o.me.sure = false; return o; }); }));
           return ok({ at: Date.now(), club: { code: job.u.code, nom: job.u.nom }, champs: champs, job: done ? null : job, partial: !done,
