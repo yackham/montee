@@ -19,8 +19,8 @@
     <string name="w_semaine_desc">Ton temps de jeu de la semaine, avec « T\'as joué ? »</string>
     <string name="w_tableau">Tableau de bord</string>
     <string name="w_tableau_desc">Objectif, palmarès et le truc à savoir</string>
-    <string name="w_truc">Le truc à savoir</string>
-    <string name="w_truc_desc">Ce que tes matchs disent de ton jeu</string>
+    <string name="w_truc">Ace (bandeau)</string>
+    <string name="w_truc_desc">Ce que ton coach a à te dire, en une ligne</string>
     <string name="w_defend">Points à défendre</string>
     <string name="w_defend_desc">Ton bilan aux prochaines sorties si tu ne rejoues pas</string>
     <string name="w_sac">Ton sac</string>
@@ -32,5 +32,16 @@
     <string name="w_adversaire">Prochain adversaire</string>
     <string name="w_adversaire_desc">Tes chances et la clé du match contre le dernier joueur consulté</string>
     <string name="w_objectif">Objectif</string>
+    <!-- 3.81 -->
+    <string name="w_ace">Ace</string>
+    <string name="w_ace_desc">Ce que ton coach a à te dire en ce moment</string>
+    <string name="w_avenir">Ce qui arrive</string>
+    <string name="w_avenir_desc">Tes tournois, matchs d\'équipe, matchs prévus et la sortie du classement</string>
+    <string name="w_equipe">Ton équipe</string>
+    <string name="w_equipe_desc">La prochaine rencontre de ton équipe, puis le score</string>
+    <string name="w_chances">Tes chances</string>
+    <string name="w_chances_desc">Tes chances de monter à la prochaine sortie (Montée+)</string>
+    <string name="w_suivis">Joueurs suivis</string>
+    <string name="w_suivis_desc">Qui a joué, qui monte parmi les joueurs que tu suis</string>
     <string name="w_objectif_desc">Ton objectif de saison : où tu en es, ce qu\'il reste</string>
 </resources>
