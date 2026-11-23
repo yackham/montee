@@ -51,7 +51,7 @@
       if (idx === 4 || idx === 5) return nMatchs >= 5 ? 50 : 0;
       return 0;
     },
-    woIgnores: 2 // les 2 premières défaites par WO ne comptent pas
+    woIgnores: 3 // les 3 premières défaites par WO ne comptent pas (vérifié sur Ten'Up : 3 WO, aucune pénalité dans V-E-2I-5G)
   };
 
   function serie(idx) {
@@ -117,23 +117,28 @@
   }
   function minus12Months(dt) { return new Date(dt.getFullYear() - 1, dt.getMonth(), dt.getDate()); }
   function plus12Months(dt) { return new Date(dt.getFullYear() + 1, dt.getMonth(), dt.getDate()); }
-  // Date où un match sort du calcul : celle de Ten'Up (dateFinPEC) quand on l'a, sinon 12 mois après le match
-  function leaveDate(m) {
+  // Dernier jour où un match compte encore : la date de fin de prise en compte de Ten'Up (dateFinPEC, en pratique
+  // le jour de la dernière sortie qui le compte) quand on l'a, sinon 12 mois jour pour jour après le match.
+  // Relevé sur Ten'Up (23/11/2026) : la sortie du 5 janv. 2027 compte les matchs du 5 janv. 2026 au 4 janv. 2027.
+  function lastDay(m) {
     if (m && m.finPec && /^\d{4}-\d{2}-\d{2}/.test(m.finPec)) return d(m.finPec.slice(0, 10));
     return m && m.date ? plus12Months(d(m.date)) : null;
   }
-
+  // Sortie du classement à partir de laquelle le match ne compte plus
+  function leaveDate(m) { var l = lastDay(m); return l ? nextRelease(l) : null; }
   // Matchs pris en compte pour un calcul à la date `at`, joués au plus tard le `upTo`
   // Les matchs sans date (import Ten'Up : la date n'est pas affichée) sont ceux de la période en cours.
   function windowMatches(matches, at, upTo, undated) {
     var from = minus12Months(at);
-    var lim = upTo || at;
+    var lim = upTo || at, ym = at.getFullYear() * 12 + at.getMonth();
     return matches.filter(function (m) {
       if (!m.date) return undated !== false && idx(m.oppRank) !== null;
       var md = d(m.date);
-      if (idx(m.oppRank) === null || md > lim) return false;
-      // Ten'Up donne la date exacte de fin de prise en compte : elle fait foi
-      return m.finPec ? at < leaveDate(m) : md > from;
+      // la période de calcul s'arrête la veille de la sortie (Ten'Up : « du 5 janv. 2026 au 4 janv. 2027 »)
+      if (idx(m.oppRank) === null || md > lim || md >= at) return false;
+      // Ten'Up donne la dernière sortie qui compte le match (dateFinPEC) : elle fait foi
+      if (m.finPec && /^\d{4}-\d{2}-\d{2}/.test(m.finPec)) { var f = d(m.finPec.slice(0, 10)); return ym <= f.getFullYear() * 12 + f.getMonth(); }
+      return md >= from; // 12 mois, premier jour compris
     });
   }
 
@@ -162,10 +167,17 @@
     return { total: counted.reduce(function (s, x) { return s + x.pts; }, 0), counted: counted, max: sc.max };
   }
 
+  // Bonus d'une victoire en championnat individuel : selon la série du bilan, 15 pts en seniors+ (relevé Ten'Up :
+  // « Individuels seniors 3e série » 20 pts, « Individuels seniors+ » 15 pts, pour un bilan à 15/4)
+  function champBonusOf(m, calc) {
+    var par = BAREME.champ(calc).par;
+    return /s[ée]niors?\s*\+|seniors?\s*plus|\+\s*\d{2}\s*ans/i.test(m.comp || "") ? Math.min(par, 15) : par;
+  }
+
   // ---------- Bilan à un échelon ----------
   function bilanAt(matches, calc, sex, playerIdx, extra) {
     sex = sex === "F" ? "F" : "H";
-    var wins = [], E = 0, I = 0, G = 0, V = 0, woLoss = 0, champWins = 0, sigLoss = false, nSingles = 0, dbl = [];
+    var wins = [], E = 0, I = 0, G = 0, V = 0, woLoss = 0, champVals = [], sigLoss = false, nSingles = 0, dbl = [];
     var sorted = matches.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     sorted.forEach(function (m) {
       if (m.dbl) { if (m.result === "V" && !m.wo) dbl.push(m); return; }
@@ -176,7 +188,7 @@
         V += 1;
         var pts = BAREME.win(o - calc);
         wins.push({ m: m, pts: pts, opp: o });
-        if (m.kind === "champ") champWins++;
+        if (m.kind === "champ") champVals.push(champBonusOf(m, calc));
       } else if (m.result === "D") {
         if (o <= calc) sigLoss = true;
         if (m.wo) {
@@ -196,7 +208,8 @@
     var counted = wins.slice(0, n), extraWins = wins.slice(n);
     var sum = counted.reduce(function (s, w) { return s + w.pts; }, 0);
     var bonusSD = sigLoss ? 0 : BAREME.bonusSansDefaite(calc, nSingles);
-    var ch = BAREME.champ(calc), bonusCh = Math.min(ch.max, champWins) * ch.par;
+    // les meilleures bonifications seulement (3, ou 5 à partir de -2/6)
+    var bonusCh = champVals.sort(function (a, b) { return b - a; }).slice(0, BAREME.champ(calc).max).reduce(function (a, v) { return a + v; }, 0);
     var db = doublesBonus(dbl, calc, playerIdx);
     if (extra && typeof extra === "object") {
       // écart Ten'Up par échelon : celui de l'échelon, sinon le plus proche
@@ -339,7 +352,7 @@
     idx: idx, label: label, serie: serie, serieLabel: serieLabel, ajustement: ajustement,
     bilanAt: bilanAt, project: project, simulateWin: simulateWin, dropOuts: dropOuts,
     history: history, nextRelease: nextRelease, windowMatches: windowMatches, doublesBonus: doublesBonus,
-    parseScore: parseScore, iso: iso, parseDate: d, plus12Months: plus12Months, leaveDate: leaveDate, releaseDiff: releaseDiff
+    parseScore: parseScore, iso: iso, parseDate: d, plus12Months: plus12Months, leaveDate: leaveDate, lastDay: lastDay, releaseDiff: releaseDiff
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeEngine = api;
