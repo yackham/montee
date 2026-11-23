@@ -6196,3 +6196,17 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 /* 3.74.2 (audit accessibilité) : zone tactile agrandie sans changer la mise en page (petits liens et pastilles < 30 px) */
 :is(.num-l, .go-pill, .fo-p, button.lnk, .ce-fl, .linkbtn, .lnk) { position: relative; }
 :is(.num-l, .go-pill, .fo-p, button.lnk, .ce-fl, .linkbtn, .lnk)::after { content: ""; position: absolute; inset: -8px -2px; }
+
+/* 3.74.5 (Yann, maquette bon-moment v4 V3) : frise du risque dans la case large ; l'explication se déplie en touchant la frise */
+.bz-why { margin-top: 8px; }
+.bz-why summary { list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.bz-why summary::-webkit-details-marker { display: none; }
+.bz-tl { position: relative; display: flex; height: 8px; margin: 2px 0; }
+.bz-tl i.a { background: color-mix(in srgb, var(--gazon) 70%, transparent); border-radius: 4px 0 0 4px; }
+.bz-tl i.b { background: repeating-linear-gradient(90deg, var(--terre) 0 4px, transparent 4px 7px); border-radius: 0 4px 4px 0; }
+.bz-tl em { position: absolute; top: -4px; width: 2px; height: 16px; margin-left: -1px; background: var(--terre); }
+.bz-tlx { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 700; color: var(--muted); }
+.bz-tlx .w { color: var(--terre); margin-left: auto; }
+.bz-whyt { display: block; margin-top: 8px; font-size: 12.5px; line-height: 1.4; color: var(--muted); white-space: normal; }
+.bz-whyt b { color: var(--ink); font-size: inherit; font-weight: 800; }
+.bz-lg i.risk { background: repeating-linear-gradient(90deg, var(--terre) 0 3px, transparent 3px 5px); }

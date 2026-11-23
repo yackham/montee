@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.74.4",
+    VERSION: "3.74.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1584,7 +1584,7 @@
     var CAL = svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', 3);
     var SHIELD = svg('<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>', 2.6); // 3.58.1 : « protégé » tient dans la case
     var BELL = svg('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>', 2.2), WARN = svg('<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>', 2.2);
-    var grid = "";
+    var grid = "", LGU = {};
     if (nC > 1) {
       var veille = function (c) { return dm(new Date(c.d.getTime() - 864e5)); }, dj = Math.max(1, dGap(cols[1].dI));
       var ch = function (j) {
@@ -1602,8 +1602,22 @@
           // le conseil et l'alerte s'affichent juste sous sa ligne (plus de liste dessous qui répète la grille)
           var rkNow = q.z.sp && q.z.sp.cur ? lab(q.z.sp.cur) : (x.rank || "");
           var nmC = '<div class="bz-n' + tap + '"><span class="tq-av">' + esc(initials(trNm(x.name))) + "</span><b>" + esc(trNm(x.name).split(" ")[0]) + "</b>" + (rkNow ? '<span class="rk-tag">' + esc(rkNow) + "</span>" : "") + "</div>";
-          var c0 = q.cells[0], flat = q.kind === "any" && !(q.drop > 0) && cols.every(function (col, j) { var c = q.cells[j]; return c && c.g != null && (j === 0 || c.dI === col.dI) && c.g === c0.g && c.dir !== "down"; });
+          // 3.74.5 (Yann, maquette bon-moment v4 V3) : un joueur qui ne risque de descendre qu'APRÈS la dernière période affichée
+          // a des cases identiques : une case large aussi, avec la frise du risque (date de la descente placée sur la durée de la poule)
+          var late = q.kind === "warn" && q.drop >= nC && q.cells[q.drop];
+          var c0 = q.cells[0], flat = (late || (q.kind === "any" && !(q.drop > 0))) && cols.every(function (col, j) { var c = q.cells[j]; return c && c.g != null && (j === 0 || c.dI === col.dI) && c.g === c0.g && c.dir !== "down"; });
           var kept = cols.some(function (col, j) { return q.cells[j] && q.cells[j].kept; });
+          if (flat) { LGU.ok = 1; if (kept) LGU.pr = 1; }
+          if (flat && late) {
+            LGU.risk = 1;
+            var D = q.cells[q.drop], t0 = today().getTime(), tE = (t.dl || t.to) ? E.parseDate(t.dl || t.to).getTime() : D.d.getTime() + 21 * 864e5;
+            if (tE <= D.d.getTime()) tE = D.d.getTime() + 7 * 864e5;
+            var pos = Math.max(8, Math.min(92, Math.round((D.d.getTime() - t0) / Math.max(1, tE - t0) * 100)));
+            var why = q.alerts.filter(function (a) { return a[0] === "warn"; }).map(function (a) { return a[1]; }).join(" ");
+            return nmC + '<div class="bz-c ok bz-all" style="grid-column:span ' + nC + '"><span class="bz-st">✓ jouable jusqu\'au ' + dm(new Date(D.d.getTime() - 864e5)) + '</span><span class="bz-al1"><b>+' + c0.g + "</b><span>à chaque période" + (kept ? ' · <i class="bz-pr bz-prw">' + SHIELD + "protégé</i>" : "") + "</span></span>" +
+              '<details class="bz-why"><summary aria-label="Pourquoi : il risque de descendre le ' + esc(dm(D.d)) + '"><span class="bz-tl" aria-hidden="true"><i class="a" style="flex:' + pos + '"></i><i class="b" style="flex:' + (100 - pos) + '"></i><em style="left:' + pos + '%"></em></span>' +
+              '<span class="bz-tlx"><span>auj.</span><span class="w">' + esc(dm(D.d)) + " ↘ " + esc(lab(D.rank)) + "</span><span>" + esc(dm(new Date(tE))) + "</span></span></summary>" + (why ? '<span class="bz-whyt">' + why + "</span>" : "") + "</details></div>";
+          }
           if (flat) return nmC + '<div class="bz-c ok bz-all' + tap + '" style="grid-column:span ' + nC + '"><span class="bz-st">✓ jouable tout le temps</span><span class="bz-al1"><b>+' + c0.g + "</b><span>à chaque période" + (kept ? ' · <i class="bz-pr bz-prw">' + SHIELD + "protégé</i>" : "") + "</span></span></div>";
           var tipA = q.alerts.slice(), tip = q.kind === "any" && !tipA.length ? "" : '<div class="bz-tip' + tap + '"><span class="bz-v ' + q.kind + '">' + esc(/\.$/.test(q.verdict) ? q.verdict : q.verdict + ".") + "</span>" +
             tipA.map(function (a) { return '<span class="bz-al ' + a[0] + '">' + (a[0] === "warn" ? WARN : BELL) + "<span>" + a[1] + "</span></span>"; }).join("") + "</div>";
@@ -1614,12 +1628,14 @@
               else if (q.kind === "any" || G(c) >= bG - 4) k = j === q.best && q.kind === "wait" ? "best" : "ok";
               else k = j < q.best ? "lo" : "no";
               if (q.drop > 0 && j >= q.drop && k === "ok") k = "no"; // 3.68 : il aura baissé : à éviter même à points égaux
+              LGU[k === "best" ? "ok" : k] = 1; if (c && c.kept) LGU.pr = 1;
               var mv = c && c.dir === "up" ? '<em class="up">↗</em> ' : c && c.dir === "down" ? '<em class="dn">↘</em> ' : "";
               return '<div class="bz-c ' + k + tap + '">' + (k === "best" ? '<span class="bz-tg">MEILLEUR</span>' : "") + (j === mj ? '<span class="bz-mt">' + CAL + esc(dm(E.parseDate(x.day)).toUpperCase()) + "</span>" : "") +
                 '<span class="bz-st">' + ST[k] + "</span>" + (k === "unk" ? "<b>?</b>" : k === "no" ? "<s>+" + c.g + "</s>" : "<b>+" + c.g + "</b>") + "<span>" + (c && k !== "unk" ? mv + esc(lab(c.rank)) + (c.kept ? ' <i class="bz-pr" title="protégé : déjà descendu il y a moins de 12 mois">' + SHIELD + "protégé</i>" : "") : "") + "</span></div>";
             }).join("") + tip;
         }).join("") + "</div>" +
-        '<div class="bz-lg bz-lg2"><span><i class="ok"></i>jouable</span><span><i class="lo"></i>trop tôt : il va monter ↗</span><span><i class="no"></i>à éviter : il aura baissé ↘</span><span><em class="bz-pr bz-prl">' + SHIELD + "</em>protégé : ne peut pas redescendre</span></div>";
+        // 3.74.5 : la légende ne montre que ce qui est dans la grille
+        '<div class="bz-lg bz-lg2">' + (LGU.ok ? '<span><i class="ok"></i>jouable</span>' : "") + (LGU.lo ? '<span><i class="lo"></i>trop tôt : il va monter ↗</span>' : "") + (LGU.no ? '<span><i class="no"></i>à éviter : il aura baissé ↘</span>' : "") + (LGU.pr ? '<span><em class="bz-pr bz-prl">' + SHIELD + "</em>protégé : ne peut pas redescendre</span>" : "") + (LGU.risk ? '<span><i class="risk"></i>il risque de descendre</span>' : "") + "</div>";
     }
     var row = function (x, av, verdict, kind, al) {
       var tap = x.tid ? ' tap" data-a="plOpen" data-v="' + esc(x.tid) + '" role="button' : "";
