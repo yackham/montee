@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.0.3",
+    VERSION: "4.0.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -13883,7 +13883,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type: "text/calendar" })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500); done();
     };
     var file = function () { Promise.resolve().then(function () { return Tenup.saveFile({ name: name, content: txt, mime: "text/calendar", share: true }); }).then(done).catch(web); };
-    // 4.0.3 : plusieurs dates → ajout natif, le joueur choisit son calendrier (l'aperçu .ics groupé d'iOS ne le permet pas)
+    // 4.0.4 : plusieurs dates → ajout natif, le joueur choisit son calendrier (l'aperçu .ics groupé d'iOS ne le permet pas)
     if (NATIVE && Tenup && L.length > 1 && Tenup.addEvents) {
       Promise.resolve().then(function () { return Tenup.addEvents({ events: calEvents(L) }); }).then(function (r) {
         if (r && r.cancelled) return;
