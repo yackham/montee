@@ -86,6 +86,23 @@ public class TenupPlugin extends Plugin {
         }).start();
     }
 
+    /** 3.69 : les notifications sont-elles autorisées, l'économiseur de batterie laisse-t-il Montée travailler, et le journal des derniers passages. */
+    @PluginMethod
+    public void bgStatus(PluginCall call) {
+        Context ctx = getContext();
+        JSObject out = new JSObject();
+        try {
+            out.put("notif", androidx.core.app.NotificationManagerCompat.from(ctx).areNotificationsEnabled() ? "granted" : "denied");
+            android.os.PowerManager pm = (android.os.PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+            out.put("battery", pm != null && pm.isIgnoringBatteryOptimizations(ctx.getPackageName()) ? "free" : "optimized");
+        } catch (Exception e) { /* tant pis : le journal reste utile */ }
+        String log = MonteeStore.get(ctx, "bgLog");
+        com.getcapacitor.JSArray arr = new com.getcapacitor.JSArray();
+        if (log != null && !log.isEmpty()) for (String x : log.split("\n")) arr.put(x);
+        out.put("log", arr);
+        call.resolve(out);
+    }
+
     @PluginMethod
     public void setState(PluginCall call) {
         Context ctx = getContext();

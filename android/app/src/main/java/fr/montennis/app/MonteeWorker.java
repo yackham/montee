@@ -70,10 +70,17 @@ public class MonteeWorker extends Worker {
         if (text.startsWith("MONTEE1")) {
             MonteeStore.put(ctx, "pending", text);
             String[] note = MonteeSummary.compute(ctx, text, MonteeStore.get(ctx, "state"));
-            if (note != null) for (int i = 0; i + 1 < note.length; i += 2) MonteeNotify.show(ctx, note[i], note[i + 1]);
-        } else if (text.contains("connecte-toi") && !MonteeStore.flag(ctx, "expiredNotified")) {
-            MonteeStore.flag(ctx, "expiredNotified", true);
-            MonteeNotify.show(ctx, "Ten'Up t'a déconnecté", "Ouvre Montée et reconnecte-toi pour suivre tes nouveaux matchs.");
+            int sent = 0;
+            if (note != null) for (int i = 0; i + 1 < note.length; i += 2) { MonteeNotify.show(ctx, note[i], note[i + 1]); sent++; }
+            MonteeStore.log(ctx, sent > 0 ? "notif:" + sent : "rien");
+        } else if (text.contains("connecte-toi")) {
+            MonteeStore.log(ctx, "deconnecte");
+            if (!MonteeStore.flag(ctx, "expiredNotified")) {
+                MonteeStore.flag(ctx, "expiredNotified", true);
+                MonteeNotify.show(ctx, "Ten'Up t'a déconnecté", "Ouvre Montée et reconnecte-toi pour suivre tes nouveaux matchs.");
+            }
+        } else {
+            MonteeStore.log(ctx, text.contains("délai") ? "timeout" : text.contains("maintenance") ? "maintenance" : "erreur");
         }
         return Result.success();
     }
