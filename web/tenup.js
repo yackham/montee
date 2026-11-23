@@ -1002,6 +1002,7 @@
         partnerRank: rk(pa), partner: pa ? [pa.prenom, pa.nom].filter(Boolean).join(" ") : "",
         mates: mates.slice(0, 4).map(function (x) { return { n: [x.p.prenom, x.p.nom].filter(Boolean).join(" "), r: rk(x.p) }; }), skel: isDouble(m) && mates.length < 2 ? skelOf(m) : null,
         date: m.date || m.dateMatch || "", v: m.victoireUtilisateur, wo: !!m.wo, ab: !!m.abandon, dbl: isDouble(m),
+        finPec: m.dateFinPEC || m.dateFinPec || m.dateFinPriseEnCompte || "", // 3.78.1 : date exacte où le match sort du calcul
         comp: m.nomHomologation || (m.competition && m.competition.libelle) || "", ctx: compText(m),
         nom: [a.prenom, a.nom].filter(Boolean).join(" ") || (a.anonyme ? "Anonyme" : ""), cl: String(cl), oid: a.idCrm || a.id || a.idPersonne || a.identifiant || "",
         olic: a.numeroLicence || a.licence || "", oyear: a.anneeNaissance || "", oclub: (a.club && typeof a.club === "object" ? a.club.nom || a.club.libelle : a.club) || a.nomClub || a.libelleClub || "",
@@ -1017,6 +1018,7 @@
       var score = sets.map(function (s) { return s[0] + "-" + s[1] + (s[2] != null && s[2] !== "" ? "(" + s[2] + ")" : ""); }).join(" ");
       if (m.ab) score += (score ? " " : "") + "ab.";
       var r = { date: isoDate(m.date), opp: m.nom || "", oid: m.oid ? String(m.oid) : "", olic: m.olic ? String(m.olic) : "", oclub: m.oclub ? String(m.oclub) : "", oyear: m.oyear ? +m.oyear : null, oppRank: normRank(m.cl), result: res, wo: !!m.wo, score: score, kind: kindOf((m.comp || "") + " | " + (m.ctx || "")), comp: m.comp || "" };
+      if (m.finPec && isoDate(m.finPec)) r.finPec = isoDate(m.finPec);
       r.ok = !!(r.date && r.oppRank && r.result);
       return r;
     }).filter(function (r) { return r.date; });
@@ -1030,7 +1032,7 @@
       var ranks = (m.oppRanks || []).map(normRank).filter(Boolean);
       return { date: isoDate(m.date), result: res, wo: !!m.wo, dbl: true, oppRanks: ranks, oppRank: ranks[0] || "",
         opp: (m.oppNames || []).filter(Boolean).join(" / "), partner: m.partner || "", partnerRank: normRank(m.partnerRank) || "", mates: (m.mates || []).map(function (x) { return { n: x.n, r: normRank(x.r) || "" }; }), skel: m.skel || null,
-        score: sets.map(function (s) { return s[0] + "-" + s[1]; }).join(" "), comp: m.comp || "" };
+        score: sets.map(function (s) { return s[0] + "-" + s[1]; }).join(" "), comp: m.comp || "", finPec: m.finPec ? isoDate(m.finPec) : "" };
     }).filter(function (r) { return r.date && r.result && r.oppRank; });
   }
 
