@@ -6667,6 +6667,73 @@ button.acr, a.acr { cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) { .mx-g0 *, .mx-g0 .arr { animation: none !important; transform: none; } }
 
+/* 3.94 (Yann, 23/11/2026) : entre deux matchs, pause, calendrier, règles en poche, ta saison, ton double, ta saison en euros */
+.ob-ace { margin-bottom: 0; }
+.ob-c { padding: 16px; gap: 0; text-align: left; font: inherit; color: inherit; }
+button.ob-c { border: 0; width: 100%; cursor: pointer; }
+.ob-eb { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ob-eb svg { width: 16px; height: 16px; color: var(--muted); }
+.ob-tag { flex: none; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; box-shadow: inset 0 0 0 1.5px currentColor; white-space: nowrap; }
+.ob-tag.ok { color: var(--gazon); } .ob-tag.mu { color: var(--muted); }
+.ob-t { display: block; font-size: 21px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; margin: 6px 0 2px; }
+.ob-s { display: block; font-size: 14.5px; color: var(--muted); line-height: 1.45; }
+.ob-list { display: flex; flex-direction: column; margin-top: 8px; }
+.ob-r { display: flex; align-items: center; gap: 12px; padding: 11px 0; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; color: inherit; text-align: left; text-decoration: none; width: 100%; }
+.ob-list > .ob-r:first-child { border-top: 0; }
+.ob-c .ob-list { border-top: 1px solid var(--line); margin-top: 12px; }
+.ob-c .ob-list > .ob-r:first-child { border-top: 0; }
+button.ob-r, a.ob-r { cursor: pointer; }
+.ob-r .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ob-r small { font-size: 13px; color: var(--muted); font-weight: 600; line-height: 1.35; }
+.ob-r b { font-size: 15.5px; font-weight: 700; line-height: 1.35; margin-top: 1px; }
+.ob-r > svg { flex: none; width: 16px; height: 16px; color: var(--muted); }
+.ob-tm { flex: none; width: 62px; font-weight: 800; font-size: 15px; white-space: nowrap; }
+.ob-tm.now, .ob-r.now .ob-tm { color: var(--gazon); }
+.ob-foot { display: block; font-size: 13.5px; color: var(--muted); line-height: 1.45; margin-top: 10px; }
+.ob-btns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.ob-btns.col { flex-direction: column; align-items: stretch; }
+.ob-lbl { display: block; font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
+.ob-li { display: flex; gap: 10px; font-size: 14.5px; line-height: 1.4; padding: 6px 0; }
+.ob-li i { flex: none; color: var(--gazon); font-style: normal; font-weight: 900; }
+.ob-li.warn i { color: var(--terre); }
+.ob-date { width: 100%; min-height: 44px; border-radius: 14px; border: 0; background: var(--chip); color: var(--ink); font: inherit; padding: 0 12px; margin-top: 8px; }
+.ob-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.ob-time { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.ob-time input { flex: 1; min-height: 44px; border-radius: 14px; border: 0; background: var(--chip); color: var(--ink); font: inherit; font-size: 17px; padding: 0 12px; }
+.ob-lk { border: 0; background: none; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
+.ob-ck { flex: none; width: 24px; height: 24px; border-radius: 7px; box-shadow: inset 0 0 0 2px var(--line); display: grid; place-items: center; font-size: 14px; font-weight: 900; }
+.ob-ck.on { box-shadow: inset 0 0 0 2px var(--gazon); color: var(--gazon); }
+.ob-rg, .ob-sr { background: var(--card); border-radius: 20px; border: 0; width: 100%; text-align: left; font: inherit; color: inherit; text-decoration: none; cursor: pointer; }
+.ob-frt { display: inline-flex; align-items: center; gap: 12px; }
+.ob-calb { position: relative; border: 0; background: none; padding: 2px; color: var(--page-muted, var(--muted)); cursor: pointer; display: grid; place-items: center; }
+.ob-calb svg { width: 19px; height: 19px; }
+.ob-calb.dot::after { content: ""; position: absolute; top: 0; right: -1px; width: 8px; height: 8px; border-radius: 50%; background: var(--terre); }
+.ob-mo { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--page-muted, var(--muted)); margin: 14px 4px 0; }
+.ob-cl { padding: 4px 16px; }
+.ob-ev { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+.ob-cl > .ob-ev:last-of-type { border-bottom: 0; }
+.ob-ev > svg { flex: none; width: 16px; height: 16px; color: var(--muted); }
+.ob-d { flex: none; width: 42px; text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); line-height: 1.15; }
+.ob-d b { display: block; font-size: 19px; color: var(--ink); }
+.ob-ev .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ob-ev .grow b { font-size: 15.5px; }
+.ob-ev .grow small { font-size: 13px; color: var(--muted); font-weight: 600; }
+.ob-x { flex: none; border: 0; background: var(--chip); color: var(--muted); width: 30px; height: 30px; border-radius: 50%; font-size: 13px; cursor: pointer; }
+.ob-al { display: flex; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 14.5px; line-height: 1.4; }
+.ob-al i { flex: none; font-style: normal; font-weight: 900; }
+.ob-al.w i { color: var(--terre); } .ob-al.g i { color: var(--gazon); }
+.ob-al .ch-plus { vertical-align: 1px; }
+.ob-up { color: var(--gazon); } .ob-dn { color: var(--terre); }
+.ob-big { display: block; font-size: 42px; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; margin-top: 8px; }
+.ob-big small { font-size: 15px; font-weight: 700; color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+.ob-bars { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 4px; }
+.ob-bars > div { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+.ob-bars .n { width: 118px; flex: none; color: var(--muted); }
+.ob-bars em { flex: 1; height: 8px; border-radius: 4px; background: var(--chip); position: relative; overflow: hidden; }
+.ob-bars em i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--balle); }
+.ob-bars b { width: 58px; text-align: right; flex: none; }
+.ob-eu .ob-r { border-top: 1px solid var(--line); margin-top: 8px; }
+.ob-eur { flex: none; font-size: 15.5px; }
 /* ---------- 3.93 : Montée+ incontournable (jour de sortie, ce que ce match change, lundi d'Ace, objectif, bilan d'arrivée, bouton unique) ---------- */
 .mp-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 7px; border: 0; font-family: inherit; cursor: pointer; font-weight: 800; font-size: 13.5px; padding: 5px 12px 5px 5px; border-radius: 99px; background: var(--chip); color: var(--ink); margin-top: 10px; }
 .mp-pill .ch-plus { margin: 0; }

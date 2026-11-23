@@ -517,6 +517,25 @@ enum TenupSilentRefresh {
 // MARK: - Plugin Capacitor appelé depuis l'app web
 
 @objc(TenupPlugin)
+/// 3.94 : aperçu Quick Look d'un fichier calendrier (.ics), gardé en mémoire le temps de l'aperçu
+final class IcsPreview: NSObject, UIDocumentInteractionControllerDelegate {
+    static var current: IcsPreview?
+    let doc: UIDocumentInteractionController
+    weak var vc: UIViewController?
+    init(url: URL, vc: UIViewController) {
+        doc = UIDocumentInteractionController(url: url)
+        self.vc = vc
+        super.init()
+        doc.delegate = self
+    }
+    func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
+        return vc ?? UIViewController()
+    }
+    func documentInteractionControllerDidEndPreview(_ controller: UIDocumentInteractionController) {
+        IcsPreview.current = nil
+    }
+}
+
 public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "TenupPlugin"
     public let jsName = "Tenup"
@@ -774,6 +793,13 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         DispatchQueue.main.async {
             guard let vc = self.bridge?.viewController else { call.reject("pas d'écran"); return }
+            // 3.94 : un fichier calendrier (.ics) s'ouvre en aperçu, avec « Tout ajouter » au calendrier
+            if url.pathExtension.lowercased() == "ics" {
+                let pv = IcsPreview(url: url, vc: vc)
+                IcsPreview.current = pv
+                if pv.doc.presentPreview(animated: true) { call.resolve(["saved": true, "preview": true]); return }
+                IcsPreview.current = nil
+            }
             let share = UIActivityViewController(activityItems: [url], applicationActivities: nil)
             if let pop = share.popoverPresentationController {
                 pop.sourceView = vc.view
