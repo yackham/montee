@@ -8516,10 +8516,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // Ace partout : sa pastille au-dessus des onglets (Yann, maquette v2 façon Bevel : la grosse balle prenait trop de place)
   // 3.82.1 (maquette M1) : la phrase de l'accueil dit quoi faire (combien de victoires, contre qui), pas seulement l'écart
+  function winsLine(c) { // « 2 victoires contre des 15/1 » : même calcul que « Ton cap »
+    try { var tg = Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC), w = winsFor(c, tg), top = w && w.top != null && w.top <= 4 ? w.top : null, n = top || (w && w.n <= 6 ? w.n : null), lv = top ? tg : w && w.lvl;
+      if (n && lv != null) return (n > 1 ? n + " victoires contre des " : "1 victoire contre un ") + lab(lv); } catch (e) {}
+    return "";
+  }
   function upTipT(c, gap) {
     var L = c.proj.next.label, base = "Il te manque " + plural(gap, "pt") + " pour " + L + ", on voit comment ?";
-    try { var tg = Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC), w = winsFor(c, tg), top = w && w.top != null && w.top <= 4 ? w.top : null, n = top || (w && w.n <= 6 ? w.n : null), lv = top ? tg : w && w.lvl; // même calcul que « Ton cap »
-      if (n && lv != null) return (n > 1 ? n + " victoires contre des " : "1 victoire contre un ") + lab(lv) + " et tu montes " + L + ". On regarde qui jouer d'abord ?"; } catch (e) {}
+    try { var wl = winsLine(c);
+      if (wl) return wl + " et tu montes " + L + ". On regarde qui jouer d'abord ?"; } catch (e) {}
     return base;
   }
   function coHomeTip(c) {
@@ -9893,6 +9898,23 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (st.length >= 3) return jkLine("m-3s", "Trois sets. Le public (toi) en a eu pour son argent.");
     return "";
   }
+  // 3.82.1 (B5) : ce que la victoire ajoute vraiment au bilan (elle peut prendre la place d'une victoire déjà comptée)
+  function matchNet(m, c) {
+    try { var a = E.project(allMatches(), c.cur, c.sex, c.opts), b = E.project(allMatches().filter(function (x) { return x.id !== m.id; }), c.cur, c.sex, c.opts);
+      return a.next && b.next ? a.next.total - b.next.total : null; } catch (e) { return null; }
+  }
+  // 3.82.1 (Yann, maquette M2 du 23/11) : après ta dernière victoire (60 j), Ace dit ce que ça change et la suite
+  function winAceHtml(m) {
+    if (m.result !== "V" || m.wo || !counts(m)) return "";
+    var last = null; try { last = coLastPlayed("V", 60); } catch (e) {} if (!last || last.id !== m.id) return "";
+    var c = null; try { c = ctx(); } catch (e) { return ""; } var p = c.proj; if (!p || p.status === "top") return "";
+    var o = E.idx(T.normRank(m.oppRank || "")), perf = o != null && c.cur != null && o > c.cur, net = matchNet(m, c);
+    var t = "<b>" + (perf ? "Belle perf, ça c'est fait !" : "Bien joué !") + "</b>" + (net > 0 ? " +" + net + " pts au bilan." : "");
+    if (p.status === "montee") t += " Tu montes " + esc(lab(p.projected)) + " à la sortie. On en parle ?";
+    else if (p.next && p.next.norme) { var gap = Math.max(0, p.next.norme - p.next.total), wl = winsLine(c); t += gap ? " Plus que " + gap + " pts pour " + esc(p.next.label) + (wl ? ", soit " + esc(wl) : "") + ". Je te dis qui viser ?" : " On regarde la suite ?"; }
+    else t += " On regarde la suite ?";
+    return coachBubble("mt", [{ id: "mt:win:" + m.id, mood: "joie", t: t, act: { l: "On en parle", a: "ace", v: "win" } }]).replace('class="card cbl"', 'class="card cbl mt-ace"');
+  }
   // 3.75 : après ta dernière défaite (60 j), Ace arrive déçue puis se concentre sur la suite (jamais de fête)
   function lossAceHtml(m) {
     if (m.result !== "D" || m.wo) return "";
@@ -9950,14 +9972,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.55 (Yann, ordre de la fiche validé) : résultat, puis pourquoi / ce que tu gardes, puis à compléter, puis le contexte
     var midH = isNew ? "" : analyseHtml(mA, official) + (m.result === "D" ? nextOccHtml(mA) : "") + toCompleteHtml(mA);
     if (!isNew && (S.anNew || []).indexOf(m.id) >= 0) { S.anNew = S.anNew.filter(function (x) { return x !== m.id; }); save(); }
-    if (official) s += (isNew ? "" : lossAceHtml(m) + jkMatch(m)) + midH;
+    if (official) s += (isNew ? "" : lossAceHtml(m) + winAceHtml(m) + jkMatch(m)) + midH;
     if (!isNew && official) s += hcMatchLine(m) + hrMatchCard(m);
     if (!isNew && !official) {
       s += '<div class="card ink" style="flex-direction:row;justify-content:space-between;align-items:center"><span style="display:flex;flex-direction:column;gap:3px"><span style="font-size:13px;color:var(--sub)">' + esc(fdate(m.date)) + " · " + esc((KINDS.filter(function (k) { return k[0] === m.kind; })[0] || ["", "Match"])[1]) + (m.comp ? '</span><span style="font-size:12px;color:var(--sub);line-height:1.3">' + esc(m.comp) : "") + '</span><span style="font-size:20px;font-weight:600">' + esc(nameCase(m.opp) || "Adversaire") + " · " + esc(m.oppRank) + '</span><span style="color:#E6E0D8">' + esc(m.score || "") + "</span></span>" +
         '<span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span style="height:32px;padding:0 12px;border-radius:16px;background:' + (m.result === "V" ? "var(--balle)" : "var(--terre-soft)") + ";color:" + (m.result === "V" ? "var(--on-balle)" : "var(--terre-dark)") + ';font-weight:700;display:flex;align-items:center">' + (m.result === "V" ? "Victoire" : "Défaite") + (m.wo ? " (WO)" : "") + "</span>" +
-        (m.result === "V" ? '<span style="color:var(--hl);font-weight:600;font-size:14px">' + (!counts(m) ? "ne compte pas" : pts != null ? "+" + pts + " pts" : "hors quota") + "</span>" : "") + "</span></div>";
+        (m.result === "V" ? '<span style="color:var(--hl);font-weight:600;font-size:14px">' + (!counts(m) ? "ne compte pas" : pts != null ? "+" + (function () { var nt = matchNet(m, c); return nt != null && nt > 0 && nt < pts ? nt : pts; })() + " pts" : "hors quota") + "</span>" : "") + "</span></div>";
     }
-    if (!isNew && !official) s += lossAceHtml(m) + jkMatch(m) + midH + hcMatchLine(m) + hrMatchCard(m); // 3.54 : sous l'en-tête du match
+    if (!isNew && !official) s += lossAceHtml(m) + winAceHtml(m) + jkMatch(m) + midH + hcMatchLine(m) + hrMatchCard(m); // 3.54 : sous l'en-tête du match
     // 3.47 (Yann) : le face-à-face remonte sous l'en-tête du match (bilan + pastilles V/D), au lieu d'être tout en bas
     if (!isNew && m.opp && !isAnon(m.opp) && nameKey(m.opp).length >= 3) {
       var hk = nameKey(m.opp), hm = knownMatches(false).filter(function (x) { return x.opp && nameKey(x.opp) === hk && !x.wo && (x.result === "V" || x.result === "D"); }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
