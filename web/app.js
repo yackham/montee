@@ -3457,7 +3457,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (tdK.length === 1 && tdK[0] === "backup") B.sync = B.backup; // seule chose à faire : à la place de la synchro
       else if (tdK.length >= 2 || tuOut) {
         var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0) + (B.backup ? 2 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
-        var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + (tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK).map(function (k) { return '<div class="td3-i">' + B[k] + "</div>"; }).join("") + "</div>";
+        var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + (function () {
+          // 3.82.1 (Yann, maquette M4 du 23/11) : 2 tâches visibles, le reste derrière « N autres »
+          var ord = tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK, vis = UI.tdAll || ord.length <= 3 ? ord : ord.slice(0, 2), rest = ord.slice(vis.length);
+          var TDN = { annoter: "annotation", rate: "ressenti", slot: "séance", cordage: "cordage", sync: "Ten'Up", backup: "sauvegarde" };
+          return vis.map(function (k) { return '<div class="td3-i">' + B[k] + "</div>"; }).join("") +
+            (rest.length ? '<button class="td3-more" data-a="tdMore"><span>' + esc(cap1(rest.map(function (k) { return TDN[k] || k; }).join(", "))) + "</span><b>" + (rest.length > 1 ? rest.length + " autres" : "1 autre") + " ›</b></button>" : "");
+        })() + "</div>";
         tdK.forEach(function (k) { B[k] = ""; }); B[tdK[0]] = tdH;
       }
       B.backup = "";
@@ -17176,6 +17182,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     simuClear: function () { UI.simu = []; render(); },
     // 3.73 : Ma montée (onglets) et la Balle
     mmTab: function (el) { UI.mmTab = el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); },
+    tdMore: function () { UI.tdAll = 1; render(); },
     coachNo: function (el) {
       var m = coMem(), id = el.dataset.id, sc = el.dataset.s; m.no[id] = Date.now(); m.scr[sc] = (m.scr[sc] || 0) + 1; coPurge(m); save();
       toast("Compris, je ne te le redis pas avant 3 semaines.");
