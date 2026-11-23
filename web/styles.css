@@ -6299,3 +6299,15 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .ct-b svg { width: 17px; height: 17px; }
 .ct-add { height: 36px; padding: 0 12px; border-radius: 18px; border: 0; background: none; box-shadow: inset 0 0 0 1.5px var(--line); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; }
 .fq-s.unk { padding-left: 16px; }
+/* 3.76.0 : copie automatique et copies à restaurer (lignes à plat, trait fin) */
+.dn-auto { flex-direction: row; align-items: center; gap: 12px; }
+.dn-auto .grow { display: flex; flex-direction: column; gap: 3px; }
+.dn-auto small { font-size: 13px; color: var(--muted); }
+.dn-bk { gap: 0; }
+.dn-bkr { display: flex; align-items: center; gap: 8px; padding: 11px 0; border-top: 1px solid var(--line); }
+.dn-bkr:first-child { border-top: 0; }
+.dn-bkr .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dn-bkr b { font-size: 14.5px; }
+.dn-bkr small { font-size: 12.5px; color: var(--muted); }
+.dn-bkb { height: 36px; padding: 0 12px; border-radius: 18px; border: 0; background: var(--chip); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; flex: none; }
+.dn-bkb.go { background: var(--terre); color: #fff; }

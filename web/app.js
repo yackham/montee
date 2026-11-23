@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.75.0",
+    VERSION: "3.76.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -34,6 +34,7 @@
   var Tenup = NATIVE ? plugin("Tenup") : null;
   var LN = NATIVE ? plugin("LocalNotifications") : null;
   var AppP = NATIVE ? plugin("App") : null;
+  var FSP = NATIVE ? plugin("Filesystem") : null; // 3.76.0 : copie automatique de la sauvegarde (Fichiers sur iPhone, dossier de l'app sur Android)
   var IOS = NATIVE && CAP.getPlatform && CAP.getPlatform() === "ios";
   var ANDROID = NATIVE && CAP.getPlatform && CAP.getPlatform() === "android";
   // 3.45 : Montée+ sur iPhone (App Store) et sur Android (Google Play Billing)
@@ -3199,12 +3200,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (freshStart()) { ["cordage", "rate", "slot"].concat(tuOut ? [] : ["sync"]).concat(["week", "semaine", "todo", "charge", "essayer", "goal", "carte"]).forEach(function (k) { B[k] = ""; }); X.an = ""; B.annoter = qaHtml(true); }
     // 3.55 (Yann, maquette D) : les petites choses à faire (annoter, ressenti, cordage, synchro) dans une seule carte « À faire »
     if (!freshStart()) {
-      var tdK = ["annoter", "rate", "slot", "cordage", "sync"].filter(function (k) { return B[k]; });
-      if (tdK.length >= 2 || tuOut) {
-        var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
+      B.backup = bkDue() ? bkTodoHtml() : "";
+      var tdK = ["annoter", "rate", "slot", "cordage", "sync", "backup"].filter(function (k) { return B[k]; });
+      if (tdK.length === 1 && tdK[0] === "backup") B.sync = B.backup; // seule chose à faire : à la place de la synchro
+      else if (tdK.length >= 2 || tuOut) {
+        var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0) + (B.backup ? 2 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
         var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + (tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK).map(function (k) { return '<div class="td3-i">' + B[k] + "</div>"; }).join("") + "</div>";
         tdK.forEach(function (k) { B[k] = ""; }); B[tdK[0]] = tdH;
       }
+      B.backup = "";
     }
     X.rebond = rebondHtml(c); // 3.55 (Yann) : mode rebond
     // 3.57 (audit parcours M1, M2) : une seule invitation à la fois, « Tu joues pour quoi ? » compris ; aucune pendant un passage à vide
@@ -14717,6 +14721,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function nativeWake() {
     if (!NATIVE) return;
+    setTimeout(function () { bkSnap(false).then(function (ok) { if (ok && route() === "donnees") render(); }); }, 6000); // 3.76.0 : copie de la semaine
     syncWidgets(true); // un widget a pu être ajouté ou redimensionné
     setTimeout(folRefresh, 5000); // nouvelles des joueurs suivis, sans attendre ta prochaine synchro
     setTimeout(function () { try { toursAll().filter(function (t) { return !tourOver(t); }).forEach(function (t) { if (t.pool && t.pool.length > 1) poolSync(t); }); } catch (e) {} }, 9000); // 3.66.1 : aussi une poule qui commence dans plus de 2 jours
@@ -15728,9 +15733,43 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
 
   // ---------- Données ----------
+  function backupTxt() { var copy = JSON.parse(JSON.stringify(S)); if (copy.tenup) delete copy.tenup.cred; return JSON.stringify(copy, null, 2); }
+  // 3.76.0 (Yann, maquette propositions-23-11 validée) : une copie automatique chaque semaine, les 4 dernières gardées.
+  // iPhone : Fichiers › Sur mon iPhone › Montée (et la sauvegarde iCloud du téléphone) ; Android : dossier de l'app (sauvegarde Google du téléphone).
+  var BK_DIR = "Sauvegardes Montée", BK_RE = /^montee-auto-(\d{4}-\d\d-\d\d)\.json$/;
+  function bkOn() { return !!FSP && !(S.prefs && S.prefs.bkAutoOff); }
+  function bkDir() { return IOS ? "DOCUMENTS" : "DATA"; }
+  function bkList() {
+    if (!FSP) return Promise.resolve([]);
+    return Promise.resolve().then(function () { return FSP.readdir({ path: BK_DIR, directory: bkDir() }); }).then(function (r) {
+      return ((r && r.files) || []).map(function (f) { return typeof f === "string" ? f : f.name; }).filter(function (n) { return BK_RE.test(n || ""); }).sort().reverse();
+    }).catch(function () { return []; });
+  }
+  function bkSnap(force) {
+    if (!bkOn() || !(S.matches || []).length) return Promise.resolve(false);
+    if (!force && S.bkAutoAt && dGap(S.bkAutoAt) > -7) return Promise.resolve(false);
+    var name = "montee-auto-" + E.iso(today()) + ".json";
+    return Promise.resolve().then(function () { return FSP.writeFile({ path: BK_DIR + "/" + name, data: backupTxt(), directory: bkDir(), encoding: "utf8", recursive: true }); })
+      .then(function () { S.bkAutoAt = E.iso(today()); S.bkAutoN = S.matches.length; save(); return bkList(); })
+      .then(function (L) { return Promise.all(L.slice(4).map(function (n) { return FSP.deleteFile({ path: BK_DIR + "/" + n, directory: bkDir() }).catch(function () {}); })).then(function () { UI.bkFiles = L.slice(0, 4); return true; }); })
+      .catch(function () { return false; });
+  }
+  function bkRestore(name) {
+    return Promise.resolve().then(function () { return FSP.readFile({ path: BK_DIR + "/" + name, directory: bkDir(), encoding: "utf8" }); }).then(function (r) {
+      var d = JSON.parse(r && r.data); if (!d || !Array.isArray(d.matches)) throw new Error();
+      S = Object.assign(blank(), d); S.onboarded = true; save(); UI.bkAsk = null; toast("Copie du " + dm(E.parseDate(name.match(BK_RE)[1])) + " restaurée."); go("");
+    }).catch(function () { toast("Cette copie ne peut pas être lue."); });
+  }
+  // la dernière mise à l'abri : sauvegarde manuelle ou copie automatique
+  function bkLast() { var a = S.lastBackup || "", b = S.bkAutoAt || ""; return a > b ? a : b; }
+  // 3.76.0 : « Mets tes matchs à l'abri » dans À faire, après 30 jours sans sauvegarde (20 matchs et plus)
+  function bkDue() { var l = bkLast(); return (S.matches || []).length >= 20 && (!l || dGap(l) < -30); }
+  function bkTodoHtml() {
+    var l = bkLast(), age = l ? -dGap(l) : null;
+    return '<button class="card qa1" data-a="' + (NATIVE && !IOS ? "exportShare" : "export") + '"><span class="eyebrow">Mets tes matchs à l\'abri</span><span class="qa1-r"><b>' + (age == null ? "Jamais sauvegardé" : "Dernière sauvegarde il y a " + age + " jours") + '<small class="qa1-more"> · ' + plural(S.matches.length, "match", "matchs") + '</small></b><span class="qa1-go">Sauvegarder · 2 s ' + I.next + "</span></span></button>";
+  }
   function backup(share) {
-    var copy = JSON.parse(JSON.stringify(S)); if (copy.tenup) delete copy.tenup.cred;
-    var name = "montee-sauvegarde-" + E.iso(today()) + ".json", txt = JSON.stringify(copy, null, 2);
+    var name = "montee-sauvegarde-" + E.iso(today()) + ".json", txt = backupTxt();
     var done = function (msg) { S.lastBackup = E.iso(today()); save(); toast(msg); render(); };
     var web = function () {
       var file = typeof File === "function" ? new File([txt], name, { type: "application/json" }) : null;
@@ -15752,22 +15791,31 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     web();
   }
   V.donnees = function () {
-    var lb = S.lastBackup, age = lb ? Math.round((today() - E.parseDate(lb)) / 864e5) : null, old = age == null || age > 30;
+    var lb = bkLast(), age = lb ? Math.round((today() - E.parseDate(lb)) / 864e5) : null, old = age == null || age > 30, auto = lb && lb === S.bkAutoAt && lb !== S.lastBackup;
+    if (FSP && !UI.bkLoaded) { UI.bkLoaded = 1; bkList().then(function (L) { UI.bkFiles = L; if (route() === "donnees") render(); }); }
     var nT = (S.trainings || []).length;
     var row = function (attr, ic, t, sub, extra) { return '<' + (extra ? "label" : "button") + ' class="row dn-row" ' + attr + '><span class="dn-ic">' + ic + '</span><span class="grow"><span class="t">' + t + '</span><span class="s">' + sub + "</span></span>" + (extra || I.next) + "</" + (extra ? "label" : "button") + ">"; };
     var s = '<div class="screen">' + topbar("Tes données");
     // État
-    s += '<div class="card dn-state"><div class="dn-top"><span class="badge ' + (old ? "ko" : "ok") + '">' + (old ? I.warn : I.check) + '</span><span class="grow"><b>' + (lb ? "Sauvegardé " + (age === 0 ? "aujourd'hui" : age === 1 ? "hier" : "il y a " + age + " jours") : "Jamais sauvegardé") + '</b><span class="small">' + (old ? "Pense à faire une sauvegarde : tes données ne sont que sur ce téléphone." : "Tes données sont à l'abri.") + "</span></span></div>" +
+    s += '<div class="card dn-state"><div class="dn-top"><span class="badge ' + (old ? "ko" : "ok") + '">' + (old ? I.warn : I.check) + '</span><span class="grow"><b>' + (lb ? (auto ? "Copie automatique " : "Sauvegardé ") + (age === 0 ? "aujourd'hui" : age === 1 ? "hier" : "il y a " + age + " jours") : "Jamais sauvegardé") + '</b><span class="small">' + (auto && !old ? (IOS ? "Dans Fichiers › Montée, et dans la sauvegarde iCloud de ton iPhone." : "Sur ce téléphone, et dans sa sauvegarde Google.") + " " + plural(Math.min(4, (UI.bkFiles || []).length || 1), "copie gardée", "copies gardées") + "." : old ? "Pense à faire une sauvegarde : tes données ne sont que sur ce téléphone." : "Tes données sont à l'abri.") + "</span></span></div>" +
       '<div class="dn-stats"><span><b>' + S.matches.length + "</b>match" + (S.matches.length > 1 ? "s" : "") + "</span><span><b>" + S.rackets.length + "</b>raquette" + (S.rackets.length > 1 ? "s" : "") + "</span><span><b>" + nT + "</b>entraînement" + (nT > 1 ? "s" : "") + "</span></div></div>";
+    if (FSP) s += '<div class="card dn-auto"><span class="grow"><b>Copie automatique chaque semaine</b><small>Sans rien faire : Montée garde les 4 dernières' + (IOS ? ", dans Fichiers › Montée." : " sur ce téléphone.") + '</small></span><button class="ce-tg' + (bkOn() ? " on" : "") + '" data-a="bkTg" role="switch" aria-checked="' + bkOn() + '" aria-label="Copie automatique chaque semaine"></button></div>';
     // Sauvegarder
     s += "<h2>Sauvegarde</h2>";
     if (IOS) s += '<button class="btn primary" data-a="export">' + I.share + " Sauvegarder</button>";
     else if (NATIVE) s += '<button class="btn primary" data-a="exportShare">' + I.share + " Sauvegarder</button>";
     else s += '<button class="btn primary" data-a="export">' + I.save + " Télécharger une sauvegarde</button>";
     s += '<p class="small" style="margin:0">' + (IOS ? "Dans Fichiers, iCloud ou par e-mail : garde-la ailleurs que sur ce téléphone." : NATIVE ? "Sur Drive ou par e-mail : garde-la ailleurs que sur ce téléphone." : "Un fichier est téléchargé sur cet appareil.") + "</p>";
+    // 3.76.0 : les copies automatiques, à restaurer d'un geste (avec confirmation : ça remplace tes données)
+    var BF = UI.bkFiles || [];
+    if (BF.length) s += "<h2>Restaurer</h2>" + '<div class="card dn-bk">' + BF.map(function (n) {
+      var d = n.match(BK_RE)[1], ask = UI.bkAsk === n;
+      return '<div class="dn-bkr"><span class="grow"><b>' + esc(dayLab(d).replace(/^./, function (c) { return c.toUpperCase(); })) + "</b><small>" + (ask ? "Remplacer les données de ce téléphone par cette copie ?" : "Copie automatique") + "</small></span>" +
+        (ask ? '<button class="dn-bkb" data-a="bkCancel">Annuler</button><button class="dn-bkb go" data-a="bkDo" data-v="' + esc(n) + '">Restaurer</button>' : '<button class="dn-bkb" data-a="bkAsk" data-v="' + esc(n) + '" aria-label="Restaurer la copie du ' + esc(dm(E.parseDate(d))) + '">Restaurer</button>') + "</div>";
+    }).join("") + "</div>";
     s += '<div class="card" style="padding:0">' +
       (NATIVE && !IOS ? row('data-a="export"', I.save, "Copie sur ce téléphone", "Dans le dossier Téléchargements") + '<div class="dn-sep"></div>' : "") +
-      row('style="cursor:pointer"', svg('<path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/>'), "Restaurer une sauvegarde", "Remplace les données de ce téléphone", I.next + '<input type="file"' + (NATIVE ? "" : ' accept="application/json,.json"') + ' data-a="importFile" hidden>') + "</div>";
+      row('style="cursor:pointer"', svg('<path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/>'), BF.length ? "Un autre fichier…" : "Restaurer une sauvegarde", BF.length ? "Une sauvegarde reçue par e-mail ou dans Fichiers" : "Remplace les données de ce téléphone", I.next + '<input type="file"' + (NATIVE ? "" : ' accept="application/json,.json"') + ' data-a="importFile" hidden>') + "</div>";
     // Zone sensible, à part
     s += '<div class="card" style="padding:0;margin-top:8px"><button class="row dn-row dn-danger" data-a="wipe"><span class="dn-ic">' + I.trash + '</span><span class="grow"><span class="t">Tout effacer</span><span class="s">Supprime tes matchs, raquettes et réglages</span></span></button></div>';
     return s + "</div>";
@@ -17328,6 +17376,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     // données
     export: function () { backup(false); },
+    bkTg: function () { S.prefs = S.prefs || {}; if (bkOn()) S.prefs.bkAutoOff = true; else { delete S.prefs.bkAutoOff; bkSnap(true).then(function () { render(); }); } save(); render(); },
+    bkAsk: function (el) { UI.bkAsk = el.dataset.v; render(); },
+    bkCancel: function () { UI.bkAsk = null; render(); },
+    bkDo: function (el) { bkRestore(el.dataset.v); },
     exportShare: function () { backup(true); },
     wipe: function () {
       if (!askOk("Effacer tout ton palmarès, tes raquettes et ton profil de cet appareil ?")) return;
