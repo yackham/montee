@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.91.0",
+    VERSION: "3.92.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -12615,13 +12615,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var w = sjWatchOk() && !grp;
     s += '<div class="sj-acts">' + (grp ? '<button class="btn primary" data-a="sjGo" data-v="phone">' + svg('<path d="M8 5v14l11-7z"/>', 2) + " Lancer le minuteur du groupe</button>" :
       '<button class="btn soft" data-a="sjGo" data-v="phone">' + svg('<path d="M8 5v14l11-7z"/>', 2) + " Sur l'iPhone</button>" + (w ? '<button class="btn primary" data-a="sjGo" data-v="watch">' + svg(SJ_WATCH, 2) + " Sur la montre</button>" : "")) + "</div>";
-    s += '<div class="sj-share"><span class="small">' + (grp ? "Envoie le plan au groupe :" : "Envoie la séance à ton partenaire :") + '</span><button class="go-pill" data-a="sjShare" data-v="wa">WhatsApp</button><button class="go-pill" data-a="sjShare" data-v="sms">Messages</button><button class="go-pill" data-a="sjShare" data-v="copy">Copier</button></div>';
+    s += '<div class="sj-share"><span class="small">' + (grp ? "Envoie le plan au groupe :" : "Envoie la séance à ton partenaire :") + '</span><button class="go-pill" data-a="sjShare" data-v="img">' + svg('<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>', 2) + ' Envoyer en image</button><button class="go-pill" data-a="sjShare" data-v="copy">Copier le texte</button></div>';
     s += '<button class="linkbtn sj-hide" data-a="sjHide">Pas aujourd\'hui</button>';
     return s + "</div>";
   };
-  function sjText(P) {
+  function sjText(P, brief) { // brief : juste l'en-tête et, pour un groupe, qui joue où (le plan est sur l'image)
     var L = ["Séance " + (P.grp ? "de groupe" : "du jour") + " · " + fmtDur(P.min) + " · " + P.title, ""];
-    P.blocks.forEach(function (b) {
+    if (!brief) P.blocks.forEach(function (b) {
       L.push(Math.floor(b.at / 60) + ":" + ("0" + (b.at % 60)).slice(-2) + " · " + b.t + " (" + fmtDur(b.min) + ")");
       if (b.ct) b.ct.forEach(function (x) { L.push("  " + x.k + " : " + x.x); }); else L.push("  " + b.x);
       if (b.rot) L.push("  Toutes les " + fmtDur(Math.round(b.rot)) + ", 1 joueur par terrain change de terrain.");
@@ -12635,8 +12635,119 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (P.grp && S.sjDraw && S.sjDraw.d === E.iso(today()) && S.sjDraw.order.length === P.grp.n) {
       var kk = 0; L.push("", "Le tirage :"); P.grp.cs.sizes.forEach(function (z, i) { var cl = S.sjDraw.order.slice(kk, kk + z); kk += z; L.push("T" + (i + 1) + " · " + sjTeams(cl).map(function (t) { return t.join(z === 4 ? " et " : ", "); }).join(" contre ")); });
     }
+    if (brief && !P.grp) return L[0];
     L.push("", "Préparée avec Montée");
-    return L.join("\n");
+    return L.join("\n").replace(/\n\n\n+/g, "\n\n");
+  }
+  // 3.92.0 (Yann : « en texte c'est imbitable ») : la séance part en IMAGE, comme l'écran : frise des blocs avec l'heure,
+  // la catégorie, le titre, la consigne, l'objectif, le défi et le gage. Hauteur selon le plan ; le texte court accompagne l'image.
+  var SJI_COL = { cor: "#4CC9C0", tet: "#A98BFF", sol: "#E88A5E", tac: "#F2C14E" };
+  function sjiWrap(g, txt, maxW, first) { // first : largeur déjà prise sur la 1re ligne
+    var out = [], line = "", lim = maxW - (first || 0);
+    String(txt || "").split(/\s+/).forEach(function (w) { if (!w) return; var t = line ? line + " " + w : w; if (g.measureText(t).width > lim && line) { out.push(line); line = w; lim = maxW; } else line = t; });
+    if (line) out.push(line); return out;
+  }
+  function sjiPaint(g, P, W, c) {
+    var F = SHV_F, X = 64, ink = "#F4F2EE", mut = "#9C9A94", body = "#D9D7D1", y = 128, grp = !!P.grp;
+    var tm = function (m) { return Math.floor(m / 60) + ":" + ("0" + (m % 60)).slice(-2); };
+    g.textBaseline = "alphabetic"; g.textAlign = "left";
+    var eb = (grp ? "Séance de groupe" : "Séance du jour") + " · " + fmtDur(P.min) + " · " + (grp ? plural(P.grp.n, "joueur") + ", " + plural(P.grp.cs.sizes.length, "terrain") : P.mode === "solo" ? "seul" : "à deux");
+    g.fillStyle = "#D4E64A"; shvSp(g, "4px"); var ef = 34; g.font = "800 34px " + F; while (ef > 22 && g.measureText(eb.toUpperCase()).width > W - 2 * X) { ef -= 2; g.font = "800 " + ef + "px " + F; } g.fillText(eb.toUpperCase(), X, y); shvSp(g, "0px");
+    g.fillStyle = ink; g.font = "800 78px " + F; sjiWrap(g, P.title, W - 2 * X).slice(0, 3).forEach(function (l) { y += 92; g.fillText(l, X, y); });
+    // la frise colorée de la séance, comme en haut de l'écran
+    y += 46; var bw = W - 2 * X, gap = 8, tot = P.min || 1, bx = X, fr = P.blocks.length;
+    P.blocks.forEach(function (b, i) { var w = (bw - gap * (fr - 1)) * b.min / tot; g.fillStyle = SJI_COL[b.cat] || SJI_COL.tac; shvRR(g, bx, y, Math.max(8, w), 18, 9); g.fill(); bx += w + gap; });
+    y += 18;
+    // légende des catégories présentes
+    var seen = []; P.blocks.forEach(function (b) { if (seen.indexOf(b.cat) < 0) seen.push(b.cat); });
+    y += 56; bx = X; g.font = "700 30px " + F;
+    seen.forEach(function (k) { var lb = (GOAL_CAT[k] || GOAL_CAT.tac)[0]; g.fillStyle = SJI_COL[k] || SJI_COL.tac; g.beginPath(); g.arc(bx + 9, y - 10, 9, 0, 6.3); g.fill(); g.fillStyle = mut; g.fillText(lb, bx + 28, y); bx += 28 + g.measureText(lb).width + 40; });
+    y += 54;
+    // les blocs
+    var TX = X + 132, CW = W - TX - X, PAD = 40, IW = CW - 2 * PAD, lineX = X + 50, y0 = y;
+    P.blocks.forEach(function (b, i) {
+      var top = y, col = SJI_COL[b.cat] || SJI_COL.tac, cy = top + PAD + 34;
+      // 1re passe : on mesure le contenu, 2e passe : on dessine la carte puis le contenu
+      var parts = [];
+      g.font = "500 35px " + F;
+      // même consigne sur tous les terrains : une seule fois (« Terrains 1 et 2 · 3 »)
+      var ct = b.ct && b.ct.length > 1 && b.ct.every(function (x) { return x.x === b.ct[0].x && x.k.split(" · ")[1] === b.ct[0].k.split(" · ")[1]; }) ? [{ k: "Terrains " + b.ct.map(function (x, j) { return j + 1; }).join(", ").replace(/, (\d+)$/, " et $1") + (b.ct[0].k.split(" · ")[1] ? " · " + b.ct[0].k.split(" · ")[1] : ""), x: b.ct[0].x }] : b.ct;
+      if (ct) ct = ct.map(function (x) { return { k: x.k.replace(/ · (\d+)$/, " · $1 joueurs"), x: x.x }; });
+      if (ct && ct.length) ct.forEach(function (x) { parts.push({ k: x.k }); sjiWrap(g, x.x, IW).forEach(function (l) { parts.push({ t: l }); }); });
+      else sjiWrap(g, b.x, IW).forEach(function (l) { parts.push({ t: l }); });
+      if (b.rot) { g.font = "500 31px " + F; sjiWrap(g, "Toutes les " + fmtDur(Math.round(b.rot)) + " : " + (b.bench ? "des joueurs passent à l'atelier." : b.ct && b.ct.length === 1 ? "1 joueur sort, 1 joueur du bord rentre." : "1 joueur par terrain change de terrain."), IW).forEach(function (l) { parts.push({ s: l }); }); }
+      var obj = null; if (b.obj) { g.font = "500 33px " + F; var ow = g.measureText("Objectif : ").width; g.font = "800 33px " + F; obj = { w: ow, l: sjiWrap(g, b.obj, IW, ow) }; }
+      var dfs = [];
+      if (b.df) {
+        g.font = "500 33px " + F;
+        dfs.push({ k: "Défi", c: "#D4E64A", t: (b.df.m < b.min ? "Les " + b.df.m + " dernières minutes : " : "") + b.df.t });
+        if (b.df.gage) dfs.push({ k: "Gage", c: "#E88A5E", t: b.df.gage.t + (b.df.gage.s ? ", " + b.df.gage.s : "") + (b.df.grp ? " (les perdants de chaque match)" : b.df.solo ? " (si tu ne l'as pas)" : "") });
+        dfs.forEach(function (d) { g.font = "800 26px " + F; shvSp(g, "3px"); d.pw = g.measureText(d.k.toUpperCase()).width + 44; shvSp(g, "0px"); g.font = "500 33px " + F; d.l = sjiWrap(g, d.t, IW - d.pw - 22); });
+      }
+      var h = PAD + 34 + 24 + 54 + 14;
+      parts.forEach(function (p) { h += p.k ? 44 : p.s ? 42 : 48; });
+      if (obj) h += 14 + obj.l.length * 46;
+      if (dfs.length) { h += 34; dfs.forEach(function (d, j) { h += (j ? 20 : 0) + Math.max(56, d.l.length * 46 + 8); }); }
+      h += PAD - 6;
+      // carte
+      g.fillStyle = "#23262C"; shvRR(g, TX, top, CW, h, 40); g.fill();
+      // heure + rail
+      g.fillStyle = mut; g.font = "700 34px " + F; g.textAlign = "center"; g.fillText(tm(b.at), lineX, top + 50); g.textAlign = "left";
+      g.fillStyle = "rgba(255,255,255,.12)"; if (i < P.blocks.length - 1) g.fillRect(lineX - 2, top + 76, 4, h - 52);
+      // en-tête : catégorie, durée
+      var cx = TX + PAD; g.fillStyle = col; g.beginPath(); g.arc(cx + 10, cy - 11, 10, 0, 6.3); g.fill();
+      shvSp(g, "3px"); g.font = "800 31px " + F; g.fillText((GOAL_CAT[b.cat] || GOAL_CAT.tac)[0].toUpperCase(), cx + 32, cy); shvSp(g, "0px");
+      g.textAlign = "right"; g.fillStyle = mut; g.font = "800 31px " + F; g.fillText(fmtDur(b.min), TX + CW - PAD, cy); g.textAlign = "left";
+      var yy = cy + 24 + 46; g.fillStyle = ink; g.font = "800 46px " + F; g.fillText(b.t, cx, yy); yy += 14;
+      parts.forEach(function (p) {
+        if (p.k) { yy += 44; g.fillStyle = col; g.font = "800 28px " + F; shvSp(g, "2px"); g.fillText(p.k.toUpperCase(), cx, yy); shvSp(g, "0px"); }
+        else if (p.s) { yy += 42; g.fillStyle = mut; g.font = "500 31px " + F; g.fillText(p.s, cx, yy); }
+        else { yy += 48; g.fillStyle = body; g.font = "500 35px " + F; g.fillText(p.t, cx, yy); }
+      });
+      if (obj) {
+        yy += 14; obj.l.forEach(function (l, j) {
+          yy += 46; var ox = cx; if (!j) { g.fillStyle = mut; g.font = "500 33px " + F; g.fillText("Objectif : ", cx, yy); ox += obj.w; }
+          g.fillStyle = ink; g.font = "800 33px " + F; g.fillText(l, ox, yy);
+        });
+      }
+      if (dfs.length) {
+        yy += 22; g.fillStyle = "rgba(255,255,255,.1)"; g.fillRect(cx, yy, IW, 3); yy += 12;
+        dfs.forEach(function (d, j) {
+          yy += j ? 20 : 0; var py = yy + 4;
+          g.strokeStyle = d.c; g.lineWidth = 4; shvRR(g, cx + 2, py, d.pw, 50, 25); g.stroke();
+          g.fillStyle = d.k === "Gage" ? d.c : ink; g.font = "800 26px " + F; shvSp(g, "3px"); g.textAlign = "center"; g.fillText(d.k.toUpperCase(), cx + 2 + d.pw / 2, py + 35); g.textAlign = "left"; shvSp(g, "0px");
+          g.fillStyle = body; g.font = "500 33px " + F; d.l.forEach(function (l, k) { g.fillText(l, cx + d.pw + 24, py + 37 + k * 46); });
+          yy += Math.max(56, d.l.length * 46 + 8);
+        });
+      }
+      y = top + h + 28;
+    });
+    return y;
+  }
+  function sjImage(P) {
+    var W = 1080, m = document.createElement("canvas"); m.width = 10; m.height = 10;
+    var H = Math.ceil(sjiPaint(m.getContext("2d"), P, W) + 170), cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    var g = cv.getContext("2d"); g.fillStyle = "#14161A"; g.fillRect(0, 0, W, H);
+    var gr = g.createRadialGradient(W / 2, 0, 0, W / 2, 0, W * .9); gr.addColorStop(0, "rgba(212,230,74,.16)"); gr.addColorStop(1, "rgba(212,230,74,0)"); g.fillStyle = gr; g.fillRect(0, 0, W, Math.min(H, 1100));
+    sjiPaint(g, P, W);
+    // pied : Montée, sans lien ni nom
+    var fy = H - 74; g.fillStyle = "rgba(255,255,255,.1)"; g.fillRect(64, fy - 76, W - 128, 3);
+    g.fillStyle = "#D4E64A"; g.beginPath(); g.arc(84, fy - 14, 20, 0, 6.3); g.fill();
+    g.fillStyle = "#F4F2EE"; g.font = "800 46px " + SHV_F; g.fillText("Montée", 120, fy);
+    g.textAlign = "right"; g.fillStyle = "#F4F2EE"; g.font = "800 32px " + SHV_F; g.fillText("Prépare ta séance", W - 64, fy - 30);
+    g.fillStyle = "#9C9A94"; g.font = "700 28px " + SHV_F; g.fillText("gratuit · App Store et Google Play", W - 64, fy + 8); g.textAlign = "left";
+    return cv;
+  }
+  // Partage d'une image (feuille native) avec un texte d'accompagnement ; sans partage de fichier, on enregistre l'image
+  function shareCanvas(cv, name, text, fallback) {
+    var url = cv.toDataURL("image/png");
+    if (NATIVE && Tenup && typeof Tenup.shareImage === "function") { Promise.resolve().then(function () { return Tenup.shareImage({ base64: url.split(",")[1], name: name, text: text || "" }); }).catch(function () { if (fallback) fallback(); else toast("Partage impossible. Mets à jour Montée."); }); return; }
+    cv.toBlob(function (blob) {
+      var file = blob && window.File ? new File([blob], name, { type: "image/png" }) : null;
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share(text ? { files: [file], text: text } : { files: [file] }).catch(function () {}); return; }
+      if (fallback) { fallback(); return; }
+      var a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); toast("Image enregistrée : " + name);
+    }, "image/png");
   }
   // ----- En cours (iPhone) : un chrono par étape, un son et une vibration à chaque changement -----
   var sjTimer = null;
@@ -16958,7 +17069,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       haptic("medium"); sjStart(P);
     },
     sjShare: function (el) {
-      var t = sjText(sjBuild(sjCfg())), v = el.dataset.v, u = encodeURIComponent(t);
+      var P = sjBuild(sjCfg()), t = sjText(P), v = el.dataset.v, u = encodeURIComponent(t);
+      // 3.92.0 : l'image d'abord (feuille de partage : WhatsApp, Messages…), le texte complet en secours
+      if (v === "img") { haptic("light"); loadCardFonts().then(function () { shareCanvas(sjImage(P), "montee-seance.png", sjText(P, true), function () { sharePlain(t); }); }); return; }
       if (v === "wa") window.open("https://wa.me/?text=" + u, "_system");
       else if (v === "sms") window.open("sms:" + (IOS ? "&" : "?") + "body=" + u, "_system");
       else if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { toast("Séance copiée : colle-la où tu veux."); }, function () { sharePlain(t); });
