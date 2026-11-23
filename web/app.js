@@ -3216,8 +3216,61 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (cv + cd) by[cy] = { y: cy, v: cv, d: cd, now: 1 };
     return Object.keys(by).map(function (k) { return by[k]; }).filter(function (x) { return x.y <= cy; }).sort(function (a, b) { return a.y - b.y; }).slice(-10);
   }
+  // 3.83 (idée de Davy, maquette validée le 23/11/2026) : ton classement dans le temps, saison par saison (carrière)
+  // ou sortie par sortie (24 mois). Sources : le classement de chaque saison lu sur Ten'Up, tes changements notés à chaque synchro, ton classement actuel.
+  function rankHist(range) {
+    var P = [], cy = curMill(), now = today(), nr = function (r) { var k = T.normRank(r || ""); return k && E.idx(k) != null ? k : null; };
+    // tes changements notés par Montée font foi ; avant le premier, le classement de chaque saison lu sur Ten'Up
+    var LG = (S.rankLog || []).filter(function (x) { return nr(x.to) && E.parseDate(x.d); }), l0 = LG.length ? E.parseDate(LG[0].d) : null;
+    (S.tenupSeasons || []).forEach(function (x) { var k = x && nr(x.cl), dd = x && x.y ? new Date(x.y - 1, 8, 1) : null; if (k && dd && (!l0 || dd < l0)) P.push({ d: dd, rk: k, src: "s" }); });
+    LG.forEach(function (x, i) { var dd = E.parseDate(x.d), f = nr(x.from); if (!i && f) P.push({ d: new Date(dd.getTime() - 864e5), rk: f, src: "l" }); P.push({ d: dd, rk: nr(x.to), src: "l" }); });
+    var cur = nr(S.profile.rank); if (cur) P.push({ d: now, rk: cur, src: "c" });
+    P.sort(function (a, b) { return a.d - b.d; });
+    if (range === "24") {
+      var from = new Date(now.getFullYear() - 2, now.getMonth(), 1), before = P.filter(function (p) { return p.d < from; }).pop();
+      P = P.filter(function (p) { return p.d >= from; }); if (before) P.unshift({ d: from, rk: before.rk, src: before.src });
+    }
+    // une marche par changement de classement
+    var out = []; P.forEach(function (p) { if (!out.length || out[out.length - 1].rk !== p.rk) out.push({ d: p.d, rk: p.rk }); });
+    if (out.length && P.length) out.push({ d: P[P.length - 1].d, rk: P[P.length - 1].rk, end: 1 });
+    return { pts: out, from: range === "24" ? new Date(now.getFullYear() - 2, now.getMonth(), 1) : out.length ? out[0].d : now, to: now };
+  }
+  function rankChartHtml(range) {
+    var H0 = rankHist(range), pts = H0.pts; if (pts.length < 2) return "";
+    var ix = pts.map(function (p) { return E.idx(p.rk); }), lo = Math.min.apply(null, ix), hi = Math.max.apply(null, ix);
+    if (hi === lo) { lo = Math.max(0, lo - 1); hi = hi + 1; }
+    var W = 326, Hh = 150, pl = 56, pr = 14, pt = 14, pb = 24, t0 = H0.from.getTime(), t1 = Math.max(H0.to.getTime(), t0 + 864e5);
+    var xs = function (d) { return pl + (Math.min(Math.max(d.getTime(), t0), t1) - t0) / (t1 - t0) * (W - pl - pr); }, ys = function (i) { return pt + (hi - i) / (hi - lo) * (Hh - pt - pb); };
+    var dpath = "", best = null; pts.forEach(function (p, k) { var x = xs(p.d).toFixed(1), y = ys(E.idx(p.rk)).toFixed(1); dpath += k ? " H" + x + " V" + y : "M" + x + " " + y; if (!best || E.idx(p.rk) > E.idx(best.rk)) best = p; });
+    var g = ""; for (var i = lo; i <= hi; i++) g += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + ys(i) + '" y2="' + ys(i) + '" class="rkc-g"/><circle cx="6" cy="' + ys(i) + '" r="3.5" class="rkc-bl"/><text x="14" y="' + (ys(i) + 4) + '" class="rkc-yl">' + esc(lab(i)) + "</text>";
+    var dots = pts.slice(1).filter(function (p) { return !p.end; }).map(function (p) { return '<circle cx="' + xs(p.d) + '" cy="' + ys(E.idx(p.rk)) + '" r="4.5" class="rkc-dot"/>'; }).join("");
+    var rec = range === "car" && best ? '<circle cx="' + xs(best.d) + '" cy="' + ys(E.idx(best.rk)) + '" r="7" class="rkc-rec"/>' : "";
+    var yl = []; if (range === "24") { for (var m = 0; m <= 24; m += 6) { var dd = new Date(H0.from.getFullYear(), H0.from.getMonth() + m, 1); yl.push([dd, MOIS[dd.getMonth()] + " " + String(dd.getFullYear()).slice(2)]); } }
+    else { var y0 = H0.from.getFullYear(), y1 = H0.to.getFullYear(), st = Math.max(1, Math.ceil((y1 - y0) / 5)); for (var y = y0; y <= y1; y += st) yl.push([new Date(y, 0, 1) < H0.from ? H0.from : new Date(y, 0, 1), String(y)]); }
+    var lastX = -99; yl = yl.filter(function (z) { var x = xs(z[0]); if (x - lastX < 48) return false; lastX = x; return true; });
+    var xl = yl.map(function (z) { var x = xs(z[0]); return '<text x="' + x + '" y="' + (Hh - 6) + '" class="rkc-xl" text-anchor="' + (x > W - pr - 20 ? "end" : x < pl + 14 ? "start" : "middle") + '">' + esc(z[1]) + "</text>"; }).join("");
+    // le récit en une phrase : montées / descentes de la période, le record, la prochaine sortie
+    var ch = []; for (var k = 1; k < pts.length; k++) if (!pts[k].end && pts[k].rk !== pts[k - 1].rk) ch.push(pts[k]);
+    var ups = ch.filter(function (p, k) { var prev = k ? ch[k - 1] : pts[0]; return E.idx(p.rk) > E.idx(prev.rk); }).length, cur = pts[pts.length - 1];
+    var tag = function (r) { return '<b class="rk-tag">' + esc(r) + "</b>"; }, when = function (d) { return MOIS_L[d.getMonth()] + " " + d.getFullYear(); };
+    var txt = range === "24"
+      ? (ch.length ? "<b>" + (ups ? plural(ups, "montée") + " en 24 mois" : "24 mois") + " :</b> " + ch.slice(-3).map(function (p) { return tag(p.rk) + " en " + when(p.d); }).join(", puis ") + "." : "<b>Stable à " + tag(cur.rk) + "</b> sur les 24 derniers mois.")
+      : "<b>Ton record : " + tag(best.rk) + (best.d.getFullYear() ? " en " + best.d.getFullYear() : "") + ".</b>" + (E.idx(best.rk) > E.idx(cur.rk) ? " Il te manque " + plural(E.idx(best.rk) - E.idx(cur.rk), "échelon") + " pour le retrouver." : " Tu y es : c'est ton meilleur classement.");
+    return '<svg viewBox="0 0 ' + W + " " + Hh + '" class="rkc-svg" role="img" aria-label="Ton classement ' + (range === "24" ? "sur 24 mois" : "depuis " + H0.from.getFullYear()) + '">' + g + '<path d="' + dpath + '" class="rkc-line" pathLength="1"/>' + dots + rec + xl + "</svg>" +
+      '<div class="crr-lg"><span><i class="rkc-ld"></i>une sortie où tu as bougé</span>' + (rec ? '<span><i class="rkc-lr"></i>ton record</span>' : "") + "</div>" +
+      '<div class="crr-best">' + txt + "</div>";
+  }
   function careerHtml() {
     var L = careerSeasons(); if (L.length < 2) return "";
+    // 3.83 : bascule « Ton classement / Tes victoires » quand Ten'Up a donné le classement de tes saisons
+    var rkOk = rankHist("car").pts.length >= 3, mode = rkOk && UI.crrMode !== "v" ? "rk" : "v", rg = UI.crrRg === "car" ? "car" : "24";
+    if (mode === "rk") {
+      var c24 = rankChartHtml("24"); if (!c24) rg = "car";
+      return '<div class="card crr"><span class="eyebrow">Ta carrière · depuis ' + (L[0].y - 1) + "</span>" +
+        '<div class="seg crr-seg"><button class="on" data-a="crrMode" data-v="rk">Ton classement</button><button data-a="crrMode" data-v="v">Tes victoires</button></div>' +
+        '<div class="crr-chips">' + (c24 ? '<button class="' + (rg === "24" ? "on" : "") + '" data-a="crrRg" data-v="24">24 mois</button>' : "") + '<button class="' + (rg === "car" ? "on" : "") + '" data-a="crrRg" data-v="car">Carrière</button></div>' +
+        (rg === "24" ? c24 : rankChartHtml("car")) + "</div>";
+    }
     var tv = 0, td = 0, mx = 1, best = null, me = tuMe();
     L.forEach(function (x) { tv += x.v; td += x.d; mx = Math.max(mx, x.v, x.d); if (!x.now && (!best || x.v > best.v)) best = x; });
     var sel = L.filter(function (x) { return x.y === UI.crrY; })[0], cur = L.filter(function (x) { return x.now; })[0];
@@ -3230,6 +3283,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var line = sel ? "<b>Saison " + seasonLab(sel.y) + (sel.now ? " (en cours)" : "") + " :</b> " + plural(sel.v, "victoire") + ", " + plural(sel.d, "défaite") + " · " + Math.round(100 * sel.v / Math.max(1, sel.v + sel.d)) + " % de victoires."
       : (best ? "<b>" + seasonLab(best.y) + ", ta saison record :</b> " + plural(best.v, "victoire") + "." : "") + bestRk + (cur ? " Cette saison, tu en es à " + cur.v + "." : "");
     return '<div class="card crr"><span class="eyebrow">Ta carrière · depuis ' + (L[0].y - 1) + "</span>" +
+      (rkOk ? '<div class="seg crr-seg"><button data-a="crrMode" data-v="rk">Ton classement</button><button class="on" data-a="crrMode" data-v="v">Tes victoires</button></div>' : "") +
       '<div class="crr-t">' + plural(tv, "victoire") + ", " + plural(td, "défaite") + '</div><div class="crr-s">' + plural(L.length, "saison") + " lues sur Ten'Up. Touche une saison pour son bilan.</div>" + bars +
       '<div class="crr-lg"><span><i></i>victoires</span><span><i class="d"></i>défaites</span>' + (cur ? "<span>" + String(cur.y - 1).slice(2) + " : en cours</span>" : "") + "</div>" +
       '<div class="crr-best">' + line + "</div></div>";
@@ -8267,6 +8321,51 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
 
 
+  // ---------- 3.83 (idée de Davy, maquette validée le 23/11/2026) : « Tes bonus » dans Ma montée ----------
+  // Ce que Montée compte déjà dans ton bilan : bonus championnat individuel (les premiers dans la limite du barème, les autres
+  // en réserve prennent le relais quand l'un sort), bonus doubles, bonus sans défaite significative ; avec jusqu'à quand chacun compte.
+  function bonusData(hb, c) {
+    var o = { ind: [], dbl: [], tot: 0, ch: 0, db: 0, sd: 0 }; if (!hb) return o;
+    try {
+      var ch = E.BAREME.champ(hb.calc), n = 0, rel = c.opts.release || E.nextRelease(today());
+      E.windowMatches(sortedMatches().filter(function (m) { return m.kind === "champ" && m.result === "V" && !m.wo && !m.dbl && !m._dbl && counts(m); }), rel, today(), false)
+        .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) { var on = hb.bonusCh && n < ch.max; if (on) n++; o.ind.push({ m: m, pts: on ? ch.par : 0, on: on }); });
+    } catch (e) {}
+    (hb.doubles || []).forEach(function (x) { if (x && x.m) o.dbl.push({ m: x.m, pts: x.pts || 0, on: true }); });
+    o.ch = hb.bonusCh || 0; o.db = hb.bonusDbl || 0; o.sd = hb.bonusSD || 0; o.tot = o.ch + o.db + o.sd;
+    return o;
+  }
+  function bonusHtml(hb, c) {
+    var B = bonusData(hb, c); if (!B.tot && !B.ind.length && !B.dbl.length) return "";
+    var mo = function (d) { return d ? MOIS[d.getMonth()] + " " + d.getFullYear() : ""; }, tag = function (r) { return r ? '<b class="rk-tag">' + esc(r) + "</b>" : ""; };
+    var on = B.ind.filter(function (x) { return x.on; }).concat(B.dbl), first = null;
+    // le premier bonus qui sort : la sortie de classement qui ne le compte plus (Ten'Up : « Dernier calcul clt » = la précédente)
+    on.forEach(function (x) { var l = E.leaveDate(x.m); if (l && (!first || l < first.l)) first = { l: l, x: x }; });
+    var row = function (x, dbl) {
+      var m = x.m, who = dbl ? esc(nameCase(m.opp || "") || "Double") : esc(nameCase(m.opp || "") || "Un " + (m.oppRank || "adversaire"));
+      var rks = dbl && (m.oppRanks || []).filter(Boolean).length ? m.oppRanks.filter(Boolean).slice(0, 2).map(tag).join(" et ") : tag(m.oppRank);
+      var l = E.lastDay(m);
+      return '<a class="bo-r' + (x.on ? "" : " off") + '" href="#/' + (dbl ? "double/" : "match/") + encodeURIComponent(m.id) + '"><span class="grow"><span class="t">' + who + "</span><small>" + rks + (rks ? " · " : "") + "le " + esc((function (d) { return d ? d.getDate() + " " + MOIS[d.getMonth()] + " " + d.getFullYear() : ""; })(E.parseDate(m.date))) + "</small></span>" +
+        '<span class="bo-p"><b>' + (x.pts ? "+" + x.pts : "0") + "</b><small>" + (x.on ? "jusqu'en " + mo(l) : "en réserve") + "</small></span></a>";
+    };
+    var ch = E.BAREME.champ(hb.calc), res = B.ind.filter(function (x) { return !x.on; });
+    var ace = "";
+    if (first) {
+      var fx = first.x, nm = esc(nameCase(fx.m.opp || "") || "ce match");
+      ace = fx.m.kind === "champ" && B.ind.indexOf(fx) >= 0
+        ? (res.length ? "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus contre " + nm + " sort.</b> Ta victoire contre " + esc(nameCase(res[0].m.opp || "") || "un " + res[0].m.oppRank) + " prend le relais : tu gardes tes " + B.ch + " pts." : "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus contre " + nm + " (+" + fx.pts + ") sort.</b> Gagne un match de poule d'ici là pour le garder.")
+        : "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus double contre " + nm + " (+" + fx.pts + ") sort.</b> Une victoire en double d'ici là le remplace.";
+    }
+    return '<div class="card bo-card" id="bo-card"><div class="bo-h"><span class="eyebrow">Tes bonus</span><span>pour ' + esc(hb.label) + "</span></div>" +
+      '<b class="bo-ti">+' + B.tot + " pts de bonus dans ton bilan</b>" +
+      '<div class="bo-tiles"><span><b>' + B.ch + "</b><small>championnat individuel</small></span><span><b>" + B.db + "</b><small>doubles</small></span>" +
+      (first ? "<span><b>" + first.l.getDate() + (first.l.getDate() === 1 ? "<sup>er</sup>" : "") + " " + MOIS[first.l.getMonth()] + "</b><small>1er bonus qui sort</small></span>" : B.sd ? "<span><b>" + B.sd + "</b><small>sans défaite significative</small></span>" : "") + "</div>" +
+      (B.ind.length ? '<h3 class="bo-st">Championnat individuel <small>' + (ch.max ? "tes " + ch.max + " premiers comptent" : "") + '</small></h3><div class="bo-flat">' + B.ind.map(function (x) { return row(x, false); }).join("") + "</div>" : "") +
+      (B.dbl.length ? '<h3 class="bo-st">Doubles <small>les meilleurs comptent</small></h3><div class="bo-flat">' + B.dbl.slice(0, 5).map(function (x) { return row(x, true); }).join("") + "</div>" : "") +
+      (B.sd && first ? '<div class="bo-sd">Bonus sans défaite significative <b>+' + B.sd + "</b></div>" : "") +
+      (ace ? '<div class="bo-ace"><span class="cbl-b xs" data-id="bo:' + esc(first.x.m.id) + '" data-m="reflexion"></span><span>' + ace + "</span></div>" : "") + "</div>";
+  }
+
   // ---------- Projection ----------
   V.projection = function () {
     var c = ctx(), p = c.proj;
@@ -8277,7 +8376,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var hb = p.status === "descente" ? p.here : nx;
     // 3.34 : barre à balle sous le titre
     s += '<div class="pj-bar">' + ballBar(hb.norme ? Math.min(100, hb.total * 100 / hb.norme) : 0, hb.total + " sur " + hb.norme, p.status === "descente" ? "var(--terre)" : "var(--hacc3)") +
-      '<div class="pj-leg"><span>' + (p.status === "descente" ? "Pour rester " : "Pour monter ") + esc(hb.label) + " : <b>" + hb.total + "</b> / " + hb.norme + " pts</span><span>" + plural(hb.n, "victoire comptée", "victoires comptées") + "</span></div>" + whyAtLevel(hb.label, p.status === "descente") + "</div>";
+      '<div class="pj-leg"><span>' + (p.status === "descente" ? "Pour rester " : "Pour monter ") + esc(hb.label) + " : <b>" + hb.total + "</b> / " + hb.norme + " pts</span><span>" + plural(hb.n, "victoire comptée", "victoires comptées") + "</span></div>" + whyAtLevel(hb.label, p.status === "descente") +
+      (function () { var bt = (hb.bonusCh || 0) + (hb.bonusDbl || 0) + (hb.bonusSD || 0); return bt ? '<button class="bo-inbar" data-a="boGo">dont <b>+' + bt + " pts de bonus</b> · le détail " + I.next + "</button>" : ""; })() + "</div>";
 
     // 3.73 (Yann, maquettes validées) : « Ma montée » : projection, Et si… et bon moment sur une seule page, en 3 onglets
     var tab = ["pistes", "etsi", "quand"].indexOf(UI.mmTab) >= 0 ? UI.mmTab : "pistes";
@@ -8315,6 +8415,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
     // 3.73 : le détail du bilan passe dans une feuille du bas, derrière une seule ligne (sans répéter les points)
     s += '<button class="card mmo-det" data-a="sheet" data-k="mmBilan" data-v="' + (danger ? "keep" : "up") + '"><span class="grow"><b>Les matchs qui comptent</b><span class="small">' + plural(hb.n, "victoire prise", "victoires prises") + " en compte, et ce que rapporte chacune</span></span>" + I.next + "</button>";
+    s += bonusHtml(hb, c);
     s += officialHtml(true);
     s += '<a class="btn soft small" href="#/methode">Comment c\'est calculé</a>';
     return s + '<p class="small">Calcul indicatif d\'après le barème FFT. Seul le classement officiel fait foi.</p></div>';
@@ -17499,6 +17600,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     tmeOk: function () { S.tuMet = 1; save(); go(""); },
     tmeFix: function () { S.tuMet = 1; save(); UI.profEdit = true; go("profil"); },
     pfTab: function (el) { UI.pfTab = el.dataset.v; render(); },
+    boGo: function () { var b = document.getElementById("bo-card"); if (b) b.scrollIntoView({ behavior: "smooth", block: "start" }); },
+    crrMode: function (el) { UI.crrMode = el.dataset.v; render(); },
+    crrRg: function (el) { UI.crrRg = el.dataset.v; render(); },
     crrY: function (el) { var y = +el.dataset.v; UI.crrY = UI.crrY === y ? null : y; render(); },
     clubRetry: function () { if (UI.clubBusy) return; S.clubTrace = null; clubRefresh(true); render(); },
     clubTg: function () { S.prefs = S.prefs || {}; S.prefs.clubOn = !S.prefs.clubOn; save(); render(); if (S.prefs.clubOn) clubRefresh(!S.club); },

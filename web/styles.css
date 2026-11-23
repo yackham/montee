@@ -6519,3 +6519,46 @@ button.acr, a.acr { cursor: pointer; }
 .pf-tabs { margin: 2px 0 0; }
 .pf-tabs button { font-size: 14px; padding-left: 4px; padding-right: 4px; white-space: nowrap; min-width: 0; }
 .me-best small { font-size: 11.5px; font-weight: 600; opacity: .8; }
+/* 3.83 : ton classement dans le temps (idée de Davy) dans « Ta carrière » */
+.crr-seg { margin: 12px 0 8px; }
+.crr-chips { display: flex; gap: 8px; margin: 0 0 6px; }
+.crr-chips button { font: inherit; font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 14px; background: none; border: 0; color: var(--muted); box-shadow: inset 0 0 0 1.5px var(--line); cursor: pointer; }
+.crr-chips button.on { color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+.rkc-svg { width: 100%; height: auto; display: block; margin: 4px 0; }
+.rkc-g { stroke: var(--line); stroke-width: 1; }
+.rkc-yl { font-size: 11.5px; font-weight: 800; fill: var(--ink); }
+.rkc-xl { font-size: 10.5px; font-weight: 700; fill: var(--muted); }
+.rkc-bl { fill: var(--balle); stroke: color-mix(in srgb, var(--ink) 25%, transparent); stroke-width: 1; }
+.rkc-line { fill: none; stroke: var(--gazon); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: mxDraw 1.2s .2s ease-out forwards; }
+.rkc-dot { fill: var(--card); stroke: var(--gazon); stroke-width: 2.5; }
+.rkc-rec { fill: var(--balle); stroke: color-mix(in srgb, var(--ink) 30%, transparent); stroke-width: 1.2; }
+.crr-lg i.rkc-ld, .crr-lg i.rkc-lr { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.crr-lg i.rkc-ld { box-shadow: inset 0 0 0 2px var(--gazon); background: none !important; }
+.crr-lg i.rkc-lr { background: var(--balle) !important; }
+@media (prefers-reduced-motion: reduce) { .rkc-line { animation: none; stroke-dashoffset: 0; } }
+/* 3.83 : « Tes bonus » dans Ma montée (idée de Davy) : carte blanche, lignes à plat, couleur en accent */
+.bo-card { padding: 16px; }
+.bo-h { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.bo-ti { display: block; font-size: 20px; font-weight: 800; letter-spacing: -.01em; margin-top: 4px; }
+.bo-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 4px; }
+.bo-tiles > span { border-top: 1px solid var(--line); padding: 10px 0 4px; }
+.bo-tiles b { display: block; font-size: 22px; font-weight: 800; line-height: 1.1; }
+.bo-tiles small { font-size: 12.5px; color: var(--muted); font-weight: 600; line-height: 1.25; display: block; }
+.bo-st { font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 14px 0 0; }
+.bo-st small { text-transform: none; letter-spacing: 0; font-weight: 600; margin-left: 6px; }
+.bo-flat { display: flex; flex-direction: column; }
+.bo-r { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); padding: 10px 0; color: inherit; text-decoration: none; font-size: 15px; }
+.bo-flat > .bo-r:last-child { border-bottom: 0; }
+.bo-r .grow { flex: 1; min-width: 0; }
+.bo-r .t { display: block; font-weight: 700; }
+.bo-r small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+.bo-p { text-align: right; flex: none; }
+.bo-p b { display: block; font-size: 17px; font-weight: 800; color: var(--gazon); }
+.bo-r.off .bo-p b, .bo-r.off .t { color: var(--muted); }
+.bo-sd { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14.5px; }
+.bo-sd b { color: var(--gazon); }
+.bo-ace { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14.5px; line-height: 1.45; }
+.bo-ace .cbl-b { flex: none; }
+.bo-inbar { display: block; background: none; border: 0; padding: 6px 0 0; font: inherit; font-size: 13.5px; color: inherit; opacity: .9; text-align: left; cursor: pointer; }
+.bo-inbar b { color: inherit; }
+.bo-inbar svg { width: 12px; height: 12px; vertical-align: -1px; }
