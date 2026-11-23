@@ -2309,12 +2309,25 @@
   }
   // 3.72 : une équipe à toi, ou une équipe du club (S.club, mode responsable sportif)
   function tmFind(id) { id = String(id); return ((S.teams && S.teams.champs) || []).filter(function (x) { return x.id === id; })[0] || ((S.club && S.club.champs) || []).filter(function (x) { return x.id === id; })[0]; }
+  // 4.0.4 (Davy) : les rencontres d'une saison passée se relient aussi aux matchs des saisons passées de ton palmarès (avant : seulement
+  // la période en cours, donc « Tu n'as pas joué » partout dans un championnat de l'an dernier)
+  function tmHist() { var k = {}; S.matches.forEach(function (m) { k[m.date + "|" + m.result + "|" + (m.oppRank || "")] = 1; }); return (S.histMatches || []).filter(function (m) { return m && m.date && !k[m.date + "|" + m.result + "|" + (m.oppRank || "")]; }); }
+  function tmPoolS() { return S.matches.filter(function (m) { return !m.dbl; }).concat(tmHist().filter(function (m) { return !m.dbl; })); }
+  function tmPoolD() { return (S.doubles || []).concat(tmHist().filter(function (m) { return m.dbl; })); }
   function tmMine(c, r) {
     if (c.cl) return { s: [], d: [] }; // équipe du club où tu ne joues pas : pas de « tes matchs »
     var me = c.me.mine, vs = r.a === me ? r.bn : r.an;
+    // 4.0.4 (Davy, +35 2025 : « Tu n'as pas joué » à chaque journée alors qu'il les a toutes jouées) : un match de ton palmarès au jour
+    // de la rencontre, homologué dans CE championnat (même nom), quand tu n'as qu'une équipe dedans, est à toi, sans autre condition.
+    var nC = function (x) { return String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ""); }, cn = nC(c.nom), ck = String(c.cid || c.id);
+    if (cn && !myTeams(true).some(function (o) { return o !== c && String(o.cid || o.id) === ck; })) {
+      var inC = function (m) { return m.date === r.d && (m.result === "V" || m.result === "D") && nC(m.comp) === cn; };
+      var cs1 = tmPoolS().filter(inC), cd1 = tmPoolD().filter(inC);
+      if (cs1.length || cd1.length) return { s: cs1, d: cd1 };
+    }
     // 3.62 : équipe trouvée par la feuille de match → seulement les rencontres de tes jours à toi dans CETTE équipe
     if (c.me.sure && c.me.days && !c.me.days.some(function (d) { return Math.abs(dGap(d) - dGap(r.d)) <= 2; })) return { s: [], d: [] };
-    var s0 = S.matches.filter(function (m) { return m.date === r.d && !m.dbl && (m.result === "V" || m.result === "D"); }), d0 = (S.doubles || []).filter(function (m) { return m.date === r.d && (m.result === "V" || m.result === "D"); });
+    var s0 = tmPoolS().filter(function (m) { return m.date === r.d && (m.result === "V" || m.result === "D"); }), d0 = tmPoolD().filter(function (m) { return m.date === r.d && (m.result === "V" || m.result === "D"); });
     var known = s0.filter(function (m) { return m.oclub; });
     if (known.length && !known.some(function (m) { return tmClubFits(m.oclub, vs); })) return { s: [], d: [] };
     return { s: s0.filter(function (m) { return !m.oclub || tmClubFits(m.oclub, vs); }), d: d0 };

@@ -429,7 +429,8 @@
       var trace = function (job) { return job.cs.map(function (cs) { return { id: cs.id, nom: cs.nom, pages: cs.n, feuilles: cs.nF, poules: Object.keys(cs.seen).length, reste: cs.q.length, fini: cs.fin, trouve: cs.ck.length ? "feuille" : cs.ak.length ? "club" : cs.fw || cs.fb || cs.best ? "jour" : "rien", ms: cs.ms, err: cs.err || 0, dates: cs.dates.slice(0, 8), sh: cs.sh ? { n: cs.sh.n, p: cs.sh.p, k: Object.keys(cs.sh.k).slice(0, 14) } : null, ex: cs.ex || null }; }); };
       var start = function () {
         if (A.job && A.job.cs) return Promise.resolve(A.job);
-        var lim = new Date(); lim.setDate(lim.getDate() - 400); var limI = lim.toISOString().slice(0, 10);
+        // 4.0.4 : au moins depuis le début de la saison précédente (avant : 400 jours, la 1re journée d'un championnat de l'an dernier tombait)
+        var lim = new Date(); lim.setDate(lim.getDate() - 400); var limI = lim.toISOString().slice(0, 10), y1 = new Date().getMonth() >= 8 ? new Date().getFullYear() - 1 : new Date().getFullYear() - 2; if (y1 + "-09-01" < limI) limI = y1 + "-09-01";
         return who().then(function (u) {
           return pal(u.id).then(function (ms) {
             var C = {};
