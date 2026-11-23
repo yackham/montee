@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.82.0",
+    VERSION: "3.82.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -819,7 +819,7 @@
   var mBack = function (t) { var c = 1.6; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
   function mTw(ms, delay, fn, done, ez) {
     ez = ez || mEase;
-    var go = function () { var t0 = 0; var step = function (now) { if (!t0) t0 = now; var t = Math.min(1, (now - t0) / ms); fn(ez(t)); if (t < 1) requestAnimationFrame(step); else if (done) done(); }; requestAnimationFrame(step); };
+    var go = function () { var t0 = 0; var step = function (now) { if (!t0) t0 = now; var t = Math.min(1, (now - t0) / ms); try { fn(ez(t)); } catch (e) { return; } if (t < 1) requestAnimationFrame(step); else if (done) done(); }; requestAnimationFrame(step); };
     if (delay) setTimeout(go, delay); else go();
   }
   function mSeen(el, fn) {
@@ -3225,7 +3225,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     return '<div class="screen">' + topbar(first ? "Sans Ten'Up" : "Mon profil", first ? "Saisis ton classement" : "") +
       '<div class="form">' +
-      '<div class="field"><label for="pf-name">Prénom</label><input id="pf-name" type="text" autocomplete="given-name" data-f="profile.name" value="' + esc(p.name) + '" placeholder="Ex. : Yann"></div>' +
+      '<div class="field"><label for="pf-name">Prénom</label><input id="pf-name" type="text" autocomplete="given-name" data-f="profile.name" value="' + esc(p.name) + '" placeholder="Ex. : Julien"></div>' +
       '<div class="field"><span class="lbl">Classement</span><span class="small" style="margin-top:-4px">Les normes ne sont pas les mêmes chez les hommes et les dames.</span><div class="seg" role="group" aria-label="Classement hommes ou dames">' +
       '<button data-a="sex" data-v="H" class="' + (p.sex === "H" ? "on" : "") + '" aria-pressed="' + (p.sex === "H") + '">Messieurs</button>' +
       '<button data-a="sex" data-v="F" class="' + (p.sex === "F" ? "on" : "") + '" aria-pressed="' + (p.sex === "F") + '">Dames</button></div></div>' +
@@ -9915,7 +9915,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }
       if (isNew && UI.mmPrefill) { var mp = UI.mmPrefill; UI.mmPrefill = null; base.opp = mp.opp; base.oppRank = mp.rank; base.result = mp.r; if (mp.score) base.score = mp.score; if (mp.minutes) base.minutes = mp.minutes; if (mp.feel) base.feel = mp.feel; if (mp.kind) base.kind = mp.kind; if (mp.serve) base.serve = mp.serve; if (mp.hr) base.hr = mp.hr; if (mp.kcal) base.kcal = mp.kcal; if (mp.date) base.date = mp.date; if (mp.wid) base._wid = mp.wid; if (mp.oid) base.oid = String(mp.oid); if (mp.watch) base.watch = true; if (mp.wev) { base.wev = mp.wev; base.wsrv = mp.wsrv; base.wfmt = mp.wfmt; } if (mp.wevT) base.wevT = mp.wevT; if (mp.wt0) base.wt0 = mp.wt0; if (mp.wmax) base.wmax = mp.wmax; }
       // 3.55 (audit, validé) : un match neuf reprend les conditions de ta dernière saisie (surface, lieu)
-      if (isNew) { var lastC = S.matches.filter(function (x) { return x.surface || x.indoor != null; }).sort(byDateDesc)[0]; if (lastC) { base.surface = SURFACES.indexOf(lastC.surface) >= 0 ? lastC.surface : ""; base.indoor = lastC.indoor != null ? lastC.indoor : null; } UI.condOpen = false; }
+      if (isNew) { var lastC = S.matches.filter(function (x) { return x.source !== "exemple" && (x.surface || x.indoor != null); }).sort(byDateDesc)[0]; if (lastC) { base.surface = SURFACES.indexOf(lastC.surface) >= 0 ? lastC.surface : ""; base.indoor = lastC.indoor != null ? lastC.indoor : null; } UI.condOpen = false; }
       if (isNew && UI.hcPrefillM) { var hm = UI.hcPrefillM; UI.hcPrefillM = null; base.date = hcIso(hm.start); base.minutes = hcMin(hm); base.hid = hm.id; base.hat = hm.start; }
       base._for = id || "new"; UI.draft = base; UI.gearOpen = false; UI.origKey = null; // nouveau brouillon : on reprend la référence « rien de modifié »
       base.sets = setsOf(base.score);
