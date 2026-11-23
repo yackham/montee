@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.74.0",
+    VERSION: "3.74.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2104,8 +2104,11 @@
   }
   function clubRefresh(force) {
     if (!NATIVE || !S.tenup.linked || UI.clubBusy || UI.tmBusy || !clubOn()) return;
-    var c0 = S.club; if (!force && c0 && c0.qv === 1 && Date.now() - c0.at < 12 * 3600e3) return;
-    var full = force || !c0 || !c0.full || Date.now() - c0.full > 7 * 864e5;
+    // 3.74.1 (rapport de Davy : lecture coupée après 10 appels, app fermée ou mise en veille) : une lecture inachevée est gardée
+    // (S.clubJob, 6 h au plus) et reprise là où elle s'était arrêtée à la prochaine ouverture de l'onglet.
+    var J = S.clubJob && Date.now() - S.clubJob.at < 6 * 3600e3 ? S.clubJob : null; if (!J) S.clubJob = null;
+    var c0 = S.club; if (!force && !J && c0 && c0.qv === 1 && Date.now() - c0.at < 12 * 3600e3) return;
+    var full = J && !force ? !!J.full : force || !c0 || !c0.full || Date.now() - c0.full > 7 * 864e5;
     var known = {}; ((c0 && c0.champs) || []).forEach(function (c) { if (c.path && c.path.q) { var k = String(c.cid); (known[k] = known[k] || []).some(function (p) { return p.q === c.path.q; }) || known[k].push(c.path); } });
     var cids = myTeams(true).map(function (c) { return { id: String(c.cid || c.id), nom: c.nom }; }).concat(((c0 && c0.champs) || []).map(function (c) { return { id: String(c.cid), nom: c.nom }; }));
     var t = S.teams || {}, args = { all: 1, full: full ? 1 : 0, club: (t.club && t.club.code) || S.tenup.clubCode || "", nomClub: (t.club && t.club.nom) || "", pid: t.pid || "", cids: cids, known: full ? {} : known, tn: clubTn() };
@@ -2120,11 +2123,13 @@
         var old = ((S.club && S.club.champs) || []).filter(function (c) { return !fin[String(c.cid)]; });
         S.club = { at: r.partial ? ((S.club && S.club.at) || 0) : Date.now(), qv: 1, full: full && !r.partial ? Date.now() : (S.club && S.club.full) || 0, champs: r.champs.concat(old) }; save();
         if (route().indexOf("tournoi") === 0) render();
+        if (r.partial && r.job) { try { var js = JSON.stringify(r.job); S.clubJob = js.length < 15e5 ? { at: Date.now(), full: full, job: r.job } : null; } catch (e) { S.clubJob = null; } save(); }
+        else if (S.clubJob) { S.clubJob = null; save(); }
         if (r.partial && r.job && calls < 40) return go(r.job);
         done();
       }).catch(function (e) { S.clubTrace = { at: Date.now(), calls: calls, err: String((e && e.message) || e || "erreur") }; save(); done(); });
     };
-    go(null);
+    go(J && !force ? J.job : null);
   }
   // 3.50.4 (Yann) : ton impact dans un championnat : l'équipe avec toi / sans toi, tes matchs, ta part des matchs gagnés
   function teamImpactHtml(c) {
