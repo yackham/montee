@@ -3349,7 +3349,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var a = +me.age; return a >= 35 ? "+" + Math.min(85, Math.floor(a / 5) * 5) : "";
   }
   // Bilan par saison (millésime = sept. → août) : historiqueStats de Ten'Up (format non documenté), puis tes saisons relues, puis la saison en cours
-  function careerSeasons() {
+  function histSeasons() {
     var by = {}, me = tuMe(), H = me.hist;
     var num = function (o, re) { var v = null; Object.keys(o).forEach(function (k) { if (v == null && re.test(k) && o[k] !== "" && isFinite(+o[k])) v = +o[k]; }); return v; };
     var L = Array.isArray(H) ? H : H && typeof H === "object" ? Object.keys(H).map(function (k) { var o = H[k]; return o && typeof o === "object" ? Object.assign({ _k: k }, o) : null; }).filter(Boolean) : [];
@@ -3360,12 +3360,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var v = num(o, /victoire|^nbv|^v$|gagne/i), d = num(o, /defaite|^nbd|^d$|perdu/i);
       if (y && v != null && d != null && v + d > 0) by[y] = { y: y, v: v, d: d };
     });
-    (S.tenupSeasons || []).forEach(function (x) { if (x && x.y && x.n) by[x.y] = { y: x.y, v: x.v || 0, d: Math.max(0, x.n - (x.v || 0)) }; });
-    var cy = curMill(), from = E.iso(new Date(cy - 1, 8, 1)), cv = 0, cd = 0;
-    S.matches.forEach(function (m) { if (!m.date || m.wo || m.date < from) return; if (m.result === "V") cv++; else if (m.result === "D") cd++; });
-    if (cv + cd) by[cy] = { y: cy, v: cv, d: cd, now: 1 };
-    return Object.keys(by).map(function (k) { return by[k]; }).filter(function (x) { return x.y <= cy; }).sort(function (a, b) { return a.y - b.y; }).slice(-10);
+    return Object.keys(by).map(function (k) { return by[k]; });
   }
+  function careerSeasons() { return seasonRows(); }
   // 3.83 (idée de Davy, maquette validée le 23/11/2026) : ton classement dans le temps, saison par saison (carrière)
   // ou sortie par sortie (24 mois). Sources : le classement de chaque saison lu sur Ten'Up, tes changements notés à chaque synchro, ton classement actuel.
   function rankHist(range) {
@@ -3421,21 +3418,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         '<div class="crr-chips">' + (c24 ? '<button class="' + (rg === "24" ? "on" : "") + '" data-a="crrRg" data-v="24">24 mois</button>' : "") + '<button class="' + (rg === "car" ? "on" : "") + '" data-a="crrRg" data-v="car">Carrière</button></div>' +
         (rg === "24" ? c24 : rankChartHtml("car")) + "</div>";
     }
-    var tv = 0, td = 0, mx = 1, best = null, me = tuMe();
-    L.forEach(function (x) { tv += x.v; td += x.d; mx = Math.max(mx, x.v, x.d); if (!x.now && (!best || x.v > best.v)) best = x; });
-    var sel = L.filter(function (x) { return x.y === UI.crrY; })[0], cur = L.filter(function (x) { return x.now; })[0];
-    var h = function (n) { return n ? Math.max(4, Math.round(n / mx * 78)) : 0; };
-    var bars = '<div class="crr-bars" style="--n:' + L.length + '">' + L.map(function (x, i) {
-      return '<button class="crr-b' + (best && x.y === best.y ? " best" : "") + (x.now ? " now" : "") + (sel && sel.y === x.y ? " on" : "") + '" style="--i:' + i + '" data-a="crrY" data-v="' + x.y + '" aria-label="Saison ' + seasonLab(x.y) + " : " + plural(x.v, "victoire") + ", " + plural(x.d, "défaite") + (x.now ? ", en cours" : "") + '">' +
-        "<em>" + x.v + '</em><i style="height:' + h(x.v) + 'px"></i><i class="d" style="height:' + h(x.d) + 'px"></i></button>';
-    }).join("") + '</div><div class="crr-yrs" style="--n:' + L.length + '">' + L.map(function (x) { return "<span>" + String(x.y - 1).slice(2) + "</span>"; }).join("") + "</div>";
-    var bestRk = me.meilleur ? ' Ton meilleur classement, <b class="rk-tag">' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? ", date de " + me.meilleurAn : "") + "." : "";
-    var line = sel ? "<b>Saison " + seasonLab(sel.y) + (sel.now ? " (en cours)" : "") + " :</b> " + plural(sel.v, "victoire") + ", " + plural(sel.d, "défaite") + " · " + Math.round(100 * sel.v / Math.max(1, sel.v + sel.d)) + " % de victoires."
-      : (best ? "<b>" + seasonLab(best.y) + ", ta saison record :</b> " + plural(best.v, "victoire") + "." : "") + bestRk + (cur ? " Cette saison, tu en es à " + cur.v + "." : "");
+    // 3.90.2 (Yann) : mêmes saisons, mêmes chiffres et même graphique que « Tes saisons » (seasonRows)
+    var tv = 0, td = 0, best = null, me = tuMe(), cur = null;
+    L.forEach(function (x) { tv += x.v; td += x.d; if (x.now) cur = x; else if (!best || x.v > best.v) best = x; });
+    var tuN = L.filter(function (x) { return x.tu; });
+    var bestRk = me.meilleur ? ' Ton meilleur classement, <b class="rk-tag">' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? ", en " + esc(me.meilleurAn) : "") + "." : "";
+    var line = (best ? "<b>" + seasonLab(best.y) + ", ta saison record :</b> " + plural(best.v, "victoire") + "." : "") + bestRk + (cur ? " Cette saison, tu en es à " + cur.v + "." : "");
     return '<div class="card crr"><span class="eyebrow">Ta carrière · depuis ' + (L[0].y - 1) + "</span>" +
       (rkOk ? '<div class="seg crr-seg"><button data-a="crrMode" data-v="rk">Ton classement</button><button class="on" data-a="crrMode" data-v="v">Tes victoires</button></div>' : "") +
-      '<div class="crr-t">' + plural(tv, "victoire") + ", " + plural(td, "défaite") + '</div><div class="crr-s">' + plural(L.length, "saison") + " lues sur Ten'Up. Touche une saison pour son bilan.</div>" + bars +
-      '<div class="crr-lg"><span><i></i>victoires</span><span><i class="d"></i>défaites</span>' + (cur ? "<span>" + String(cur.y - 1).slice(2) + " : en cours</span>" : "") + "</div>" +
+      '<div class="crr-t">' + plural(tv, "victoire") + ", " + plural(td, "défaite") + '</div><div class="crr-s">En simple, hors forfaits, sur ' + plural(L.length, "saison") + " lues sur Ten'Up.</div>" + seasonChartSvg(L) +
+      '<span class="ss2-leg"><span><i style="background:var(--gazon)"></i>victoires</span><span><i style="background:var(--terre)"></i>défaites</span><span>touche une saison pour voir tes matchs</span></span>' +
+      (tuN.length ? '<span class="small crr-tu">' + tuN.map(function (x) { return seasonLab(x.y); }).join(", ") + " : bilan Ten'Up, sans le détail des matchs.</span>" : "") +
       '<div class="crr-best">' + line + "</div></div>";
   }
   // Une ligne du profil lu sur Ten'Up
@@ -6975,8 +6968,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return s + '<div class="card pal-l">' + out + '</div><span class="small">Classement au moment du match ; en vert, son classement d\'aujourd\'hui s\'il est monté depuis. Touche un adversaire pour ouvrir sa fiche.</span>';
   }
   // ---------- Tes saisons : ton classement et ton bilan saison par saison ----------
-  function saisonsHtml() {
-    var ss = (S.tenupSeasons || []).slice().sort(function (a, b) { return a.y - b.y; }); if (!ss.length) return "";
+  // 3.90.2 (Yann : « Ta carrière » ≠ « Tes saisons ») : UNE seule source pour le bilan d'une saison, partagée par Tes saisons,
+  // Ta carrière (profil) et « Je t'ai reconnu » : simples joués hors WO (comme le détail d'une saison), saison par saison lue sur Ten'Up ;
+  // les saisons plus anciennes que ton palmarès viennent du bilan Ten'Up (historiqueStats), marquées tu: 1 (pas de détail des matchs).
+  function seasonRows() {
+    var ss = (S.tenupSeasons || []).slice().sort(function (a, b) { return a.y - b.y; });
     var t = today(), y0 = t.getMonth() >= 8 ? t.getFullYear() + 1 : t.getFullYear(), from = E.iso(new Date(y0 - 1, 8, 1));
     var cur = playedOf(allMatches().filter(function (m) { return m.date >= from; }));
     var bestOf = function (list) { return list.map(function (c) { return E.idx(T.normRank(c)); }).filter(function (i) { return i != null; }).sort(function (a, b) { return b - a; })[0]; };
@@ -6999,6 +6995,25 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     cur = seasonPlayed(y0); // 3.48.9 : même source que le détail
     var cv = cur.filter(function (m) { return m.result === "V"; });
     rows.push({ y: y0, cl: effRank() || "", v: cv.length, d: cur.length - cv.length, best: cv.filter(function (m) { return !m.double && !m.partner && (S.doubles || []).indexOf(m) < 0; }).map(function (m) { return E.idx(m.oppRank); }).sort(function (a, b) { return b - a; })[0], now: true });
+    var y1 = rows.length > 1 ? rows[0].y : y0;
+    histSeasons().forEach(function (h) { if (h.y < y1) rows.push({ y: h.y, cl: "", v: h.v, d: h.d, best: null, tu: 1 }); });
+    return rows.filter(function (r) { return r.now || r.v + r.d > 0; }).sort(function (a, b) { return a.y - b.y; }).slice(-10);
+  }
+  // l'histogramme des saisons (victoires + défaites empilées), le même dans Tes saisons et Ta carrière
+  function seasonChartSvg(rows) {
+    var mx = Math.max.apply(null, rows.map(function (r) { return r.v + r.d; })), lbl = function (r) { return String(r.y - 1).slice(2) + "-" + String(r.y).slice(2); };
+    var Wd = 320, Hh = 150, n = rows.length, bw = Math.min(34, (Wd - 8) / n - 10), gp = (Wd - n * bw) / (n + 1), base = 126, sc = 108 / Math.max(1, mx);
+    var chart = '<svg class="ss2-chart" viewBox="0 0 ' + Wd + " " + Hh + '" aria-hidden="true">' + rows.map(function (r, i) {
+      var x = gp + i * (bw + gp), hv = r.v * sc, hd = r.d * sc, op = r.now ? ' opacity=".5"' : "";
+      return '<g class="ss2-g"' + (r.tu ? ' role="img" aria-label="Saison ' + lbl(r) + " : " + plural(r.v, "victoire") + ", " + plural(r.d, "défaite") + ' (bilan Ten\'Up)"' : ' data-a="sheet" data-k="season" data-v="' + r.y + '" role="button" aria-label="Saison ' + lbl(r) + '"') + '><rect x="' + (x - gp / 2).toFixed(1) + '" y="0" width="' + (bw + gp).toFixed(1) + '" height="' + Hh + '" fill="transparent"/>' + (hv ? '<rect x="' + x.toFixed(1) + '" y="' + (base - hv).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hv.toFixed(1) + '" rx="5" fill="var(--gazon)"' + op + "/>" : "") +
+        (hd ? '<rect x="' + x.toFixed(1) + '" y="' + (base - hv - hd - (hv ? 3 : 0)).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hd.toFixed(1) + '" rx="5" fill="var(--terre)"' + op + "/>" : "") +
+        '<text x="' + (x + bw / 2).toFixed(1) + '" y="144" text-anchor="middle" font-size="10.5" font-weight="800" fill="' + (r.now ? "var(--acc-ink, var(--gazon))" : "var(--muted)") + '">' + lbl(r) + "</text></g>";
+    }).join("") + "</svg>";
+    return chart;
+  }
+  function saisonsHtml() {
+    var t = today(), y0 = t.getMonth() >= 8 ? t.getFullYear() + 1 : t.getFullYear(), from = E.iso(new Date(y0 - 1, 8, 1));
+    var rows = seasonRows();
     if (rows.length < 2) return "";
     var past = rows.filter(function (r) { return !r.now && r.v + r.d >= 5; });
     var bestS = past.slice().sort(function (a, b) { return (b.v / (b.v + b.d) + b.v / 100) - (a.v / (a.v + a.d) + a.v / 100); })[0];
@@ -7011,14 +7026,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var head = rec ? "Ton record : <em>" + plural(rec.v, "victoire") + "</em> en " + (rec.y - 1) + "-" + String(rec.y).slice(2) : "Tes saisons";
     var sub = [topWin && topWin.best != null ? "Ta plus belle victoire : un " + lab(topWin.best) + (topWin.now ? ", cette saison" : " en " + lbl(topWin)) + "." : "",
       bestPcS.length ? "Ton meilleur % : " + bestPc + " %, en " + bestPcS.map(lbl).join(" et ") + "." : ""].filter(Boolean).join(" ");
-    // Histogramme
-    var Wd = 320, Hh = 150, n = rows.length, bw = Math.min(34, (Wd - 8) / n - 10), gp = (Wd - n * bw) / (n + 1), base = 126, sc = 108 / Math.max(1, mx);
-    var chart = '<svg class="ss2-chart" viewBox="0 0 ' + Wd + " " + Hh + '" aria-hidden="true">' + rows.map(function (r, i) {
-      var x = gp + i * (bw + gp), hv = r.v * sc, hd = r.d * sc, op = r.now ? ' opacity=".5"' : "";
-      return '<g class="ss2-g" data-a="sheet" data-k="season" data-v="' + r.y + '" role="button" aria-label="Saison ' + lbl(r) + '"><rect x="' + (x - gp / 2).toFixed(1) + '" y="0" width="' + (bw + gp).toFixed(1) + '" height="' + Hh + '" fill="transparent"/>' + (hv ? '<rect x="' + x.toFixed(1) + '" y="' + (base - hv).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hv.toFixed(1) + '" rx="5" fill="var(--gazon)"' + op + "/>" : "") +
-        (hd ? '<rect x="' + x.toFixed(1) + '" y="' + (base - hv - hd - (hv ? 3 : 0)).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hd.toFixed(1) + '" rx="5" fill="var(--terre)"' + op + "/>" : "") +
-        '<text x="' + (x + bw / 2).toFixed(1) + '" y="144" text-anchor="middle" font-size="10.5" font-weight="800" fill="' + (r.now ? "var(--acc-ink, var(--gazon))" : "var(--muted)") + '">' + lbl(r) + "</text></g>";
-    }).join("") + "</svg>";
+    var chart = seasonChartSvg(rows);
     var s = '<div class="card ss-card ss2"><span class="eyebrow">Tes saisons</span><b class="ss-h">' + head + "</b>" + (sub ? '<span class="small">' + esc(sub) + "</span>" : "") + chart +
       '<span class="ss2-leg"><span><i style="background:var(--gazon)"></i>victoires</span><span><i style="background:var(--terre)"></i>défaites</span><span>touche une saison pour voir tes matchs</span></span></div>';
     // La saison en cours face à l'an dernier, à la même date
