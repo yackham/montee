@@ -110,7 +110,7 @@ Apple Watch : garder les captures de montre déjà en ligne (la montre n'est pas
 
 ## Image d'en-tête
 
-- **En-tête de la page produit** (champ « En-tête » d'App Store Connect) : `entete-produit-5244x2950.png` et `entete-produit-3840x1646.png`. Tout l'essentiel est au centre : Apple recadre selon l'orientation et pose le nom et l'icône de l'app par-dessus, d'où l'absence de texte.
+- **En-tête de la page produit** (champ « En-tête » d'App Store Connect) : `entete-produit-5244x2950.png` et `entete-produit-3840x1646.png`. Ace au centre des 3 anneaux de l'accueil, sans petit écran ni texte : Apple recadre fort selon l'orientation (bande étroite sur la page produit, centre en recherche).
 - `entete-card-1920x1080.png` : carte d'un événement intégré (In-App Event) « Sortie du 1er décembre » ; le texte d'Apple (nom de l'événement) se pose en bas à gauche, la zone est laissée libre.
 - `entete-tall-1080x1920.png` : image de la page de détail de l'événement.
 - `entete-poster-1920x1080.png` : version complète avec le logo et le texte, pour la demande de mise en avant (formulaire « Promote your app » d'Apple), le site et les réseaux.
