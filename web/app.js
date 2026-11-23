@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.1.1",
+    VERSION: "4.1.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -8897,18 +8897,21 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Ton calendrier : quand tes victoires sortent du bilan, et les prochaines sorties du classement
   function calendarHtml(c) {
     var nx = c.proj.next; if (!nx || c.proj.status === "top") return "";
-    var cm = countedMap(nx), ev = [], t0 = today(), lim = new Date(t0.getTime() + 100 * 864e5);
-    allMatches().forEach(function (m) { if (cm[m.id] == null || !m.date) return; var lv = E.leaveDate(m); if (lv >= t0 && lv <= lim) ev.push({ d: lv, k: "out", pts: cm[m.id], m: m }); });
-    var r = new Date(t0); for (var i = 0; i < 3; i++) { var nr = E.nextRelease(r); if (nr > lim) break; ev.push({ d: nr, k: "rel" }); r = new Date(nr.getTime() + 864e5); }
-    if (!ev.some(function (x) { return x.k === "out"; })) return "";
-    ev.sort(function (a, b) { return a.d - b.d; });
-    var gap = Math.max(0, nx.norme - nx.total), lost = 0, tip = "";
-    var rows = ev.map(function (x) {
-      var dt = fdate(E.iso(x.d)).replace(/\.$/, "");
-      if (x.k === "rel") { var need = gap + lost; try { var bb = E.bilanAt(E.windowMatches(allMatches(), x.d, today()), E.idx(nx.label), c.sex, c.cur, c.opts.extra); need = Math.max(0, bb.norme - bb.total); } catch (e) {} return '<div class="evx rel"><b>' + dt + " · sortie du classement</b><small>" + (need > 0 ? "Pour monter " + nx.label + " ce jour-là, il te manquera " + need + " pts (sans nouveau match)" : "Tu as les points pour " + nx.label + (nx.winAtLevel ? "" : ", il manque la victoire qui valide")) + "</small></div>"; }
-      lost += x.pts;
-      if (!tip) tip = "<b>Le bon moment pour gagner, c'est avant le " + dt + ".</b> Après, ta victoire contre un " + esc(x.m.oppRank) + " ne compte plus.";
-      return '<div class="evx out"><b>' + dt + " · sort de ton bilan</b><small>Ta victoire contre un " + esc(x.m.oppRank) + " (" + MOIS[E.parseDate(x.m.date).getMonth()] + " " + E.parseDate(x.m.date).getFullYear() + ") : −" + x.pts + " pts</small></div>";
+    // 4.1.1 (Yann : « tu ne prends pas en compte la sortie des points bonus ») : chaque sortie est calculée par le même bilan que partout
+    // (bilanSeries → E.bilanAt + E.releaseDiff) : victoires qui sortent, celles qui prennent le relais ET les bonus (sans défaite, championnat, doubles)
+    var lim = new Date(today().getTime() + 100 * 864e5), P = bilanSeries(c, E.idx(nx.label), 5).filter(function (x) { return x.rel <= lim; });
+    if (!P.length || !P.some(function (x) { return x.diff.some(function (r) { return r.pts < 0; }); })) return "";
+    var tip = "", MO = function (m) { var d = E.parseDate(m.date); return MOIS[d.getMonth()] + " " + d.getFullYear(); };
+    var need = function (x) { var n = Math.max(0, x.norme - x.total); return n > 0 ? "Pour monter " + nx.label + " ce jour-là, il te manquera <b>" + n + " pts</b>" + (x === P[0] ? " (sans nouveau match)" : "") + "." : "Tu as les points pour " + nx.label + (x.b.winAtLevel ? "." : ", il manque la victoire qui valide."); };
+    var rows = P.map(function (x, i) {
+      if (i && !x.diff.length) return ""; // rien ne bouge à cette sortie : pas de ligne en double
+      var dt = fdate(E.iso(x.rel)).replace(/\.$/, ""), neg = x.diff.some(function (r) { return r.pts < 0; });
+      var L = x.diff.slice().sort(function (a, b) { return a.pts - b.pts; }).map(function (r) {
+        var t = r.k === "bonus" ? r.label + (r.pts < 0 ? " qui part" : " qui revient") : r.k === "adjust" ? r.label : r.k === "in" ? "Ta victoire contre un " + esc(r.w.m.oppRank) + " (" + MO(r.w.m) + ") prend le relais" : r.k === "drop" ? "Ta victoire contre un " + esc(r.w.m.oppRank) + " (" + MO(r.w.m) + ") n'est plus comptée" : "Ta victoire contre un " + esc(r.w.m.oppRank) + " (" + MO(r.w.m) + ") sort";
+        return "<small>" + t + " : " + (r.pts > 0 ? "+" : "−") + Math.abs(r.pts) + " pts</small>";
+      }).join("");
+      if (neg && !tip) { var w0 = x.diff.filter(function (r) { return r.k === "out" || r.k === "drop"; })[0]; tip = "<b>Le bon moment pour gagner, c'est avant le " + dt + ".</b> " + (w0 ? "Après, ta victoire contre un " + esc(w0.w.m.oppRank) + " ne compte plus." : "Après, une partie de ton bonus s'en va."); }
+      return '<div class="evx ' + (neg ? "out" : "rel") + '"><b>' + dt + " · sortie du classement</b>" + L + "<small>" + need(x) + "</small></div>";
     }).join("");
     return '<div class="card cal-card"><span class="eyebrow">Ton calendrier</span><div class="tml">' + rows + "</div>" + (tip ? '<span class="p">' + tip + "</span>" : "") + "</div>";
   }
@@ -14211,12 +14214,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     });
     return pts;
   }
+  // 4.1.1 : LE bilan des prochaines sorties, sans nouveau match (Points à défendre, Ton calendrier) : victoires, relais et bonus
+  function bilanSeries(c, calc, n) {
+    var all = allMatches(), rel = c.proj.release, pts = [];
+    for (var k = 0; k < n; k++) { var b = E.bilanAt(E.windowMatches(all, rel, today()), calc, c.sex, c.cur, c.opts.extra); pts.push({ rel: rel, total: b.total, norme: b.norme, lost: [], b: b }); rel = E.nextRelease(rel); }
+    return defendDiffs(pts);
+  }
   function defendSeries(c) {
     var p = c.proj; if (p.status === "top" || c.cur <= 0) return null;
-    var b0 = p.here, calc = b0.calc, all = allMatches(), rel = p.release, pts = [];
-    for (var k = 0; k < 6; k++) { var b = E.bilanAt(E.windowMatches(all, rel, today()), calc, c.sex, c.cur, c.opts.extra); pts.push({ rel: rel, total: b.total, norme: b.norme, lost: [], b: b }); rel = E.nextRelease(rel); }
-    // 3.78.1 (retour testeur) : d'un mois à l'autre, ce qui part (victoires, bonus) : les relais sont déjà dans le total
-    defendDiffs(pts);
+    var b0 = p.here, pts = bilanSeries(c, b0.calc, 6);
     var now = (c.drops || []).reduce(function (s2, x) { return s2 + (x.pts || 0); }, 0);
     return { pts: pts, label: b0.label, now: now };
   }
@@ -14224,14 +14230,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var p = c.proj; if (p.status === "top" || c.cur < 0) return "";
     // Points à défendre = pour GARDER ton classement actuel (bilan à ton échelon, pas à l'échelon visé)
     if (c.cur <= 0) return '<div class="card" style="gap:6px">' + chead("defend", "Points à défendre", "") + '<span style="font-size:15px">À 40, pas de descente possible : rien à défendre.</span></div>';
-    var b0 = p.here, calc = b0.calc, all = allMatches(), rel = p.release, pts = [];
-    for (var k = 0; k < 6; k++) {
-      var b = E.bilanAt(E.windowMatches(all, rel, today()), calc, c.sex, c.cur, c.opts.extra);
-      pts.push({ rel: rel, total: b.total, norme: b.norme, lost: [], b: b });
-      rel = E.nextRelease(rel);
-    }
-    // 3.78.1 (retour testeur) : ce qui sort, ce qui prend le relais et les bonus, d'une sortie à l'autre
-    defendDiffs(pts);
+    var b0 = p.here, pts = bilanSeries(c, b0.calc, 6); // 3.78.1 : sorties, relais et bonus d'une sortie à l'autre
     var drop = pts[0].total - pts[pts.length - 1].total;
     UI._defend = { pts: pts, label: b0.label };
     if (drop <= 0) {
