@@ -44,15 +44,17 @@
 
   // ---- 3.43.2 : ton profil de compétiteur, version légère (même calcul avant / après les nouveaux matchs) ----
   function setsOf(score) { var out = []; String(score || "").replace(/(\d{1,2})\s*[-\/]\s*(\d{1,2})(\s*\(\s*\d+(?:\s*[-\/]\s*\d+)?\s*\))?/g, function (_, x, y) { out.push([+x, +y]); return _; }); return out; }
-  function expWin(o, cur) { return 1 / (1 + Math.exp(0.75 * (o - (cur < 0 ? 0 : cur)))); }
-  function setP(p) { var lo = 0, hi = 1; for (var k = 0; k < 30; k++) { var md = (lo + hi) / 2; if (md * md * (3 - 2 * md) < p) lo = md; else hi = md; } return (lo + hi) / 2; }
+  // 4.2.3 : mêmes fonctions que l'app (engine.js), plus de copie
+  function expWin(o, cur) { return root.MonteeEngine.expWin(o, cur); }
+  function setP(p) { return root.MonteeEngine.setP(p); }
   var CPL = { perf: ["Perf", "contre les mieux classés", "gagne"], solid: ["Solidité", "contre les moins bien classés", "gagne"], mental: ["Mental", "après un 1er set perdu", "renverse"], endu: ["Endurance", "dans les matchs en 3 sets", "gagne"] };
-  function cpLight(rows, cur, todayD) {
+  // eff : le niveau réel de tes adversaires calculé par l'app (fiches lues), clé date|classement|résultat : le même attendu que l'écran Compétiteur
+  function cpLight(rows, cur, todayD, eff) {
     var E = root.MonteeEngine, lim = new Date(todayD.getTime()); lim.setFullYear(lim.getFullYear() - 1);
     var ms = rows.filter(function (r) { return r.ok && !r.wo && (r.result === "V" || r.result === "D") && E.idx(r.oppRank) != null && r.date && E.parseDate(r.date) > lim; });
     var c0 = cur < 0 ? 0 : cur, out = {};
-    var g = function (k, list, ef) { var v = 0, e = 0; list.forEach(function (m) { var p = expWin(E.idx(m.oppRank), c0); e += ef ? ef(p) : p; if (m.result === "V") v++; }); var n = list.length;
-      out[k] = { n: n, v: v, e: e, st: n < 4 ? "lock" : v - e >= 1 ? "fort" : e - v >= 0.9 ? "faible" : "norme" }; };
+    var g = function (k, list, ef) { var v = 0, e = 0; list.forEach(function (m) { var o = eff && eff[key(m)] != null ? eff[key(m)] : E.idx(m.oppRank), p = expWin(o, c0); e += ef ? ef(p) : p; if (m.result === "V") v++; }); var n = list.length;
+      out[k] = { n: n, v: v, e: e, st: E.skillSt(v, e, n) }; };
     g("perf", ms.filter(function (m) { return E.idx(m.oppRank) > c0; }));
     g("solid", ms.filter(function (m) { return E.idx(m.oppRank) < c0; }));
     g("mental", ms.filter(function (m) { var x = setsOf(m.score); return x.length && x[0][0] < x[0][1]; }), function (p) { var x = setP(p); return x * x; });
@@ -189,7 +191,7 @@
     var FN = folNotes(pl, st, cur), fN = npOn(st, "fol") ? FN.notes : [], more = fN.length > 2 ? [{ title: fN.length + " joueurs que tu suis ont bougé", body: fN.map(function (n) { return n.title; }).join(" · ") + "." }] : fN;
     var jal = null;
     if (known.length && fresh.length) {
-      var freshK = fresh.map(key), bef = cpLight(rows.filter(function (r) { return freshK.indexOf(key(r)) < 0; }), cur, today), aft = cpLight(rows, cur, today);
+      var freshK = fresh.map(key), bef = cpLight(rows.filter(function (r) { return freshK.indexOf(key(r)) < 0; }), cur, today, st.eff), aft = cpLight(rows, cur, today, st.eff);
       if (npOn(st, "jalons")) { jal = jalNotes(fresh, st, today); more = (jal ? [jal] : []).concat(cpNotes(bef, aft, rank || "joueur de ton classement", !!st.plus)).concat(more); }
     }
     var base = Object.assign({}, st, { keys: rows.map(key), rank: rank, fol: FN.fol });

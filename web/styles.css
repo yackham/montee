@@ -7024,3 +7024,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* 4.2.2 : petits écrans (320 px) : la pastille de date et « Le détail » passent sur 2 lignes au lieu de déborder */
 .card.hero.h3 .h3-top { flex-wrap: wrap; row-gap: 8px; }
 .card.hero.h3 .h3-top > .go { margin-left: auto; }
+/* 4.2.3 : une fiche ou des niveaux en cours de lecture : la petite balle plutôt qu'un chiffre provisoire */
+.op-wait { display: inline-flex; align-items: center; gap: 2px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+.op-wait .rally-l { width: 26px; height: 12px; }
+.ch-wait { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; padding: 6px 0 2px; }
