@@ -5868,15 +5868,6 @@ button.h3h-r.fx2 { display: flex; flex-direction: column; align-items: stretch; 
 .topbar > .title { min-width: 0; }
 .topbar > .title > .small:only-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* 3.67 : « Face-à-face » sur une ligne à côté de la pastille */
 /* 3.68 : comment Montée a cherché tes équipes (repliable, discret, sous les équipes) */
-.tm-tr { margin: 18px 4px 8px; display: flex; flex-direction: column; gap: 8px; }
-.tm-tr summary { cursor: pointer; list-style: none; font-size: 13px; font-weight: 600; color: var(--muted); }
-.tm-tr summary::-webkit-details-marker { display: none; }
-.tm-tr summary::after { content: " ›"; }
-.tm-tr[open] summary::after { content: " ⌄"; }
-.tm-tr[open] { gap: 10px; }
-.tm-trr { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
-.tm-trr span { color: var(--muted); font-size: 12.5px; }
-.tm-tr .linkbtn { align-self: flex-start; }
 /* 3.69 : journal des passages d'arrière-plan (Réglages › Notifications) */
 .nf-log { display: flex; flex-direction: column; padding: 4px 16px 10px; } .nf-log > small { font-size: 12px; font-weight: 700; color: var(--muted); padding: 4px 0 6px; }
 .nf-lg { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; } .nf-lg span { color: var(--muted); white-space: nowrap; } .nf-lg b { font-weight: 600; text-align: right; }
