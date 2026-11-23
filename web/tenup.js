@@ -791,6 +791,8 @@
       // 3.55.3 (Yann : 1re synchro lente) : les saisons passées partent tout de suite, en même temps que le palmarès, plus après
       // Tes saisons passées (best effort : on ne sait pas jusqu'où Ten'Up remonte) — millésime N = sept. N-1 → août N
       var now = new Date(), y0 = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();
+      // 3.83 : une clé où qu'elle soit (formats Ten'Up non documentés), 4 niveaux au plus, sans entrer dans les matchs
+      var deepK = function (o, re) { var out; (function w(x, d) { if (out !== undefined || !x || typeof x !== "object" || d > 4) return; Object.keys(x).forEach(function (k) { if (out !== undefined || /^matchs?$|matches$/i.test(k)) return; if (re.test(k) && x[k] != null) out = x[k]; else w(x[k], d + 1); }); })(o, 0); return out; };
       var clOf = function (o) {
         var out = ""; (function walk(x, d) { if (out || !x || typeof x !== "object" || d > 3) return; Object.keys(x).forEach(function (k) { if (out || /^matchs?$|matches|adversaire/i.test(k)) return; var v = x[k];
           if (/classement/i.test(k) && v && typeof v === "object" && typeof v.libelle === "string" && !/meilleur/i.test(k)) out = v.libelle; else if (/classement/i.test(k) && typeof v === "string" && /^(NC|\d|-?\d+\/\d|[0-9]{1,2}\/[0-9])/.test(v) && v.length < 8) out = v; else if (v && typeof v === "object" && !Array.isArray(v)) walk(v, d + 1); }); })(o, 0);
@@ -817,6 +819,11 @@
           var ph = me.photo && typeof me.photo === "object" ? (me.photo.url || me.photo.lien || me.photo.src) : me.photo;
           var club = (me.clubs || []).filter(function (c) { return c && c.code === me.codeClubActif; })[0] || (me.clubs || [])[0];
           var out = { club: club && club.nom || "", classement: me.classement || "" };
+          // 3.83 (Yann, maquette « Je t'ai reconnu » validée le 23/11/2026) : dirigeant, licence de la saison suivante, paiements en attente
+          var dv = function (re) { var v; try { v = deepK(me, re); } catch (e) {} return v == null || typeof v === "object" ? null : v; };
+          out.dir = !!(dv(/^(estDirigeant|dirigeant|isDirigeant)$/i) || dv(/^(estPresident|president|isPresident)$/i)); out.pres = !!dv(/^(estPresident|president|isPresident)$/i);
+          var l1 = dv(/^licencieMillesimeSuivant$/i); out.licN1 = l1 == null ? null : !!l1;
+          var np = dv(/^nbPaiementsEnAttente$/i); out.pay = np == null ? null : +np || 0;
           if (!ph || typeof ph !== "string" || !/^(https?:|\/|data:image)/.test(ph)) return out;
           return new Promise(function (res) {
             var done = false, fin = function (d) { if (!done) { done = true; out.photo = d || null; res(out); } };
@@ -849,7 +856,11 @@
         done({
           v: 1, sv: "__SV__", at: new Date().toISOString(), id: id, seasons: ss.filter(Boolean), palD0: ms.map(function (m) { return String(m.date || m.dateMatch || ""); }).sort().pop() || "", palKeys: Object.keys(pal || {}).slice(0, 15), palCl: clOf(pal),
           profil: { prenom: p.prenom, nom: p.nom, sexe: p.sexe, licence: p.numeroLicence, fiche: ficheOf(p), club: (r[4] && r[4].club) || "", photo: (r[4] && r[4].photo) || null,
-            classement: ct.dernierClassement && ct.dernierClassement.libelle, meilleur: ct.meilleurClassement && ct.meilleurClassement.libelle },
+            classement: ct.dernierClassement && ct.dernierClassement.libelle, meilleur: ct.meilleurClassement && ct.meilleurClassement.libelle,
+            // 3.83 : profil rempli tout seul (âge, catégorie, saison du meilleur classement, dirigeant, licence N+1, paiements, bilan par saison)
+            meilleurAn: bestYear(ct.meilleurClassement), age: p.age || deepK(p, /^age$/i) || null, cat: (function (c) { return c && typeof c === "object" ? c.libelle || c.code || "" : c || ""; })(deepK(p, /^categorieAge$/i)),
+            dir: r[4] ? !!r[4].dir : null, pres: r[4] ? !!r[4].pres : null, licN1: r[4] ? r[4].licN1 : null, pay: r[4] ? r[4].pay : null,
+            hist: (function (h) { try { var t = JSON.stringify(h); return h && t.length < 6000 ? h : null; } catch (e) { return null; } })(deepK(pal, /^historiqueStats$/i)) },
           matches: matches, raw: ms, bilan: r[2], simulation: r[3], sample: ms[0] || null
         });
         });

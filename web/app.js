@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "3.80.0",
+    VERSION: "3.83.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -720,6 +720,7 @@
       case "moi": html = V.moi(); break;
       case "tenup": html = V.tenup(); break;
       case "profil": html = V.profil(); break;
+      case "reconnu": html = V.reconnu(); break;
       case "donnees": html = V.donnees(); break;
       case "methode": html = V.methode(); break;
       case "apropos": html = V.apropos(); break;
@@ -3139,6 +3140,87 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   };
 
   // ---------- Profil ----------
+  // ---------- 3.83 (Yann, maquettes « profil rempli depuis Ten'Up » validées le 23/11/2026) ----------
+  function tuMe() { return (S.tenup && S.tenup.me) || {}; }
+  function curMill() { var d = today(); return d.getMonth() >= 8 ? d.getFullYear() + 1 : d.getFullYear(); }
+  function seasonLab(y) { return (y - 1) + "-" + String(y).slice(2); }
+  // Catégorie d'âge des épreuves seniors plus : celle de Ten'Up si elle a un âge, sinon d'après l'âge (par tranches de 5 ans dès 35)
+  function tuCat(me) {
+    var m = String(me.cat || "").match(/(\d{2})/); if (m && +m[1] >= 35) return "+" + m[1];
+    var a = +me.age; return a >= 35 ? "+" + Math.min(85, Math.floor(a / 5) * 5) : "";
+  }
+  // Bilan par saison (millésime = sept. → août) : historiqueStats de Ten'Up (format non documenté), puis tes saisons relues, puis la saison en cours
+  function careerSeasons() {
+    var by = {}, me = tuMe(), H = me.hist;
+    var num = function (o, re) { var v = null; Object.keys(o).forEach(function (k) { if (v == null && re.test(k) && o[k] !== "" && isFinite(+o[k])) v = +o[k]; }); return v; };
+    var L = Array.isArray(H) ? H : H && typeof H === "object" ? Object.keys(H).map(function (k) { var o = H[k]; return o && typeof o === "object" ? Object.assign({ _k: k }, o) : null; }).filter(Boolean) : [];
+    L.forEach(function (o) {
+      if (!o || typeof o !== "object") return; var y = null;
+      Object.keys(o).forEach(function (k) { if (y || !/millesime|annee|saison|year|^_k$/i.test(k)) return; var t = String(o[k]), m2 = t.match(/(20\d\d)\s*[-\/]\s*(\d{2,4})/), m1 = t.match(/(20\d\d)/);
+        if (m2) y = m2[2].length === 2 ? 2000 + +m2[2] : +m2[2]; else if (m1) y = +m1[1]; });
+      var v = num(o, /victoire|^nbv|^v$|gagne/i), d = num(o, /defaite|^nbd|^d$|perdu/i);
+      if (y && v != null && d != null && v + d > 0) by[y] = { y: y, v: v, d: d };
+    });
+    (S.tenupSeasons || []).forEach(function (x) { if (x && x.y && x.n) by[x.y] = { y: x.y, v: x.v || 0, d: Math.max(0, x.n - (x.v || 0)) }; });
+    var cy = curMill(), from = E.iso(new Date(cy - 1, 8, 1)), cv = 0, cd = 0;
+    S.matches.forEach(function (m) { if (!m.date || m.wo || m.date < from) return; if (m.result === "V") cv++; else if (m.result === "D") cd++; });
+    if (cv + cd) by[cy] = { y: cy, v: cv, d: cd, now: 1 };
+    return Object.keys(by).map(function (k) { return by[k]; }).filter(function (x) { return x.y <= cy; }).sort(function (a, b) { return a.y - b.y; }).slice(-10);
+  }
+  function careerHtml() {
+    var L = careerSeasons(); if (L.length < 2) return "";
+    var tv = 0, td = 0, mx = 1, best = null, me = tuMe();
+    L.forEach(function (x) { tv += x.v; td += x.d; mx = Math.max(mx, x.v, x.d); if (!x.now && (!best || x.v > best.v)) best = x; });
+    var sel = L.filter(function (x) { return x.y === UI.crrY; })[0], cur = L.filter(function (x) { return x.now; })[0];
+    var h = function (n) { return n ? Math.max(4, Math.round(n / mx * 78)) : 0; };
+    var bars = '<div class="crr-bars" style="--n:' + L.length + '">' + L.map(function (x, i) {
+      return '<button class="crr-b' + (best && x.y === best.y ? " best" : "") + (x.now ? " now" : "") + (sel && sel.y === x.y ? " on" : "") + '" style="--i:' + i + '" data-a="crrY" data-v="' + x.y + '" aria-label="Saison ' + seasonLab(x.y) + " : " + plural(x.v, "victoire") + ", " + plural(x.d, "défaite") + (x.now ? ", en cours" : "") + '">' +
+        "<em>" + x.v + '</em><i style="height:' + h(x.v) + 'px"></i><i class="d" style="height:' + h(x.d) + 'px"></i></button>';
+    }).join("") + '</div><div class="crr-yrs" style="--n:' + L.length + '">' + L.map(function (x) { return "<span>" + String(x.y - 1).slice(2) + "</span>"; }).join("") + "</div>";
+    var bestRk = me.meilleur ? ' Ton meilleur classement, <b class="rk-tag">' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? ", date de " + me.meilleurAn : "") + "." : "";
+    var line = sel ? "<b>Saison " + seasonLab(sel.y) + (sel.now ? " (en cours)" : "") + " :</b> " + plural(sel.v, "victoire") + ", " + plural(sel.d, "défaite") + " · " + Math.round(100 * sel.v / Math.max(1, sel.v + sel.d)) + " % de victoires."
+      : (best ? "<b>" + seasonLab(best.y) + ", ta saison record :</b> " + plural(best.v, "victoire") + "." : "") + bestRk + (cur ? " Cette saison, tu en es à " + cur.v + "." : "");
+    return '<div class="card crr"><span class="eyebrow">Ta carrière · depuis ' + (L[0].y - 1) + "</span>" +
+      '<div class="crr-t">' + plural(tv, "victoire") + ", " + plural(td, "défaite") + '</div><div class="crr-s">' + plural(L.length, "saison") + " lues sur Ten'Up. Touche une saison pour son bilan.</div>" + bars +
+      '<div class="crr-lg"><span><i></i>victoires</span><span><i class="d"></i>défaites</span>' + (cur ? "<span>" + String(cur.y - 1).slice(2) + " : en cours</span>" : "") + "</div>" +
+      '<div class="crr-best">' + line + "</div></div>";
+  }
+  // Une ligne du profil lu sur Ten'Up
+  function tmeRow(k, v, a, dv) { return '<button class="tme-r" data-a="' + a + '"' + (dv ? ' data-v="' + dv + '"' : "") + '><span class="grow"><span class="k">' + k + '</span><span class="v">' + v + '</span></span><span class="tme-chev" aria-hidden="true">›</span></button>'; }
+  function tmeSub(me) {
+    var a = [S.profile.sex === "F" ? "Dames" : S.profile.sex === "H" ? "Messieurs" : "", me.age ? me.age + " ans" : "", tuCat(me) ? "catégorie " + tuCat(me) : ""].filter(Boolean);
+    return a.join(" · ");
+  }
+  // Licence de la saison suivante : utile seulement de juin à août (avant la nouvelle saison)
+  function tmeLicRow(me) {
+    var mo = today().getMonth(); if (me.licN1 == null || mo < 5 || mo > 7) return "";
+    return tmeRow("Licence " + (curMill() + 1), me.licN1 ? '<span class="tme-ok">Prise</span> <small>· tu es tranquille pour la saison prochaine</small>' : '<span class="tme-ko">Pas encore prise</span> <small>· à renouveler avant septembre</small>', "insOpen");
+  }
+  // « À faire » : inscriptions à venir pas encore payées (Ten'Up : restant à payer), la plus proche d'abord
+  function payTodoHtml() {
+    var td = E.iso(today()), L = (S.tours || []).filter(function (t) { return t.ins && t.ins.due > 0 && !t.wait && (t.to || t.from || "") >= td; }).sort(function (a, b) { return (a.from || "") < (b.from || "") ? -1 : 1; });
+    if (!L.length) return "";
+    var t = L[0], more = L.length > 1 ? " et " + plural(L.length - 1, "autre") : "";
+    return '<button class="card qa1" data-a="insOpen"><span class="eyebrow">Inscription pas encore payée</span><span class="qa1-r"><b>' + esc(t.name) + '<small class="qa1-more"> · ' + t.ins.due + " €" + (t.from ? " · " + esc(fdate(E.parseDate(t.from)).replace(/\.$/, "")) : "") + more + '</small></b><span class="qa1-go">Payer sur Ten\'Up ' + I.next + "</span></span></button>";
+  }
+  V.reconnu = function () {
+    var me = tuMe(), p = S.profile, c = careerSeasons(), tv = 0; c.forEach(function (x) { tv += x.v; });
+    var nm = p.name || (me.prenom ? String(me.prenom).charAt(0).toUpperCase() + String(me.prenom).slice(1).toLowerCase() : "");
+    var R = [];
+    R.push(["Toi", esc([nm, S.profile.sex === "F" ? "dames" : S.profile.sex === "H" ? "messieurs" : "", me.age ? me.age + " ans" : ""].filter(Boolean).join(" · ")), "tmeFix", ""]);
+    if (p.rank) R.push(["Ton classement", '<b class="rk-tag">' + esc(p.rank) + "</b>", "tmeFix", ""]);
+    if (me.meilleur) R.push(["Ton meilleur classement", '<b class="rk-tag">' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? " <small>· atteint en " + me.meilleurAn + "</small>" : ""), "tmeFix", ""]);
+    if (tuCat(me)) R.push(["Ta catégorie", tuCat(me) + " ans <small>· pour les épreuves seniors plus</small>", "tmeFix", ""]);
+    if (me.club) R.push(["Ton club", esc(me.club), "tmeFix", ""]);
+    if (c.length >= 2) R.push(["Ta carrière", plural(c.length, "saison") + " <small>· " + plural(tv, "victoire") + " depuis " + (c[0].y - 1) + "</small>", "tmeFix", ""]);
+    if (me.dir && me.club) R.push(["Au club", (me.pres ? "Président" : "Dirigeant") + ' <small>· </small><span class="tme-ok">« Le club » t\'attend dans Mes épreuves</span>', "tmeClub", ""]);
+    return '<div class="screen tme-rec"><div class="tme-h">Je t\'ai reconnu<small>Lu sur ton compte Ten\'Up, rien à saisir.</small></div>' +
+      '<div class="card cbl tme-ace"><span class="cbl-b sm" data-id="tme:hello" data-m="joie"></span><div class="cbl-t"><span><b>Salut' + (nm ? " " + esc(nm) : "") + ", moi c'est Ace.</b> J'ai tout lu, vérifie juste que c'est bien toi.</span></div></div>" +
+      '<div class="card tme-card">' + R.map(function (r, i) { return '<button class="tme-r" style="--i:' + i + '" data-a="' + r[2] + '"><span class="tme-okc" aria-hidden="true">' + I.check + '</span><span class="grow"><span class="k">' + r[0] + '</span><span class="v">' + r[1] + '</span></span><span class="tme-chev" aria-hidden="true">›</span></button>'; }).join("") + "</div>" +
+      '<p class="tme-foot">Tout est lu depuis ton téléphone, rien n\'est envoyé ailleurs. Touche une ligne pour la corriger ; Montée la remet à jour à chaque synchro.</p>' +
+      '<div class="tme-btns" style="--i:' + R.length + '"><button class="btn primary" data-a="tmeOk">C\'est bien moi</button><button class="linkbtn" data-a="tmeFix">Corriger quelque chose</button></div></div>';
+  };
+
   V.profil = function () {
     var p = S.profile, first = !S.onboarded;
     var opts = '<option value="">Choisis…</option><option value="NC"' + (p.rank === "NC" ? " selected" : "") + ">Non classé</option>" +
@@ -3148,25 +3230,21 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (fromTenup) {
       var me = S.tenup.me || {}, full = [me.prenom, me.nom].filter(Boolean).join(" ") || p.name || "Toi", ph = myPhoto();
       var s0 = '<div class="screen">' + topbar("", "Mon profil");
-      s0 += '<div class="card me-card"><button class="me-av" data-a="photoMenu" aria-label="Changer ma photo">' + (ph ? '<img src="' + ph + '" alt="">' : '<span>' + esc(initials(full)) + "</span>") + '<i class="me-cam">' + I.camera + "</i></button>" +
-        '<div class="me-id"><b class="me-n">' + esc(full) + "</b>" + (me.club ? '<span class="me-club">' + esc(me.club) + "</span>" : "") + "</div>" +
-        (function () {
-          // Classement actuel en grand ; meilleur classement et statut à la prochaine sortie en dessous, plus discrets
-          var c0 = ctx(), pr0 = c0.proj, d0 = pr0.release ? esc(fdate(pr0.release).replace(/\.$/, "")) : "";
-          // Montée déjà acquise : ctx() calcule depuis le nouveau classement, on affiche donc la montée elle-même
-          var AH = S.ahead && S.ahead.from === p.rank ? S.ahead : null;
-          if (AH) { pr0 = { status: "montee", projected: E.idx(AH.rank) }; d0 = esc(fdate(E.parseDate(AH.release)).replace(/\.$/, "")); }
-          var to = pr0.status === "montee" || pr0.status === "descente" ? '<span class="me-to ' + pr0.status + '"><i>' + (pr0.status === "montee" ? "↗" : "↘") + "</i>" + (AH ? esc(AH.rank) : lab(pr0.projected)) + "</span>" : "";
-          var st = pr0.status === "montee" ? '<span class="me-st montee"><i>↑</i><span><b>Montée</b> le ' + d0 + "</span></span>"
-            : pr0.status === "descente" ? '<span class="me-st descente"><i>↓</i><span><b>Descente</b> le ' + d0 + "</span></span>"
-            : pr0.status === "maintien" ? '<span class="me-st maintien"><i>=</i><span><b>Maintien</b> le ' + d0 + "</span></span>" : "";
-          return '<div class="me-rk2"><span class="k">Ton classement</span><b class="me-now">' + esc(p.rank) + to + "</b>" +
-            (me.meilleur || st ? '<div class="me-sub">' + (me.meilleur ? '<span class="me-best"><span>Meilleur</span><b>' + esc(me.meilleur) + "</b></span>" : "") + st + "</div>" : "") + "</div>";
-        })() +
-        (S.ahead ? '<span class="me-ahead">' + I.check + " Montée te compte déjà " + esc(S.ahead.rank) + " pour la sortie du " + esc(fdate(S.ahead.release).replace(/\.$/, "")) + "</span>" : "") +
-        '<span class="me-foot">' + I.link + " Ten'Up" + (me.licence ? " · licence " + esc(me.licence) : "") + (S.tenup.lastImport ? " · à jour du " + esc(fdate(S.tenup.lastImport).replace(/\.$/, "")) : "") + "</span></div>";
+      // 3.83 (Yann, maquette validée) : le profil lu sur Ten'Up en lignes touchables, puis ta carrière saison par saison
+      var c0 = ctx(), pr0 = c0.proj, d0 = pr0.release ? esc(fdate(pr0.release).replace(/\.$/, "")) : "";
+      var AH = S.ahead && S.ahead.from === p.rank ? S.ahead : null;
+      if (AH) { pr0 = { status: "montee", projected: E.idx(AH.rank) }; d0 = esc(fdate(E.parseDate(AH.release)).replace(/\.$/, "")); }
+      var stx = pr0.status === "montee" ? '<span class="tme-ok">montée à ' + (AH ? esc(AH.rank) : lab(pr0.projected)) + "</span> le " + d0 : pr0.status === "descente" ? '<span class="tme-ko">descente</span> le ' + d0 : pr0.status === "maintien" ? "maintien le " + d0 : "";
+      var sub0 = tmeSub(me);
+      s0 += '<div class="card tme-card tme-pf"><div class="tme-id"><button class="me-av" data-a="photoMenu" aria-label="Changer ma photo">' + (ph ? '<img src="' + ph + '" alt="">' : '<span>' + esc(initials(full)) + "</span>") + '<i class="me-cam">' + I.camera + "</i></button>" +
+        '<span class="grow"><b>' + esc(full) + "</b>" + (sub0 ? "<small>" + esc(sub0) + "</small>" : "") + "</span></div>" +
+        tmeRow("Classement", '<b class="rk-tag">' + esc(p.rank) + "</b>" + (stx ? " <small>· " + stx + "</small>" : ""), "goProjection") +
+        (me.meilleur ? tmeRow("Meilleur classement", '<b class="rk-tag">' + esc(me.meilleur) + "</b>" + (me.meilleurAn ? " <small>· atteint en " + me.meilleurAn + "</small>" : ""), "tmeCar") : "") +
+        (me.club ? tmeRow("Club", esc(me.club) + (me.dir ? " <small>· " + (me.pres ? "président" : "dirigeant") + "</small>" : ""), me.dir ? "tmeClub" : "goEp") : "") +
+        tmeLicRow(me) +
+        '<div class="tme-src"><span>' + I.link + " Lu sur Ten'Up" + (me.licence ? " · licence " + esc(me.licence) : "") + (S.tenup.lastImport ? " · à jour du " + esc(fdate(S.tenup.lastImport).replace(/\.$/, "")) : "") + '</span><button class="linkbtn" data-a="profEdit">Corriger</button></div></div>';
+      s0 += careerHtml();
       s0 += goalRow() + matRow() + semRow() + tonJeuCard();
-      s0 += '<button class="linkbtn" data-a="profEdit" style="align-self:center;margin-top:6px">Corriger mon classement à la main</button>';
       if (UI.photoMenu) s0 += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="photoClose"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Ta photo"><b>Ta photo</b>' +
         '<button class="btn primary" data-a="photoPick">Choisir une photo</button>' +
         (S.profile.photoTU && S.profile.photo ? '<button class="btn soft" data-a="photoTenup">Reprendre celle de Ten\'Up</button>' : "") +
@@ -3403,14 +3481,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.55 (Yann, maquette D) : les petites choses à faire (annoter, ressenti, cordage, synchro) dans une seule carte « À faire »
     if (!freshStart()) {
       B.backup = bkDue() ? bkTodoHtml() : "";
-      var tdK = ["annoter", "rate", "slot", "cordage", "sync", "backup"].filter(function (k) { return B[k]; });
-      if (tdK.length === 1 && tdK[0] === "backup") B.sync = B.backup; // seule chose à faire : à la place de la synchro
+      B.pay = payTodoHtml(); // 3.83 : inscription à un tournoi pas encore payée (lue sur Ten'Up)
+      var tdK = ["annoter", "rate", "slot", "cordage", "pay", "sync", "backup"].filter(function (k) { return B[k]; });
+      if (tdK.length === 1 && (tdK[0] === "backup" || tdK[0] === "pay")) B.sync = B[tdK[0]]; // seule chose à faire : à la place de la synchro
       else if (tdK.length >= 2 || tuOut) {
-        var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0) + (B.backup ? 2 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
+        var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0) + (B.backup ? 2 : 0) + (B.pay ? 5 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
         var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + (tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK).map(function (k) { return '<div class="td3-i">' + B[k] + "</div>"; }).join("") + "</div>";
-        tdK.forEach(function (k) { B[k] = ""; }); B[tdK[0]] = tdH;
+        tdK.forEach(function (k) { B[k] = ""; }); B[tdK[0] === "pay" ? "sync" : tdK[0]] = tdH;
       }
-      B.backup = "";
+      B.backup = ""; B.pay = "";
     }
     X.rebond = rebondHtml(c); // 3.55 (Yann) : mode rebond
     // 3.57 (audit parcours M1, M2) : une seule invitation à la fois, « Tu joues pour quoi ? » compris ; aucune pendant un passage à vide
@@ -13860,7 +13939,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!S.profile.name && pr.prenom) S.profile.name = (function (n) { return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase(); })(String(pr.prenom).split(/[\s-]/)[0]);
     if (pr.licence && !S.profile.licence) S.profile.licence = String(pr.licence);
     if (pr.fiche) { S.profile.gameTU = normGame(pr.fiche); S.profile.ficheTU = pr.fiche; }
-    if (pr.nom || pr.prenom) S.tenup.me = { prenom: pr.prenom || "", nom: pr.nom || "", club: pr.club || (S.tenup.me || {}).club || "", meilleur: pr.meilleur || "", licence: pr.licence || "" };
+    if (pr.nom || pr.prenom) {
+      var me0 = S.tenup.me || {}, kp = function (k) { return pr[k] != null && pr[k] !== "" ? pr[k] : me0[k] != null ? me0[k] : null; };
+      // 3.83 (Yann, maquettes validées le 23/11/2026) : profil lu sur Ten'Up ; une info que Ten'Up ne renvoie pas cette fois garde l'ancienne valeur
+      S.tenup.me = { prenom: pr.prenom || "", nom: pr.nom || "", club: pr.club || me0.club || "", meilleur: pr.meilleur || "", licence: pr.licence || "",
+        meilleurAn: kp("meilleurAn"), age: kp("age"), cat: kp("cat"), dir: pr.dir != null ? !!pr.dir : !!me0.dir, pres: pr.pres != null ? !!pr.pres : !!me0.pres,
+        licN1: kp("licN1"), pay: kp("pay"), hist: kp("hist"), at: Date.now() };
+    }
     if (pr.photo) S.profile.photoTU = pr.photo;
     if (Array.isArray(pl.seasons)) {
       // Saisons passées : on écarte celles que Ten'Up renvoie identiques à la saison en cours (paramètre ignoré)
@@ -13901,7 +13986,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       save(); syncNative();
       toast((add.length ? plural(add.length, "nouveau match", "nouveaux matchs") + " depuis Ten'Up" : "Ton palmarès est à jour") +
         (doubles ? " · " + plural(doubles, "double", "doubles") + " (bonus)" : "") + (removed ? " · " + plural(removed, "match retiré", "matchs retirés") : "") + (confirmedN ? " · " + plural(confirmedN, "match saisi à la main confirmé", "matchs saisis à la main confirmés") : "") + (msg.length ? " · " + msg.join(", ") : "") + ".");
-      go(S.profile.rank ? "" : "profil");
+      // 3.83 : 1re connexion : « Je t'ai reconnu » (une fois), puis l'accueil
+      go(!S.tuMet && S.profile.rank && (S.tenup.me || {}).prenom ? "reconnu" : S.profile.rank ? "" : "profil");
       return;
     }
     save();
@@ -17321,6 +17407,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     },
     goRaquettes: function () { UI.menu = false; go("materiel"); },
     goProfil: function () { UI.menu = false; go("profil"); },
+    // 3.83 : profil lu sur Ten'Up, écran « Je t'ai reconnu », carrière
+    tmeOk: function () { S.tuMet = 1; save(); go(""); },
+    tmeFix: function () { S.tuMet = 1; save(); UI.profEdit = true; go("profil"); },
+    tmeClub: function () { S.tuMet = 1; S.prefs = S.prefs || {}; S.prefs.epTab = "club"; save(); go("tournoi"); },
+    tmeCar: function () { var c = document.querySelector(".crr"); if (c) c.scrollIntoView({ behavior: "smooth", block: "center" }); },
+    goEp: function () { go("tournoi"); },
+    crrY: function (el) { var y = +el.dataset.v; UI.crrY = UI.crrY === y ? null : y; render(); },
     clubRetry: function () { if (UI.clubBusy) return; S.clubTrace = null; clubRefresh(true); render(); },
     clubTg: function () { S.prefs = S.prefs || {}; S.prefs.clubOn = !S.prefs.clubOn; save(); render(); if (S.prefs.clubOn) clubRefresh(!S.club); },
     ceFol: function (el) { S.prefs = S.prefs || {}; var f = S.prefs.clubFol = S.prefs.clubFol || {}, id = el.dataset.id; if (f[id]) delete f[id]; else f[id] = 1; save(); render(); },

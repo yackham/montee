@@ -6433,3 +6433,59 @@ button.acr, a.acr { cursor: pointer; }
 .dn-bkr small { font-size: 12.5px; color: var(--muted); }
 .dn-bkb { height: 36px; padding: 0 12px; border-radius: 18px; border: 0; background: var(--chip); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; flex: none; }
 .dn-bkb.go { background: var(--terre); color: #fff; }
+
+/* ---------- 3.83 : profil rempli depuis Ten'Up (maquettes validées le 23/11/2026) ----------
+   Lignes à plat dans une carte blanche, balle jaune devant les classements, couleur en accent seulement. */
+.tme-card { padding: 4px 16px; }
+.tme-r { display: flex; align-items: center; gap: 12px; width: 100%; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 12px 0; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+.tme-card > .tme-r:last-child { border-bottom: 0; }
+.tme-r .grow { flex: 1; min-width: 0; }
+.tme-r .k { display: block; font-size: 13px; color: var(--muted); font-weight: 600; }
+.tme-r .v { display: block; font-size: 16px; font-weight: 700; margin-top: 1px; }
+.tme-r .v small { font-size: 13.5px; color: var(--muted); font-weight: 600; }
+.tme-chev { flex: none; font-size: 22px; color: var(--muted); line-height: 1; }
+.tme-ok { color: var(--gazon); font-weight: 700; }
+.tme-ko { color: var(--terre); font-weight: 700; }
+.tme-okc { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: var(--gazon); box-shadow: inset 0 0 0 1.5px currentColor; }
+.tme-okc svg { width: 14px; height: 14px; }
+.tme-id { display: flex; align-items: center; gap: 14px; padding: 14px 0 12px; border-bottom: 1px solid var(--line); }
+.tme-id .me-av { width: 56px; height: 56px; flex: none; box-shadow: none; }
+.tme-id .me-av > span { font-size: 21px; }
+.tme-id .me-cam { width: 22px; height: 22px; right: -4px; bottom: -4px; }
+.tme-id .me-cam svg { width: 12px; height: 12px; }
+.tme-id b { display: block; font-size: 20px; font-weight: 800; line-height: 1.2; }
+.tme-id small { display: block; font-size: 13.5px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+.tme-src { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12.5px; color: var(--muted); font-weight: 600; padding: 8px 0 6px; border-top: 1px solid var(--line); }
+.tme-src svg { width: 12px; height: 12px; vertical-align: -1px; }
+.tme-src .linkbtn { font-size: 13px; padding: 6px 0; min-height: 0; color: var(--muted); text-decoration: underline; }
+/* « Je t'ai reconnu » : chaque ligne arrive puis se coche, une seule fois */
+.tme-rec { padding-top: calc(env(safe-area-inset-top, 0px) + 24px); }
+.tme-h { font-size: 28px; font-weight: 800; letter-spacing: -.02em; margin: 6px 4px 14px; color: var(--page-ink, var(--ink)); }
+.tme-h small { display: block; font-size: 15px; font-weight: 600; color: var(--page-muted, var(--muted)); letter-spacing: 0; margin-top: 4px; }
+.tme-ace { margin-bottom: 12px; align-items: center; }
+.tme-rec .tme-r { padding: 10px 0; animation: mxIn .45s ease-out both; animation-delay: calc(var(--i, 0) * 240ms + 500ms); }
+.tme-rec .tme-okc { animation: mxPop .45s cubic-bezier(.3,1.6,.5,1) both; animation-delay: calc(var(--i, 0) * 240ms + 780ms); }
+.tme-foot { font-size: 13px; color: var(--page-muted, var(--muted)); margin: 12px 4px 16px; line-height: 1.45; }
+.tme-btns { display: flex; flex-direction: column; align-items: center; gap: 6px; animation: mxIn .5s ease-out both; animation-delay: calc(var(--i, 0) * 240ms + 700ms); }
+.tme-btns .btn { width: 100%; }
+/* Ta carrière */
+.crr { padding: 16px; }
+.crr .eyebrow { display: block; }
+.crr-t { font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin: 4px 0 2px; }
+.crr-s { font-size: 14px; color: var(--muted); }
+.crr-bars, .crr-yrs { display: grid; grid-template-columns: repeat(var(--n, 10), 1fr); gap: 6px; }
+.crr-bars { align-items: end; height: 118px; margin: 16px 0 4px; }
+.crr-b { background: none; border: 0; padding: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 2px; color: inherit; cursor: pointer; border-radius: 6px; }
+.crr-b i { display: block; width: 100%; max-width: 34px; border-radius: 5px 5px 2px 2px; background: var(--gazon); transform-origin: bottom; animation: crrGrow .6s ease-out both; animation-delay: calc(var(--i, 0) * 70ms + 200ms); }
+.crr-b i.d { background: none; box-shadow: inset 0 0 0 1.5px var(--terre); border-radius: 2px; }
+.crr-b em { font-style: normal; font-size: 11px; font-weight: 800; }
+.crr-b.best em { color: var(--gazon); }
+.crr-b.now i:not(.d) { opacity: .55; }
+.crr-b.on { box-shadow: 0 0 0 1.5px var(--line); }
+.crr-yrs { font-size: 10.5px; color: var(--muted); font-weight: 700; text-align: center; }
+.crr-lg { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); font-weight: 600; margin-top: 10px; }
+.crr-lg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--gazon); margin-right: 6px; vertical-align: -1px; }
+.crr-lg i.d { background: none; box-shadow: inset 0 0 0 1.5px var(--terre); }
+.crr-best { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14.5px; line-height: 1.45; }
+@keyframes crrGrow { from { transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) { .tme-rec .tme-r, .tme-rec .tme-okc, .tme-btns, .crr-b i { animation: none !important; } }
