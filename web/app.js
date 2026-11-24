@@ -1447,7 +1447,7 @@
     var ln = function (a, ic, t, r, cls) { return '<button class="ml ' + (cls || "") + '" data-a="' + a + '"><span class="ml-i">' + ic + '</span><span class="ml-t">' + t + "</span>" + (r ? '<span class="ml-r">' + r + "</span>" : "") + "</button>"; };
     var now = ""; // 3.44.2 : l'épreuve en cours est sur l'accueil (carte), plus dans le menu
     return '<div class="overlay" data-a="closeMenu"></div><div class="sheet menu-sheet" role="dialog" aria-modal="true" aria-label="Menu"><div class="sheet-inner"><span class="grab"></span>' +
-      '<div class="m-big">' + big("newMatch", I.plus, "Match", true) + big("newTraining", I.clock, "Entraînement") + big("goTournoi", TOUR_IC, "Épreuve") + "</div>" + now +
+      '<div class="m-big">' + big("newMatch", I.plus, "Match", true) + big("newTraining", I.clock, "Entraînement") + big("goTournoi", TOUR_IC + (toursOn().length ? '<i class="mb-n">' + toursOn().length + "</i>" : ""), "Mes épreuves") /* 4.3 (Yann) : ce bouton ouvre tes épreuves, pas une nouvelle */ + "</div>" + now +
       '<div class="m-list">' +
       ln("goSimu", I.spark, "Et si…") +
       ln("goCarte", I.share, "Ta carte du mois") +
@@ -1644,7 +1644,13 @@
         '<span class="ft-m"><em><span class="ft-ic">' + tyIc + '</span><span class="ft-et">' + esc(eye || "") + "</span></em><b>" + esc(title) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></span>" +
         (bot ? '<span class="ft-perf"></span><span class="ft-bot">' + bot + "</span>" : "") + "</span></a>";
     };
-    return '<div class="fr"><div class="fr-t"><b>Ce qui arrive</b><span class="ob-frt"><button class="ob-calb' + (calChanged().length ? " dot" : "") + '" data-a="calOpen" aria-label="Ajouter tes dates à l\'agenda du téléphone">' + P_CAL_ADD + '<span>Agenda</span></button><a href="#/tournoi">Mes épreuves ›</a></span></div><div class="fr-s">' + L.map(FR_TICKETS ? tick : col).join("") + "</div></div>";
+    return '<div class="fr"><div class="fr-t"><b>Ce qui arrive</b><span class="ob-frt"><button class="ob-calb' + (calChanged().length ? " dot" : "") + '" data-a="calOpen" aria-label="Ajouter tes dates à l\'agenda du téléphone">' + P_CAL_ADD + '<span>Agenda</span></button></span></div><div class="fr-s">' + L.map(FR_TICKETS ? tick : col).join("") + "</div>" + epLineHtml() + "</div>";
+  }
+  // 4.3 (Yann, maquette validée le 24/11/2026) : « Mes épreuves » en vraie ligne sous « Ce qui arrive » (avant : petit lien en haut à droite)
+  function epLineHtml() {
+    var on = toursOn(), n = on.length;
+    var sub = n ? on.map(function (t) { return t.name || tkLab(t); }).join(" · ") : "Tournois, indivs et équipes";
+    return '<a class="ep-ln" href="#/tournoi"><span class="ep-ln-i">' + TOUR_IC + '</span><span class="ep-ln-t"><span class="ep-ln-h"><b>Mes épreuves</b>' + (n ? '<span class="ep-ln-n">' + n + " en cours</span>" : "") + "</span><small>" + esc(sub) + "</small></span>" + I.next + "</a>";
   }
   function tourHomeHtml() {
     // épreuve finie depuis moins de 3 jours : le récap, pas de prochain match
@@ -2978,13 +2984,15 @@
   // 3.44.2 : indivs et tournois se distinguent d'un coup d'œil (icône + couleur)
   var POOL_IC2 = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>';
   function tkBadge(t) { var c = t.kind === "champ"; return '<span class="tk ' + (c ? "tk-c" : "tk-t") + '">' + (c ? POOL_IC2 : TOUR_IC) + "</span>"; }
+  // 4.3 : tes épreuves « En cours » (même règle pour Mes épreuves, la ligne de l'accueil et le menu +)
+  function toursOn() { var td = E.iso(today()); return toursAll().filter(function (t) { return !tourOver(t) && !t.wait && !(t.from && t.from > td); }); }
   function tkLab(t) { return t.kind === "champ" ? "Indivs" : "Tournoi"; }
   function tourListHtml() {
     var all = toursAll().slice().sort(function (a, b) { return (b.from || "") < (a.from || "") ? -1 : 1; });
     var td = E.iso(today()), off = all.filter(function (t) { return tourOver(t); });
     var wait = all.filter(function (t) { return !tourOver(t) && t.wait; });
     var soon = all.filter(function (t) { return !tourOver(t) && !t.wait && t.from && t.from > td; }).sort(function (a, b) { return a.from < b.from ? -1 : 1; });
-    var on = all.filter(function (t) { return !tourOver(t) && !t.wait && !(t.from && t.from > td); });
+    var onS = toursOn(), on = all.filter(function (t) { return onS.indexOf(t) >= 0; });
     // 3.45.6 (Yann) : le regroupement dit déjà le statut ; on ne garde que ce qui demande une action
     var src = function (t) { return t.ins && t.ins.due > 0 ? "À payer " + t.ins.due + " €" : ""; };
     var sec = function (lb, a, extra) { return a.length ? '<div class="blk"><div class="blk-h"><span class="eyebrow">' + lb + '</span><span class="small">' + a.length + "</span></div>" + (extra || "") + a.map(row).join("") + "</div>" : ""; };
