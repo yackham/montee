@@ -7297,10 +7297,10 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) :is(.ds-d, .act-ic) { box-shadow: 0 0 0 1px rgba(40,25,10,.06), var(--elev-l); }
 :root[data-theme="terre"] :is(.ds-d, .act-ic) { box-shadow: 0 1px 2px rgba(60,20,5,.25), 0 6px 14px rgba(60,20,5,.18); }
 
-/* 4.3 : jour actuel dans les thèmes clairs = pastille légèrement teintée de la couleur du thème, chiffre de cette couleur (équivalent clair des thèmes sombres) */
+/* 4.3.1 (Yann, piste B) : jour actuel dans les thèmes clairs = pastille pleine de la couleur du thème, chiffre de cette couleur (équivalent clair des thèmes sombres) */
 :root:not([data-theme]) { --today: #1F5C3F; } :root[data-skin="retro"] { --today: #7A1F2B; } :root[data-theme="terre"] { --today: #1D5F50; } :root[data-theme="gazon"] { --today: #2C6B3F; }
-:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on { background: color-mix(in srgb, var(--today) 20%, var(--card)); box-shadow: 0 2px 4px rgba(40,25,10,.10), 0 8px 18px rgba(40,25,10,.10); }
-:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on small, :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on b { color: var(--today); }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on { background: var(--today); box-shadow: 0 2px 4px rgba(40,25,10,.14), 0 8px 18px rgba(40,25,10,.14); }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on small { color: rgba(255,255,255,.82); } :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on b { color: #fff; }
 /* 4.3 : Terre, intertitres des équipes du club posés sur l'argile (étaient quasi invisibles) */
 :root[data-theme="terre"] :is(.lc-gh, .lc-h small) { color: var(--page-ink); opacity: .92; text-shadow: 0 1px 2px rgba(60,20,5,.35); }
 /* 4.3 : coupes dorées lisibles sur fonds clairs (contraste graphique >= 3) */
@@ -7308,7 +7308,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .lc-pod .cup { color: #A07C14; stroke: #A07C14; }
 /* 4.3 : cercle vide visible dans la pastille du jour (tous les thèmes) */
 .ds-d.on .ds-ic.e { border-color: rgba(255,255,255,.42); }
-:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on .ds-ic.e { border-color: color-mix(in srgb, var(--today) 55%, transparent); }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on .ds-ic.e { border-color: rgba(255,255,255,.5); }
 /* 4.3 (Yann) : pas de fond derrière les onglets non sélectionnés ; seul l'onglet choisi garde sa pastille (hors sélecteurs de formulaire) */
 .seg:not(.res):not(.mini), :root[data-skin] .seg:not(.res):not(.mini), :root[data-skin]:not([data-skin="retro"]) .seg:not(.res):not(.mini), :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .seg:not(.res):not(.mini) { background: transparent; box-shadow: none; }
 :root[data-theme="terre"] .seg:not(.res):not(.mini) button:not(.on) { color: var(--page-ink); text-shadow: 0 1px 2px rgba(60,20,5,.35); }
@@ -7352,3 +7352,4 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .ace-tk .ace-plb { width: 24px; height: 24px; font-size: 18px; line-height: 24px; right: -2px; top: 0; }
 .ace-fresh .aw { animation: awIn .26s var(--ease-out) both; animation-delay: calc(.95s + var(--i) * 28ms); }
 @keyframes awIn { from { opacity: 0; } }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on .ds-ic.v { background: #fff; color: var(--today); }
