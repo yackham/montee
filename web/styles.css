@@ -7100,3 +7100,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .card .id-pill + .ff-jj, .ff-oh .id-pill { align-self: center; }
 .tq-bil.id-dock .id-pill { align-self: flex-start; }
 .mmt-c .sb { background: transparent !important; box-shadow: none !important; padding: 0 !important; }
+
+/* 4.2.6 (Yann) : dans une feuille, l'intertitre colle à sa liste (l'écart du flex de .sh-body passait entre les deux) */
+.sh-body > .ob-lbl { margin: 18px 0 -10px; }
+.sh-body > .ob-lbl + .ob-list { margin-top: 0; }
