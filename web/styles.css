@@ -7460,7 +7460,8 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :is(:root[data-theme="terre"], :root:not([data-theme]), :root[data-theme="gazon"]) .hd-pc { box-shadow: var(--elev-l); }
 .hd-ft { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
 .hd-ft button { display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border: 0; background: none; color: var(--ink); font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.hd-ft button + button { border-left: 1px solid var(--line); }
+.hd-ft button + button { border-left: 0; position: relative; }
+.hd-ft button + button::before { content: ""; position: absolute; left: 0; top: 50%; width: 1px; height: 24px; margin-top: -12px; border-radius: 1px; background: color-mix(in srgb, var(--ink) 22%, transparent); } /* 4.5.1 (Yann) : séparateur court et net entre les deux actions */
 .hd-ft i { display: flex; color: var(--acc-ink, var(--balle)); } .hd-ft svg { width: 18px; height: 18px; }
 .hd-n { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--balle); color: var(--on-balle, #151512); font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 /* Synthèse sous les anneaux : titre, texte court scannable (chiffres à la couleur de leur anneau), icône agrandir */
@@ -7542,3 +7543,12 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .card.cr3 { padding-top: var(--s3); padding-bottom: var(--s3); }
 .card.cr3 .cr3-row { padding-top: var(--s2); }
 .card.cr3 button.pdj.pdj2 { padding-bottom: var(--s2); }
+/* 4.5.1 (Yann : « inconsistant ») : « Tes prochains adversaires » en carte comme les autres blocs de l'accueil, sur une ligne */
+.card.pa-l { background: var(--card); flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px; margin-top: 4px; color: var(--ink); }
+.card.pa-l .pa-av i { color: var(--ink); background: color-mix(in srgb, var(--ink) 12%, var(--card)); }
+.card.pa-l .pa-tx span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 4.5.1 (Yann, maquette validée) : du neuf chez tes prochains adversaires : point balle sur l'avatar, pastille « Nouveau », nouvelle en clair */
+.card.pa-l .pa-tag { display: inline-block; vertical-align: 1px; margin-right: 7px; padding: 2px 8px; border-radius: 99px; font-style: normal; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; line-height: 1.3; color: #121212; background: var(--balle); }
+.card.pa-l.pa-hot .pa-tx span { color: var(--ink); font-weight: 600; }
+.card.pa-l.pa-hot .pa-av { position: relative; }
+.card.pa-l.pa-hot .pa-av::after { content: ""; position: absolute; right: -1px; top: -1px; width: 11px; height: 11px; border-radius: 6px; background: var(--balle); box-shadow: 0 0 0 2.5px var(--card); }
