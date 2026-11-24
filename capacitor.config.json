@@ -17,7 +17,7 @@
   },
   "android": {
     "backgroundColor": "#F6F2EC",
-    "adjustMarginsForEdgeToEdge": "auto",
+    "adjustMarginsForEdgeToEdge": "disable",
     "webContentsDebuggingEnabled": false
   },
   "loggingBehavior": "production"

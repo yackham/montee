@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.2.6",
+    VERSION: "4.3.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -931,8 +931,24 @@
         });
       }
     }
+    // 4.3 : arrivée du jour en cascade, puis projecteur sur la bonne nouvelle, annoncée par Ace
+    var scr = document.querySelector(".screen"), cr = document.querySelector(".cr3[data-spot]");
+    if (first && !rm && scr) {
+      scr.classList.add("wow-in"); setTimeout(function () { scr.classList.remove("wow-in"); }, 2200);
+      if (cr) setTimeout(function () {
+        cr = document.querySelector(".cr3[data-spot]"); if (!cr) return; // l'accueil a pu être redessiné entre-temps
+        var rs = cr.querySelectorAll(".cr3-row .cr3-c"), hot = rs[+cr.getAttribute("data-spot")]; if (!hot) return;
+        hot.classList.add("hot"); cr.classList.add("spot");
+        var ace = document.querySelector(".ace-hd"); if (ace) { ace.classList.add("wow"); setTimeout(function () { ace.classList.remove("wow"); }, 1000); }
+        var bub = document.createElement("div"); bub.className = "wow-bub"; bub.textContent = cr.getAttribute("data-say") || ""; document.body.appendChild(bub);
+        setTimeout(function () { var c2 = document.querySelector(".cr3.spot"); if (c2) { c2.classList.remove("spot"); Array.prototype.forEach.call(c2.querySelectorAll(".hot"), function (h) { h.classList.remove("hot"); }); } }, 2400);
+        setTimeout(function () { bub.remove(); }, 3100);
+      }, 1500);
+    }
     // Temps de jeu : les barres montent, la première fois du jour
     var ch = document.querySelector(".tj3-ch");
+    // 4.3 : la dernière semaine jouée s'allume, les autres pâlissent
+    if (ch && first && !rm && ch.classList.contains("lit")) { ch.classList.remove("lit"); mSeen(ch, function () { setTimeout(function () { ch.classList.add("lit"); }, 900); }); }
     if (ch && first && !rm) {
       var bars = Array.prototype.slice.call(ch.querySelectorAll(".tj3-c i")), hs = bars.map(function (b) { return b.style.height; });
       bars.forEach(function (b) { b.style.height = "0px"; });
@@ -8480,17 +8496,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function tempsChart(T, H) {
     H = H || 96;
     var W = T.W, mx = Math.max(T.avg * 1.15, Math.max.apply(null, W.map(function (a) { return a.m + a.t; }))) || 1;
+    var lastP = -1; W.forEach(function (a, i) { if (a.m + a.t) lastP = i; }); // 4.3 : la dernière semaine jouée s'allume, les autres pâlissent
     var cols = W.map(function (a, i) {
       var last = i === 7, tot = a.m + a.t;
       var body = !tot ? (last ? '<i class="tj3-e" style="height:' + H + 'px"></i>' : "") :
         '<i style="height:' + (a.t / mx * H).toFixed(0) + 'px;background:var(--balle)"></i><i style="height:' + (a.m / mx * H).toFixed(0) + 'px;background:var(--gazon)"></i>';
-      return '<span class="tj3-c' + (last ? " on" : "") + '">' + body + "</span>";
+      return '<span class="tj3-c' + (last ? " on" : "") + (i === lastP ? " now" : "") + '">' + body + "</span>";
     }).join("");
     var labs = W.map(function (a, i) { var d = a.mon; return "<span" + (i === 7 ? ' class="on"' : "") + ">" + (i === 7 ? "Cette sem." : i % 2 === 0 ? d.getDate() + (i === 0 || d.getDate() <= 7 ? " " + MOIS[d.getMonth()] : "") : "") + "</span>"; }).join("");
     // 4.2 (lisibilité) : la durée de chaque semaine, sur sa propre ligne, centrée sous sa barre
     var durs = W.map(function (a, i) { var tot = a.m + a.t; return "<span" + (i === 7 ? ' class="on"' : "") + ">" + (tot ? fmtHours(tot) : "") + "</span>"; }).join("");
     var y = H - T.avg / mx * H;
-    return '<div class="tj3-ch" style="height:' + H + 'px">' + cols + (T.avg ? '<i class="tj3-avg" style="top:' + y.toFixed(0) + 'px"></i><span class="tj3-al" style="top:' + Math.max(0, y - 17).toFixed(0) + 'px">moy. ' + fmtDur(Math.round(T.avg)) + "</span>" : "") + "</div>" +
+    return '<div class="tj3-ch' + (lastP >= 0 ? " lit" : "") + '" style="height:' + H + 'px">' + cols + (T.avg ? '<i class="tj3-avg" style="top:' + y.toFixed(0) + 'px"></i><span class="tj3-al" style="top:' + Math.max(0, y - 17).toFixed(0) + 'px">moy. ' + fmtDur(Math.round(T.avg)) + "</span>" : "") + "</div>" +
       '<div class="tj3-lb tj3-du">' + durs + '</div><div class="tj3-lb">' + labs + "</div>";
   }
   function tempsHtml() {
@@ -9639,7 +9656,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function aceHtml() {
     var c = ctx(), Q = coQs(c), q = UI.ace.q || "", name = S.profile.name || "", ask = q ? Q.filter(function (x) { return x[1] === q; })[0] : null;
     var top = function (mid) { return '<div class="ace-top">' + mid + '<button class="ace-x" data-a="aceClose" aria-label="Fermer">' + I.cross + "</button></div>"; };
-    var s = '<div class="ace" role="dialog" aria-modal="true" aria-label="Ace, ton coach"><div class="ace-in">';
+    var fresh = ask && UI.aceFresh; UI.aceFresh = 0; // 4.3 : Ace « écrit » puis répond, seulement quand on vient de poser la question
+    var s = '<div class="ace" role="dialog" aria-modal="true" aria-label="Ace, ton coach"><div class="ace-in' + (fresh ? " ace-fresh" : "") + '">';
     if (!ask) {
       var h = coHomeTip(c), hot = h.tip ? h.tip.v : "";
       var g = c.proj.status !== "top" && c.proj.next ? (c.proj.status === "montee" ? "Tu montes " + esc(lab(c.proj.projected)) + " à la prochaine sortie." : "Il te manque " + plural(Math.max(0, c.proj.next.norme - c.proj.next.total), "pt") + " pour " + esc(c.proj.next.label) + ".") : "";
@@ -9655,11 +9673,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       });
     } else {
       var an = coAnswer(c, q);
-      s += top('<span class="ace-ctx">' + coBall("ace:" + q, an.mood, "xs") + "<span>" + esc(ask[3]) + " · " + esc(ask[4]) + "</span></span>");
+      s += top('<span class="ace-ctx"><span>' + esc(ask[3]) + " · " + esc(ask[4]) + "</span></span>"); // 4.3 : Ace passe à côté de sa réponse (une seule fois par écran)
       // la réponse d'abord (gros texte), puis ses cartes de chiffres ; le portrait garde sa fleur en tête
       var xh = an.x || "", hero = xh.indexOf('<div class="acp-hero">') === 0 ? xh.slice(0, xh.indexOf("</span></div>") + 13) : "";
       if (hero) xh = xh.slice(hero.length);
-      s += '<div class="ace-me">' + esc(ask[2]) + "</div>" + hero + (an.a.length ? '<div class="ace-a">' + an.a.map(function (x) { return "<p>" + x + "</p>"; }).join("") + "</div>" : "") + xh;
+      s += '<div class="ace-me">' + esc(ask[2]) + "</div>" + hero + (fresh ? '<div class="ace-typing" aria-hidden="true"><i></i><i></i><i></i></div>' : "") + (an.a.length ? '<div class="ace-a"><span class="ace-av">' + coBall("ace:" + q, an.mood, "sm") + "</span>" + an.a.map(function (x) { return "<p>" + x + "</p>"; }).join("") + "</div>" : "") + xh;
       UI.aceVis = UI.aceVis || {}; UI.aceVis[q] = 1;
       if (an.facts && an.facts.length) s += '<div class="ace-fact">' + an.facts.map(function (f) { return "<span><em>" + esc(f[0]) + "</em>" + esc(f[1]) + "</span>"; }).join("") + "</div>";
       var more = an.f.map(function (f) { return f[3] ? '<button data-a="sheet" data-k="' + esc(f[3][0]) + '" data-v="' + esc(f[3][1] || "") + '"><i>↳</i>' + esc(f[0]) + "</button>" : f[2] ? '<button data-a="coachGo" data-h="' + esc(f[2]) + '"><i>↳</i>' + esc(f[0]) + "</button>" : '<button data-a="aceQ" data-v="' + esc(f[1]) + '"><i>↳</i>' + esc(f[0]) + "</button>"; });
@@ -11972,7 +11990,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     else if (lvl != null) say = up ? "Ton niveau colle à ton classement, et ta forme monte." : dn ? "Ton niveau colle à ton classement, mais ta forme baisse." : "Tes résultats collent à ton classement.";
     else say = "Tu gagnes " + Math.round(pv * 100) + " % de tes matchs sur 12 mois" + (up ? ", et plus encore en ce moment." : dn ? ", un peu moins en ce moment." : ".");
     var go = !UI.cr3Go; UI.cr3Go = 1; // 3.57 (Yann) : les anneaux se remplissent, une fois par ouverture de l'appli
-    return '<div class="card cr3' + (go ? " cr3-go" : "") + '"><div class="cr3-row">' +
+    // 4.3 : le projecteur de l'arrivée se pose sur l'anneau qui porte la bonne nouvelle (même calcul que la phrase)
+    var spot = lvl != null && lvl > cur ? 2 : up ? 1 : -1;
+    return '<div class="card cr3' + (go ? " cr3-go" : "") + '"' + (spot >= 0 ? ' data-spot="' + spot + '" data-say="' + esc(say) + '"' : "") + '><div class="cr3-row">' +
       cell(ring3(pv, "var(--gazon)", 92, 9, Math.round(pv * 100) + "%"), "Victoires", "victoires") +
       cell(ring3(pf, acc, 92, 9, Math.round(pf * 100) + "%"), "Forme", "!forme") +
       (f && f.wait ? cell(ring3(.04, "var(--bleu3)", 92, 9, lab(cur)), '<span class="op-wait"><span class="rally-l" aria-hidden="true"><i></i></span>Niveau</span>', "!rrWhy") /* 4.2.3 : 1re lecture des niveaux de tes adversaires en cours */
@@ -16935,14 +16955,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
   // ---------- Thèmes ----------
   var THEMES = [["auto", "Auto", "Lin le jour, Nuit le soir"], ["lin", "Lin", "Clair, le classique"], ["nuit", "Nuit", "Sombre"], ["terre", "Terre battue", "Fond d'argile ocre, vert profond", 1], ["dur", "Dur", "Bleu court sous les projecteurs", 1], ["gazon", "Gazon", "Blanc et gazon tondu", 1],
-    ["indoor", "Indoor", "Bleu court couvert, lignes blanches", 1], ["nocturne", "Nocturne", "Ciel étoilé, lumière de projecteur", 1], ["retro", "Rétro", "Crème, bordeaux et vert sapin", 1]];
-  var THEME_SW = { lin: ["#F2ECE1", "#FFFDF9", "#1F5C3F", "#D4E64A"], nuit: ["#17181C", "#2A2C34", "#6FC28F", "#D4E64A"], terre: ["#A44B25", "#FFFBF7", "#0B4D35", "#FFF4E8"], dur: ["#1A4580", "#FFFFFF", "#E3F25B", "#EAF1FB"], gazon: ["#F7F7F2", "#FFFFFF", "#006633", "#0F4A28"],
-    indoor: ["#0A1736", "#1B3874", "#D4E64A", "#1A3576"], nocturne: ["#070A1C", "#151B44", "#E9F06A", "#1A1F48"], retro: ["#F1E7D2", "#FBF5E7", "#7B1E2C", "#1F4D3A"] };
+    ["indoor", "Indoor", "Bleu court couvert, lignes blanches", 1], ["nocturne", "Nocturne", "Ciel étoilé, lumière de projecteur", 1], ["retro", "Rétro", "Crème, bordeaux et vert sapin", 1],
+    ["vert", "Vert Montée", "Vert sapin, cartes vert profond", 1], ["crep", "Crépuscule", "Violet et orange du soir", 1]];
+  var THEME_SW = { lin: ["#F2ECE1", "#FFFDF9", "#1F5C3F", "#D4E64A"], nuit: ["#17181C", "#2A2C34", "#6FC28F", "#D4E64A"], terre: ["#A44B25", "#F8EBDF", "#0B4D35", "#FFF4E8"], dur: ["#163C77", "#1F4785", "#D4E64A", "#1C4A8C"], gazon: ["#F7F7F2", "#FFFFFF", "#006633", "#0F4A28"],
+    indoor: ["#0A1736", "#1B3874", "#D4E64A", "#1A3576"], nocturne: ["#070A1C", "#151B44", "#E9F06A", "#1A1F48"], retro: ["#F1E7D2", "#FBF5E7", "#7B1E2C", "#7B1E2C"],
+    vert: ["#0D2218", "#1C4532", "#D4E64A", "#1F5C3F"], crep: ["#1A1127", "#30223F", "#D4E64A", "#3A2350"] };
   // Thèmes Supporter : bâtis sur Nuit ou Lin, avec leurs propres couleurs (attribut data-skin)
-  var SKIN_BASE = { indoor: "nuit", nocturne: "nuit", retro: "lin" };
+  // 4.3 : Dur, Vert Montée et Crépuscule sont bâtis sur Nuit (cartes de la même teinte que le fond, jamais blanches)
+  var SKIN_BASE = { indoor: "nuit", nocturne: "nuit", retro: "lin", dur: "nuit", vert: "nuit", crep: "nuit" };
   var darkMq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   // Gratuits : Auto, Lin, Nuit. Tous les autres thèmes viennent avec Montée+
-  var PLUS_THEMES = { terre: 1, dur: 1, gazon: 1, indoor: 1, nocturne: 1, retro: 1 };
+  var PLUS_THEMES = { terre: 1, dur: 1, gazon: 1, indoor: 1, nocturne: 1, retro: 1, vert: 1, crep: 1 };
   // 3.47.5 (Yann) : Nuit par défaut. Le thème n'est enregistré que quand on le choisit : sans choix → Nuit ; « Auto » choisi reste « Auto »
   function themeNow() { var t = (S.prefs && S.prefs.theme) || "nuit"; if (PLUS_THEMES[t] && !isSup()) t = "auto"; return t === "auto" ? (darkMq && darkMq.matches ? "nuit" : "lin") : t; }
   function applyTheme() {
@@ -16952,10 +16975,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var bg = (THEME_SW[t] || THEME_SW.lin)[0];
     var m = document.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", bg);
     // Barres système Android (notifications, navigation) à la couleur du fond, icônes claires en Nuit
-    if (Tenup && Tenup.setBars) try { Tenup.setBars({ color: bg, light: ["nuit", "terre", "dur", "indoor", "nocturne"].indexOf(t) < 0 }).catch(function () {}); } catch (e) {}
+    if (Tenup && Tenup.setBars) try { Tenup.setBars({ color: bg, light: ["nuit", "terre", "dur", "indoor", "nocturne", "vert", "crep", "retro"].indexOf(t) < 0 }).catch(function () {}); } catch (e) {}
   }
   if (darkMq && darkMq.addEventListener) darkMq.addEventListener("change", function () { applyTheme(); syncWidgets(true); });
   applyTheme();
+  // 4.3 : en défilant, le haut de l'écran se fond sous la barre d'état (pas de bande de couleur)
+  (function () {
+    var f = document.createElement("div"); f.className = "sb-fade"; f.setAttribute("aria-hidden", "true"); document.body.appendChild(f);
+    document.addEventListener("scroll", function (e) { var t = e.target === document ? document.scrollingElement : e.target; if (!t || !t.classList) return;
+      if (t !== document.scrollingElement && !t.classList.contains("ace")) return; f.classList.toggle("on", (t.scrollTop || 0) > 8); }, { passive: true, capture: true });
+  })();
 
   // ---------- Réglages ----------
   // ---------- Santé connectée (Health Connect, Android 14+) : séances de tennis → entraînements ----------
@@ -18729,8 +18758,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       toast("Compris, je ne te le redis pas avant 3 semaines.");
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
-    ace: function (el) { var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; save(); render(); haptic("light"); },
-    aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
+    ace: function (el) { var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; Array.prototype.forEach.call(document.querySelectorAll(".wow-bub"), function (b) { b.remove(); }); save(); render(); haptic("light"); },
+    aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
     aceClose: function () { UI.ace = null; UI.aceBack = null; render(); },
     aceBack: function () { var q = UI.aceBack ? UI.aceBack.q : ""; UI.aceBack = null; UI.ace = { q: q }; render(); haptic("light"); },
     aceLk: function (el) { UI.aceLk = UI.aceLk === el.dataset.v ? null : el.dataset.v; render(); haptic("light"); },
