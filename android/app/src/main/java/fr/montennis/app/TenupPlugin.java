@@ -19,6 +19,9 @@ import android.view.View;
 import android.view.Window;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.graphics.Insets;
 import android.webkit.CookieManager;
 import android.webkit.WebStorage;
 
@@ -406,6 +409,16 @@ public class TenupPlugin extends Plugin {
         });
     }
 
+    /** Hauteurs des barres système (en pixels physiques) → variables CSS en px CSS. */
+    private void pushInsets(int topPx, int bottomPx) {
+        final View wv = getBridge().getWebView();
+        if (wv == null) return;
+        float d = getContext().getResources().getDisplayMetrics().density;
+        final String js = "document.documentElement.style.setProperty('--sat','" + Math.round(topPx / d) + "px');"
+            + "document.documentElement.style.setProperty('--sab','" + Math.round(bottomPx / d) + "px');";
+        wv.post(() -> getBridge().getWebView().evaluateJavascript(js, null));
+    }
+
     @PluginMethod
     public void logout(final PluginCall call) {
         Context ctx = getContext();
@@ -422,7 +435,10 @@ public class TenupPlugin extends Plugin {
         });
     }
 
-    /** Couleur des barres système (notifications en haut, navigation en bas) selon le thème de l'app. */
+    /** 4.3 : barres système transparentes, la page passe dessous (bord à bord), comme sur iPhone.
+     *  La couleur du thème reste en fond de fenêtre (visible seulement si la page est plus courte que l'écran).
+     *  La hauteur réelle des barres est poussée dans la page en --sat / --sab (env() n'est pas fiable dans la WebView). */
+    private boolean insetsHooked = false;
     @PluginMethod
     public void setBars(final PluginCall call) {
         final String hex = call.getString("color", "#F6F2EC");
@@ -431,14 +447,29 @@ public class TenupPlugin extends Plugin {
             try {
                 int c = Color.parseColor(hex);
                 Window w = getActivity().getWindow();
-                w.setStatusBarColor(c);
-                w.setNavigationBarColor(c);
-                // Edge-to-edge (Android 15+) : la zone derrière les barres est le fond de la fenêtre et du conteneur
+                WindowCompat.setDecorFitsSystemWindows(w, false);
+                w.setStatusBarColor(Color.TRANSPARENT);
+                w.setNavigationBarColor(Color.TRANSPARENT);
+                if (Build.VERSION.SDK_INT >= 29) { w.setStatusBarContrastEnforced(false); w.setNavigationBarContrastEnforced(false); }
                 w.getDecorView().setBackgroundColor(c);
-                View wv = getBridge().getWebView();
+                final View wv = getBridge().getWebView();
                 if (wv != null) {
                     wv.setBackgroundColor(c);
                     if (wv.getParent() instanceof View) ((View) wv.getParent()).setBackgroundColor(c);
+                    if (!insetsHooked) {
+                        insetsHooked = true;
+                        ViewCompat.setOnApplyWindowInsetsListener(wv, (v, insets) -> {
+                            Insets b = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                            pushInsets(b.top, b.bottom);
+                            return insets;
+                        });
+                    }
+                    ViewCompat.requestApplyInsets(wv);
+                    WindowInsetsCompat cur = ViewCompat.getRootWindowInsets(wv);
+                    if (cur != null) {
+                        Insets b = cur.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                        pushInsets(b.top, b.bottom);
+                    }
                 }
                 WindowInsetsControllerCompat ic = WindowCompat.getInsetsController(w, w.getDecorView());
                 ic.setAppearanceLightStatusBars(light);
