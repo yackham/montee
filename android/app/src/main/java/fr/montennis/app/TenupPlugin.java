@@ -377,7 +377,7 @@ public class TenupPlugin extends Plugin {
             send.putExtra(Intent.EXTRA_STREAM, uri);
             send.putExtra(Intent.EXTRA_SUBJECT, name);
             send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            Intent chooser = Intent.createChooser(send, "text/calendar".equals(mime) ? "Ajouter à ton agenda" : "Enregistrer la sauvegarde");
+            Intent chooser = Intent.createChooser(send, "text/calendar".equals(mime) ? "Ajouter à ton agenda" : "application/pdf".equals(mime) ? "Partager ton bilan" : "Enregistrer la sauvegarde");
             chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             getActivity().startActivity(chooser);
             JSObject r = new JSObject(); r.put("saved", "share"); call.resolve(r);

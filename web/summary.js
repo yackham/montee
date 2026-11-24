@@ -6,7 +6,8 @@
   "use strict";
   var JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
   var MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-  function jour(d) { return JOURS[d.getDay()] + " " + d.getDate() + " " + MOIS[d.getMonth()]; }
+  function dN(d) { var n = d.getDate(); return n === 1 ? "1er" : String(n); }
+  function jour(d) { return JOURS[d.getDay()] + " " + dN(d) + " " + MOIS[d.getMonth()]; }
   function key(r) { return r.date + "|" + r.oppRank + "|" + r.result; }
   // 3.43.2 : « Prénom NOM » comme dans l'app
   function nameCase(n) {
