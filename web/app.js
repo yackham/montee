@@ -2580,7 +2580,7 @@
   function lcRow(x, inCat, i) {
     var c = x.c, lab = inCat ? "Équipe " + (x.num || "") : champNm(c) + (x.num ? " · éq. " + x.num : "");
     var dots = x.res.slice(-6).map(function (r, j) { return '<i class="' + r + '" style="--j:' + j + '"></i>'; }).join("");
-    return '<a class="lc-r" href="#/equipe/' + esc(c.id) + '" style="--i:' + i + '"><span class="lc-n">' + esc(x.num || "·") + '</span><span class="grow"><b>' + esc(lab) + (x.mine ? ' <span class="lc-me">toi</span>' : "") + "</b><small>" + esc([tmDiv(c.div), tmDiv(c.poule)].filter(Boolean).join(" · ")) + "</small></span>" +
+    return '<a class="lc-r" href="#/equipe/' + esc(c.id) + '" style="--i:' + i + '"><span class="grow"><b>' + esc(lab) + (x.mine ? ' <span class="lc-me">toi</span>' : "") + "</b><small>" + esc([tmDiv(c.div), tmDiv(c.poule)].filter(Boolean).join(" · ")) + "</small></span>" +
       (dots ? '<span class="lc-dots" aria-label="' + esc(x.res.slice(-6).map(function (r) { return r.toUpperCase(); }).join(" ")) + '">' + dots + "</span>" : "") + lcPos(x) + "</a>";
   }
   // Les fanions du club : un par équipe en lice, détouré de la couleur de sa place
@@ -2636,13 +2636,16 @@
     }
     // les équipes, groupées au choix
     if (L.length) {
-      var gb = (S.prefs || {}).lcGrp || "cat", X = L.filter(function (x) { return !F || (F === "g" ? x.pos === 1 : F === "2" ? x.pos === 2 : lcPosC(x) === "r"); }), G = [];
+      // 4.4.4 (Yann) : l'onglet Division seulement si Ten'Up donne la division d'au moins une équipe
+      var hasDiv = L.some(function (x) { return !!tmDiv(x.c.div); });
+      var gb = (S.prefs || {}).lcGrp || "cat"; if (gb === "div" && !hasDiv) gb = "cat";
+      var X = L.filter(function (x) { return !F || (F === "g" ? x.pos === 1 : F === "2" ? x.pos === 2 : lcPosC(x) === "r"); }), G = [];
       var put = function (k, x) { var g = G.filter(function (o) { return o.t === k; })[0]; if (!g) G.push(g = { t: k, L: [] }); g.L.push(x); };
       if (gb === "rk") { X.forEach(function (x) { put(x.pos === 1 ? "En tête" : lcPosC(x) === "r" ? "À surveiller" : "Dans le coup", x); }); var o = ["En tête", "Dans le coup", "À surveiller"]; G.sort(function (a, b) { return o.indexOf(a.t) - o.indexOf(b.t); }); G.forEach(function (g) { g.L.sort(function (a, b) { return a.pos - b.pos; }); }); }
       else if (gb === "div") X.forEach(function (x) { put(tmDiv(x.c.div) || "Division ?", x); });
       else X.forEach(function (x) { put(champNm(x.c), x); });
       s += '<h2 class="tm-gh lc-h">Les équipes <small>' + plural(L.length, "en cours", "en cours") + "</small></h2>" +
-        '<div class="seg lc-seg">' + [["cat", "Catégorie"], ["rk", "Classement"], ["div", "Division"]].map(function (o) { return '<button class="' + (gb === o[0] ? "on" : "") + '" data-a="lcGrp" data-v="' + o[0] + '" aria-pressed="' + (gb === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
+        '<div class="seg lc-seg">' + [["cat", "Catégorie"], ["rk", "Classement"]].concat(hasDiv ? [["div", "Division"]] : []).map(function (o) { return '<button class="' + (gb === o[0] ? "on" : "") + '" data-a="lcGrp" data-v="' + o[0] + '" aria-pressed="' + (gb === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
         (F ? '<button class="lnk lc-fx" data-a="lcF" data-v="">Voir toutes les équipes</button>' : "") +
         G.map(function (g) { return '<h3 class="lc-gh">' + esc(g.t) + "<small>" + plural(g.L.length, "équipe", "équipes") + '</small></h3><div class="blk lc-list">' + g.L.map(function (x, i) { return lcRow(x, gb === "cat", i); }).join("") + "</div>"; }).join("");
     }
