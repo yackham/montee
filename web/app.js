@@ -10357,6 +10357,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // 4.4.3 (Yann, B3) : Activité, le mois en cours reste ouvert, les mois passés (12 derniers mois) se replient en une ligne
   // « Octobre 2026 · 3 V · 1 D · +81 pts » ; touché, le mois s'ouvre (gardé ouvert tant que l'appli tourne).
+  var MO_FOLD = false;
   function moFold(body, st) {
     var parts = body.split(/<!--MO:([^>]*?)-->/); if (parts.length < 5) return body.replace(/<!--MO:[^>]*?-->/g, "");
     var out = parts[0], open = UI.moOpen || {};
@@ -10481,7 +10482,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (!old && !chips.length && m.date) (palAll[m.id] || []).forEach(function (x) { s += palCard(x, m, s.indexOf("pal-c id-dock") < 0); if (moSt[curMonth]) moSt[curMonth].pal++; }); // 4.2 : Ace fête le 1er palier de la liste // 3.55 (Yann, maquette F)
     });
     s += "</div>";
-    if (!chips.length) s = s.slice(0, stI) + moFold(s.slice(stI), moSt);
+    // 4.5.1 (Davy, Yann) : plus de regroupement par mois (un tournoi à cheval sur 2 mois tombait sous le 2e) : tournois à plat comme avant
+    if (!chips.length) s = s.slice(0, stI) + (MO_FOLD ? moFold(s.slice(stI), moSt) : s.slice(stI).replace(/<!--MO:[^>]*?-->/g, ""));
     // 3.48.7 (Yann) : les saisons passées, repliées ; on ouvre pour voir le détail
     // 3.55 (Yann) : seulement les matchs sortis des 12 mois (les autres sont plus haut), et la même présentation que la saison en cours
     // (épreuves en timeline, mois par mois), sans points : un cumul de points n'a pas de sens pour une saison passée
