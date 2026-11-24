@@ -7203,7 +7203,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :root[data-skin="dur"] .card, :root[data-skin="vert"] .card, :root[data-skin="crep"] .card { box-shadow: var(--elev); }
 :root[data-theme="nuit"]:not([data-skin]) { --sb-top: #17181C; } :root[data-skin="indoor"] { --sb-top: #0A1736; } :root[data-skin="nocturne"] { --sb-top: #070A1C; }
 /* Terre : cartes sable plutôt que blanches */
-:root[data-theme="terre"] { --card: #F8EBDF; --chip: #F1DED0; --line: #EBD5C4; --sb-top: #A44B25; }
+:root[data-theme="terre"] { --card: #F0D9C4; --chip: #E8CDB6; --line: #E2C4AC; --sb-top: #A44B25; --terre: #A0391A; }
 /* Rétro : store bordeaux en haut ; la barre d'état est posée sur la bande pleine */
 :root[data-skin="retro"] { --muted: #6E5644; --sb-top: #7B1E2C;
   background: linear-gradient(180deg, #7B1E2C 0, #7B1E2C calc(var(--sat) + 3px), transparent calc(var(--sat) + 3px)),
