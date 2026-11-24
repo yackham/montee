@@ -7195,9 +7195,10 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :root[data-skin="vert"] { --bg: #0D2218; --card: #1C4532; --chip: #245240; --line: #2B5B45; --ink: #F3F8F2; --muted: #B9D3C4; --seg: #0D2218; --field: #0D2218;
   --panel: #1F5C3F; --hero-bg: #1F5C3F; --knob: #2E5E47; --gazon: #86DCA6; --terre: #F7A47A; --id-dur: #A6C7FF; --balle-soft: #2A4A2A; --sb-top: #0F2A1D;
   background: radial-gradient(90% 32% at 50% 0%, rgba(212,230,74,.13), transparent 70%), radial-gradient(70% 40% at 0% 25%, rgba(40,120,80,.45), transparent 70%), #0D2218; }
-:root[data-skin="crep"] { --bg: #1A1127; --card: #30223F; --chip: #3A2B4D; --line: #45365A; --ink: #FAF6FD; --muted: #D2C6E3; --seg: #1A1127; --field: #1A1127;
-  --panel: #3A2350; --hero-bg: #3A2350; --knob: #4A3863; --gazon: #8BE0AB; --terre: #FFA984; --id-dur: #B9C8FF; --balle-soft: #3A3530; --sb-top: #24152F;
-  background: radial-gradient(80% 28% at 90% 0%, rgba(255,140,90,.26), transparent 70%), radial-gradient(90% 34% at 0% 8%, rgba(150,80,190,.28), transparent 70%), #1A1127; }
+:root[data-skin="crep"] { --bg: #14182E; --card: #2A3056; --chip: #333A62; --line: #3F4770; --ink: #FAF6FD; --muted: #CDD3EA; --seg: #14182E; --field: #14182E;
+  --panel: #2E3460; --hero-bg: #2E3460; --knob: #3F4770; --gazon: #8BE0AB; --terre: #FFA984; --id-dur: #B9C8FF; --balle-soft: #3A3530; --sb-top: #232A52;
+  background: radial-gradient(90% 30% at 77% 0%, rgba(255,154,106,.34), rgba(232,106,138,.12) 45%, transparent 75%), linear-gradient(180deg, #232A52 0, #1A1F40 260px, #14182E 520px) #14182E; }
+:root[data-skin="crep"] .hd-id:not(.hd-sp) { background: color-mix(in srgb, var(--card) 84%, #fff); }
 :root[data-skin="dur"] body, :root[data-skin="vert"] body, :root[data-skin="crep"] body { background: transparent; }
 :root[data-skin="dur"] body.glow::before, :root[data-skin="crep"] body.glow::before { background: none; }
 :root[data-skin="dur"] .card, :root[data-skin="vert"] .card, :root[data-skin="crep"] .card { box-shadow: var(--elev); }
