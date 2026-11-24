@@ -7543,6 +7543,6 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .card.cr3 .cr3-row { padding-top: var(--s2); }
 .card.cr3 button.pdj.pdj2 { padding-bottom: var(--s2); }
 /* 4.5.1 (Yann : « inconsistant ») : « Tes prochains adversaires » en carte comme les autres blocs de l'accueil, sur une ligne */
-.card.pa-l { flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px; margin-top: 4px; color: var(--ink); }
+.card.pa-l { background: var(--card); flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px; margin-top: 4px; color: var(--ink); }
 .card.pa-l .pa-av i { color: var(--ink); background: color-mix(in srgb, var(--ink) 12%, var(--card)); }
 .card.pa-l .pa-tx span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
