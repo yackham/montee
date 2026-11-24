@@ -6955,6 +6955,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (traitVal(T, "regul") < 0) add("plus1", "Ta fiche · régularité à protéger");
     return { ids: out, why: why };
   }
+  // Le repère en plus : la catégorie absente de tes objectifs, nourrie par tes suggestions (fiche, débriefs, montre) si elles en ont une
+  function goalExtra(cur, sg) {
+    var have = cur.map(function (g) { return g.cat; }), ids = cur.map(function (g) { return g.id; });
+    var miss = ["tet", "cor", "sol", "tac"].filter(function (k) { return have.indexOf(k) < 0; }); if (!miss.length) return null;
+    var sug = sg.ids.map(goalOf).filter(function (g) { return g && miss.indexOf(g.cat) >= 0 && ids.indexOf(g.id) < 0; })[0];
+    if (sug) return sug;
+    var k = miss[0], pick = k === "tet" ? "rout" : GOALS.filter(function (x) { return x[1] === k && ids.indexOf(x[0]) < 0; })[0][0];
+    return goalOf(pick);
+  }
   function goalsCur() { var g = S.goals; return g && g.ids && g.ids.length ? g.ids.map(goalOf).filter(Boolean) : []; }
   // « Ton match du jour » (gratuit) : au-dessus du plan
   function goalsCard(D, matchDay) {
@@ -6974,7 +6983,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var col = gcol(g.cat);
       return '<div class="gl-r"><span class="gl-ic" style="color:' + col + ";box-shadow:inset 0 0 0 1.5px " + col + '66">' + svg(ic[g.cat] || ic.tac, 2) + '</span><div class="grow"><div class="gl-rh">' + catLab(g.cat) + '<span class="gl-src">' + esc(whyOf(g.id).split(" · ")[0]) + "</span></div><b>" + esc(g.t) + '</b><span class="small">' + esc(g.s) + (whyOf(g.id).indexOf(" · ") > 0 ? " " + esc(cap1(whyOf(g.id).split(" · ").slice(1).join(" · "))) + "." : "") + "</span></div></div>";
     }).join("");
-    s += '<div class="gl-r"><span class="gl-ic" style="color:' + gcol("tet") + ";box-shadow:inset 0 0 0 1.5px " + gcol("tet") + '66">' + svg('<path d="M3 9h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3"/>', 2) + '</span><div class="grow"><div class="gl-rh">' + catLab("tet", "entre les points") + '</div><b>Raquette dans l\'autre main, une respiration, une seule intention.</b><span class="small">Le score, le classement, les points : après le match.</span></div></div>';
+    // 4.2.6 (Davy : « toujours le même objectif non choisi ») : la 4e ligne n'est plus toujours la routine (Tête) ;
+    // c'est un repère dans la catégorie qui manque à tes choix (la routine si c'est Tête qui manque)
+    var xg = goalExtra(cur, sg);
+    if (xg) s += '<div class="gl-r"><span class="gl-ic" style="color:' + gcol(xg.cat) + ";box-shadow:inset 0 0 0 1.5px " + gcol(xg.cat) + '66">' + svg(ic[xg.cat] || ic.tac, 2) + '</span><div class="grow"><div class="gl-rh">' + catLab(xg.cat, "en plus") + '<span class="gl-src">Pour compléter</span></div><b>' + esc(xg.t) + '</b><span class="small">' + esc(xg.s) + " La catégorie qui manque à tes choix.</span></div></div>";
     if (IOS) s += '<span class="gl-w">' + I.check + " Sur ta montre, avec ton plan</span>";
     return s + "</div>";
   }
@@ -8928,7 +8940,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     try {
       var ch = E.BAREME.champ(hb.calc), n = 0, rel = c.opts.release || E.nextRelease(today());
       E.windowMatches(sortedMatches().filter(function (m) { return m.kind === "champ" && m.result === "V" && !m.wo && !m.dbl && !m._dbl && counts(m); }), rel, today(), false)
-        .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) { var on = hb.bonusCh && n < ch.max; if (on) n++; o.ind.push({ m: m, pts: on ? ch.par : 0, on: on }); });
+        .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) { var on = hb.bonusCh && n < ch.max; if (on) n++; o.ind.push({ m: m, pts: on ? ch.par : 0, val: ch.par, on: on }); });
     } catch (e) {}
     (hb.doubles || []).forEach(function (x) { if (x && x.m) o.dbl.push({ m: x.m, pts: x.pts || 0, on: true }); });
     o.ch = hb.bonusCh || 0; o.db = hb.bonusDbl || 0; o.sd = hb.bonusSD || 0; o.tot = o.ch + o.db + o.sd;
@@ -8945,7 +8957,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var rks = dbl && (m.oppRanks || []).filter(Boolean).length ? m.oppRanks.filter(Boolean).slice(0, 2).map(tag).join(" et ") : tag(m.oppRank);
       var l = E.lastDay(m);
       return '<a class="bo-r' + (x.on ? "" : " off") + '" href="#/' + (dbl ? "double/" : "match/") + encodeURIComponent(m.id) + '"><span class="grow"><span class="t">' + who + "</span><small>" + rks + (rks ? " · " : "") + "le " + esc((function (d) { return d ? d.getDate() + " " + MOIS[d.getMonth()] + " " + d.getFullYear() : ""; })(E.parseDate(m.date))) + "</small></span>" +
-        '<span class="bo-p"><b>' + (x.pts ? "+" + x.pts : "0") + "</b><small>" + (x.on ? "jusqu'en " + mo(l) : "en réserve") + "</small></span></a>";
+        '<span class="bo-p"><b>' + (x.pts ? "+" + x.pts : x.val ? "+" + x.val : "0") + "</b><small>" + (x.on ? "jusqu'en " + mo(l) : "en réserve") + "</small></span></a>"; // 4.2.6 (Davy) : la valeur du bonus en réserve, pas « 0 »
     };
     var ch = E.BAREME.champ(hb.calc), res = B.ind.filter(function (x) { return !x.on; });
     var ace = "";
@@ -8959,7 +8971,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<b class="bo-ti">+' + B.tot + " pts de bonus dans ton bilan</b>" +
       '<div class="bo-tiles"><span><b>+' + B.db + "</b><small>pts en doubles</small></span><span><b>+" + B.ch + "</b><small>pts en poule</small></span>" + // 4.1 (audit densité) : des points, pas un nombre de matchs
       (first ? "<span><b>" + first.l.getDate() + (first.l.getDate() === 1 ? "<sup>er</sup>" : "") + " " + MOIS[first.l.getMonth()] + "</b><small>1er bonus qui sort</small></span>" : B.sd ? "<span><b>" + B.sd + "</b><small>sans défaite significative</small></span>" : "") + "</div>" +
-      (B.ind.length ? '<h3 class="bo-st">Championnat individuel <small>' + (ch.max ? "tes " + ch.max + " premiers comptent" : "") + '</small></h3><div class="bo-flat">' + B.ind.map(function (x) { return row(x, false); }).join("") + "</div>" : "") +
+      (B.ind.length ? '<h3 class="bo-st">Championnat individuel <small>' + (ch.max ? "tes " + ch.max + " meilleurs comptent" : "") + '</small></h3><div class="bo-flat">' + B.ind.map(function (x) { return row(x, false); }).join("") + "</div>" : "") +
       (B.dbl.length ? '<h3 class="bo-st">Doubles <small>les meilleurs comptent</small></h3><div class="bo-flat">' + B.dbl.slice(0, 5).map(function (x) { return row(x, true); }).join("") + "</div>" : "") +
       (B.sd && first ? '<div class="bo-sd">Bonus sans défaite significative <b>+' + B.sd + "</b></div>" : "") +
       (ace ? '<div class="bo-ace"><span class="cbl-b xs" data-id="bo:' + esc(first.x.m.id) + '" data-m="reflexion"></span><span>' + ace + "</span></div>" : "") + "</div>";
