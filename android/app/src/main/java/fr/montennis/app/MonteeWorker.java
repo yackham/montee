@@ -7,6 +7,8 @@ import android.os.Looper;
 import androidx.annotation.NonNull;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.ExistingWorkPolicy;
+import androidx.work.OneTimeWorkRequest;
 import androidx.work.NetworkType;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
@@ -19,6 +21,8 @@ import java.util.concurrent.TimeUnit;
 /** En arrière-plan (toutes les 3 h environ, quand Android le permet) : nouveaux matchs et notification. */
 public class MonteeWorker extends Worker {
     static final String NAME = "montee-refresh";
+    /** 4.5.0 : relance calée sur un moment utile (≈ 2 h 30 après un match prévu, matin de la sortie du classement). */
+    static final String TAG_AT = "montee-refresh-at";
 
     public MonteeWorker(@NonNull Context context, @NonNull WorkerParameters params) {
         super(context, params);
@@ -33,8 +37,36 @@ public class MonteeWorker extends Worker {
         WorkManager.getInstance(ctx).enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.KEEP, req);
     }
 
+    /**
+     * 4.5.0 : une relance par moment utile (liste « ms,ms,… » envoyée par l'appli), d'ici 14 jours, 8 au plus.
+     * Chaque moment a son propre nom : rien n'est remplacé ni annulé pendant qu'il tourne.
+     * Appelé seulement depuis l'appli (setState), jamais depuis une relance en cours.
+     */
+    static void scheduleMoments(Context ctx) {
+        WorkManager wm = WorkManager.getInstance(ctx);
+        wm.cancelAllWorkByTag(TAG_AT); // les moments d'avant (match déplacé ou supprimé)
+        String m = MonteeStore.get(ctx, "moments");
+        if (m == null || m.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        Constraints c = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+        int n = 0;
+        for (String x : m.split(",")) {
+            long t;
+            try { t = Long.parseLong(x.trim()); } catch (NumberFormatException e) { continue; }
+            if (t <= now + 5 * 60000L || t - now > 14L * 86400000L) continue;
+            OneTimeWorkRequest req = new OneTimeWorkRequest.Builder(MonteeWorker.class)
+                    .setConstraints(c)
+                    .addTag(TAG_AT)
+                    .setInitialDelay(t - now, TimeUnit.MILLISECONDS)
+                    .build();
+            wm.enqueueUniqueWork(TAG_AT + "-" + t, ExistingWorkPolicy.KEEP, req);
+            if (++n >= 8) break;
+        }
+    }
+
     static void cancel(Context ctx) {
         WorkManager.getInstance(ctx).cancelUniqueWork(NAME);
+        WorkManager.getInstance(ctx).cancelAllWorkByTag(TAG_AT);
     }
 
     /** Lecture silencieuse de Ten'Up ; à appeler hors du fil principal. */

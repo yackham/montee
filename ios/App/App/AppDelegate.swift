@@ -310,6 +310,11 @@ enum MonteeStore {
         get { d.string(forKey: "montee.state") }
         set { d.set(newValue, forKey: "montee.state") }
     }
+    /// 4.5.0 : moments utiles pour relire Ten'Up (« ms,ms,… » : ≈ 2 h 30 après un match prévu, matin de la sortie)
+    static var moments: String? {
+        get { d.string(forKey: "montee.moments") }
+        set { d.set(newValue, forKey: "montee.moments") }
+    }
     static var pending: String? {
         get { d.string(forKey: "montee.pending") }
         set { d.set(newValue, forKey: "montee.pending") }
@@ -1071,6 +1076,7 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func setState(_ call: CAPPluginCall) {
         if let state = call.getString("state") { MonteeStore.state = state }
         if let script = call.getString("script"), !script.isEmpty { MonteeStore.script = script }
+        if let moments = call.getString("moments") { MonteeStore.moments = moments }
         MonteeBackground.schedule()
         call.resolve()
     }
@@ -1154,8 +1160,21 @@ enum MonteeSummary {
 enum MonteeBackground {
     static func schedule() {
         let request = BGAppRefreshTaskRequest(identifier: kRefreshTaskId)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 3 * 3600)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: nextDelay())
         try? BGTaskScheduler.shared.submit(request)
+    }
+
+    /// 4.5.0 : 3 h comme avant, ou plus tôt si un moment utile arrive avant (au moins 5 min plus tard).
+    /// iOS reste libre de l'heure exacte ; demander ce moment-là lui donne la bonne heure au plus tôt.
+    static func nextDelay() -> TimeInterval {
+        let now = Date().timeIntervalSince1970
+        var best: TimeInterval = 3 * 3600
+        for x in (MonteeStore.moments ?? "").split(separator: ",") {
+            guard let ms = Double(x.trimmingCharacters(in: .whitespaces)) else { continue }
+            let dt = ms / 1000 - now
+            if dt > 5 * 60 && dt < best { best = dt }
+        }
+        return best
     }
 
     /// 3.69 : journal des passages (« heure|résultat »), les 12 derniers : sert à comprendre pourquoi peu de notifications arrivent.
