@@ -10031,6 +10031,24 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<div class="as-bs">' + bar("Mieux classés", B.up) + bar("Comme toi", B.eq) + bar("Moins classés", B.dn) + "</div>" + WL_LEG +
       (nK >= 3 ? '<span class="as-f">Tu gagnes <b>' + pv + " %</b> de tes matchs, Montée en attendait <b>" + pe + " %</b> vu tes adversaires" + (vd === "above" ? " : tu fais mieux que prévu." : vd === "below" ? " : un peu en dessous." : ".") + "</span>" : "") + "</div>";
   }
+  // 4.4.3 (Yann, B3) : Activité, le mois en cours reste ouvert, les mois passés (12 derniers mois) se replient en une ligne
+  // « Octobre 2026 · 3 V · 1 D · +81 pts » ; touché, le mois s'ouvre (gardé ouvert tant que l'appli tourne).
+  function moFold(body, st) {
+    var parts = body.split(/<!--MO:([^>]*?)-->/); if (parts.length < 5) return body.replace(/<!--MO:[^>]*?-->/g, "");
+    var out = parts[0], open = UI.moOpen || {};
+    for (var i = 1; i < parts.length; i += 2) {
+      var k = parts[i], seg = parts[i + 1], tail = "";
+      if (i + 2 >= parts.length) { seg = seg.replace(/<\/div>$/, ""); tail = "</div>"; }
+      var cut = seg.search(/<h2>(Plus de 12 mois|Période en cours)/); if (cut >= 0) { tail = seg.slice(cut) + tail; seg = seg.slice(0, cut); }
+      if (i === 1) { out += seg + tail; continue; }
+      var o = st[k] || { v: 0, d: 0, p: 0, pal: 0 }, nm = k.replace(/^./, function (x) { return x.toUpperCase(); });
+      seg = seg.replace(/^<h2>[^<]*<\/h2>/, "");
+      out += '<details class="mo-g" data-mo="' + esc(k) + '"' + (open[k] ? " open" : "") + '><summary class="mo-s"><span class="mo-t"><b>' + esc(nm) + "</b>" + (o.pal ? "<small>" + plural(o.pal, "palier") + "</small>" : "") + '</span><span class="mo-n">' +
+        (o.v ? "<b>" + o.v + '</b><span class="vd V">V</span>' : "") + (o.d ? "<b>" + o.d + '</b><span class="vd D">D</span>' : "") + "</span>" + (o.p ? '<b class="pts-in mo-p">+' + o.p + " pts</b>" : "") +
+        '<span class="mo-c" aria-hidden="true">' + svg('<path d="M9 6l6 6-6 6"/>', 2.2) + '</span></summary><div class="stack mo-b">' + seg + "</div></details>" + tail;
+    }
+    return out;
+  }
   V.palmares = function () {
     syAutoMe(); // 3.67
     var c = ctx(), pts = countedMap(c.proj.next), tab = UI.palTab;
@@ -10081,10 +10099,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     // 3.44.2 : bonus championnat individuel, rattaché à tes premières victoires d'indivs comptées (comme le bilan)
     var chB = champBonusMap(c, all);
+    // 4.4.3 (Yann, maquette B3 validée) : les mois passés se replient en une ligne ; victoires, défaites et points bien visibles
+    var rowPts = function (m) { if (m._dbl || m.dbl) { var gd = gotD[m.id]; return m.result === "V" && gd ? gd.pts : 0; } return (m.result === "V" && counts(m) && pts[m.id] != null ? pts[m.id] : 0) + (chB[m.id] || 0); };
+    var moSt = {}, moAdd = function (m) { if (old || !curMonth || curMonth === "nd") return; var o = moSt[curMonth] || (moSt[curMonth] = { v: 0, d: 0, p: 0, pal: 0 }); if (m.result === "V") o.v++; else if (m.result === "D" && !m.wo) o.d++; o.p += rowPts(m); };
+    var moH = function (k) { return "<!--MO:" + k + "--><h2>" + k.replace(/^./, function (x) { return x.toUpperCase(); }) + "</h2>"; };
     var tgHtml = function (g) {
       var ms = g.ms, nv = ms.filter(function (m) { return m.result === "V"; }).length, nd = ms.length - nv, lastM = ms[ms.length - 1];
       // 3.55 (retour testeur : +15 affiché pour +15, +1, +1) : le total compte aussi les points des doubles, comme les lignes ; rien pour une saison passée
-      var tot = old ? 0 : ms.reduce(function (a, m) { if (m._dbl || m.dbl) { var gd = gotD[m.id]; return a + (m.result === "V" && gd ? gd.pts : 0); } return a + (m.result === "V" && counts(m) && pts[m.id] != null ? pts[m.id] : 0) + (chB[m.id] || 0); }, 0);
+      var tot = old ? 0 : ms.reduce(function (a, m) { return a + rowPts(m); }, 0);
       var d0 = E.parseDate(ms[0].date), d1 = E.parseDate(lastM.date), rng = d0.getMonth() === d1.getMonth() ? (d0.getDate() === d1.getDate() ? "" : d0.getDate() + "–") + fdate(lastM.date).replace(/\.$/, "") : fdate(ms[0].date).replace(/\.$/, "") + " – " + fdate(lastM.date).replace(/\.$/, "");
       var sgl = ms.filter(function (m) { return !m._dbl && !m.dbl; }), dbs = ms.filter(function (m) { return m._dbl || m.dbl; });
       var nvp = sgl.filter(function (m) { return m.result === "V" && !m.wo; }).length, ndp = sgl.filter(function (m) { return m.result === "D" && !m.wo; }).length;
@@ -10106,23 +10128,24 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return h + "</div></div>";
     };
     var palAll = {}; try { palAll = paliers(); } catch (e) {}
-    s += '<div class="stack" style="gap:8px">';
+    s += '<div class="stack" style="gap:8px">'; var stI = s.length;
     list.forEach(function (m) {
       if (TG[m.id]) {
         // la carte du tournoi prend la place de son match le plus récent (la liste va du plus récent au plus ancien)
         if (tgDone[TG[m.id].id]) return; tgDone[TG[m.id].id] = 1;
         if (!old && m.date <= from) { old = true; s += "<h2>Plus de 12 mois · ne comptent plus</h2>"; curMonth = "x"; }
         var ddg = E.parseDate(m.date), mkg = MOIS_L[ddg.getMonth()] + " " + ddg.getFullYear();
-        if (!old && mkg !== curMonth) { curMonth = mkg; s += "<h2>" + mkg.replace(/^./, function (x) { return x.toUpperCase(); }) + "</h2>"; }
-        s += tgHtml(TG[m.id]); return;
+        if (!old && mkg !== curMonth) { curMonth = mkg; s += moH(mkg); }
+        TG[m.id].ms.forEach(moAdd); s += tgHtml(TG[m.id]); return;
       }
-      if (m._dbl) { var dd0 = E.parseDate(m.date), mk0 = MOIS_L[dd0.getMonth()] + " " + dd0.getFullYear(); if (!old && mk0 !== curMonth && m.date > from) { curMonth = mk0; s += "<h2>" + mk0.replace(/^./, function (x) { return x.toUpperCase(); }) + "</h2>"; } s += dRow(m); return; }
+      if (m._dbl) { var dd0 = E.parseDate(m.date), mk0 = MOIS_L[dd0.getMonth()] + " " + dd0.getFullYear(); if (!old && mk0 !== curMonth && m.date > from) { curMonth = mk0; s += moH(mk0); } moAdd(m); s += dRow(m); return; }
       if (!m.date) { if (curMonth !== "nd") { curMonth = "nd"; s += "<h2>Période en cours · importés de Ten'Up</h2>"; } }
       else {
         if (!old && m.date <= from) { old = true; s += "<h2>Plus de 12 mois · ne comptent plus</h2>"; curMonth = "x"; }
         var dd = E.parseDate(m.date), mk = MOIS_L[dd.getMonth()] + " " + dd.getFullYear();
-        if (!old && mk !== curMonth) { curMonth = mk; s += "<h2>" + mk.replace(/^./, function (x) { return x.toUpperCase(); }) + "</h2>"; }
+        if (!old && mk !== curMonth) { curMonth = mk; s += moH(mk); }
       }
+      moAdd(m);
       var pt = pts[m.id];
       var ptsHtml = !counts(m) ? "ne compte pas" : m.result === "V" ? (old ? "" : pt != null ? '<b class="pts-in">+' + pt + " pts</b>" : "hors quota") : ""; // 3.58.1 : sur la ligne de la date, le tableau d'arbitre à droite
       // 4.1 (Yann, audit densité validé) : « À annoter » devient un petit rond à côté du nom ; « Saisi à la main » reste dans la fiche du match
@@ -10131,9 +10154,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (isManual(m)) { /* rien dans la liste */ }
       else if (m.manualOrigin && m.confirmedAt && dayDiff(m.confirmedAt, E.iso(today())) <= 14) tag = '<span class="tags"><span class="tag ok">' + I.check + " Confirmé par Ten'Up</span>" + tag + "</span>";
       s += '<a class="row' + (isManual(m) ? " manual" : "") + '" href="#/match/' + m.id + '" style="background:var(--card);border-radius:20px' + (old ? ";opacity:.65" : "") + '"><span class="vd lg ' + m.result + '">' + (m.wo ? "WO" : m.result) + '</span><span class="grow"><span class="t t2">' + esc(nameCase(m.opp) || "Adversaire") + tdot + '</span><span class="s">' + rkTagOf(m) + (m.date ? (m.oppRank ? " · " : "") + esc(fdate(m.date)) : "") + (m.score && !msbHtml(m) ? (m.date ? " · " : "") + esc(m.score) : "") + (!m.date && !m.score ? "Ajoute date et score si tu veux" : "") + (ptsHtml ? (m.date || m.score ? " · " : "") + ptsHtml : "") + "</span>" + tag + "</span>" + msbHtml(m) + "</a>";
-      if (!old && !chips.length && m.date) (palAll[m.id] || []).forEach(function (x) { s += palCard(x, m, s.indexOf("pal-c id-dock") < 0); }); // 4.2 : Ace fête le 1er palier de la liste // 3.55 (Yann, maquette F)
+      if (!old && !chips.length && m.date) (palAll[m.id] || []).forEach(function (x) { s += palCard(x, m, s.indexOf("pal-c id-dock") < 0); if (moSt[curMonth]) moSt[curMonth].pal++; }); // 4.2 : Ace fête le 1er palier de la liste // 3.55 (Yann, maquette F)
     });
     s += "</div>";
+    if (!chips.length) s = s.slice(0, stI) + moFold(s.slice(stI), moSt);
     // 3.48.7 (Yann) : les saisons passées, repliées ; on ouvre pour voir le détail
     // 3.55 (Yann) : seulement les matchs sortis des 12 mois (les autres sont plus haut), et la même présentation que la saison en cours
     // (épreuves en timeline, mois par mois), sans points : un cumul de points n'a pas de sens pour une saison passée
@@ -19861,6 +19885,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "ps-q") { ev.preventDefault(); ev.target.blur(); A.psFind(); } });
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "m-opp" && ev.target.parentNode && ev.target.parentNode.classList.contains("sbf")) { ev.preventDefault(); ev.target.blur(); A.mTuFind(); } });
 
+  app.addEventListener("toggle", function (ev) { var d = ev.target; if (d && d.classList && d.classList.contains("mo-g")) { UI.moOpen = UI.moOpen || {}; UI.moOpen[d.dataset.mo] = d.open; } }, true); // 4.4.3 : mois ouverts dans Activité
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible" && UI.awaitTenup) {
       UI.awaitTenup = false; UI.backFromTenup = true;

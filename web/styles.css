@@ -7370,3 +7370,20 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* Carte Sortie : la ligne du cap d'Ace (Montée+) quand la sortie est hors de portée */
 .ch-tile .cd3-i { background: var(--chip); color: var(--muted); font-weight: 800; font-size: 13px; }
 .h3c .h3-cond .cd3-x .cd3-i.cd3-cap, .ch-tile .cd3-i.cd3-cap { color: var(--acc-ink); background: color-mix(in srgb, var(--balle) 20%, transparent); }
+
+/* 4.4.3 (Yann, B3) : Activité, mois passés repliés en une ligne. Fermé = une carte ; ouvert = un titre à plat au-dessus des matchs (pas d'encadré dans l'encadré). */
+.mo-g { display: block; }
+.mo-s { list-style: none; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 20px; background: var(--card); cursor: pointer; min-height: 44px; }
+.mo-s::-webkit-details-marker { display: none; }
+.mo-g[open] > .mo-s { background: none; box-shadow: none !important; padding: 10px 2px 6px; }
+.mo-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mo-t b { font-size: 16px; font-weight: 700; }
+.mo-t small { font-size: 12.5px; color: var(--muted); }
+.mo-n { display: flex; align-items: center; gap: 5px; }
+.mo-n b { font-size: 18px; font-weight: 800; letter-spacing: -.02em; margin-left: 6px; }
+.mo-n b:first-child { margin-left: 0; }
+.mo-p { font-size: 15px; margin-left: 4px; }
+.mo-c { color: var(--muted); display: inline-flex; transition: transform .2s var(--ease-out, ease); }
+.mo-g[open] .mo-c { transform: rotate(90deg); }
+.mo-b { gap: 8px; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .mo-c { transition: none; } }
