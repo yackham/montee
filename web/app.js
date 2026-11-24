@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.4.2",
+    VERSION: "4.4.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -8395,10 +8395,93 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }).join("") + "</div>";
     }
     s += '<button class="btn primary" data-a="cardShare">' + I.share + " Partager en story</button>";
+    s += '<button class="btn soft" data-a="bilanPdf">Mon bilan de saison en PDF' + (PLUS_LOCK() ? " " + I.lock : "") + "</button>"; // 4.4.3 (P5)
     s += '<p class="small">Aucun nom d\'adversaire sur l\'image.' + (style === "montee" && !hasRank ? " Pas de changement de classement sur cette période : la carte montre ton bilan." : "") + "</p>";
     UI.cardP = P; UI.cardS = style; UI.cardK = skin;
     setTimeout(function () { loadCardFonts().then(function () { var im = document.getElementById("card-img"); if (im && UI.cardP === P) { var cv = drawCard(P, style, skin); im.src = cv.toDataURL("image/png"); UI.cardUrl = im.src; } }); }, 0);
     return s + "</div>";
+  }
+  // 4.4.3 (Yann, P5) : ton bilan sur 12 mois en PDF A4, fait sur le téléphone (aucun serveur), en plus de la carte à partager.
+  // Les chiffres viennent des mêmes calculs que Courbes : recData, mentalData, bilanHist, dblData, levelNow.
+  function bilanPdfCanvas() {
+    var c = ctx(), cur = c.cur < 0 ? 0 : c.cur, target = Math.min(cur + 1, E.MAX_CALC), win = c.proj.matches || [];
+    var RD = recData(win, c.cur); if (!RD) return null;
+    var MD = mentalData(win), D = dblData(), h = null; try { h = c.proj.status !== "top" ? bilanHist(c, target, cur) : null; } catch (e) { h = null; }
+    var W = 1240, H = 1754, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    var g = cv.getContext("2d"), F = "MonteeCard, Figtree, system-ui, sans-serif", INK = "#151512", MU = "#6B6A63", LN = "#E4E2DA", GR = "#2E7D4F", BA = "#D4E64A", X0 = 96, X1 = W - 96;
+    var font = function (w, px) { g.font = w + " " + px + "px " + F; };
+    var txt = function (t, x, y, w, px, col, al) { font(w, px); g.fillStyle = col || INK; g.textAlign = al || "left"; g.fillText(t, x, y); };
+    var fit = function (t, w, px, max) { font(w, px); var o = String(t); t = o; while (t.length > 3 && g.measureText(t === o ? t : t + "…").width > max) t = t.slice(0, -1); return t === o ? t : t.replace(/\s+$/, "") + "…"; };
+    var line = function (y, x0, x1, col, lw) { g.strokeStyle = col || LN; g.lineWidth = lw || 2; g.beginPath(); g.moveTo(x0 == null ? X0 : x0, y); g.lineTo(x1 == null ? X1 : x1, y); g.stroke(); };
+    g.fillStyle = "#FFFFFF"; g.fillRect(0, 0, W, H);
+    // En-tête : la balle, ton nom, la période ; ton classement à droite
+    g.fillStyle = BA; g.beginPath(); g.arc(X0 + 38, 150, 38, 0, 2 * Math.PI); g.fill();
+    g.strokeStyle = INK; g.lineWidth = 7; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); g.moveTo(X0 + 22, 160); g.lineTo(X0 + 38, 144); g.lineTo(X0 + 54, 160); g.stroke();
+    var t1 = today(), t0 = new Date(t1.getFullYear() - 1, t1.getMonth(), t1.getDate() + 1), fl = function (d) { return dN(d) + " " + MOIS[d.getMonth()] + " " + d.getFullYear(); };
+    txt((S.profile.name ? S.profile.name + " · " : "") + "bilan de saison", X0 + 104, 160, 800, 46);
+    txt("Du " + fl(t0) + " au " + fl(t1) + " · 12 mois glissants · données Ten'Up", X0 + 104, 200, 500, 20, MU);
+    var rk = effRank() || lab(cur); txt(rk, X1, 150, 800, 64, INK, "right"); txt("classement officiel", X1, 186, 500, 19, MU, "right");
+    var f = null; try { f = levelNow(c); } catch (e) { f = null; }
+    if (f && f.ms && !f.wait) { var d = Math.round((f.mean - cur) * 10) / 10, lv = Math.max(0, Math.min(E.MAX_CALC, cur + Math.round(d))); txt(Math.abs(d) >= 0.8 && lv !== cur ? "joue au niveau " + lab(lv) : "joue à son niveau", X1, 214, 500, 19, MU, "right"); }
+    line(250, null, null, INK, 3);
+    // 4 chiffres
+    var v = RD.played.filter(function (m) { return m.result === "V"; }).length, n = RD.played.length, hl = h && h.length ? h[h.length - 1] : null;
+    var K = [[String(n), n > 1 ? "matchs en simple" : "match en simple"], [v + " V", Math.round(v * 100 / Math.max(1, n)) + " % de victoires"], [String(RD.perfs), (RD.perfs > 1 ? "perfs" : "perf") + " au-dessus de " + lab(cur)]];
+    if (hl) K.push([String(hl.total), "pts sur " + hl.norme + " pour " + lab(target)]);
+    var cw = (X1 - X0) / K.length;
+    K.forEach(function (k, i) { var x = X0 + i * cw + (i ? 26 : 0); if (i) { g.strokeStyle = LN; g.lineWidth = 2; g.beginPath(); g.moveTo(X0 + i * cw, 292); g.lineTo(X0 + i * cw, 420); g.stroke(); } txt(k[0], x, 345, 800, 46); txt(fit(k[1], 500, 19, cw - 34), x, 384, 500, 19, MU); });
+    var y = 470;
+    // Ton bilan sortie par sortie (même courbe que Courbes)
+    if (h && h.length > 1) {
+      txt(("Ton bilan pour " + lab(target) + ", sortie par sortie").toUpperCase(), X0, y, 800, 19, "#55594C"); y += 40;
+      var top = y + 20, bot = y + 190, mx = Math.max.apply(null, h.map(function (p) { return Math.max(p.total, p.norme); })) || 1;
+      var Y = function (vv) { return bot - (vv / mx) * (bot - top); }, Xp = function (i) { return X0 + 20 + i * (X1 - X0 - 40) / (h.length - 1); };
+      txt(hl.norme + " pts : " + lab(target), X0, Y(hl.norme) - 12, 500, 16, MU);
+      g.setLineDash([7, 7]); line(Y(hl.norme), null, null, "#B9B7AE", 2); g.setLineDash([]);
+      g.strokeStyle = GR; g.lineWidth = 5; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath(); h.forEach(function (p, i) { if (i) g.lineTo(Xp(i), Y(p.total)); else g.moveTo(Xp(i), Y(p.total)); }); g.stroke();
+      g.fillStyle = BA; g.strokeStyle = INK; g.lineWidth = 3; g.beginPath(); g.arc(Xp(h.length - 1), Y(hl.total), 10, 0, 2 * Math.PI); g.fill(); g.stroke();
+      line(bot + 16);
+      h.forEach(function (p, i) { if (i % 3 === 0 || i === h.length - 1) txt(MOIS[p.date.getMonth()], Xp(i), bot + 42, 500, 16, MU, "center"); });
+      y = bot + 110;
+    }
+    // Deux colonnes : face à chaque classement / plus belle victoire et séries
+    var colW = (X1 - X0 - 60) / 2, XR = X0 + colW + 60, yL = y, yR = y;
+    var row = function (x, yy, w, l, r) { txt(fit(l, 500, 22, w - 120), x, yy, 500, 22); txt(r, x + w, yy, 800, 22, INK, "right"); line(yy + 24, x, x + w); return yy + 62; };
+    txt("FACE À CHAQUE CLASSEMENT", X0, yL, 800, 19, "#55594C"); yL += 52;
+    var grp = function (fn) { var L = win.filter(function (m) { var o = E.idx(m.oppRank); return !m.wo && (m.result === "V" || m.result === "D") && o != null && fn(o); }); return { v: L.filter(function (m) { return m.result === "V"; }).length, n: L.length }; };
+    [["Mieux classés que toi", grp(function (o) { return o > c.cur; })], ["Classés comme toi", grp(function (o) { return o === c.cur; })], ["Moins bien classés", grp(function (o) { return o < c.cur; })]].forEach(function (r) { if (r[1].n) yL = row(X0, yL, colW, r[0], r[1].v + " sur " + r[1].n); });
+    if (MD.close) yL = row(X0, yL, colW, "Moments serrés (3es sets, tie-breaks)", MD.closeV + " sur " + MD.close);
+    if (D.L.length) yL = row(X0, yL, colW, "Double", D.L.filter(function (m) { return m.result === "V"; }).length + " V sur " + D.L.length);
+    var b = RD.best;
+    if (b) {
+      txt("PLUS BELLE VICTOIRE", XR, yR, 800, 19, "#55594C"); yR += 24;
+      g.fillStyle = "#F3F2EE"; if (g.roundRect) { g.beginPath(); g.roundRect(XR, yR, colW, 116, 24); g.fill(); } else g.fillRect(XR, yR, colW, 116);
+      txt(b.oppRank, XR + 30, yR + 76, 800, 50); font(800, 50); var bx = XR + 30 + g.measureText(b.oppRank).width + 28;
+      txt(fit(b.opp && !isAnon(b.opp) ? nameCase(b.opp) : "Un " + b.oppRank, 700, 24, X1 - bx - 20), bx, yR + 52, 700, 24);
+      txt(fit([b.score, b.date ? fl(E.parseDate(b.date)) : ""].filter(Boolean).join(" · "), 500, 19, X1 - bx - 20), bx, yR + 84, 500, 19, MU);
+      yR += 170;
+    }
+    txt("SÉRIES", XR, yR, 800, 19, "#55594C"); yR += 22; line(yR, XR, X1); yR += 40;
+    if (RD.bestRun) yR = row(XR, yR, colW, "Meilleure série", RD.bestRun + " V de suite");
+    if (RD.bm) { var bd = RD.bm.split("-"); yR = row(XR, yR, colW, "Meilleur mois", MOIS_L[+bd[1] - 1] + ", " + RD.wm[RD.bm] + " V"); }
+    // Pied de page
+    line(H - 130); txt("Fait avec Montée le " + fl(t1) + " · calcul indicatif d'après le barème FFT, seul le classement officiel fait foi", X0, H - 92, 500, 16, MU);
+    txt("Montée", X1, H - 92, 700, 16, MU, "right");
+    return cv;
+  }
+  // Un PDF d'une page A4 qui contient l'image (JPEG en hexadécimal : le fichier reste du texte, partagé par le même chemin que la sauvegarde)
+  function pdfOfCanvas(cv) {
+    var bin = atob(cv.toDataURL("image/jpeg", 0.9).split(",")[1]), hx = new Array(bin.length);
+    for (var i = 0; i < bin.length; i++) { var x = bin.charCodeAt(i); hx[i] = (x < 16 ? "0" : "") + x.toString(16); }
+    var img = hx.join("") + ">", cont = "q 595.28 0 0 841.89 0 0 cm /Im0 Do Q";
+    var O = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>",
+      "<< /Type /XObject /Subtype /Image /Width " + cv.width + " /Height " + cv.height + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length " + img.length + " >>\nstream\n" + img + "\nendstream",
+      "<< /Length " + cont.length + " >>\nstream\n" + cont + "\nendstream"];
+    var out = "%PDF-1.4\n", off = [];
+    O.forEach(function (o, k) { off.push(out.length); out += (k + 1) + " 0 obj\n" + o + "\nendobj\n"; });
+    var xr = out.length; out += "xref\n0 " + (O.length + 1) + "\n0000000000 65535 f \n" + off.map(function (o) { return ("000000000" + o).slice(-10) + " 00000 n \n"; }).join("");
+    return out + "trailer\n<< /Size " + (O.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xr + "\n%%EOF\n";
   }
   function cardHomeHtml() {
     var R = lastReleases(), days = (today() - R.r1) / 864e5, key = E.iso(R.r1);
@@ -11949,6 +12032,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (row) return '<button class="card ch-tile ch-btn" data-a="sheet" data-k="chances" data-v="1">' + chRing(r.p, 40, 5, lock) + '<span class="grow"><b>' + t + "</b><small>" + (r.gap && !r.down ? "Il te manque ≈ " + r.gap + " pts · " : "") + plural(r.up.length, "match prévu", "matchs prévus") + " dans le calcul</small></span>" + (lock ? v : '<span class="chev">' + svg('<path d="M9 6l6 6-6 6"/>', 2.2) + "</span>") + "</button>";
     return '<span class="cd3-r cd3-x" data-a="sheet" data-k="chances" data-v="1"><span class="cd3-i">%</span><span>' + t + " : " + v + '</span><span class="chev">›</span></span>';
   }
+  // 4.4.3 : l'historique du bilan (sortie par sortie), lu par Courbes et par le bilan PDF
+  function bilanHist(c, target, cur) {
+    var hAll = histAll();
+    var h = E.history(hAll, target, c.sex, cur, today(), c.opts.extra);
+    h[h.length - 1] = E.history(allMatches(), target, c.sex, cur, today(), c.opts.extra).pop(); // la projection reste celle de l'appli
+    var first = hAll.map(function (m) { return m.date; }).filter(Boolean).sort()[0];
+    if (first) h.forEach(function (p) { var ws = E.iso(new Date(p.date.getFullYear() - 1, p.date.getMonth(), p.date.getDate() + 20)); p.partial = !p.projected && ws < first; });
+    return h;
+  }
   V.courbes = function () {
     var c = ctx(), cur = c.cur < 0 ? 0 : c.cur, target = Math.min(cur + 1, E.MAX_CALC);
     var s = '<div class="screen has-tabs">' + (S.matches.length ? realHero(c) + "<!--CBACE-->" : '<div class="topbar"><div class="title"><span class="small">12 derniers mois</span><span style="font-size:28px;font-weight:600;letter-spacing:-.03em">Courbes</span></div></div>');
@@ -11967,11 +12059,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var B = {};
     if (c.proj.status !== "top") {
       // 3.40 : la courbe utilise aussi les matchs des saisons passées ; un point dont les 12 mois ne sont pas tous connus est marqué
-      var hAll = histAll();
-      var h = E.history(hAll, target, c.sex, cur, today(), c.opts.extra);
-      h[h.length - 1] = E.history(allMatches(), target, c.sex, cur, today(), c.opts.extra).pop(); // la projection reste celle de l'appli
-      var first = hAll.map(function (m) { return m.date; }).filter(Boolean).sort()[0];
-      if (first) h.forEach(function (p) { var ws = E.iso(new Date(p.date.getFullYear() - 1, p.date.getMonth(), p.date.getDate() + 20)); p.partial = !p.projected && ws < first; });
+      var h = bilanHist(c, target, cur);
       var partN = h.filter(function (p) { return p.partial; }).length;
       // 3.39 : chiffre en grand, barre vers la norme, courbe compacte, une seule ligne pour la sortie ; les explications dans ⓘ
       var hl = h[h.length - 1], miss = Math.max(0, hl.norme - hl.total), pc = Math.min(100, Math.round(hl.total * 100 / Math.max(1, hl.norme)));
@@ -14745,7 +14833,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<span class="small">Touche un mois pour le détail.</span></div>';
   }
   // Mental : sets décisifs, premier set, jeux décisifs
-  function mentalHtml(win) {
+  // 4.4.3 : les comptes du mental, lus aussi par le bilan PDF (un seul calcul)
+  function mentalData(win) {
     var played = win.filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); });
     var f1w = { v: 0, n: 0 }, f1l = { v: 0, n: 0 }, three = { v: 0, n: 0 }, tb = { v: 0, n: 0 }, stb = { v: 0, n: 0 }, setsW = { v: 0, n: 0 }, games = { v: 0, n: 0 };
     played.forEach(function (m) {
@@ -14756,6 +14845,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (sets.length === 3) { three.n++; if (won) three.v++; }
       sets.forEach(function (st, i) { if (isSuperTb(st, i)) { stb.n++; if (st[0] > st[1]) stb.v++; } else if (isTb(st)) { tb.n++; if (st[0] > st[1]) tb.v++; } });
     });
+    return { f1w: f1w, f1l: f1l, three: three, tb: tb, stb: stb, setsW: setsW, games: games, close: three.n + tb.n + stb.n, closeV: three.v + tb.v + stb.v };
+  }
+  function mentalHtml(win) {
+    var MD = mentalData(win), f1w = MD.f1w, f1l = MD.f1l, three = MD.three, tb = MD.tb, stb = MD.stb, setsW = MD.setsW, games = MD.games;
     var rows = [["1er set gagné", f1w, "conclus", "f1w"], ["1er set perdu", f1l, "renversés", "f1l"], ["Matchs en 3 sets", three, "gagnés", "three"], ["Tie-breaks", tb, "gagnés", "tb"], ["Super tie-breaks", stb, "gagnés", "stb"], ["Sets", setsW, "sets gagnés", "sets"], ["Jeux", games, "jeux gagnés", "games"]].filter(function (r) { return r[1].n; });
     if (!rows.length) return "";
     // 3.37 : un trait = le repère habituel (SIT_NORM) ; vert au-dessus, orange en dessous ; petits échantillons en clair
@@ -14902,9 +14995,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }).join("") + findBtn + "</div>";
   }
   // Tes records sur 12 mois
-  function recordsHtml(win, cur) {
+  // 4.4.3 : les records sur 12 mois, lus aussi par le bilan PDF (un seul calcul)
+  function recData(win, cur) {
     var played = win.filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); });
-    if (!played.length) return "";
+    if (!played.length) return null;
     var best = null, perfs = 0, tb = { v: 0, n: 0 }, three = { v: 0, n: 0 }, back = 0, bagels = 0, bagelAt = "", months = {};
     played.forEach(function (m) {
       var o = E.idx(m.oppRank), sets = setsOf(m.score);
@@ -14925,9 +15019,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     played.slice().sort(function (a, b) { return (a.date || "") < (b.date || "") ? -1 : 1; }).forEach(function (m) { run = m.result === "V" ? run + 1 : 0; if (run > bestRun) bestRun = run; });
     var streak = 0, sm = sortedMatches().filter(function (m) { return m.date && !m.wo && (m.result === "V" || m.result === "D"); });
     for (var i = 0; i < sm.length && sm[i].result === sm[0].result; i++) streak++;
-    var tile = function (k, v, sub, key) { return '<button class="rec" data-a="sheet" data-k="record" data-v="' + key + '"><span class="k">' + k + '</span><span class="v">' + v + '</span><span class="s">' + sub + "</span></button>"; };
     var wm = {}; played.forEach(function (m) { if (m.result === "V" && m.date) { var k = m.date.slice(0, 7); wm[k] = (wm[k] || 0) + 1; } });
     var bm = Object.keys(wm).sort(function (a, b) { return wm[b] - wm[a] || (a < b ? 1 : -1); })[0];
+    return { played: played, best: best, perfs: perfs, tb: tb, three: three, back: back, bagels: bagels, bagelAt: bagelAt, months: months, mk: mk, bestRun: bestRun, run: run, streak: streak, sm: sm, wm: wm, bm: bm };
+  }
+  function recordsHtml(win, cur) {
+    var RD = recData(win, cur); if (!RD) return "";
+    var played = RD.played, best = RD.best, perfs = RD.perfs, tb = RD.tb, three = RD.three, back = RD.back, bagels = RD.bagels, bagelAt = RD.bagelAt, months = RD.months, mk = RD.mk, bestRun = RD.bestRun, run = RD.run, streak = RD.streak, sm = RD.sm, wm = RD.wm, bm = RD.bm;
+    var tile = function (k, v, sub, key) { return '<button class="rec" data-a="sheet" data-k="record" data-v="' + key + '"><span class="k">' + k + '</span><span class="v">' + v + '</span><span class="s">' + sub + "</span></button>"; };
     // 3.37 : la plus belle victoire en vedette, 3 gros chiffres, puis les records secondaires en liste (un 0 devient un objectif)
     var s = '<div class="card rc2"><span class="eyebrow">Tes records · 12 mois</span>';
     if (best) s += '<a class="rc2-best" href="#/match/' + best.id + '"><b class="rk">' + esc(best.oppRank) + '</b><span><span class="eyebrow">Plus belle victoire</span><b>' + esc(best.opp && !isAnon(best.opp) ? nameCase(best.opp) : "Un " + best.oppRank) + '</b><span class="small">' + esc([best.score, fdate(best.date).replace(/\.$/, "")].filter(Boolean).join(" · ")) + "</span></span></a>";
@@ -18984,6 +19083,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     cardStyle: function (el) { UI.cardStyle = el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); },
     cardHide: function (el) { S.cardSeen = S.cardSeen || {}; S.cardSeen[el.dataset.v] = 1; save(); render(); },
     chargeHide: function (el) { S.chargeSeen = el.dataset.v; save(); render(); },
+    bilanPdf: function () {
+      if (PLUS_LOCK()) { go("soutenir"); return; }
+      loadCardFonts().then(function () {
+        var cv = null; try { cv = bilanPdfCanvas(); } catch (e) { cv = null; }
+        if (!cv) { toast("Pas encore de match sur 12 mois : rien à mettre dans ton bilan."); return; }
+        var pdf = pdfOfCanvas(cv), name = "montee-bilan-" + E.iso(today()) + ".pdf";
+        if (NATIVE && Tenup && typeof Tenup.saveFile === "function") { Promise.resolve().then(function () { return Tenup.saveFile({ name: name, content: pdf, mime: "application/pdf", share: true }); }).catch(function () { toast("Partage impossible. Mets à jour Montée."); }); return; }
+        var blob = new Blob([pdf], { type: "application/pdf" }), file = window.File ? new File([blob], name, { type: "application/pdf" }) : null;
+        if (file && navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file], title: "Mon bilan de saison" }).catch(function () {}); return; }
+        var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); toast("Bilan enregistré : " + name);
+      });
+    },
     cardShare: function () {
       var P = UI.cardP; if (!P) return;
       loadCardFonts().then(function () {
