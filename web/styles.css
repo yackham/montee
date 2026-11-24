@@ -7185,10 +7185,13 @@ button.ob-r, a.ob-r { cursor: pointer; }
    ce qui passe sous l'heure et la batterie en défilant, dans la couleur du haut de la page du thème */
 /* 4.4.6 (Yann, 2e retour) : « transparente et floutée comme dans l'app Claude » : verre dépoli sans teinte, le contenu passe
    flouté sous l'heure et la batterie ; le flou s'efface doucement vers le bas (pas de bord, pas de couleur du thème) */
-.sb-fade { position: fixed; left: 0; right: 0; top: 0; height: calc(var(--sat) + 12px); z-index: 30; pointer-events: none;
-  background: color-mix(in srgb, var(--bg) 12%, transparent); -webkit-backdrop-filter: blur(6px) saturate(1.15); backdrop-filter: blur(6px) saturate(1.15);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 12px), transparent); mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 12px), transparent);
-  opacity: 0; transition: opacity .25s; }
+.sb-fade { position: fixed; left: 0; right: 0; top: 0; height: calc(var(--sat) + 40px); z-index: 30; pointer-events: none; opacity: 0; transition: opacity .25s; }
+/* flou progressif (2 couches) : léger et long, plus fort seulement sous l'heure ; chaque couche s'efface en douceur, aucun bord */
+.sb-fade::before, .sb-fade::after { content: ""; position: absolute; inset: 0; }
+.sb-fade::before { background: color-mix(in srgb, var(--bg) 10%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 var(--sat), rgba(0,0,0,.55) calc(var(--sat) + 16px), transparent 100%); mask-image: linear-gradient(to bottom, #000 0, #000 var(--sat), rgba(0,0,0,.55) calc(var(--sat) + 16px), transparent 100%); }
+.sb-fade::after { -webkit-backdrop-filter: blur(7px) saturate(1.1); backdrop-filter: blur(7px) saturate(1.1);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(var(--sat) - 14px), transparent calc(var(--sat) + 14px)); mask-image: linear-gradient(to bottom, #000 0, #000 calc(var(--sat) - 14px), transparent calc(var(--sat) + 14px)); }
 .sb-fade.on { opacity: 1; }
 
 /* ---- Thèmes 4.3 : sur fond sombre, cartes de la même teinte, un ton plus clair ---- */
