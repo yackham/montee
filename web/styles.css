@@ -7375,7 +7375,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .mo-g { display: block; }
 .mo-s { list-style: none; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 20px; background: var(--card); cursor: pointer; min-height: 44px; }
 .mo-s::-webkit-details-marker { display: none; }
-.mo-g[open] > .mo-s { background: none; box-shadow: none !important; padding: 10px 2px 6px; }
+.mo-g[open] > .mo-s { margin-bottom: 8px; } /* fond de carte gardé : lisible sur tous les fonds (Terre, Dur…) */
 .mo-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .mo-t b { font-size: 16px; font-weight: 700; }
 .mo-t small { font-size: 12.5px; color: var(--muted); }
