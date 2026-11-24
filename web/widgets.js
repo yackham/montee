@@ -25,7 +25,8 @@
   function palette(theme) {
     if (palCache[theme]) return palCache[theme];
     // Thèmes Supporter : bâtis sur Nuit ou Lin (attribut data-skin)
-    var SKB = { indoor: "nuit", nocturne: "nuit", retro: "lin" }, base = SKB[theme] || theme;
+    // 4.4.8 : même table que l'appli (window.MonteeSkinBase) ; avant, Dur, Vert, Crépuscule et Moquette sortaient en Lin
+    var SKB = window.MonteeSkinBase || { indoor: "nuit", nocturne: "nuit", retro: "lin", dur: "nuit", vert: "nuit", crep: "nuit", moquette: "nuit" }, base = SKB[theme] || theme;
     var r = document.documentElement, prev = r.getAttribute("data-theme"), prevS = r.getAttribute("data-skin"), out = {};
     if (base === "lin") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", base);
     if (SKB[theme]) r.setAttribute("data-skin", theme); else r.removeAttribute("data-skin");
@@ -34,6 +35,8 @@
     if (prev == null) r.removeAttribute("data-theme"); else r.setAttribute("data-theme", prev);
     if (prevS == null) r.removeAttribute("data-skin"); else r.setAttribute("data-skin", prevS);
     out.dark = base === "nuit";
+    // 4.4.8 (Yann, piste A validée le 24/11) : en Terre battue, les widgets sont sur l'argile de l'appli (texte blanc, barres sable, boutons vert bâche)
+    if (theme === "terre") { var T = { bg: "#A9502A", card: "#A9502A", ink: "#FFFFFF", muted: "#FFE2CC", line: "#C2683F", chip: "#8E401D", balle: "#F6E6CF", "on-balle": "#2A140A", gazon: "#F6E6CF", "gazon-dark": "#FFE9D6", menthe: "#8E401D", terre: "#FFD0B0", "balle-soft": "#8E401D", "hero-bg": "#A9502A", "hero-ink": "#FFFFFF", solid: "#0B4D35", "on-solid": "#FFFFFF" }; for (var k in T) out[k] = T[k]; out.dark = true; }
     palCache[theme] = out;
     return out;
   }
