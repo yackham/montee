@@ -7424,3 +7424,8 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* 4.4.3 (P3) : page Montée+ abonné */
 .sup-mo-h { padding: 4px 4px 0; }
 .sup-all > .pw-list { margin-top: 6px; }
+/* 4.4.4 (Yann) : bilan de saison du club, un championnat = une pastille neutre + son total V · D */
+.lc-sub.lc-subp { align-items: center; gap: 10px; padding: 20px 0 6px; }
+.lc-chp { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 6px 11px; border-radius: 99px; background: var(--chip); color: var(--ink); }
+.lc-subp small { flex: none; white-space: nowrap; }
+.lc-fr .lc-dots { margin-left: auto; }
