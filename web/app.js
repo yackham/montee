@@ -14059,6 +14059,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // entre deux matchs, pause ou blessure, calendrier du téléphone, règles en poche, ta saison, ton double, ta saison en euros.
   // Tout reste dans le téléphone.
   // =====================================================================
+  var OB_INS_EUR = 20; // 4.2.6 (Yann) : un tournoi déjà joué dont Ten'Up ne donne plus le prix compte environ 20 € (18 à 20 € selon les tournois)
   var OB_RS_EUR = 22; // un recordage : 12 € le cordage + 10 € la pose (valeur fixée par Yann)
   var OB_NX = svg('<path d="M9 6l6 6-6 6"/>', 2.4);
   function obHm(t) { var m = /^(\d{1,2})[:h](\d{2})?/.exec(String(t || "")); return m ? { h: +m[1], m: +(m[2] || 0) } : null; }
@@ -14352,16 +14353,28 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var rs = []; (S.rackets || []).forEach(function (r) { (r.restrings || []).filter(Boolean).forEach(function (d) { if (d > from && d <= td) rs.push({ d: d, r: r.name || "Ta raquette" }); }); });
     var ins = toursAll().filter(function (t) { var d = t.from || t.to || ""; return t.ins && t.ins.fee > 0 && !t.wait && d > from && d <= td; }).map(function (t) {
       var w = (t.rounds || []).concat(t.pool || []).filter(function (r) { return r.res === "V"; }).length; return { t: t, fee: +t.ins.fee, w: w }; });
+    // 4.2.6 (Davy, Yann) : Ten'Up ne liste que les inscriptions à venir ; un tournoi déjà joué n'y est plus. On le compte à partir
+    // de tes matchs de tournoi (épreuve rattachée ou nom de l'homologation), au prix approximatif OB_INS_EUR.
+    var nC = function (x) { return String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ""); };
+    var priced = ins.map(function (x) { return x.t; }), seenT = {};
+    var covered = function (m) { return priced.some(function (t) { return m.tour === t.id || (m.comp && nC(m.comp) === nC(t.name)) || (!m.tour && t.from && m.date >= t.from && m.date <= (t.to || t.from)); }); };
+    (S.matches || []).filter(function (m) { return m && m.date > from && m.date <= td && m.kind === "tournoi" && (m.result === "V" || m.result === "D") && (m.tour || m.comp) && !covered(m); }).forEach(function (m) {
+      var t = m.tour && tourOf(m.tour), k = t ? "t:" + t.id : "c:" + nC(m.comp);
+      var x = seenT[k] || (seenT[k] = { t: t || { id: "", name: m.comp, from: m.date }, fee: OB_INS_EUR, w: 0, approx: true, d: m.date });
+      if (m.date < x.d) x.d = m.date; if (m.result === "V" && !m.wo) x.w++;
+    });
+    Object.keys(seenT).forEach(function (k) { var x = seenT[k]; if (!x.t.id) x.t.from = x.d; ins.push(x); });
+    ins.sort(function (a, b) { return (a.t.from || a.t.to || "") < (b.t.from || b.t.to || "") ? -1 : 1; });
     var nM = (S.matches || []).concat(S.doubles || []).filter(function (m) { return m && m.date && m.date > from && !m.wo && (m.result === "V" || m.result === "D"); }).length;
     var eRs = rs.length * OB_RS_EUR, eIns = ins.reduce(function (a, x) { return a + x.fee; }, 0);
     var best = ins.filter(function (x) { return x.w; }).sort(function (a, b) { return a.fee / a.w - b.fee / b.w; })[0] || null;
-    return { rs: rs.sort(function (a, b) { return a.d < b.d ? 1 : -1; }), ins: ins, eRs: eRs, eIns: eIns, tot: eRs + eIns, nM: nM, best: best };
+    return { rs: rs.sort(function (a, b) { return a.d < b.d ? 1 : -1; }), ins: ins, eRs: eRs, eIns: eIns, tot: eRs + eIns, nM: nM, best: best, approx: ins.some(function (x) { return x.approx; }) };
   }
   function euCardHtml() {
     var D = euData(); if (!D.tot) return "";
     var mx = Math.max(D.eRs, D.eIns), bar = function (l, v) { return v ? '<div><span class="n">' + l + '</span><em><i style="width:' + Math.max(4, Math.round(v / mx * 100)) + '%"></i></em><b>' + v + "&nbsp;€</b></div>" : ""; };
     return '<button class="card ob-c ob-eu" data-a="sheet" data-k="eu" data-v="1"><span class="ob-eb"><span class="eyebrow">Ta saison en euros · 12 mois</span>' + OB_NX + "</span>" +
-      '<span class="ob-big">' + D.tot + "&nbsp;€" + (D.nM ? "<small>soit " + Math.round(D.tot / D.nM) + "&nbsp;€ par match joué</small>" : "") + "</span>" +
+      '<span class="ob-big">' + (D.approx ? "≈&nbsp;" : "") + D.tot + "&nbsp;€" + (D.nM ? "<small>soit " + Math.round(D.tot / D.nM) + "&nbsp;€ par match joué</small>" : "") + "</span>" +
       "</button>"; // 4.1 (Yann, audit densité) : le chiffre ; barres, inscription la plus rentable et explications dans la feuille
   }
   DET.chances = function () {
@@ -14371,12 +14384,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   DET.eu = function () {
     var D = euData();
     var mx = Math.max(D.eRs, D.eIns), bar = function (l, v) { return v ? '<div><span class="n">' + l + '</span><em><i style="width:' + Math.max(4, Math.round(v / mx * 100)) + '%"></i></em><b>' + v + "&nbsp;€</b></div>" : ""; };
-    return { title: "Ta saison en euros", sub: "Sur tes 12 derniers mois : " + D.tot + " € en tout" + (D.nM ? ", soit " + Math.round(D.tot / D.nM) + " € par match joué" : "") + ".", body:
+    return { title: "Ta saison en euros", sub: "Sur tes 12 derniers mois : " + (D.approx ? "environ " : "") + D.tot + " € en tout" + (D.nM ? ", soit " + Math.round(D.tot / D.nM) + " € par match joué" : "") + ".", body:
       '<span class="ob-bars">' + bar("Recordages · " + D.rs.length, D.eRs) + bar("Inscriptions · " + D.ins.length, D.eIns) + "</span>" +
-      (D.best ? '<div class="ob-r"><span class="grow"><small>Ton inscription la plus rentable</small><b>' + esc(D.best.t.name || "Ton tournoi") + " : " + plural(D.best.w, "victoire") + " pour " + D.best.fee + "&nbsp;€</b></span></div>" : "") +
-      (D.ins.length ? '<span class="ob-lbl">Inscriptions · ' + D.eIns + " €</span>" + '<div class="ob-list">' + D.ins.map(function (x) { return '<a class="ob-r" href="#/tournoi/' + esc(x.t.id) + '"><span class="grow"><small>' + esc(fdate(x.t.from || x.t.to)) + "</small><b>" + esc(x.t.name || "Tournoi") + "</b>" + (x.w ? "<small>" + plural(x.w, "victoire") + "</small>" : "") + '</span><b class="ob-eur">' + x.fee + "&nbsp;€</b></a>"; }).join("") + "</div>" : "") +
+      (D.best ? '<div class="ob-r"><span class="grow"><small>Ton inscription la plus rentable</small><b>' + esc(D.best.t.name || "Ton tournoi") + " : " + plural(D.best.w, "victoire") + " pour " + (D.best.approx ? "≈&nbsp;" : "") + D.best.fee + "&nbsp;€</b></span></div>" : "") +
+      (D.ins.length ? '<span class="ob-lbl">Inscriptions · ' + (D.approx ? "≈ " : "") + D.eIns + " €</span>" + '<div class="ob-list">' + D.ins.map(function (x) { var tg = x.t.id ? "a" : "div"; return "<" + tg + ' class="ob-r"' + (x.t.id ? ' href="#/tournoi/' + esc(x.t.id) + '"' : "") + '><span class="grow"><small>' + esc(fdate(x.t.from || x.t.to)) + "</small><b>" + esc(x.t.name || "Tournoi") + "</b>" + (x.w || x.approx ? "<small>" + [x.w ? plural(x.w, "victoire") : "", x.approx ? "prix approximatif" : ""].filter(Boolean).join(" · ") + "</small>" : "") + '</span><b class="ob-eur">' + (x.approx ? "≈&nbsp;" : "") + x.fee + "&nbsp;€</b></" + tg + ">"; }).join("") + "</div>" : "") +
       (D.rs.length ? '<span class="ob-lbl">Recordages · ' + D.eRs + " €</span>" + '<div class="ob-list">' + D.rs.map(function (x) { return '<div class="ob-r"><span class="grow"><small>' + esc(fdate(x.d)) + "</small><b>" + esc(x.r) + '</b></span><b class="ob-eur">' + OB_RS_EUR + "&nbsp;€</b></div>"; }).join("") + "</div>" : "") +
-      '<span class="ob-foot">Un recordage compte ' + OB_RS_EUR + " € : 12 € le cordage et 10 € la pose. Les inscriptions sont celles que Ten'Up indique. Rien ne sort de ton téléphone.</span>" };
+      '<span class="ob-foot">Un recordage compte ' + OB_RS_EUR + " € : 12 € le cordage et 10 € la pose. Les inscriptions sont celles que Ten'Up indique. " + (D.approx ? "Un tournoi déjà joué n'y figure plus, avec son prix : Montée le compte environ " + OB_INS_EUR + " € (≈). " : "") + "Rien ne sort de ton téléphone.</span>" };
   };
   function sheetHtml() {
     DET.goals = DET_GOALS; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
