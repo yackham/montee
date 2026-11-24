@@ -16957,7 +16957,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   var THEMES = [["auto", "Auto", "Lin le jour, Nuit le soir"], ["lin", "Lin", "Clair, le classique"], ["nuit", "Nuit", "Sombre"], ["terre", "Terre battue", "Fond d'argile ocre, vert profond", 1], ["dur", "Dur", "Bleu court sous les projecteurs", 1], ["gazon", "Gazon", "Blanc et gazon tondu", 1],
     ["indoor", "Indoor", "Bleu court couvert, lignes blanches", 1], ["moquette", "Moquette", "Moquette rouge brique de salle couverte", 1], ["nocturne", "Nocturne", "Ciel étoilé, lumière de projecteur", 1], ["retro", "Rétro", "Crème, bordeaux et vert sapin", 1],
     ["vert", "Vert Montée", "Vert sapin, cartes vert profond", 1], ["crep", "Crépuscule", "Violet et orange du soir", 1]];
-  var THEME_SW = { lin: ["#F2ECE1", "#FFFDF9", "#1F5C3F", "#D4E64A"], nuit: ["#17181C", "#2A2C34", "#6FC28F", "#D4E64A"], terre: ["#A44B25", "#F0D9C4", "#0B4D35", "#FFF4E8"], dur: ["#163C77", "#1F4785", "#D4E64A", "#1C4A8C"], gazon: ["#F7F7F2", "#FFFFFF", "#006633", "#0F4A28"],
+  var THEME_SW = { lin: ["#F2ECE1", "#FFFDF9", "#1F5C3F", "#D4E64A"], nuit: ["#17181C", "#2A2C34", "#6FC28F", "#D4E64A"], terre: ["#A44B25", "#F0D9C4", "#0B4D35", "#FFF4E8"], dur: ["#163C77", "#1F4785", "#D4E64A", "#1C4A8C"], gazon: ["#EFF4E8", "#FFFFFF", "#006633", "#0F4A28"],
     indoor: ["#0A1736", "#1B3874", "#D4E64A", "#1A3576"], nocturne: ["#070A1C", "#151B44", "#E9F06A", "#1A1F48"], retro: ["#F1E7D2", "#FBF5E7", "#7B1E2C", "#7B1E2C"],
     vert: ["#0D2218", "#1C4532", "#D4E64A", "#1F5C3F"], crep: ["#14182E", "#2A3056", "#D4E64A", "#232A52"], moquette: ["#5A1D19", "#7A3F3A", "#D4E64A", "#7A2620"] };
   // Thèmes Supporter : bâtis sur Nuit ou Lin, avec leurs propres couleurs (attribut data-skin)
