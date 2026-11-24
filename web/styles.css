@@ -7181,8 +7181,17 @@ button.ob-r, a.ob-r { cursor: pointer; }
 @keyframes v43Up { from { transform: translateY(100%); } }
 
 /* ---- Barre d'état : le haut de l'écran ne fait qu'un. En défilant, le haut se fond (dégradé) ---- */
-.sb-fade { position: fixed; left: 0; right: 0; top: 0; height: calc(var(--sat) + 8px); z-index: 30; pointer-events: none;
-  background: linear-gradient(to bottom, var(--sb-top, var(--bg)) 55%, transparent); opacity: 0; transition: opacity .25s; }
+/* 4.4.6 (Yann : « je comprends pas pourquoi tu fais cet effet de blur ») : barre unie et nette, sans dégradé ; elle cache juste
+   ce qui passe sous l'heure et la batterie en défilant, dans la couleur du haut de la page du thème */
+/* 4.4.6 (Yann, 2e retour) : « transparente et floutée comme dans l'app Claude » : verre dépoli sans teinte, le contenu passe
+   flouté sous l'heure et la batterie ; le flou s'efface doucement vers le bas (pas de bord, pas de couleur du thème) */
+.sb-fade { position: fixed; left: 0; right: 0; top: 0; height: calc(var(--sat) + 40px); z-index: 30; pointer-events: none; opacity: 0; transition: opacity .25s; }
+/* flou progressif (2 couches) : léger et long, plus fort seulement sous l'heure ; chaque couche s'efface en douceur, aucun bord */
+.sb-fade::before, .sb-fade::after { content: ""; position: absolute; inset: 0; }
+.sb-fade::before { background: color-mix(in srgb, var(--bg) 10%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 var(--sat), rgba(0,0,0,.55) calc(var(--sat) + 16px), transparent 100%); mask-image: linear-gradient(to bottom, #000 0, #000 var(--sat), rgba(0,0,0,.55) calc(var(--sat) + 16px), transparent 100%); }
+.sb-fade::after { -webkit-backdrop-filter: blur(7px) saturate(1.1); backdrop-filter: blur(7px) saturate(1.1);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(var(--sat) - 14px), transparent calc(var(--sat) + 14px)); mask-image: linear-gradient(to bottom, #000 0, #000 calc(var(--sat) - 14px), transparent calc(var(--sat) + 14px)); }
 .sb-fade.on { opacity: 1; }
 
 /* ---- Thèmes 4.3 : sur fond sombre, cartes de la même teinte, un ton plus clair ---- */
@@ -7484,6 +7493,14 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 :root[data-skin]:not([data-skin="retro"]) .ft { --ft-po: #EEF59A; --ft-to: #C2D4FF; --ft-eq: #FFC796; --ft-so: #A9E8C0; --ft-bd: #F7DA8C; }
 :root[data-skin]:not([data-skin="retro"]) .pdj-h i { color: var(--ink) !important; }
 :is(:root[data-theme="terre"], :root[data-theme="gazon"]) .sj1-go { color: #121212; }
+/* 4.4.6 (Yann : « la frise en Lin on la voit pas et le bouton Agenda est pas ouf ») : trait et points de la frise bien visibles
+   sur les fonds clairs ; Agenda devient une pastille blanche comme la roue de l'en-tête (icône à l'accent, ombre douce) */
+:is(:root:not([data-theme]), :root[data-theme="gazon"], :root[data-skin="retro"]) .screen > .fr .fr-c::before { background: color-mix(in srgb, var(--ink) 22%, transparent); }
+:is(:root:not([data-theme]), :root[data-theme="gazon"], :root[data-skin="retro"]) .screen > .fr .fr-h i { background: color-mix(in srgb, var(--ink) 32%, var(--bg)); }
+:is(:root:not([data-theme]), :root[data-theme="gazon"], :root[data-skin="retro"]) .screen > .fr .fr-c.now .fr-h i { background: var(--acc-ink, var(--balle)); }
+.fr-t .ob-calb, .fr-t .ob-calb:is(*) { height: 36px; padding: 0 14px 0 11px !important; border-radius: 18px; background: var(--card) !important; color: var(--ink) !important; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.10), 0 4px 12px rgba(0,0,0,.08) !important; }
+.fr-t .ob-calb svg { color: var(--acc-ink, var(--balle)); }
+:root[data-skin]:not([data-skin="retro"]) .fr-t .ob-calb, :root[data-theme="nuit"] .fr-t .ob-calb { background: color-mix(in srgb, var(--card) 90%, #fff) !important; }
 /* 4.4.7 (quick wins) : dans « Ce qui arrive », le badge « presque » montre son picto à la place d'une date (ce n'est pas un rendez-vous) */
 .ft-d.ft-dbd { justify-content: center; align-self: center; color: var(--ft-bd); }
 .ft-d.ft-dbd svg { width: 28px; height: 28px; }
