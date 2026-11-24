@@ -25,7 +25,8 @@
   function palette(theme) {
     if (palCache[theme]) return palCache[theme];
     // Thèmes Supporter : bâtis sur Nuit ou Lin (attribut data-skin)
-    var SKB = { indoor: "nuit", nocturne: "nuit", retro: "lin" }, base = SKB[theme] || theme;
+    // 4.4.8 : même table que l'appli (window.MonteeSkinBase) ; avant, Dur, Vert, Crépuscule et Moquette sortaient en Lin
+    var SKB = window.MonteeSkinBase || { indoor: "nuit", nocturne: "nuit", retro: "lin", dur: "nuit", vert: "nuit", crep: "nuit", moquette: "nuit" }, base = SKB[theme] || theme;
     var r = document.documentElement, prev = r.getAttribute("data-theme"), prevS = r.getAttribute("data-skin"), out = {};
     if (base === "lin") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", base);
     if (SKB[theme]) r.setAttribute("data-skin", theme); else r.removeAttribute("data-skin");

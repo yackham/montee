@@ -17366,6 +17366,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Thèmes Supporter : bâtis sur Nuit ou Lin, avec leurs propres couleurs (attribut data-skin)
   // 4.3 : Dur, Vert Montée et Crépuscule sont bâtis sur Nuit (cartes de la même teinte que le fond, jamais blanches)
   var SKIN_BASE = { indoor: "nuit", nocturne: "nuit", retro: "lin", dur: "nuit", vert: "nuit", crep: "nuit", moquette: "nuit" };
+  window.MonteeSkinBase = SKIN_BASE; // 4.4.8 : les widgets lisent la même table (avant : Dur, Vert, Crépuscule et Moquette sortaient en Lin)
   var darkMq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   // Gratuits : Auto, Lin, Nuit. Tous les autres thèmes viennent avec Montée+
   var PLUS_THEMES = { terre: 1, dur: 1, gazon: 1, indoor: 1, nocturne: 1, retro: 1, vert: 1, crep: 1, moquette: 1 };
