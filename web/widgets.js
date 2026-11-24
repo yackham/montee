@@ -35,6 +35,8 @@
     if (prev == null) r.removeAttribute("data-theme"); else r.setAttribute("data-theme", prev);
     if (prevS == null) r.removeAttribute("data-skin"); else r.setAttribute("data-skin", prevS);
     out.dark = base === "nuit";
+    // 4.4.8 (Yann, piste A validée le 24/11) : en Terre battue, les widgets sont sur l'argile de l'appli (texte blanc, barres sable, boutons vert bâche)
+    if (theme === "terre") { var T = { bg: "#A9502A", card: "#A9502A", ink: "#FFFFFF", muted: "#FFE2CC", line: "#C2683F", chip: "#8E401D", balle: "#F6E6CF", "on-balle": "#2A140A", gazon: "#F6E6CF", "gazon-dark": "#FFE9D6", menthe: "#8E401D", terre: "#FFD0B0", "balle-soft": "#8E401D", "hero-bg": "#A9502A", "hero-ink": "#FFFFFF", solid: "#0B4D35", "on-solid": "#FFFFFF" }; for (var k in T) out[k] = T[k]; out.dark = true; }
     palCache[theme] = out;
     return out;
   }
