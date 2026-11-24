@@ -2679,9 +2679,9 @@
     var CO = ["mes", "dam", "jeu", "plus"], chs = {}; T.forEach(function (x) { var k = champNm(x.c); (chs[k] = chs[k] || []).push(x); });
     var chK = Object.keys(chs).sort(function (a, b) { return (CO.indexOf(clubCat(chs[a][0].c)) - CO.indexOf(clubCat(chs[b][0].c))) || a.localeCompare(b, "fr"); });
     var body = pod + '<div class="lc-tiles">' + tile(F.length, F.length > 1 ? "premières de poule" : "première de poule", "g") + tile(nV, nV > 1 ? "victoires" : "victoire") + tile(nL, nL > 1 ? "dernières" : "dernière", "d") + "</div>" +
-      '<h3 class="lc-st">Toutes les équipes</h3><div class="lc-flat">' + chK.map(function (k) { var X = chs[k].sort(function (a, b) { return (+a.num || 99) - (+b.num || 99) || a.pos - b.pos; }); var gv = 0, gd = 0; X.forEach(function (x) { x.res.forEach(function (r) { if (r === "v") gv++; else if (r === "d") gd++; }); });
-        // 4.4.4 (Yann) : chaque championnat dans une pastille neutre, avec son total de victoires et de défaites
-        return '<div class="lc-sub lc-subp"><span class="lc-chp">' + esc(k) + "</span><small>" + gv + " V · " + gd + " D</small></div>" + X.map(function (x) { return row(x, true); }).join(""); }).join("") + "</div>";
+      '<h3 class="lc-st">Toutes les équipes</h3>' + chK.map(function (k) { var X = chs[k].sort(function (a, b) { return (+a.num || 99) - (+b.num || 99) || a.pos - b.pos; }), f1 = X.filter(function (x) { return x.pos === 1; }).length;
+        // 4.4.4 (Yann) : un bloc par championnat, comme les tournois d'Activité (nom, nombre d'équipes, puis ses équipes)
+        return '<div class="card lc-blk"><div class="tg-h"><b>' + esc(k) + '</b></div><span class="small">' + plural(X.length, "équipe", "équipes") + (f1 ? " · " + plural(f1, "première de poule", "premières de poule") : "") + '</span><div class="lc-flat">' + X.map(function (x) { return row(x, true); }).join("") + "</div></div>"; }).join("");
     var ch = {}; T.forEach(function (x) { ch[x.c.cid || x.c.id] = 1; });
     body += '<button class="go-pill lc-shp" data-a="lcShare" data-k="sea" data-v="' + esc(k) + '">' + I.share + "Partager le bilan de la saison</button>";
     return { title: "Saison " + (k - 1) + "-" + String(k).slice(2), sub: tmNm(((S.teams || {}).club || {}).nom || "") + " · " + plural(T.length, "équipe", "équipes") + " · " + plural(Object.keys(ch).length, "championnat", "championnats"), body: body };
