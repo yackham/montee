@@ -7316,3 +7316,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* 4.3 (Yann) : pas de fond derrière les onglets non sélectionnés ; seul l'onglet choisi garde sa pastille (hors sélecteurs de formulaire) */
 .seg:not(.res):not(.mini), :root[data-skin] .seg:not(.res):not(.mini), :root[data-skin]:not([data-skin="retro"]) .seg:not(.res):not(.mini), :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .seg:not(.res):not(.mini) { background: transparent; box-shadow: none; }
 :root[data-theme="terre"] .seg:not(.res):not(.mini) button:not(.on) { color: var(--page-ink); text-shadow: 0 1px 2px rgba(60,20,5,.35); }
+
+/* 4.2.6 (Yann) : dans une feuille, l'intertitre colle à sa liste (l'écart du flex de .sh-body passait entre les deux) */
+.sh-body > .ob-lbl { margin: 18px 0 -10px; }
+.sh-body > .ob-lbl + .ob-list { margin-top: 0; }

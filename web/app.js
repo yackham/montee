@@ -6978,6 +6978,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (traitVal(T, "regul") < 0) add("plus1", "Ta fiche · régularité à protéger");
     return { ids: out, why: why };
   }
+  // Le repère en plus : la catégorie absente de tes objectifs, nourrie par tes suggestions (fiche, débriefs, montre) si elles en ont une
+  function goalExtra(cur, sg) {
+    var have = cur.map(function (g) { return g.cat; }), ids = cur.map(function (g) { return g.id; });
+    var miss = ["tet", "cor", "sol", "tac"].filter(function (k) { return have.indexOf(k) < 0; }); if (!miss.length) return null;
+    var sug = sg.ids.map(goalOf).filter(function (g) { return g && miss.indexOf(g.cat) >= 0 && ids.indexOf(g.id) < 0; })[0];
+    if (sug) return sug;
+    var k = miss[0], pick = k === "tet" ? "rout" : GOALS.filter(function (x) { return x[1] === k && ids.indexOf(x[0]) < 0; })[0][0];
+    return goalOf(pick);
+  }
   function goalsCur() { var g = S.goals; return g && g.ids && g.ids.length ? g.ids.map(goalOf).filter(Boolean) : []; }
   // « Ton match du jour » (gratuit) : au-dessus du plan
   function goalsCard(D, matchDay) {
@@ -6997,7 +7006,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var col = gcol(g.cat);
       return '<div class="gl-r"><span class="gl-ic" style="color:' + col + ";box-shadow:inset 0 0 0 1.5px " + col + '66">' + svg(ic[g.cat] || ic.tac, 2) + '</span><div class="grow"><div class="gl-rh">' + catLab(g.cat) + '<span class="gl-src">' + esc(whyOf(g.id).split(" · ")[0]) + "</span></div><b>" + esc(g.t) + '</b><span class="small">' + esc(g.s) + (whyOf(g.id).indexOf(" · ") > 0 ? " " + esc(cap1(whyOf(g.id).split(" · ").slice(1).join(" · "))) + "." : "") + "</span></div></div>";
     }).join("");
-    s += '<div class="gl-r"><span class="gl-ic" style="color:' + gcol("tet") + ";box-shadow:inset 0 0 0 1.5px " + gcol("tet") + '66">' + svg('<path d="M3 9h11a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3"/>', 2) + '</span><div class="grow"><div class="gl-rh">' + catLab("tet", "entre les points") + '</div><b>Raquette dans l\'autre main, une respiration, une seule intention.</b><span class="small">Le score, le classement, les points : après le match.</span></div></div>';
+    // 4.2.6 (Davy : « toujours le même objectif non choisi ») : la 4e ligne n'est plus toujours la routine (Tête) ;
+    // c'est un repère dans la catégorie qui manque à tes choix (la routine si c'est Tête qui manque)
+    var xg = goalExtra(cur, sg);
+    if (xg) s += '<div class="gl-r"><span class="gl-ic" style="color:' + gcol(xg.cat) + ";box-shadow:inset 0 0 0 1.5px " + gcol(xg.cat) + '66">' + svg(ic[xg.cat] || ic.tac, 2) + '</span><div class="grow"><div class="gl-rh">' + catLab(xg.cat, "en plus") + '<span class="gl-src">Pour compléter</span></div><b>' + esc(xg.t) + '</b><span class="small">' + esc(xg.s) + " La catégorie qui manque à tes choix.</span></div></div>";
     if (IOS) s += '<span class="gl-w">' + I.check + " Sur ta montre, avec ton plan</span>";
     return s + "</div>";
   }
@@ -8952,7 +8964,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     try {
       var ch = E.BAREME.champ(hb.calc), n = 0, rel = c.opts.release || E.nextRelease(today());
       E.windowMatches(sortedMatches().filter(function (m) { return m.kind === "champ" && m.result === "V" && !m.wo && !m.dbl && !m._dbl && counts(m); }), rel, today(), false)
-        .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) { var on = hb.bonusCh && n < ch.max; if (on) n++; o.ind.push({ m: m, pts: on ? ch.par : 0, on: on }); });
+        .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) { var on = hb.bonusCh && n < ch.max; if (on) n++; o.ind.push({ m: m, pts: on ? ch.par : 0, val: ch.par, on: on }); });
     } catch (e) {}
     (hb.doubles || []).forEach(function (x) { if (x && x.m) o.dbl.push({ m: x.m, pts: x.pts || 0, on: true }); });
     o.ch = hb.bonusCh || 0; o.db = hb.bonusDbl || 0; o.sd = hb.bonusSD || 0; o.tot = o.ch + o.db + o.sd;
@@ -8969,7 +8981,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var rks = dbl && (m.oppRanks || []).filter(Boolean).length ? m.oppRanks.filter(Boolean).slice(0, 2).map(tag).join(" et ") : tag(m.oppRank);
       var l = E.lastDay(m);
       return '<a class="bo-r' + (x.on ? "" : " off") + '" href="#/' + (dbl ? "double/" : "match/") + encodeURIComponent(m.id) + '"><span class="grow"><span class="t">' + who + "</span><small>" + rks + (rks ? " · " : "") + "le " + esc((function (d) { return d ? d.getDate() + " " + MOIS[d.getMonth()] + " " + d.getFullYear() : ""; })(E.parseDate(m.date))) + "</small></span>" +
-        '<span class="bo-p"><b>' + (x.pts ? "+" + x.pts : "0") + "</b><small>" + (x.on ? "jusqu'en " + mo(l) : "en réserve") + "</small></span></a>";
+        '<span class="bo-p"><b>' + (x.pts ? "+" + x.pts : x.val ? "+" + x.val : "0") + "</b><small>" + (x.on ? "jusqu'en " + mo(l) : "en réserve") + "</small></span></a>"; // 4.2.6 (Davy) : la valeur du bonus en réserve, pas « 0 »
     };
     var ch = E.BAREME.champ(hb.calc), res = B.ind.filter(function (x) { return !x.on; });
     var ace = "";
@@ -8983,7 +8995,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<b class="bo-ti">+' + B.tot + " pts de bonus dans ton bilan</b>" +
       '<div class="bo-tiles"><span><b>+' + B.db + "</b><small>pts en doubles</small></span><span><b>+" + B.ch + "</b><small>pts en poule</small></span>" + // 4.1 (audit densité) : des points, pas un nombre de matchs
       (first ? "<span><b>" + first.l.getDate() + (first.l.getDate() === 1 ? "<sup>er</sup>" : "") + " " + MOIS[first.l.getMonth()] + "</b><small>1er bonus qui sort</small></span>" : B.sd ? "<span><b>" + B.sd + "</b><small>sans défaite significative</small></span>" : "") + "</div>" +
-      (B.ind.length ? '<h3 class="bo-st">Championnat individuel <small>' + (ch.max ? "tes " + ch.max + " premiers comptent" : "") + '</small></h3><div class="bo-flat">' + B.ind.map(function (x) { return row(x, false); }).join("") + "</div>" : "") +
+      (B.ind.length ? '<h3 class="bo-st">Championnat individuel <small>' + (ch.max ? "tes " + ch.max + " meilleurs comptent" : "") + '</small></h3><div class="bo-flat">' + B.ind.map(function (x) { return row(x, false); }).join("") + "</div>" : "") +
       (B.dbl.length ? '<h3 class="bo-st">Doubles <small>les meilleurs comptent</small></h3><div class="bo-flat">' + B.dbl.slice(0, 5).map(function (x) { return row(x, true); }).join("") + "</div>" : "") +
       (B.sd && first ? '<div class="bo-sd">Bonus sans défaite significative <b>+' + B.sd + "</b></div>" : "") +
       (ace ? '<div class="bo-ace"><span class="cbl-b xs" data-id="bo:' + esc(first.x.m.id) + '" data-m="reflexion"></span><span>' + ace + "</span></div>" : "") + "</div>";
@@ -14080,6 +14092,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // entre deux matchs, pause ou blessure, calendrier du téléphone, règles en poche, ta saison, ton double, ta saison en euros.
   // Tout reste dans le téléphone.
   // =====================================================================
+  var OB_INS_EUR = 20; // 4.2.6 (Yann) : un tournoi déjà joué dont Ten'Up ne donne plus le prix compte environ 20 € (18 à 20 € selon les tournois)
   var OB_RS_EUR = 22; // un recordage : 12 € le cordage + 10 € la pose (valeur fixée par Yann)
   var OB_NX = svg('<path d="M9 6l6 6-6 6"/>', 2.4);
   function obHm(t) { var m = /^(\d{1,2})[:h](\d{2})?/.exec(String(t || "")); return m ? { h: +m[1], m: +(m[2] || 0) } : null; }
@@ -14373,16 +14386,28 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var rs = []; (S.rackets || []).forEach(function (r) { (r.restrings || []).filter(Boolean).forEach(function (d) { if (d > from && d <= td) rs.push({ d: d, r: r.name || "Ta raquette" }); }); });
     var ins = toursAll().filter(function (t) { var d = t.from || t.to || ""; return t.ins && t.ins.fee > 0 && !t.wait && d > from && d <= td; }).map(function (t) {
       var w = (t.rounds || []).concat(t.pool || []).filter(function (r) { return r.res === "V"; }).length; return { t: t, fee: +t.ins.fee, w: w }; });
+    // 4.2.6 (Davy, Yann) : Ten'Up ne liste que les inscriptions à venir ; un tournoi déjà joué n'y est plus. On le compte à partir
+    // de tes matchs de tournoi (épreuve rattachée ou nom de l'homologation), au prix approximatif OB_INS_EUR.
+    var nC = function (x) { return String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ""); };
+    var priced = ins.map(function (x) { return x.t; }), seenT = {};
+    var covered = function (m) { return priced.some(function (t) { return m.tour === t.id || (m.comp && nC(m.comp) === nC(t.name)) || (!m.tour && t.from && m.date >= t.from && m.date <= (t.to || t.from)); }); };
+    (S.matches || []).filter(function (m) { return m && m.date > from && m.date <= td && m.kind === "tournoi" && (m.result === "V" || m.result === "D") && (m.tour || m.comp) && !covered(m); }).forEach(function (m) {
+      var t = m.tour && tourOf(m.tour), k = t ? "t:" + t.id : "c:" + nC(m.comp);
+      var x = seenT[k] || (seenT[k] = { t: t || { id: "", name: m.comp, from: m.date }, fee: OB_INS_EUR, w: 0, approx: true, d: m.date });
+      if (m.date < x.d) x.d = m.date; if (m.result === "V" && !m.wo) x.w++;
+    });
+    Object.keys(seenT).forEach(function (k) { var x = seenT[k]; if (!x.t.id) x.t.from = x.d; ins.push(x); });
+    ins.sort(function (a, b) { return (a.t.from || a.t.to || "") < (b.t.from || b.t.to || "") ? -1 : 1; });
     var nM = (S.matches || []).concat(S.doubles || []).filter(function (m) { return m && m.date && m.date > from && !m.wo && (m.result === "V" || m.result === "D"); }).length;
     var eRs = rs.length * OB_RS_EUR, eIns = ins.reduce(function (a, x) { return a + x.fee; }, 0);
     var best = ins.filter(function (x) { return x.w; }).sort(function (a, b) { return a.fee / a.w - b.fee / b.w; })[0] || null;
-    return { rs: rs.sort(function (a, b) { return a.d < b.d ? 1 : -1; }), ins: ins, eRs: eRs, eIns: eIns, tot: eRs + eIns, nM: nM, best: best };
+    return { rs: rs.sort(function (a, b) { return a.d < b.d ? 1 : -1; }), ins: ins, eRs: eRs, eIns: eIns, tot: eRs + eIns, nM: nM, best: best, approx: !!rs.length || ins.some(function (x) { return x.approx; }) };
   }
   function euCardHtml() {
     var D = euData(); if (!D.tot) return "";
     var mx = Math.max(D.eRs, D.eIns), bar = function (l, v) { return v ? '<div><span class="n">' + l + '</span><em><i style="width:' + Math.max(4, Math.round(v / mx * 100)) + '%"></i></em><b>' + v + "&nbsp;€</b></div>" : ""; };
     return '<button class="card ob-c ob-eu" data-a="sheet" data-k="eu" data-v="1"><span class="ob-eb"><span class="eyebrow">Ta saison en euros · 12 mois</span>' + OB_NX + "</span>" +
-      '<span class="ob-big">' + D.tot + "&nbsp;€" + (D.nM ? "<small>soit " + Math.round(D.tot / D.nM) + "&nbsp;€ par match joué</small>" : "") + "</span>" +
+      '<span class="ob-big">' + (D.approx ? "≈&nbsp;" : "") + D.tot + "&nbsp;€" + (D.nM ? "<small>soit " + Math.round(D.tot / D.nM) + "&nbsp;€ par match joué</small>" : "") + "</span>" +
       "</button>"; // 4.1 (Yann, audit densité) : le chiffre ; barres, inscription la plus rentable et explications dans la feuille
   }
   DET.chances = function () {
@@ -14392,12 +14417,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   DET.eu = function () {
     var D = euData();
     var mx = Math.max(D.eRs, D.eIns), bar = function (l, v) { return v ? '<div><span class="n">' + l + '</span><em><i style="width:' + Math.max(4, Math.round(v / mx * 100)) + '%"></i></em><b>' + v + "&nbsp;€</b></div>" : ""; };
-    return { title: "Ta saison en euros", sub: "Sur tes 12 derniers mois : " + D.tot + " € en tout" + (D.nM ? ", soit " + Math.round(D.tot / D.nM) + " € par match joué" : "") + ".", body:
+    return { title: "Ta saison en euros", sub: "Sur tes 12 derniers mois : " + (D.approx ? "environ " : "") + D.tot + " € en tout" + (D.nM ? ", soit " + Math.round(D.tot / D.nM) + " € par match joué" : "") + ".", body:
       '<span class="ob-bars">' + bar("Recordages · " + D.rs.length, D.eRs) + bar("Inscriptions · " + D.ins.length, D.eIns) + "</span>" +
-      (D.best ? '<div class="ob-r"><span class="grow"><small>Ton inscription la plus rentable</small><b>' + esc(D.best.t.name || "Ton tournoi") + " : " + plural(D.best.w, "victoire") + " pour " + D.best.fee + "&nbsp;€</b></span></div>" : "") +
-      (D.ins.length ? '<span class="ob-lbl">Inscriptions · ' + D.eIns + " €</span>" + '<div class="ob-list">' + D.ins.map(function (x) { return '<a class="ob-r" href="#/tournoi/' + esc(x.t.id) + '"><span class="grow"><small>' + esc(fdate(x.t.from || x.t.to)) + "</small><b>" + esc(x.t.name || "Tournoi") + "</b>" + (x.w ? "<small>" + plural(x.w, "victoire") + "</small>" : "") + '</span><b class="ob-eur">' + x.fee + "&nbsp;€</b></a>"; }).join("") + "</div>" : "") +
-      (D.rs.length ? '<span class="ob-lbl">Recordages · ' + D.eRs + " €</span>" + '<div class="ob-list">' + D.rs.map(function (x) { return '<div class="ob-r"><span class="grow"><small>' + esc(fdate(x.d)) + "</small><b>" + esc(x.r) + '</b></span><b class="ob-eur">' + OB_RS_EUR + "&nbsp;€</b></div>"; }).join("") + "</div>" : "") +
-      '<span class="ob-foot">Un recordage compte ' + OB_RS_EUR + " € : 12 € le cordage et 10 € la pose. Les inscriptions sont celles que Ten'Up indique. Rien ne sort de ton téléphone.</span>" };
+      (D.best ? '<div class="ob-r"><span class="grow"><small>Ton inscription la plus rentable</small><b>' + esc(D.best.t.name || "Ton tournoi") + " : " + plural(D.best.w, "victoire") + " pour " + (D.best.approx ? "≈&nbsp;" : "") + D.best.fee + "&nbsp;€</b></span></div>" : "") +
+      (D.ins.length ? '<span class="ob-lbl">Inscriptions · ' + (D.approx ? "≈ " : "") + D.eIns + " €</span>" + '<div class="ob-list">' + D.ins.map(function (x) { var tg = x.t.id ? "a" : "div"; return "<" + tg + ' class="ob-r"' + (x.t.id ? ' href="#/tournoi/' + esc(x.t.id) + '"' : "") + '><span class="grow"><small>' + esc(fdate(x.t.from || x.t.to)) + "</small><b>" + esc(x.t.name || "Tournoi") + "</b>" + (x.w || x.approx ? "<small>" + [x.w ? plural(x.w, "victoire") : "", x.approx ? "prix approximatif" : ""].filter(Boolean).join(" · ") + "</small>" : "") + '</span><b class="ob-eur">' + (x.approx ? "≈&nbsp;" : "") + x.fee + "&nbsp;€</b></" + tg + ">"; }).join("") + "</div>" : "") +
+      (D.rs.length ? '<span class="ob-lbl">Recordages · ≈ ' + D.eRs + " €</span>" + '<div class="ob-list">' + D.rs.map(function (x) { return '<div class="ob-r"><span class="grow"><small>' + esc(fdate(x.d)) + "</small><b>" + esc(x.r) + '</b><small>prix approximatif</small></span><b class="ob-eur">≈&nbsp;' + OB_RS_EUR + "&nbsp;€</b></div>"; }).join("") + "</div>" : "") +
+      '<span class="ob-foot">Un recordage compte environ ' + OB_RS_EUR + " € (≈) : 12 € le cordage et 10 € la pose. Les inscriptions sont celles que Ten'Up indique. " + (D.approx ? "Un tournoi déjà joué n'y figure plus, avec son prix : Montée le compte environ " + OB_INS_EUR + " € (≈). " : "") + "Rien ne sort de ton téléphone.</span>" };
   };
   function sheetHtml() {
     DET.goals = DET_GOALS; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
