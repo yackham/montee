@@ -2270,7 +2270,7 @@ html:root[data-theme="nuit"] .card.hero.h3.up .eyebrow { color: var(--hacc); }
 .ds-d small { font-size: 11.5px; font-weight: 700; color: var(--muted); }
 .ds-d b { font-size: 16px; }
 .ds-d.on { background: var(--chip); } .ds-d.on b { color: var(--gazon); }
-:root[data-theme="nuit"] .ds-d.on b { color: var(--balle); }
+:root[data-theme="nuit"] .ds-d.on b { color: #D4E64A; }
 .ds-ic { width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
 .ds-ic.v { background: var(--gazon); color: var(--on-gazon); }
 .ds-ic.d { background: var(--terre-soft); color: var(--terre-dark); }
@@ -7300,3 +7300,15 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .seg button.on { background: #FFFFFF; color: var(--ink); box-shadow: 0 1px 2px rgba(40,25,10,.14), 0 3px 8px rgba(40,25,10,.10); }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) :is(.ds-d, .act-ic) { box-shadow: 0 0 0 1px rgba(40,25,10,.06), var(--elev-l); }
 :root[data-theme="terre"] :is(.ds-d, .act-ic) { box-shadow: 0 1px 2px rgba(60,20,5,.25), 0 6px 14px rgba(60,20,5,.18); }
+
+/* 4.3 : jour actuel bien visible dans les thèmes clairs (pastille foncée, chiffre jaune balle, comme Nuit) */
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on { background: var(--ink); color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.18), 0 8px 18px rgba(0,0,0,.16); }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on small { color: rgba(255,255,255,.78); }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on b { color: #D4E64A; }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on .ds-ic.e { border-color: rgba(255,255,255,.32); }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on .ds-ic.p { border-color: #D4E64A; color: #D4E64A; }
+/* 4.3 : Terre, intertitres des équipes du club posés sur l'argile (étaient quasi invisibles) */
+:root[data-theme="terre"] :is(.lc-gh, .lc-h small) { color: var(--page-ink); opacity: .92; text-shadow: 0 1px 2px rgba(60,20,5,.35); }
+/* 4.3 : coupes dorées lisibles sur fonds clairs (contraste graphique >= 3) */
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .lc-cup { color: #A07C14; }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .lc-pod .cup { color: #A07C14; stroke: #A07C14; }
