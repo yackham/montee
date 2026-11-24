@@ -7208,11 +7208,11 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* Rétro : store bordeaux en haut ; la barre d'état est posée sur la bande pleine */
 :root[data-skin="retro"] { --muted: #6E5644; --sb-top: #7B1E2C;
   background: linear-gradient(180deg, #7B1E2C 0, #7B1E2C calc(var(--sat) + 3px), transparent calc(var(--sat) + 3px)),
-    radial-gradient(13px 10px at 13px calc(var(--sat) + 53px), #7B1E2C 98%, transparent) 0 0 / 52px calc(var(--sat) + 63px) repeat-x,
-    radial-gradient(13px 10px at 39px calc(var(--sat) + 53px), #E6D2AF 98%, transparent) 0 0 / 52px calc(var(--sat) + 63px) repeat-x,
-    linear-gradient(180deg, transparent 0, transparent calc(var(--sat) + 53px), #F1E7D2 calc(var(--sat) + 53px)),
+    radial-gradient(13px 8px at 13px calc(var(--sat) + 21px), #7B1E2C 98%, transparent) 0 0 / 52px calc(var(--sat) + 30px) repeat-x,
+    radial-gradient(13px 8px at 39px calc(var(--sat) + 21px), #E6D2AF 98%, transparent) 0 0 / 52px calc(var(--sat) + 30px) repeat-x,
+    linear-gradient(180deg, transparent 0, transparent calc(var(--sat) + 21px), #F1E7D2 calc(var(--sat) + 21px)),
     repeating-linear-gradient(90deg, #7B1E2C 0 26px, #E6D2AF 26px 52px), #F1E7D2 !important; }
-:root[data-skin="retro"] .screen { padding-top: calc(var(--sat) + 64px); }
+:root[data-skin="retro"] .screen { padding-top: calc(var(--sat) + 32px); }
 
 /* ---- Pastilles : plus de contour, un fond teinté ---- */
 .ob-calb, .screen .go, .go-pill, .sy.err, .rr-p, .bd-x, .ace-bub { box-shadow: none !important; border-color: transparent !important; background: color-mix(in srgb, currentColor 14%, transparent) !important; }
