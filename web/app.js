@@ -4869,6 +4869,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function levelHistory(cur) {
     var t = today(), out = [], all = S.matches.filter(counts);
+    // 4.5.2 (Davy : « pourquoi le graph est vide de janvier à avril ? ») : avant ton 1er match de la saison en cours, les saisons passées prennent le relais (même règle que histAll)
+    var d0 = all.map(function (m) { return m.date; }).filter(Boolean).sort()[0] || "9999", kn = {}; all.forEach(function (m) { kn[m.date + "|" + m.oppRank + "|" + m.result] = 1; });
+    all = all.concat((S.histMatches || []).filter(function (m) { return m.date && m.date < d0 && !kn[m.date + "|" + m.oppRank + "|" + m.result]; }));
     for (var k = 11; k >= 0; k--) {
       var rel = k ? firstTue(t.getFullYear(), t.getMonth() - k + 1) : t;
       // 4.2.3 : la courbe suit le calcul de l'anneau (levelNow) : adversaires à leur vrai niveau (effMs), 8 matchs au moins, et le dernier point = l'anneau
