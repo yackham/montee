@@ -7412,8 +7412,8 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :root[data-vt="fwd"]::view-transition-new(root) { animation: .34s cubic-bezier(.2, .8, .2, 1) both vtInR; }
 :root[data-vt="back"]::view-transition-old(root) { animation: .34s cubic-bezier(.2, .8, .2, 1) both vtOutR; z-index: 2; }
 :root[data-vt="back"]::view-transition-new(root) { animation: .34s cubic-bezier(.2, .8, .2, 1) both vtInL; }
-:root[data-vt="tab"]::view-transition-old(root) { animation: .18s ease both vtFo; }
-:root[data-vt="tab"]::view-transition-new(root) { animation: .22s ease both vtFi; }
+/* 4.4.4 : un toucher pendant une glissade est rattrapé dans app.js (la glissade s arrête net) */
+
 @keyframes vtInR { from { transform: translateX(100%); } }
 @keyframes vtOutL { to { transform: translateX(-28%); filter: brightness(.7); } }
 @keyframes vtOutR { to { transform: translateX(100%); } }
@@ -7424,3 +7424,8 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* 4.4.3 (P3) : page Montée+ abonné */
 .sup-mo-h { padding: 4px 4px 0; }
 .sup-all > .pw-list { margin-top: 6px; }
+/* 4.4.4 (Yann) : bilan de saison du club, un bloc par championnat (comme les tournois d'Activité) */
+.card.lc-blk { gap: 4px; margin-top: 10px; padding-bottom: 4px; }
+.lc-blk .lc-flat { margin-top: 6px; border-top: 1px solid var(--line); }
+.lc-blk .lc-fr:last-child { border-bottom: 0; }
+.lc-fr .lc-dots { margin-left: auto; }

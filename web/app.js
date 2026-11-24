@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.4.3",
+    VERSION: "4.4.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -641,7 +641,7 @@
   function go(path) { if (location.hash === "#/" + path) render(); else location.hash = "#/" + path; }
   // Navigation : une pile par onglet. Retour = page précédente de l'onglet ; changer d'onglet repart de zéro
   // (avant, le retour repassait par toutes les pages ouvertes, onglets compris).
-  var stack = [route()], navBack = false, vtFrom = route();
+  var stack = [route()], navBack = false, vtFrom = route(), curVT = null;
   var TAB_ROOTS = { "": 1, palmares: 1, courbes: 1, faf: 1 };
   function back() {
     if (route() === "tournoi/import" && UI.trImp && UI.trImp.into && tourOf(UI.trImp.into)) { var bi = UI.trImp.into; UI.trImp = null; stack = stack.filter(function (x) { return !/^tournoi\//.test(x); }); stack.push("tournoi/" + bi); navBack = true; location.replace("#/tournoi/" + bi); return; }
@@ -656,6 +656,14 @@
   var kbField = function (el) { return el && (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && !/^(checkbox|radio|button|submit|range|date|time)$/i.test(el.type))); };
   document.addEventListener("focusin", function (e) { if (kbField(e.target)) document.body.classList.add("kb"); });
   document.addEventListener("focusout", function () { setTimeout(function () { if (!kbField(document.activeElement)) document.body.classList.remove("kb"); }, 80); });
+  // 4.4.4 (Yann) : un toucher pendant une glissade n'est pas perdu : la glissade s'arrête net et le toucher part vers ce qui est dessous
+  document.addEventListener("click", function (e) {
+    if (!curVT || e.target !== document.documentElement) return;
+    var v = curVT, x = e.clientX, y = e.clientY; e.preventDefault(); e.stopPropagation();
+    try { v.skipTransition(); } catch (er) {}
+    var go2 = function () { var el = document.elementFromPoint(x, y); el = el && el.closest ? el.closest("a,button,label,summary,[data-a],input,select,textarea") || el : null; if (el && el !== document.documentElement) { if (el.click) el.click(); else el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: x, clientY: y })); } };
+    v.finished.then(go2, go2);
+  }, true);
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
     // 4.0.5 (Yann) : quitter Ace par un lien garde de quoi revenir à la conversation (pastille « Revenir à Ace » sur la page suivante)
@@ -681,11 +689,15 @@
     // 4.4.3 (Yann, B2) : on glisse vers une page, on revient en glissant, on change d'onglet en fondu ; la barre d'onglets ne bouge pas
     var de = document.documentElement, rm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     var from = vtFrom; vtFrom = r;
-    if (document.startViewTransition && !rm && from !== r) {
+    // 4.4.4 (Yann) : changer d'onglet reste instantané (la barre d'onglets doit répondre tout de suite) ; une transition en cours est coupée net
+    if (curVT) { try { curVT.skipTransition(); } catch (e) {} curVT = null; }
+    if (document.startViewTransition && !rm && from !== r && dir !== "tab") {
       de.dataset.vt = dir;
-      try { var vt = document.startViewTransition(show); vt.finished.then(function () { delete de.dataset.vt; }, function () { delete de.dataset.vt; }); }
-      catch (e) { delete de.dataset.vt; show(); }
-    } else show();
+      try {
+        var vt = curVT = document.startViewTransition(show), end = function () { if (curVT === vt) { curVT = null; delete de.dataset.vt; } };
+        vt.finished.then(end, end); vt.ready.catch(function () {}); vt.updateCallbackDone.catch(function () {});
+      } catch (e) { delete de.dataset.vt; show(); }
+    } else { delete de.dataset.vt; show(); }
     if (y) requestAnimationFrame(function () { window.scrollTo(0, y); }); // après la mise en page (images, graphiques)
   });
 
@@ -2568,7 +2580,7 @@
   function lcRow(x, inCat, i) {
     var c = x.c, lab = inCat ? "Équipe " + (x.num || "") : champNm(c) + (x.num ? " · éq. " + x.num : "");
     var dots = x.res.slice(-6).map(function (r, j) { return '<i class="' + r + '" style="--j:' + j + '"></i>'; }).join("");
-    return '<a class="lc-r" href="#/equipe/' + esc(c.id) + '" style="--i:' + i + '"><span class="lc-n">' + esc(x.num || "·") + '</span><span class="grow"><b>' + esc(lab) + (x.mine ? ' <span class="lc-me">toi</span>' : "") + "</b><small>" + esc([tmDiv(c.div), tmDiv(c.poule)].filter(Boolean).join(" · ")) + "</small></span>" +
+    return '<a class="lc-r" href="#/equipe/' + esc(c.id) + '" style="--i:' + i + '"><span class="grow"><b>' + esc(lab) + (x.mine ? ' <span class="lc-me">toi</span>' : "") + "</b><small>" + esc([tmDiv(c.div), tmDiv(c.poule)].filter(Boolean).join(" · ")) + "</small></span>" +
       (dots ? '<span class="lc-dots" aria-label="' + esc(x.res.slice(-6).map(function (r) { return r.toUpperCase(); }).join(" ")) + '">' + dots + "</span>" : "") + lcPos(x) + "</a>";
   }
   // Les fanions du club : un par équipe en lice, détouré de la couleur de sa place
@@ -2624,13 +2636,16 @@
     }
     // les équipes, groupées au choix
     if (L.length) {
-      var gb = (S.prefs || {}).lcGrp || "cat", X = L.filter(function (x) { return !F || (F === "g" ? x.pos === 1 : F === "2" ? x.pos === 2 : lcPosC(x) === "r"); }), G = [];
+      // 4.4.4 (Yann) : l'onglet Division seulement si Ten'Up donne la division d'au moins une équipe
+      var hasDiv = L.some(function (x) { return !!tmDiv(x.c.div); });
+      var gb = (S.prefs || {}).lcGrp || "cat"; if (gb === "div" && !hasDiv) gb = "cat";
+      var X = L.filter(function (x) { return !F || (F === "g" ? x.pos === 1 : F === "2" ? x.pos === 2 : lcPosC(x) === "r"); }), G = [];
       var put = function (k, x) { var g = G.filter(function (o) { return o.t === k; })[0]; if (!g) G.push(g = { t: k, L: [] }); g.L.push(x); };
       if (gb === "rk") { X.forEach(function (x) { put(x.pos === 1 ? "En tête" : lcPosC(x) === "r" ? "À surveiller" : "Dans le coup", x); }); var o = ["En tête", "Dans le coup", "À surveiller"]; G.sort(function (a, b) { return o.indexOf(a.t) - o.indexOf(b.t); }); G.forEach(function (g) { g.L.sort(function (a, b) { return a.pos - b.pos; }); }); }
       else if (gb === "div") X.forEach(function (x) { put(tmDiv(x.c.div) || "Division ?", x); });
       else X.forEach(function (x) { put(champNm(x.c), x); });
       s += '<h2 class="tm-gh lc-h">Les équipes <small>' + plural(L.length, "en cours", "en cours") + "</small></h2>" +
-        '<div class="seg lc-seg">' + [["cat", "Catégorie"], ["rk", "Classement"], ["div", "Division"]].map(function (o) { return '<button class="' + (gb === o[0] ? "on" : "") + '" data-a="lcGrp" data-v="' + o[0] + '" aria-pressed="' + (gb === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
+        '<div class="seg lc-seg">' + [["cat", "Catégorie"], ["rk", "Classement"]].concat(hasDiv ? [["div", "Division"]] : []).map(function (o) { return '<button class="' + (gb === o[0] ? "on" : "") + '" data-a="lcGrp" data-v="' + o[0] + '" aria-pressed="' + (gb === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
         (F ? '<button class="lnk lc-fx" data-a="lcF" data-v="">Voir toutes les équipes</button>' : "") +
         G.map(function (g) { return '<h3 class="lc-gh">' + esc(g.t) + "<small>" + plural(g.L.length, "équipe", "équipes") + '</small></h3><div class="blk lc-list">' + g.L.map(function (x, i) { return lcRow(x, gb === "cat", i); }).join("") + "</div>"; }).join("");
     }
@@ -2658,12 +2673,15 @@
     var pod = '<div class="lc-pod" aria-hidden="true"><svg viewBox="0 0 220 120" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect class="st" x="40" y="82" width="46" height="36" rx="4" style="--d:.15s"/><rect class="st" x="87" y="66" width="46" height="52" rx="4"/><rect class="st" x="134" y="92" width="46" height="26" rx="4" style="--d:.25s"/>' +
       '<text x="110" y="98" font-size="16" font-weight="800" text-anchor="middle" fill="currentColor" stroke="none">' + F.length + '</text><g class="cup" stroke="var(--balle)" stroke-width="2.6" stroke-linecap="round"><path d="M97 24h26v12a13 13 0 0 1-26 0V24zM97 28h-7a7 7 0 0 0 7 9M123 28h7a7 7 0 0 1-7 9M110 49v8M102 60h16"/></g>' + (F.length ? cf : "") + "</svg></div>";
     var tile = function (n, lab, cls) { return '<div><b class="' + (cls || "") + '">' + n + "</b><small>" + lab + "</small></div>"; };
-    var row = function (x, inG) { return '<a class="lc-fr" href="#/equipe/' + esc(x.c.id) + '"><span class="grow"><span class="t">' + esc(inG && x.num ? "Équipe " + x.num : champNm(x.c) + (x.num ? " · éq. " + x.num : "")) + "</span><small>" + esc([tmDiv(x.c.div), tmDiv(x.c.poule)].filter(Boolean).join(" · ")) + " · " + x.res.filter(function (r) { return r === "v"; }).length + " V · " + x.res.filter(function (r) { return r === "d"; }).length + " D</small></span>" + lcPos(x, "s") + "</a>"; };
+    var row = function (x, inG) { return '<a class="lc-fr" href="#/equipe/' + esc(x.c.id) + '"><span class="grow"><span class="t">' + esc(inG && x.num ? "Équipe " + x.num : champNm(x.c) + (x.num ? " · éq. " + x.num : "")) + "</span><small>" + esc([tmDiv(x.c.div), tmDiv(x.c.poule)].filter(Boolean).join(" · ")) + " · " + x.res.filter(function (r) { return r === "v"; }).length + " V · " + x.res.filter(function (r) { return r === "d"; }).length + " D</small></span>" +
+      (x.res.length ? '<span class="lc-dots" aria-hidden="true">' + x.res.slice(-6).map(function (r) { return '<i class="' + r + '"></i>'; }).join("") + "</span>" : "") + lcPos(x, "s") + "</a>"; }; // 4.4.4 (Yann) : les ronds des résultats, comme sur la page du club
     // 4.0.4 (retour testeur) : les équipes regroupées par championnat, dans l'ordre de leurs numéros
     var CO = ["mes", "dam", "jeu", "plus"], chs = {}; T.forEach(function (x) { var k = champNm(x.c); (chs[k] = chs[k] || []).push(x); });
     var chK = Object.keys(chs).sort(function (a, b) { return (CO.indexOf(clubCat(chs[a][0].c)) - CO.indexOf(clubCat(chs[b][0].c))) || a.localeCompare(b, "fr"); });
     var body = pod + '<div class="lc-tiles">' + tile(F.length, F.length > 1 ? "premières de poule" : "première de poule", "g") + tile(nV, nV > 1 ? "victoires" : "victoire") + tile(nL, nL > 1 ? "dernières" : "dernière", "d") + "</div>" +
-      '<h3 class="lc-st">Toutes les équipes</h3><div class="lc-flat">' + chK.map(function (k) { var X = chs[k].sort(function (a, b) { return (+a.num || 99) - (+b.num || 99) || a.pos - b.pos; }); return '<div class="lc-sub">' + esc(k) + "<small>" + plural(X.length, "équipe", "équipes") + "</small></div>" + X.map(function (x) { return row(x, true); }).join(""); }).join("") + "</div>";
+      '<h3 class="lc-st">Toutes les équipes</h3>' + chK.map(function (k) { var X = chs[k].sort(function (a, b) { return (+a.num || 99) - (+b.num || 99) || a.pos - b.pos; }), f1 = X.filter(function (x) { return x.pos === 1; }).length;
+        // 4.4.4 (Yann) : un bloc par championnat, comme les tournois d'Activité (nom, nombre d'équipes, puis ses équipes)
+        return '<div class="card lc-blk"><div class="tg-h"><b>' + esc(k) + '</b></div><span class="small">' + plural(X.length, "équipe", "équipes") + (f1 ? " · " + plural(f1, "première de poule", "premières de poule") : "") + '</span><div class="lc-flat">' + X.map(function (x) { return row(x, true); }).join("") + "</div></div>"; }).join("");
     var ch = {}; T.forEach(function (x) { ch[x.c.cid || x.c.id] = 1; });
     body += '<button class="go-pill lc-shp" data-a="lcShare" data-k="sea" data-v="' + esc(k) + '">' + I.share + "Partager le bilan de la saison</button>";
     return { title: "Saison " + (k - 1) + "-" + String(k).slice(2), sub: tmNm(((S.teams || {}).club || {}).nom || "") + " · " + plural(T.length, "équipe", "équipes") + " · " + plural(Object.keys(ch).length, "championnat", "championnats"), body: body };
