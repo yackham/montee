@@ -7429,3 +7429,9 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .lc-blk .lc-flat { margin-top: 6px; border-top: 1px solid var(--line); }
 .lc-blk .lc-fr:last-child { border-bottom: 0; }
 .lc-fr .lc-dots { margin-left: auto; }
+
+/* 4.4.6 (quick wins) : dans « Ce qui arrive », le badge « presque » montre son picto à la place d'une date (ce n'est pas un rendez-vous) */
+.ft-d.ft-dbd { justify-content: center; align-self: center; color: var(--ft-bd); }
+.ft-d.ft-dbd svg { width: 28px; height: 28px; }
+/* 4.4.6 : texte lu par VoiceOver / TalkBack seulement (ex. le chiffre de la carte Sortie, qui s'anime à l'écran) */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
