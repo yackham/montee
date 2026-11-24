@@ -8333,7 +8333,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       s += '<div class="card sup-thx"><span class="sup-medal">' + svg('<path d="M6 15l6-6 6 6"/>', 3) + '</span><span class="sup-badge">Montée+</span><b style="font-size:24px;letter-spacing:-.02em">Merci' + (S.profile.name ? " " + esc(S.profile.name) : "") + " !</b>" +
         '<span class="small" style="max-width:300px">' + (tr ? "Ton essai court jusqu'au " + esc(fdate(tr.end).replace(/\.$/, "")) + "." : IOS ? (UI.supThanks ? "Montée+ est actif sur cet iPhone et ta montre." : "Montée+ est actif sur tous tes appareils du même compte Apple.") : "Montée+ est actif sur tous tes appareils Android du même compte Google.") + "</span></div>";
       if (tr) s += trialRecapHtml(tr, true);
-      s += '<div class="card pw-list"><span class="eyebrow">Ce que Montée+ t\'ouvre</span>' + R.html + "</div>";
+      // 4.4.3 (Yann, P3) : d'abord ce que ton mois a donné, puis la liste des avantages repliée en une ligne
+      var mo = ""; try { mo = acMonth(ctx(), true); } catch (e) { mo = ""; }
+      if (mo) s += '<span class="eyebrow sup-mo-h">Ton mois avec Montée+ · ' + esc(MOIS_L[today().getMonth()]) + "</span>" + mo;
+      s += '<details class="mo-g sup-all" data-mo="plus"' + (UI.moOpen && UI.moOpen.plus ? " open" : "") + '><summary class="mo-s"><span class="mo-t"><b>Tout ce que Montée+ t\'ouvre</b><small>Le détail de ton abonnement</small></span><span class="mo-c">' + I.next + '</span></summary><div class="card pw-list">' + R.html + "</div></details>";
       s += '<a class="btn soft" href="#/reglages">Choisir un habillage</a>';
       if (STORE) s += '<button class="linkbtn" data-a="plusManage" style="align-self:center">Gérer mon abonnement</button>';
       UI.supThanks = false;
@@ -9768,7 +9771,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return { a: A, f: F, facts: X, x: XH, mood: mood };
   }
   // 4.4 (Yann, 24/11) : « Ton mois avec Montée+ », pour les abonnés : ce que le mois a donné, en faits (mêmes calculs : capOrders, countedMap)
-  function acMonth(c) {
+  // 4.4.3 (Yann, P3) : sur la page Montée+, le même bilan du mois + ton cap et ta montre (mêmes calculs : capData, matchs suivis sur la montre)
+  function acMonthMore(c, mk) {
+    var s = "", cp = null; try { cp = capData(c); } catch (e) { cp = null; }
+    if (cp && !cp.done) s += acRow({ l: "Ton cap avec Ace", s: (cp.n > 1 ? "victoires contre des " : "victoire contre un ") + esc(lab(cp.lvl)) + ", pour être " + esc(lab(cp.tgt)) + " le " + esc(chRelLab(cp.rel)), v: cp.won.length + " sur " + cp.n, href: "#/coach" });
+    var w = knownMatches(false).filter(function (m) { return m.date && m.date.slice(0, 7) === mk && m.serve && m.serve.me && m.serve.me.pts; }).length;
+    if (w) s += acRow({ l: "Ta montre", s: plural(w, "match suivi", "matchs suivis") + " ce mois-ci", v: String(w), sheet: ["cbCard", "service"] });
+    return s;
+  }
+  function acMonth(c, more) {
     if (!isSup()) return "";
     var mk = monthKey(), ms = knownMatches(false).filter(function (m) { return m.date && m.date.slice(0, 7) === mk && !m.wo && (m.result === "V" || m.result === "D"); });
     var d = coD(), od = d ? coOrders(d) : [], o = od[0] && (od[0].dots || od[0].n) ? od[0] : null; // une consigne qui se coche (mêmes règles que la carte « Ta consigne du mois »)
@@ -9780,6 +9791,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var t = "<b>" + M + (ms.length ? " : " + v + " V – " + (ms.length - v) + " D" : "") + (ok ? ", ta consigne est tenue." : ".") + "</b>" + (bw && cm[bw.id] ? " Ta victoire contre " + esc(nameCase(bw.opp || "") || "un " + bw.oppRank) + " pèse " + cm[bw.id] + " pts dans ton bilan " + esc(nx.label) + "." : "");
     return acCard("", '<p class="acd-p">' + t + "</p>" + (ok ? acRow({ l: "Consigne du mois", s: esc(o.t), v: "Tenue", cl: "g" }) : "") +
       (bw ? acRow({ sq: "V", l: esc(nameCase(bw.opp || "") || "Un adversaire") + acRk(bw.oppRank), s: "ta plus belle victoire du mois", v: cm[bw.id] ? "+" + cm[bw.id] : "", cl: "g", href: "#/match/" + bw.id }) : "") +
+      (more ? acMonthMore(c, mk) : "") +
       '<div class="acd-acts"><button class="btn soft small acd-btn" data-a="aceQ" data-v="cap">Ta consigne du mois</button></div>', "acm");
   }
   // 4.4 (Ace plus vivant) : sa réponse s'écrit mot à mot, seulement quand on vient de poser la question (balises gardées entières)
