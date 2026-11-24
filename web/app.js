@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.4.7",
+    VERSION: "4.4.8",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -675,6 +675,20 @@
     var go2 = function () { var el = document.elementFromPoint(x, y); el = el && el.closest ? el.closest("a,button,label,summary,[data-a],input,select,textarea") || el : null; if (el && el !== document.documentElement) { if (el.click) el.click(); else el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: x, clientY: y })); } };
     v.finished.then(go2, go2);
   }, true);
+  // 4.4.8 (Yann, vidéo du 24/11) : sur iPhone, toucher « Courbes » pendant que la page Activité s'anime ne réagissait pas pendant plusieurs secondes :
+  // iOS retient (ou perd) le clic quand la page bouge encore sous le doigt. Les onglets partent donc au lever du doigt, sans attendre ce clic.
+  (function () {
+    var tg = null, x0 = 0, y0 = 0, sup = 0;
+    document.addEventListener("touchstart", function (e) { var a = e.touches.length === 1 && e.target.closest ? e.target.closest(".tabbar a.tab") : null; tg = a; if (a) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, { passive: true, capture: true });
+    document.addEventListener("touchmove", function (e) { if (tg && (Math.abs(e.touches[0].clientX - x0) > 10 || Math.abs(e.touches[0].clientY - y0) > 10)) tg = null; }, { passive: true, capture: true });
+    document.addEventListener("touchcancel", function () { tg = null; }, { passive: true, capture: true });
+    document.addEventListener("touchend", function (e) {
+      var a = tg; tg = null; if (!a) return;
+      var h = a.getAttribute("href") || "#/"; e.preventDefault(); sup = Date.now();
+      if ((location.hash || "#/") !== h) location.hash = h;
+    }, { passive: false, capture: true });
+    document.addEventListener("click", function (e) { if (sup && Date.now() - sup < 800 && e.target.closest && e.target.closest(".tabbar a.tab")) { e.preventDefault(); e.stopPropagation(); } }, true);
+  })();
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
     // 4.0.5 (Yann) : quitter Ace par un lien garde de quoi revenir à la conversation (pastille « Revenir à Ace » sur la page suivante)
@@ -2674,9 +2688,17 @@
   function lcResSheet(k) {
     var L = lcCur(), X = []; L.forEach(function (x) { x.R.forEach(function (r, i) { if (!k || x.res[i] === k) X.push({ x: x, r: r, res: x.res[i] }); }); });
     X.sort(function (a, b) { return a.r.d < b.r.d ? 1 : -1; });
-    var rows = X.map(function (o) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
-      return '<a class="row ce-lr" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '"><span class="grow"><span class="t">' + esc(champNm(o.x.c) + (o.x.num ? " · éq. " + o.x.num : "")) + '</span><span class="s">' + esc(lcDay(String(r.d).slice(0, 10)) + " · " + (r.dom === me ? "contre " : "chez ") + tmNm(r.a === me ? r.bn : r.an)) + '</span></span><span class="ce-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span>" + I.next + "</a>"; }).join("");
-    return { title: k === "v" ? "Les victoires du club" : k === "n" ? "Les nuls du club" : k === "d" ? "Les défaites du club" : "Les rencontres de la saison", sub: plural(X.length, "rencontre", "rencontres") + " · équipes en lice, du point de vue du club", body: rows ? '<div class="ce-list">' + rows + "</div>" : '<span class="small">Rien pour l\'instant.</span>' };
+    // 4.4.8 (Yann) : un bloc par championnat comme le bilan de saison (catégorie, puis nom), ses équipes dans l'ordre de leurs numéros ; la plus récente en tête
+    var CO = ["mes", "dam", "jeu", "plus"], C = {}, bil = function (R) { var nv = R.filter(function (o) { return o.res === "v"; }).length, nd = R.filter(function (o) { return o.res === "d"; }).length, nn = R.length - nv - nd; return nv + " V" + (nn ? " · " + nn + " N" : "") + " · " + nd + " D"; };
+    X.forEach(function (o) { var c = champNm(o.x.c), t = o.x.num || "0"; C[c] = C[c] || {}; (C[c][t] = C[c][t] || []).push(o); });
+    var first = function (c) { var t = Object.keys(C[c])[0]; return C[c][t][0].x; };
+    var K = Object.keys(C).sort(function (a, b) { return (CO.indexOf(clubCat(first(a).c)) - CO.indexOf(clubCat(first(b).c))) || a.localeCompare(b, "fr"); });
+    var row = function (o) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
+      return '<a class="row ce-lr" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '"><span class="grow"><span class="t">' + esc((r.dom === me ? "Contre " : "Chez ") + tmNm(r.a === me ? r.bn : r.an)) + '</span><span class="s">' + esc(lcDay(String(r.d).slice(0, 10))) + '</span></span><span class="ce-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span>" + I.next + "</a>"; };
+    var body = K.map(function (c) { var T = Object.keys(C[c]).sort(function (a, b) { return (+a || 99) - (+b || 99); }), all = [].concat.apply([], T.map(function (t) { return C[c][t]; }));
+      return '<div class="card lc-blk lc-rb"><div class="tg-h"><b>' + esc(c) + '</b></div><span class="small">' + (T.length > 1 ? plural(T.length, "équipe", "équipes") + " · " : "") + plural(all.length, "rencontre", "rencontres") + (k ? "" : " · " + bil(all)) + "</span>" +
+        T.map(function (t) { var R = C[c][t]; return '<div class="lc-sub">' + (+t ? "Équipe " + t : "L'équipe") + (k || T.length < 2 ? "" : "<small>" + bil(R) + "</small>") + '</div><div class="ce-list">' + R.map(row).join("") + "</div>"; }).join("") + "</div>"; }).join("");
+    return { title: k === "v" ? "Les victoires du club" : k === "n" ? "Les nuls du club" : k === "d" ? "Les défaites du club" : "Les rencontres de la saison", sub: plural(X.length, "rencontre", "rencontres") + " · " + plural(K.length, "championnat", "championnats") + ", du point de vue du club", body: body || '<span class="small">Rien pour l\'instant.</span>' };
   }
   // Le bilan d'une saison passée : podium et coupe, premières de poule, toutes les équipes par catégorie
   function lcSeaSheet(k) {
@@ -7264,6 +7286,21 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     return s + "</div>";
   }
+  // 4.4.8 (Yann : « tu es favori / il est prenable, c'est peu et réducteur ») : le verdict et le % sont déjà dans la carte ;
+  // Ace donne la clé du match : le repère le plus marqué de ce joueur (son conseil, même texte que dans le plan),
+  // sinon ce qui pèse le plus dans « D'où vient ce % » (même calcul)
+  function ffAceLine(D) {
+    var od = D.od, Rp = (D.reperes || []).filter(function (x) { return x.t && x.go; }).sort(function (a, b) { return (b.w || 0) - (a.w || 0); })[0];
+    if (Rp) { var rt = Rp.t.replace(/^…\s*/, ""); return rt.charAt(0).toUpperCase() + rt.slice(1) + ". " + Rp.go; }
+    var P = (od.parts || []).filter(function (x) { return x.d; }).sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); })[0];
+    if (!P) return od.p >= 0.6 ? "Sur le papier c'est pour toi. Reste à le jouer." : od.p >= 0.4 ? "Ça peut tomber d'un côté comme de l'autre." : "Gros morceau. Joue libéré, tu n'as rien à perdre.";
+    var up = P.d > 0, lm = (D.mine || [])[0], why;
+    if (P.l === "Vos vrais niveaux") why = up ? "ton vrai niveau est au-dessus du sien" : "son vrai niveau est au-dessus du tien";
+    else if (/^Bilans/.test(P.l)) why = up ? "tu gagnes souvent contre son classement" : "il bat souvent les " + lab(D.me);
+    else if (/^Formes/.test(P.l)) why = up ? "ta forme à ce niveau" : "sa forme contre des joueurs de ton niveau";
+    else why = lm ? (lm.result === "V" ? "tu l'as déjà battu" : "il t'a déjà battu") + " en " + MOIS_L[E.parseDate(lm.date).getMonth()] : up ? "vos matchs, qui parlent pour toi" : "vos matchs, qui parlent pour lui";
+    return "Ce qui pèse le plus : " + why + ".";
+  }
   function ffPlanTab(D, extra) {
     var od = D.od, R = reperesOf(D); D.reperes = R.list; D.sitH = R.H; D.sitM = R.M;
     var pl0 = planOf(route().split("/")[1]);
@@ -7276,8 +7313,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var plain = od && ["impossible", "abyssal", "monde"].indexOf(od.k) < 0;
     if (jjB) oc = oc.replace('<span class="eyebrow id-pill c-dur">Le match</span>', '<div class="ff-oh"><span class="eyebrow id-pill c-dur">Le match</span>' + jjB + "</div>");
     // 4.2.4 (passe 2) : Ace se pose sur « Le match » avec un mot qui dit ses chances
-    if (od && od.p != null && od.p >= 0.2) { var ffB = od.p >= 0.6 ? "Tu es favori" : od.p >= 0.4 ? "Il est prenable" : "Gros morceau";
-      oc = oc.replace('<div class="card ff-odds">', '<div class="card ff-odds id-dock"><span class="ace-peek" aria-hidden="true">' + coBall("ff:" + ffB, od.p >= 0.4 ? "joie" : "concentree") + '<span class="ace-bub">' + ffB + "</span></span>"); }
+    if (od && od.p != null && od.p >= 0.2) { var ffB = ffAceLine(D);
+      oc = oc.replace('<div class="card ff-odds">', '<div class="card ff-odds id-dock ff-say"><span class="ace-peek" aria-hidden="true">' + coBall("ff:" + ffB, od.p >= 0.4 ? "joie" : "concentree") + '<span class="ace-bub">' + ffB + "</span></span>"); }
     if (plain) { oc = oc.replace(/<span class="p">[^<]*<\/span>/, ""); s = oc + s; }
     else s = (di >= 0 ? oc.slice(0, di) + tg + oc.slice(di) : oc.replace(/<\/div>$/, tg + "</div>")) + s;
     if (od && od.k === "impossible") {
@@ -9620,7 +9657,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     UI.coHome = dot ? { t: t, mood: h.mood } : null;
     // 4.4.6 (Yann, maquette accueil validée le 24/11) : Ace parle à côté de sa tête, bulle de 2 lignes au plus qui s'arrête avant la roue ;
     // la toucher ouvre Ace sur ce sujet (la bulle disparaît une fois lue). Le lundi, la carte de la semaine parle déjà : la pastille suffit.
-    var bub = dot && !noBub;
+    // 4.4.8 (Yann) : Ace dit toujours sa phrase en arrivant, même déjà lue ; le point rouge et le rebond restent pour ce qui est nouveau
+    var bub = !!t && !noBub;
     return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot && !bub ? '<span class="ace-dot"></span>' : "") + "</span></button>" +
       (bub ? '<button class="hd-bub" data-a="ace" data-v="' + esc(t.v || "") + '"><i aria-hidden="true"></i><span>' + esc(t.t) + "</span></button>" : "");
   }
@@ -17328,6 +17366,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // Thèmes Supporter : bâtis sur Nuit ou Lin, avec leurs propres couleurs (attribut data-skin)
   // 4.3 : Dur, Vert Montée et Crépuscule sont bâtis sur Nuit (cartes de la même teinte que le fond, jamais blanches)
   var SKIN_BASE = { indoor: "nuit", nocturne: "nuit", retro: "lin", dur: "nuit", vert: "nuit", crep: "nuit", moquette: "nuit" };
+  window.MonteeSkinBase = SKIN_BASE; // 4.4.8 : les widgets lisent la même table (avant : Dur, Vert, Crépuscule et Moquette sortaient en Lin)
   var darkMq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   // Gratuits : Auto, Lin, Nuit. Tous les autres thèmes viennent avec Montée+
   var PLUS_THEMES = { terre: 1, dur: 1, gazon: 1, indoor: 1, nocturne: 1, retro: 1, vert: 1, crep: 1, moquette: 1 };
