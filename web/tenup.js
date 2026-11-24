@@ -933,6 +933,10 @@
     var c = " " + String(comp || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[_\-]+/g, " ") + " ";
     if (/match(s)? libre|\blibre\b/.test(c)) return "libre";
     if (/individuel|\bindiv\b|champ(\.|ionnat)? ind\b/.test(c)) return "champ";
+    // 4.5.1 (testeur, 24/11) : le tennis entreprise (« CH. REGIONAL TE MESSIEURS ») se joue comme un championnat par équipes,
+    // sans inscription à payer. Lu sur le nom de l'épreuve seul (avant « | »), sauf s'il dit tournoi / open / TMC.
+    var head = c.split("|")[0];
+    if (/ (te|entreprises?|corpo|corporatifs?) /.test(head) && !/tournoi|\bopen\b|\btmc\b/.test(head)) return "equipes";
     if (/tournoi|\bopen\b|\btmc\b|multi ?chances?|circuit|galaxie/.test(c)) return "tournoi";
     if (/equipe|interclub|rencontre|\bpoule\b|division|championnat|chpt|coupe|\+ ?\d\d\b|\d\d ?ans|plus de \d\d|seniors? plus|veterans?|\bhiver\b|\bete\b|printemps|automne|\S \/ \S/.test(c)) return "equipes";
     return "tournoi";

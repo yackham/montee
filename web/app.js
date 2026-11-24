@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.5.0",
+    VERSION: "4.5.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -764,6 +764,8 @@
     if (S.tenup && S.tenup.official && !S.tenup.calV3) { S.tenup.calV3 = 1; calibrateFromTenup(); save(); }
     // 3.14.2 : les matchs saisis à la main étaient enregistrés avec source « manuel » et passaient pour des matchs Ten'Up
     // 3.16.3 : un « match libre » saisi à la main voulait dire « match d'entraînement » → type à part (le match libre homologué, lui, compte)
+    // 4.5.1 : le tennis entreprise rangé à tort en tournoi (inscription comptée dans « Ta saison en euros ») : même règle que l'import (T.kindOf)
+    if (!S.teV1) { S.teV1 = 1; S.matches.forEach(function (m) { if (m && !m.kindSet && m.kind === "tournoi" && m.comp && T.kindOf(m.comp) === "equipes") m.kind = "equipes"; }); save(); }
     if (!S.amicalV1) { S.amicalV1 = 1; S.matches.forEach(function (m) { if (m.kind === "libre" && isManual(m)) m.kind = "amical"; }); save(); }
     if (S.matches.some(function (m) { return m.source === "manuel"; })) { S.matches.forEach(function (m) { if (m.source === "manuel") m.source = "manual"; }); save(); }
     refreshAhead();

@@ -25,3 +25,10 @@ test("le script injecté dans Ten'Up contient tout ce qu'il appelle", async () =
     assert.ok(!/is not defined|ReferenceError/.test(out), out.slice(0, 200));
   }
 });
+test("tennis entreprise = championnat par équipes, pas une inscription (4.5.1, retour testeur)", () => {
+  assert.strictEqual(T.kindOf("CH. REGIONAL TE MESSIEURS | Championnat"), "equipes");
+  assert.strictEqual(T.kindOf("Tennis entreprise Division 2"), "equipes");
+  assert.strictEqual(T.kindOf("Open TE de Lyon"), "tournoi");
+  assert.strictEqual(T.kindOf("TOURNOI CNGT DE GRANDVILLARS"), "tournoi");
+  assert.strictEqual(T.kindOf("Championnat individuel TE"), "champ");
+});
