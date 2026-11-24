@@ -7460,7 +7460,8 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :is(:root[data-theme="terre"], :root:not([data-theme]), :root[data-theme="gazon"]) .hd-pc { box-shadow: var(--elev-l); }
 .hd-ft { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
 .hd-ft button { display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border: 0; background: none; color: var(--ink); font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.hd-ft button + button { border-left: 1px solid var(--line); }
+.hd-ft button + button { border-left: 0; position: relative; }
+.hd-ft button + button::before { content: ""; position: absolute; left: 0; top: 50%; width: 1px; height: 24px; margin-top: -12px; border-radius: 1px; background: color-mix(in srgb, var(--ink) 22%, transparent); } /* 4.5.1 (Yann) : séparateur court et net entre les deux actions */
 .hd-ft i { display: flex; color: var(--acc-ink, var(--balle)); } .hd-ft svg { width: 18px; height: 18px; }
 .hd-n { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--balle); color: var(--on-balle, #151512); font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 /* Synthèse sous les anneaux : titre, texte court scannable (chiffres à la couleur de leur anneau), icône agrandir */
