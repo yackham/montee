@@ -800,7 +800,7 @@
     if (!UI.ace && UI.aceBack && !UI.sheet && html.indexOf('class="mm-pill"') < 0) { try { var abQ = coQs(ctx()).filter(function (x) { return x[1] === UI.aceBack.q; })[0]; html += '<button class="ace-back" data-a="aceBack">' + coBall("ace:back", "repos", "xs") + '<span class="grow"><b>Revenir à Ace</b>' + (abQ ? "<small>" + esc(abQ[2]) + "</small>" : "") + "</span>" + I.next + "</button>"; } catch (e) {} }
     if (!UI.sheet && !UI.leaveAsk && notesDue()) html += notesHtml();
     document.body.classList.toggle("has-pill", html.indexOf('class="mm-pill"') >= 0);
-    document.body.classList.toggle("glow", ["", "bienvenue"].indexOf(parts[0]) < 0);
+    document.body.classList.toggle("glow", parts[0] !== "bienvenue");
     document.body.classList.toggle("locked", !!(UI.ace || UI.menu || UI.rkMenu || UI.sheet || UI.actPlus || UI.qaSheet || UI.jj || UI.leaveAsk || UI.notesOpen));
     // 3.49.1 (Yann : l'accueil « clignote » au lancement) : chaque synchro (Ten'Up, montre, joueurs suivis, widgets…) refaisait
     // tout l'écran, et l'écran rejoue son apparition. Sur la même page, on ne met à jour que ce qui a changé (rien ne réapparaît,
