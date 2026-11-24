@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.4.7",
+    VERSION: "4.4.9",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1866,7 +1866,7 @@
   // Relit sa fiche sans la vider (elle reste affichée pendant la lecture)
   function scoutRefresh(id, manual) {
     var sc = (S.scout || {})[id]; if (!NATIVE || !sc || !sc.hit || UI.scRef) return;
-    UI.scRef = id; if (UI.scErr === id) UI.scErr = null; if (manual) render();
+    UI.scRef = id; if (UI.scErr === id) UI.scErr = null; if (manual || route() === "joueur/" + id) render(); // 4.4.9 (Yann) : la relecture auto à l'ouverture se voit aussi (balle qui échange dans la pastille)
     tenupQuery("player", sc.hit).then(function (r) {
       UI.scRef = null;
       if (!r || r.error) { UI.scErr = id; if (manual) toast(tuErrMsg(r)); }
