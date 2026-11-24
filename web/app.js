@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.4.3",
+    VERSION: "4.4.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -641,7 +641,7 @@
   function go(path) { if (location.hash === "#/" + path) render(); else location.hash = "#/" + path; }
   // Navigation : une pile par onglet. Retour = page précédente de l'onglet ; changer d'onglet repart de zéro
   // (avant, le retour repassait par toutes les pages ouvertes, onglets compris).
-  var stack = [route()], navBack = false, vtFrom = route();
+  var stack = [route()], navBack = false, vtFrom = route(), curVT = null;
   var TAB_ROOTS = { "": 1, palmares: 1, courbes: 1, faf: 1 };
   function back() {
     if (route() === "tournoi/import" && UI.trImp && UI.trImp.into && tourOf(UI.trImp.into)) { var bi = UI.trImp.into; UI.trImp = null; stack = stack.filter(function (x) { return !/^tournoi\//.test(x); }); stack.push("tournoi/" + bi); navBack = true; location.replace("#/tournoi/" + bi); return; }
@@ -656,6 +656,14 @@
   var kbField = function (el) { return el && (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && !/^(checkbox|radio|button|submit|range|date|time)$/i.test(el.type))); };
   document.addEventListener("focusin", function (e) { if (kbField(e.target)) document.body.classList.add("kb"); });
   document.addEventListener("focusout", function () { setTimeout(function () { if (!kbField(document.activeElement)) document.body.classList.remove("kb"); }, 80); });
+  // 4.4.4 (Yann) : un toucher pendant une glissade n'est pas perdu : la glissade s'arrête net et le toucher part vers ce qui est dessous
+  document.addEventListener("click", function (e) {
+    if (!curVT || e.target !== document.documentElement) return;
+    var v = curVT, x = e.clientX, y = e.clientY; e.preventDefault(); e.stopPropagation();
+    try { v.skipTransition(); } catch (er) {}
+    var go2 = function () { var el = document.elementFromPoint(x, y); el = el && el.closest ? el.closest("a,button,label,summary,[data-a],input,select,textarea") || el : null; if (el && el !== document.documentElement) { if (el.click) el.click(); else el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: x, clientY: y })); } };
+    v.finished.then(go2, go2);
+  }, true);
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
     // 4.0.5 (Yann) : quitter Ace par un lien garde de quoi revenir à la conversation (pastille « Revenir à Ace » sur la page suivante)
@@ -681,11 +689,15 @@
     // 4.4.3 (Yann, B2) : on glisse vers une page, on revient en glissant, on change d'onglet en fondu ; la barre d'onglets ne bouge pas
     var de = document.documentElement, rm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     var from = vtFrom; vtFrom = r;
-    if (document.startViewTransition && !rm && from !== r) {
+    // 4.4.4 (Yann) : changer d'onglet reste instantané (la barre d'onglets doit répondre tout de suite) ; une transition en cours est coupée net
+    if (curVT) { try { curVT.skipTransition(); } catch (e) {} curVT = null; }
+    if (document.startViewTransition && !rm && from !== r && dir !== "tab") {
       de.dataset.vt = dir;
-      try { var vt = document.startViewTransition(show); vt.finished.then(function () { delete de.dataset.vt; }, function () { delete de.dataset.vt; }); }
-      catch (e) { delete de.dataset.vt; show(); }
-    } else show();
+      try {
+        var vt = curVT = document.startViewTransition(show), end = function () { if (curVT === vt) { curVT = null; delete de.dataset.vt; } };
+        vt.finished.then(end, end); vt.ready.catch(function () {}); vt.updateCallbackDone.catch(function () {});
+      } catch (e) { delete de.dataset.vt; show(); }
+    } else { delete de.dataset.vt; show(); }
     if (y) requestAnimationFrame(function () { window.scrollTo(0, y); }); // après la mise en page (images, graphiques)
   });
 

@@ -7412,8 +7412,8 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :root[data-vt="fwd"]::view-transition-new(root) { animation: .34s cubic-bezier(.2, .8, .2, 1) both vtInR; }
 :root[data-vt="back"]::view-transition-old(root) { animation: .34s cubic-bezier(.2, .8, .2, 1) both vtOutR; z-index: 2; }
 :root[data-vt="back"]::view-transition-new(root) { animation: .34s cubic-bezier(.2, .8, .2, 1) both vtInL; }
-:root[data-vt="tab"]::view-transition-old(root) { animation: .18s ease both vtFo; }
-:root[data-vt="tab"]::view-transition-new(root) { animation: .22s ease both vtFi; }
+/* 4.4.4 : un toucher pendant une glissade est rattrapé dans app.js (la glissade s arrête net) */
+
 @keyframes vtInR { from { transform: translateX(100%); } }
 @keyframes vtOutL { to { transform: translateX(-28%); filter: brightness(.7); } }
 @keyframes vtOutR { to { transform: translateX(100%); } }
