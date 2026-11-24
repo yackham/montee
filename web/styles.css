@@ -7312,3 +7312,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* 4.3 : coupes dorées lisibles sur fonds clairs (contraste graphique >= 3) */
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .lc-cup { color: #A07C14; }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .lc-pod .cup { color: #A07C14; stroke: #A07C14; }
+/* 4.3 : même règle partout pour aujourd'hui = pastille foncée + chiffre jaune balle (skins sombres : un cran plus sombre que les autres jours) */
+:root[data-skin]:not([data-skin="retro"]) .ds-d.on { background: color-mix(in srgb, var(--card) 40%, #07080B); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 2px 4px rgba(0,0,0,.3), 0 8px 18px rgba(0,0,0,.25); }
+:root[data-skin]:not([data-skin="retro"]) .ds-d.on b { color: #D4E64A; }
+:root[data-skin]:not([data-skin="retro"]) .ds-d.on small { color: rgba(255,255,255,.8); }
