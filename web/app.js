@@ -16959,7 +16959,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     ["vert", "Vert Montée", "Vert sapin, cartes vert profond", 1], ["crep", "Crépuscule", "Violet et orange du soir", 1]];
   var THEME_SW = { lin: ["#F2ECE1", "#FFFDF9", "#1F5C3F", "#D4E64A"], nuit: ["#17181C", "#2A2C34", "#6FC28F", "#D4E64A"], terre: ["#A44B25", "#F8EBDF", "#0B4D35", "#FFF4E8"], dur: ["#163C77", "#1F4785", "#D4E64A", "#1C4A8C"], gazon: ["#F7F7F2", "#FFFFFF", "#006633", "#0F4A28"],
     indoor: ["#0A1736", "#1B3874", "#D4E64A", "#1A3576"], nocturne: ["#070A1C", "#151B44", "#E9F06A", "#1A1F48"], retro: ["#F1E7D2", "#FBF5E7", "#7B1E2C", "#7B1E2C"],
-    vert: ["#0D2218", "#1C4532", "#D4E64A", "#1F5C3F"], crep: ["#1A1127", "#30223F", "#D4E64A", "#3A2350"], moquette: ["#5A1D19", "#6B2A24", "#D4E64A", "#7A2620"] };
+    vert: ["#0D2218", "#1C4532", "#D4E64A", "#1F5C3F"], crep: ["#1A1127", "#30223F", "#D4E64A", "#3A2350"], moquette: ["#5A1D19", "#7A3F3A", "#D4E64A", "#7A2620"] };
   // Thèmes Supporter : bâtis sur Nuit ou Lin, avec leurs propres couleurs (attribut data-skin)
   // 4.3 : Dur, Vert Montée et Crépuscule sont bâtis sur Nuit (cartes de la même teinte que le fond, jamais blanches)
   var SKIN_BASE = { indoor: "nuit", nocturne: "nuit", retro: "lin", dur: "nuit", vert: "nuit", crep: "nuit", moquette: "nuit" };

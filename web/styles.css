@@ -7261,7 +7261,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :root[data-theme="nuit"] .hd-id:not(.hd-sp) { background: color-mix(in srgb, var(--card) 90%, #fff); box-shadow: var(--elev); }
 :root[data-theme="terre"] .hd-id:not(.hd-sp), :root:not([data-theme]) .hd-id:not(.hd-sp), :root[data-theme="gazon"] .hd-id:not(.hd-sp) { box-shadow: var(--elev-l); }
 /* 4.3 : Moquette, le 12e thème (grille de 4 × 3) : feutre rouge brique avec son grain, cartes de la même teinte */
-:root[data-skin="moquette"] { --bg: #4E1915; --card: #6B2A24; --chip: #7A332C; --line: #83403A; --ink: #FFF6F2; --muted: #EBC8C0; --seg: #4E1915; --field: #4E1915;
+:root[data-skin="moquette"] { --bg: #4E1915; --card: #7A3F3A; --chip: #874A44; --line: #91554F; --ink: #FFF6F2; --muted: #EBC8C0; --seg: #4E1915; --field: #4E1915;
   --panel: #7A2620; --hero-bg: #7A2620; --knob: #8E4840; --gazon: #8BE0AB; --terre: #FFB08F; --id-dur: #BCD3FF; --balle-soft: #4A3A22; --sb-top: #7A2620;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 160px 160px,
     radial-gradient(80% 30% at 80% 0%, rgba(255,200,170,.16), transparent 70%), linear-gradient(180deg, #7A2620 0, #62201B 420px, #4E1915 900px), #4E1915; }
