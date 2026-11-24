@@ -126,7 +126,12 @@ public class TenupPlugin extends Plugin {
         String script = call.getString("script");
         if (state != null) MonteeStore.put(ctx, "state", state);
         if (script != null && !script.isEmpty()) MonteeStore.put(ctx, "script", script);
+        String moments = call.getString("moments"); // 4.5.0 : moments utiles pour relire Ten'Up
         MonteeWorker.schedule(ctx);
+        if (moments != null) {
+            MonteeStore.put(ctx, "moments", moments);
+            try { MonteeWorker.scheduleMoments(ctx); } catch (Exception ignored) {}
+        }
         call.resolve();
     }
 

@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.4.9",
+    VERSION: "4.5.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1891,18 +1891,42 @@
   // 4.4.2 (audit 24/11, A7) : relire Ten'Up tout de suite, sans attendre les 2 h, quand c'est utile :
   // un match prévu s'est terminé depuis la dernière lecture (≈ 2 h 30 après son heure, 18 h si inconnue),
   // ou c'est le matin de la sortie du classement (après 8 h 30) et rien n'a été relu depuis.
-  function syDue(at) {
-    var t = Date.now(), hit = false;
+  // 4.5.0 (B1) : les fins de match qui méritent une relecture (≈ 2 h 30 après l'heure, 18 h si inconnue) : un seul calcul,
+  // pour la relecture à l'ouverture (syDue) et pour la relance en arrière-plan calée sur ces moments (syMoments).
+  var SY_AFTER = 2.5 * 3600e3, SY_REL_H = [8, 30];
+  function syEnds() {
+    var out = [];
     var add = function (day, time) {
-      if (hit || !day) return; var d = E.parseDate(day); if (!d || isNaN(d)) return;
+      if (!day) return; var d = E.parseDate(day); if (!d || isNaN(d)) return;
       var hm = /(\d{1,2})\s*[:h]\s*(\d{2})?/.exec(time || ""); d.setHours(hm ? +hm[1] : 18, hm && hm[2] ? +hm[2] : 0, 0, 0);
-      var end = d.getTime() + 2.5 * 3600e3; if (end > (at || 0) && end <= t && t - end < 2 * 864e5) hit = true;
+      out.push(d.getTime() + SY_AFTER);
     };
     try { plans().forEach(function (x) { add(x.day, x.time); }); } catch (e) {}
     try { toursAll().forEach(function (tr) { (tr.rounds || []).forEach(function (r) { add(r.day, r.time); }); (tr.pool || []).forEach(function (y) { add(y.day, y.time); }); }); } catch (e) {}
-    if (hit) return true;
-    try { if (isRelDay()) { var m = new Date(); m.setHours(8, 30, 0, 0); if (t >= m.getTime() && (at || 0) < m.getTime()) return true; } } catch (e) {}
+    return out;
+  }
+  // Le matin de la sortie du classement (8 h 30), aujourd'hui compris
+  function syRelAt() { var y = today(); y.setDate(y.getDate() - 1); var r = E.nextRelease(y); r.setHours(SY_REL_H[0], SY_REL_H[1], 0, 0); return r.getTime(); }
+  // 4.4.2 (audit 24/11, A7) : relire Ten'Up tout de suite, sans attendre les 2 h, quand c'est utile :
+  // un match prévu s'est terminé depuis la dernière lecture, ou c'est le matin de la sortie du classement et rien n'a été relu depuis.
+  function syDue(at) {
+    var t = Date.now(); at = at || 0;
+    if (syEnds().some(function (end) { return end > at && end <= t && t - end < 2 * 864e5; })) return true;
+    try { var m = syRelAt(); if (t >= m && at < m && t - m < 864e5) return true; } catch (e) {}
     return false;
+  }
+  // 4.5.0 (B1) : les prochains moments utiles (14 jours), envoyés au téléphone pour qu'il relance la lecture à ce moment-là
+  // plutôt qu'au hasard toutes les 3 h. Le téléphone garde aussi sa relance régulière.
+  function syMoments() {
+    var t = Date.now(), L = syEnds();
+    try { L.push(syRelAt()); } catch (e) {}
+    var seen = {};
+    return L.filter(function (x) { var k = Math.round(x / 6e4); if (x <= t || x - t > 14 * 864e5 || seen[k]) return false; seen[k] = 1; return true; }).sort(function (a, b) { return a - b; }).slice(0, 20);
+  }
+  function syMomentsPush() {
+    if (!NATIVE || !S.tenup.linked || !Tenup || !Tenup.setState) return;
+    var m = syMoments().join(","); if (m === UI.syMomK) return; UI.syMomK = m;
+    try { var pr = Tenup.setState({ moments: m }); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {}
   }
   // Accueil, Activité : tes matchs relus à l'ouverture s'ils ont plus de 2 h (comme au réveil de l'appli)
   function syAutoMe() {
@@ -16391,7 +16415,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       np: S.notif ? { hom: np("hom"), poule: np("poule"), fol: np("fol"), jalons: np("jalons"), lvl: np("lvl") } : { hom: false, poule: false, fol: false, jalons: false, lvl: "ess" } };
     var bgIds = TW.ids.concat(poolIds.filter(function (x) { return !TW.ids.some(function (w) { return w.id === x.id; }); }));
     var bgScript = T.nativeScriptBg ? T.nativeScriptBg(S.profile.licence || "", S.tenup.id || "", tenupWho(), bgIds.concat(folIds.filter(function (id) { return !bgIds.some(function (w) { return w.id === id; }); }).map(function (id) { return { id: id, hit: S.follow[id].hit }; }))) : nativeScript();
-    Tenup.setState({ state: JSON.stringify(st), script: bgScript }).catch(function () {});
+    var mo = syMoments().join(","); UI.syMomK = mo; // 4.5.0 (B1)
+    Tenup.setState({ state: JSON.stringify(st), script: bgScript, moments: mo }).catch(function () {});
     scheduleReleaseNotif();
     try { scheduleTeamsNotif(); schedulePoolNotif(); } catch (e) {}
     try { scheduleCoachNotif(); } catch (e) {}
@@ -20183,7 +20208,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     try { var lwm = Tenup && Tenup.addListener && Tenup.addListener("watchMatch", function () { watchTake(); }); if (lwm && lwm.catch) lwm.catch(function () {}); } catch (e) {}
     try { var lw = Tenup && Tenup.addListener && Tenup.addListener("widgetAction", function () { try { var ta = Tenup.takeAction(); if (ta && ta.then) ta.then(function (r) { if (r && r.action) widgetAction(r.action); }).catch(function () {}); } catch (e) {} }); if (lw && lw.catch) lw.catch(function () {}); } catch (e) {}
     try {
-      var l = AppP && AppP.addListener("appStateChange", function (st) { if (st && st.isActive) nativeWake(); });
+      var l = AppP && AppP.addListener("appStateChange", function (st) { if (st && st.isActive) nativeWake(); else { try { syMomentsPush(); } catch (e) {} } }); // 4.5.0 : en partant, le téléphone sait quand relire
       if (l && l.catch) l.catch(function () {});
     } catch (e) {}
     // Notification d'un joueur suivi : ouvre sa fiche
