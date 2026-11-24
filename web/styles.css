@@ -7490,3 +7490,11 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 :root[data-skin]:not([data-skin="retro"]) .ft { --ft-po: #EEF59A; --ft-to: #C2D4FF; --ft-eq: #FFC796; --ft-so: #A9E8C0; --ft-bd: #F7DA8C; }
 :root[data-skin]:not([data-skin="retro"]) .pdj-h i { color: var(--ink) !important; }
 :is(:root[data-theme="terre"], :root[data-theme="gazon"]) .sj1-go { color: #121212; }
+/* 4.4.6 (Yann : « la frise en Lin on la voit pas et le bouton Agenda est pas ouf ») : trait et points de la frise bien visibles
+   sur les fonds clairs ; Agenda devient une pastille blanche comme la roue de l'en-tête (icône à l'accent, ombre douce) */
+:is(:root:not([data-theme]), :root[data-theme="gazon"], :root[data-skin="retro"]) .screen > .fr .fr-c::before { background: color-mix(in srgb, var(--ink) 22%, transparent); }
+:is(:root:not([data-theme]), :root[data-theme="gazon"], :root[data-skin="retro"]) .screen > .fr .fr-h i { background: color-mix(in srgb, var(--ink) 32%, var(--bg)); }
+:is(:root:not([data-theme]), :root[data-theme="gazon"], :root[data-skin="retro"]) .screen > .fr .fr-c.now .fr-h i { background: var(--acc-ink, var(--balle)); }
+.fr-t .ob-calb, .fr-t .ob-calb:is(*) { height: 36px; padding: 0 14px 0 11px !important; border-radius: 18px; background: var(--card) !important; color: var(--ink) !important; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.10), 0 4px 12px rgba(0,0,0,.08) !important; }
+.fr-t .ob-calb svg { color: var(--acc-ink, var(--balle)); }
+:root[data-skin]:not([data-skin="retro"]) .fr-t .ob-calb, :root[data-theme="nuit"] .fr-t .ob-calb { background: color-mix(in srgb, var(--card) 90%, #fff) !important; }
