@@ -7353,3 +7353,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .ace-fresh .aw { animation: awIn .26s var(--ease-out) both; animation-delay: calc(.95s + var(--i) * 28ms); }
 @keyframes awIn { from { opacity: 0; } }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on .ds-ic.v { background: #fff; color: var(--today); }
+/* 4.3.1 (Yann, piste A) : rail léger et translucide derrière les barres d'onglets (remplace « sans fond ») */
+.seg:not(.res):not(.mini), :root[data-skin] .seg:not(.res):not(.mini), :root[data-skin]:not([data-skin="retro"]) .seg:not(.res):not(.mini) { background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px rgba(255,255,255,.05); }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .seg:not(.res):not(.mini) { background: rgba(255,255,255,.42); box-shadow: none; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+:root[data-theme="terre"] .seg:not(.res):not(.mini) button:not(.on) { color: var(--ink); text-shadow: none; }
