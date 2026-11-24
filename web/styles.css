@@ -7368,4 +7368,5 @@ button.ob-r, a.ob-r { cursor: pointer; }
 :root:root .card.card:is(.gplan, .insight, .defend-al, .goal-inv) { box-shadow: none !important; }
 :root:root .row.manual, :root:root .ses.off { outline: none; }
 /* Carte Sortie : la ligne du cap d'Ace (Montée+) quand la sortie est hors de portée */
-.h3c .h3-cond .cd3-x .cd3-i.cd3-cap { color: var(--acc-ink); background: color-mix(in srgb, var(--balle) 20%, transparent); }
+.ch-tile .cd3-i { background: var(--chip); color: var(--muted); font-weight: 800; font-size: 13px; }
+.h3c .h3-cond .cd3-x .cd3-i.cd3-cap, .ch-tile .cd3-i.cd3-cap { color: var(--acc-ink); background: color-mix(in srgb, var(--balle) 20%, transparent); }

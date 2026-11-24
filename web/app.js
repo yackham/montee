@@ -11865,11 +11865,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function chancesLine(c, row) {
     var r = null; try { r = chancesCalc(c); } catch (e) { r = null; }
     if (!r || !r.up.length) return "";
-    var ro = row ? null : relOut(c);
+    var ro = relOut(c);
     if (ro) {
-      var tl = esc(lab(r.target)), cpo = ro.cp;
-      if (cpo && isSup()) return '<span class="cd3-r cd3-x" data-a="goCoach"><span class="cd3-i cd3-cap">◎</span><span>Ton cap avec Ace : <b>' + cpo.won.length + " sur " + cpo.n + "</b> " + (cpo.n > 1 ? "victoires contre des " : "victoire contre un ") + esc(lab(cpo.lvl)) + ", pour être " + tl + " le <b>" + esc(chRelLab(cpo.rel)) + '</b>.</span><span class="chev">›</span></span>';
-      return '<span class="cd3-r cd3-x" data-a="sheet" data-k="chances" data-v="1"><span class="cd3-i">%</span><span>' + tl + " le " + esc(chRelLab(r.rel)) + " : <b>pas cette fois</b>. " + plural(ro.n, "match prévu", "matchs prévus") + " d'ici là" + (cpo && cpo.n > ro.n ? ", il en faut " + cpo.n : ", même gagnés, ça ne suffit pas") + '.</span><span class="chev">›</span></span>';
+      var tl = esc(lab(r.target)), cpo = ro.cp, capL = !!(cpo && isSup()), at = capL ? 'data-a="goCoach"' : 'data-a="sheet" data-k="chances" data-v="1"', hd, sb;
+      if (capL) { hd = "Ton cap avec Ace : <b>" + cpo.won.length + " sur " + cpo.n + "</b>"; sb = (cpo.n > 1 ? "victoires contre des " : "victoire contre un ") + esc(lab(cpo.lvl)) + ", pour être " + tl + " le <b>" + esc(chRelLab(cpo.rel)) + "</b>"; }
+      else { hd = tl + " le " + esc(chRelLab(r.rel)) + " : <b>pas cette fois</b>"; sb = plural(ro.n, "match prévu", "matchs prévus") + " d'ici là" + (cpo && cpo.n > ro.n ? ", il en faut " + cpo.n : ", même gagnés, ça ne suffit pas"); }
+      if (row) return '<button class="card ch-tile ch-btn" ' + at + '><span class="cd3-i' + (capL ? " cd3-cap" : "") + '">' + (capL ? "◎" : "%") + '</span><span class="grow"><b>' + hd + "</b><small>" + sb + '</small></span><span class="chev">' + svg('<path d="M9 6l6 6-6 6"/>') + "</span></button>";
+      return '<span class="cd3-r cd3-x" ' + at + '><span class="cd3-i' + (capL ? " cd3-cap" : "") + '">' + (capL ? "◎" : "%") + "</span><span>" + hd + (capL ? " " : ". ") + sb + '.</span><span class="chev">›</span></span>';
     }
     var lock = PLUS_LOCK(), t = "Tes chances " + (r.down ? "de rester " : "d'être ") + esc(lab(r.target)) + " le " + chRelLab(r.rel);
     if (r.wait && !lock) { if (row) return '<div class="card ch-tile">' + CH_WAIT + "</div>"; return '<span class="cd3-r cd3-x"><span class="cd3-i">%</span><span>' + t + " : " + WAIT_P + "</span></span>"; }
