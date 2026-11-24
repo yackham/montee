@@ -1695,7 +1695,94 @@
         '<span class="ft-m"><em>' + (z.bd ? "" : '<span class="ft-ic">' + tyIc + "</span>") + '<span class="ft-et">' + esc(eye || "") + "</span></em><b>" + esc(title) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></span>" +
         (bot ? '<span class="ft-perf"></span><span class="ft-bot">' + bot + "</span>" : "") + "</span></a>";
     };
-    return '<div class="fr"><div class="fr-t"><b>Ce qui arrive</b><span class="ob-frt"><button class="ob-calb' + (calChanged().length ? " dot" : "") + '" data-a="calOpen" aria-label="Ajouter tes dates à l\'agenda du téléphone">' + P_CAL_ADD + '<span>Agenda</span></button></span></div><div class="fr-s">' + L.map(FR_TICKETS ? tick : col).join("") + "</div></div>"; // 4.4.6 : « Mes épreuves » est dans la carte profil
+    return '<div class="fr"><div class="fr-t"><b>Ce qui arrive</b><span class="ob-frt"><button class="ob-calb' + (calChanged().length ? " dot" : "") + '" data-a="calOpen" aria-label="Ajouter tes dates à l\'agenda du téléphone">' + P_CAL_ADD + '<span>Agenda</span></button></span></div><div class="fr-s">' + L.map(FR_TICKETS ? tick : col).join("") + "</div>" + paLineHtml() + "</div>"; // 4.5.0 : « Tes prochains adversaires » sous la frise // 4.4.6 : « Mes épreuves » est dans la carte profil
+  }
+  // ---------- 4.5.0 (Yann, maquette validée le 24/11/2026) : « Tes prochains adversaires » ----------
+  // Tes adversaires à venir (tableau, poule, matchs prévus) : ce qui a bougé sur leur fiche Ten'Up depuis ta dernière visite,
+  // et tes chances avant → après (le même calcul que sur sa fiche : trP / planP). Gratuit : le prochain en clair ;
+  // Montée+ : tous, relus chaque nuit, et une notification s'ils bougent (summary.js, paNotes).
+  var PA_MAX = 6;
+  function paList() {
+    var td = E.iso(today()), out = [], seen = {};
+    var add = function (o) { if (!o.id || seen[o.id]) return; seen[o.id] = 1; out.push(o); };
+    var hitOf = function (id, name, rank) { var sc = (S.scout || {})[id]; return sc && sc.hit ? sc.hit : poolHit({ tid: id, name: name, rank: rank }); };
+    try { toursAll().filter(function (t) { return !tourOver(t) && !t.wait; }).forEach(function (t) {
+      (t.rounds || []).forEach(function (r, i) { if (r.res || !r.opp || !r.opp.tid || (r.day && r.day < td)) return; var id = String(r.opp.tid);
+        add({ id: id, name: r.opp.name, rank: r.opp.rank, hit: r.opp.hit || hitOf(id, r.opp.name, r.opp.rank), day: r.day || "", time: r.time || "", lab: trLab(i) }); });
+      (t.pool || []).forEach(function (x) { if (x.res || !x.tid || (x.day && x.day < td)) return; var id = String(x.tid);
+        add({ id: id, name: x.name, rank: x.rankNow || x.rank, hit: x.hit || hitOf(id, x.name, x.rank), day: x.day || "", time: x.time || "", lab: "Poule" }); });
+    }); } catch (e) {}
+    try { plans().forEach(function (pl) { if (dGap(pl.day) < 0 || (pl.tour && tourOf(pl.tour))) return; var id = String(pl.id || ""); if (!(S.scout || {})[id] && !/^\d+$/.test(id)) return;
+      add({ id: id, name: pl.name, rank: pl.rank, pl: pl, hit: hitOf(id, pl.name, pl.rank), day: pl.day, time: pl.time || "", lab: "Match prévu" }); }); } catch (e) {}
+    return out.sort(function (a, b) { return (a.day || "9") < (b.day || "9") ? -1 : (a.day || "9") > (b.day || "9") ? 1 : (a.time || "99") < (b.time || "99") ? -1 : 1; }).slice(0, PA_MAX);
+  }
+  function paName(o) { return nameCase((S.oppNames || {})[o.id] || o.name || "Ton adversaire"); }
+  function paChance(o) { return o.pl ? planP(o.pl) : trP(o.rank, o.id, o.name); }
+  function paWhen(o) {
+    if (!o.day) return o.lab + " · à programmer";
+    var x = E.parseDate(o.day), tm = o.time ? ", " + o.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h") : "";
+    return o.lab + " · " + JOURS[x.getDay()].slice(0, 3) + ". " + dN(x) + " " + MOIS[x.getMonth()] + tm;
+  }
+  function paAgo(d) { var g = -dGap(d); return g <= 0 ? "aujourd'hui" : g === 1 ? "hier" : g < 7 ? JOURS[E.parseDate(d).getDay()] : "le " + fdate(d); }
+  // Ce qui a bougé sur sa fiche depuis ta dernière visite (S.paSeen) ; k : wait (pas encore lue), first (1re fois), calm, up, dn, nw
+  function paNews(o) {
+    var sc = (S.scout || {})[o.id], b = (S.paSeen || {})[o.id];
+    if (!sc || !sc.rows) return { k: "wait" };
+    var now = folSnap(sc), ms = playedOf(sc.rows).filter(function (m) { return m.date; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    var lastTx = function (m) { return (m.result === "V" ? "victoire" : "défaite") + " contre un " + m.oppRank + (m.score ? " (" + m.score + ")" : ""); };
+    if (!b || !b.snap) return { k: "first", now: now, t: ms[0] ? "Dernier match " + paAgo(ms[0].date) + " : " + lastTx(ms[0]) + "." : "Pas encore de match cette saison." };
+    var ri = E.idx(T.normRank(now.rank)), ro = E.idx(T.normRank(b.snap.rank)), fresh = ms.filter(function (m) { return m.date > (b.snap.last || ""); });
+    var fx = "";
+    if (fresh.length === 1) {
+      var m = fresh[0], before = ms.slice(1), n = 0; for (var i = 0; i < before.length && before[i].result !== m.result; i++) n++;
+      fx = "<b>A joué " + paAgo(m.date) + " : 1 match, " + (m.result === "V" ? "gagné" : "perdu") + "</b> contre un " + esc(m.oppRank) + (m.score ? " (" + esc(m.score) + ")" : "") + "." +
+        (n >= 3 && before[0] && before[0].result !== m.result ? " Il avait " + (before[0].result === "V" ? "gagné" : "perdu") + " ses " + n + " précédents." : "");
+    } else if (fresh.length > 1) {
+      var v = fresh.filter(function (m) { return m.result === "V"; }).length;
+      fx = "<b>A joué " + fresh.length + " matchs</b> depuis " + paAgo(fresh[fresh.length - 1].date) + " : " + plural(v, "victoire", "victoires") + ", " + plural(fresh.length - v, "défaite", "défaites") + ".";
+    }
+    if (ri != null && ro != null && ri !== ro) return { k: ri > ro ? "up" : "dn", now: now, n: fresh.length, t: "<b>" + (ri > ro ? "Monté " : "Descendu ") + esc(now.rank) + "</b> (était " + esc(b.snap.rank) + ")." + (fx ? " " + fx.replace(/<\/?b>/g, "") : "") };
+    if (fresh.length) return { k: "nw", now: now, n: fresh.length, t: fx, m0: fresh[0] };
+    return { k: "calm", now: now, t: ms[0] ? "Rien de neuf : pas de match depuis le " + fdate(ms[0].date) + "." : "Rien de neuf : pas de match cette saison." };
+  }
+  function paIsNew(n) { return n.k === "up" || n.k === "dn" || n.k === "nw"; }
+  // Une phrase courte pour la ligne de l'accueil
+  function paShort(o, n) { var nm = paName(o); return n.k === "up" ? nm + " est monté " + n.now.rank : n.k === "dn" ? nm + " est descendu " + n.now.rank : n.m0 ? nm + " a joué " + paAgo(n.m0.date) : nm + " a joué " + n.n + " matchs"; }
+  // La ligne sous « Ce qui arrive » : la nouvelle du moment (gratuit : seulement ton prochain adversaire), sinon qui arrive
+  function paLineHtml() {
+    var L = paList(); if (!L.length) return "";
+    var open = isSup() ? L : L.slice(0, 1), N = open.map(function (o) { return { o: o, n: paNews(o) }; }).filter(function (x) { return paIsNew(x.n); });
+    var who = N.length ? N[0].o : L[0];
+    var tx = N.length ? '<span class="pa-dot" aria-hidden="true"></span>' + esc(paShort(N[0].o, N[0].n)) + (N.length > 1 ? " · " + N.length + " nouvelles" : "")
+      : "Rien de neuf · " + esc(L.slice(0, 2).map(paName).join(", ")) + (L.length > 2 ? " et " + (L.length - 2 === 1 ? "1 autre" : L.length - 2 + " autres") : "");
+    return '<button class="pa-l" data-a="paOpen"><span class="pa-av" aria-hidden="true"><i>' + esc(initials(paName(who))) + '</i></span><span class="pa-tx"><b>Tes prochains adversaires</b><span>' + tx + '</span></span><span class="pa-ch" aria-hidden="true">›</span></button>';
+  }
+  // La feuille : figée à l'ouverture, puis ta visite devient la nouvelle référence (« depuis ta dernière visite »)
+  function paRowHtml(o, n, p) {
+    var b = (S.paSeen || {})[o.id], p0 = b ? b.p : null, nw = paIsNew(n);
+    var ch = p0 != null && p != null && p !== p0 ? '<span class="pa-ch2' + (p < p0 ? " dn" : "") + '">Tes chances : ' + p0 + " % → " + p + " %</span>" : "";
+    var tx = n.k === "wait" ? (oppWait(o.id) ? WAIT_P : "Sa fiche Ten'Up n'est pas encore lue.") : n.t;
+    return '<a class="pa-r" href="#/joueur/' + encodeURIComponent(o.id) + '"><i aria-hidden="true">' + esc(initials(paName(o))) + "</i><div><b>" + (o.rank ? '<span class="rk-tag">' + esc(o.rank) + "</span> " : "") + esc(paName(o)) + "</b>" + (nw ? '<span class="pa-new">Nouveau</span>' : "") +
+      "<small>" + esc(paWhen(o)) + (p != null && !ch ? " · " + p + " % de chances" : "") + '</small><p class="' + (nw ? "" : "pa-calm") + '">' + tx + "</p>" + ch + '</div><span class="pa-ch" aria-hidden="true">›</span></a>';
+  }
+  function paOpen() {
+    var L = paList(), plus = isSup(), rows = L.map(function (o, i) { var n = paNews(o), p = null; try { p = oppWait(o.id) ? null : paChance(o); } catch (e) {} return { o: o, n: n, p: p, h: plus || i === 0 ? paRowHtml(o, n, p) : "" }; });
+    var lock = plus ? "" : L.slice(1).map(function (o) { return paRowHtml(o, { k: "calm", t: "Rien de neuf depuis ta dernière visite." }, null); }).join(""); // flou : un texte type, jamais ses vraies nouvelles
+    UI.paSheet = { plus: plus, n: L.length, body: rows.map(function (x) { return x.h; }).join("") + (lock ? '<div class="pa-lock" aria-hidden="true">' + lock + "</div>" : "") };
+    S.paSeen = S.paSeen || {};
+    rows.forEach(function (x, i) { if (!plus && i > 0) return; var sc = (S.scout || {})[x.o.id]; if (sc && sc.rows) S.paSeen[x.o.id] = { snap: folSnap(sc), p: x.p != null ? x.p : (S.paSeen[x.o.id] || {}).p, at: Date.now() }; });
+    var ids = {}; L.forEach(function (o) { ids[o.id] = 1; }); Object.keys(S.paSeen).forEach(function (k) { if (!ids[k] && Date.now() - (S.paSeen[k].at || 0) > 60 * 864e5) delete S.paSeen[k]; });
+    save(); UI.sheet = { k: "pa", v: 1 }; render();
+  }
+  // Leurs fiches relues à l'ouverture (6 h) : gratuit, ton prochain adversaire ; Montée+, tous (la nuit, c'est le téléphone qui relit)
+  function paRefresh() {
+    if (!NATIVE || !S.tenup.linked || S.tenup.expired || offline() || UI.paBusy) return;
+    var L = paList(); if (!isSup()) L = L.slice(0, 1);
+    var todo = L.filter(function (o) { var sc = (S.scout || {})[o.id]; return o.hit && o.hit.id && !(UI.psBusy && Object.keys(UI.psBusy).length) && (!sc || !sc.rows || Date.now() - (sc.got || sc.ts || 0) > 6 * 3600e3); });
+    if (!todo.length) return; UI.paBusy = true;
+    var chain = Promise.resolve(), any = false;
+    todo.forEach(function (o) { chain = chain.then(function () { return tenupQuery("player", o.hit).then(function (r) { if (r && !r.error) { try { scoutStore(o.id, o.hit, r, true); any = true; } catch (e) {} } }); }); });
+    chain.then(function () { UI.paBusy = false; if (any) { save(); if (route() === "" || route() === "accueil") render(); } }, function () { UI.paBusy = false; });
   }
   // 4.3 (Yann, maquette validée le 24/11/2026) : « Mes épreuves » en vraie ligne sous « Ce qui arrive » (avant : petit lien en haut à droite)
   function epLineHtml() {
@@ -12866,6 +12953,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }
       return null;
     },
+    // 4.5.0 : « Tes prochains adversaires » (figée à l'ouverture par paOpen)
+    pa: function () {
+      var X = UI.paSheet; if (!X) return null;
+      return { title: "Tes prochains adversaires", sub: X.plus ? "Leur fiche Ten'Up relue chaque nuit, jusqu'à ton match." : "Sa fiche Ten'Up relue à chaque ouverture, jusqu'à ton match.",
+        body: '<div class="pa-list">' + X.body + "</div>" + (X.plus ? '<p class="pa-foot">Une notification si l\'un d\'eux joue ou change de classement avant ton match. Rien n\'est publié, tout reste sur ton téléphone.</p>' :
+          X.n > 1 ? '<div class="pa-cta"><span><b>Avec Montée+</b> : tous tes prochains adversaires suivis, relus chaque nuit, et une notification s\'ils bougent avant ton match.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>' : "") };
+    },
     pdj: function () {
       var P = null; try { P = pointDuJour(ctx()); } catch (e) {} if (!P) return null;
       return { title: "Ton point du jour", body: '<div class="pdj-hero"><i style="color:' + P.col + ";background:color-mix(in srgb," + P.col + ' 18%,transparent)">' + P.ic + "</i><b>" + esc(P.title) + '</b></div><div class="card pdj-secs">' +
@@ -15796,7 +15890,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function importPayload(pl, opts) {
     if (pl && !pl.folOnly && !pl.error) demoPurge();
     // 3.43.2 : fiches de joueurs suivis relues pendant la relance en arrière-plan (déjà notifiées par l'iPhone)
-    if (pl && pl.fol && pl.fol.length) { try { pl.fol.forEach(function (x) { var f = (S.follow || {})[x.id], r = x.d; if (r && !r.error) { try { trWatchHit(x.id, T.rows({ raw: r.raw })); } catch (e) {} } if (!f || !r || r.error) return; scoutStore(x.id, f.hit, r, true); /* 3.66.1 : garde ses saisons passées */ folUpdate(x.id, false); }); } catch (e) {} delete pl.fol; }
+    if (pl && pl.fol && pl.fol.length) { try { var pa = {}; paList().forEach(function (o) { if (o.hit && o.hit.id) pa[o.id] = o; }); pl.fol.forEach(function (x) { var f = (S.follow || {})[x.id], r = x.d; if (r && !r.error) { try { trWatchHit(x.id, T.rows({ raw: r.raw })); } catch (e) {} } if (!f && r && !r.error && pa[x.id]) { try { scoutStore(x.id, pa[x.id].hit, r, true); } catch (e) {} return; } /* 4.5.0 : tes prochains adversaires relus la nuit */ if (!f || !r || r.error) return; scoutStore(x.id, f.hit, r, true); /* 3.66.1 : garde ses saisons passées */ folUpdate(x.id, false); }); } catch (e) {} delete pl.fol; }
     if (pl && pl.folOnly) { save(); render(); return; } // relance « joueurs suivis » : ton palmarès n'a pas été relu
     var aceBef = S.matches.length ? coNewsBefore() : null; // 3.75 : ton bilan avant la synchro, pour « Ce qui a changé »
     opts = opts || {};
@@ -16412,8 +16506,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var y0 = today().getMonth() >= 8 ? today().getFullYear() + 1 : today().getFullYear(), rec = null, isV = function (m) { return m.result === "V"; };
     for (var yy = y0 - 8; yy < y0; yy++) { var nv = seasonPlayed(yy).filter(isV).length; if (nv && (!rec || nv > rec.n)) rec = { n: nv, y: yy }; }
     var st = { keys: tenupKeys(), manual: manual, fol: folSt, watch: TW.st, pool: poolSt, sv: seasonPlayed(y0).filter(isV).length, rec: rec, plus: isSup(), rank: S.profile.rank, sex: S.profile.sex, extra: tenupExtra(E.nextRelease(today()), me == null ? -1 : me), status: ctx().proj.status, eff: effKeys(),
-      np: S.notif ? { hom: np("hom"), poule: np("poule"), fol: np("fol"), jalons: np("jalons"), lvl: np("lvl") } : { hom: false, poule: false, fol: false, jalons: false, lvl: "ess" } };
+      np: S.notif ? { hom: np("hom"), poule: np("poule"), fol: np("fol"), jalons: np("jalons"), lvl: np("lvl"), avant: np("avant") } : { hom: false, poule: false, fol: false, jalons: false, lvl: "ess", avant: false } };
     var bgIds = TW.ids.concat(poolIds.filter(function (x) { return !TW.ids.some(function (w) { return w.id === x.id; }); }));
+    // 4.5.0 (Montée+) : tes prochains adversaires relus la nuit, et ce qu'on sait déjà d'eux (pour ne notifier que du nouveau)
+    var paSt = {};
+    if (isSup()) try { paList().forEach(function (o) { if (!o.hit || !o.hit.id) return; var sc = (S.scout || {})[o.id], sn = sc && sc.rows ? folSnap(sc) : null;
+      paSt[o.id] = { n: paName(o), r: sn ? sn.rank : o.rank || "", last: sn ? sn.last : "", w: paWhen(o).replace(/^[^·]*· /, "") };
+      if (!bgIds.some(function (w) { return w.id === o.id; })) bgIds.push({ id: o.id, hit: o.hit, w: 1 }); }); } catch (e) {}
+    st.pa = paSt;
     var bgScript = T.nativeScriptBg ? T.nativeScriptBg(S.profile.licence || "", S.tenup.id || "", tenupWho(), bgIds.concat(folIds.filter(function (id) { return !bgIds.some(function (w) { return w.id === id; }); }).map(function (id) { return { id: id, hit: S.follow[id].hit }; }))) : nativeScript();
     var mo = syMoments().join(","); UI.syMomK = mo; // 4.5.0 (B1)
     Tenup.setState({ state: JSON.stringify(st), script: bgScript, moments: mo }).catch(function () {});
@@ -17213,6 +17313,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     setTimeout(function () { bkSnap(false).then(function (ok) { if (ok && route() === "donnees") render(); }); }, 6000); // 3.76.0 : copie de la semaine
     syncWidgets(true); // un widget a pu être ajouté ou redimensionné
     setTimeout(folRefresh, 5000); // nouvelles des joueurs suivis, sans attendre ta prochaine synchro
+    setTimeout(paRefresh, 7000); // 4.5.0 : tes prochains adversaires (après la poule et les suivis)
     setTimeout(oppWarm, 1500); // 4.2.3 : lecture étendue des niveaux de tes adversaires
     setTimeout(function () { try { toursAll().filter(function (t) { return !tourOver(t); }).forEach(function (t) { if (t.pool && t.pool.length > 1) poolSync(t); }); } catch (e) {} }, 3000); /* 4.2.3 : plus tôt (était 9 s) : les % de poule attendent ces fiches */ // 3.66.1 : aussi une poule qui commence dans plus de 2 jours
     setTimeout(function () { try { teamsRefresh(); } catch (e) {} }, 12000); // 3.50 : tes équipes // 3.49 : ta poule à jour (et ce que la relance en arrière-plan a déjà vu)
@@ -17940,7 +18041,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return '<label class="nf-row"><span class="nf-r"><b>' + t + (plus ? " " + pill : "") + "</b><small>" + sub + '</small></span><input type="checkbox" role="switch" data-a="npSet" data-k="' + k + '"' + (np(k) ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>";
     };
     var grp = function (h, rows) { return '<h2 class="nf-gh">' + h + '</h2><div class="nf-grp' + (S.notif ? "" : " off") + '">' + rows.join("") + "</div>"; };
-    s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche avec Montée+" : ", avec ta revanche s'il t'a battu")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
+    s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche et tes adversaires qui bougent avec Montée+" : ", avec ta revanche s'il t'a battu, et tes adversaires qui bougent")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
     s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Ace", "Le lundi : ta semaine et le match qui compte. Avec Montée+ : tes chances qui bougent et tes consignes remplies"), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
     var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
     if (HC_OK && hcOn()) oth.push('<label class="nf-row"><span class="nf-r"><b>Séances de la montre</b><small>Une nouvelle séance à enregistrer</small></span><input type="checkbox" role="switch" data-a="hcNotify"' + (S.health.notify !== false ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>");
@@ -19527,6 +19628,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         else toast("Aucune séance de tennis le " + (m && m.date ? fdate(m.date) : "jour du match") + " dans " + (IOS ? "Santé" : "Santé connectée") + "."); render(); });
     },
     plusMomGo: function (el) { var t = el.getAttribute("data-t") || ""; UI.supFrom = "moment-" + t; go("soutenir"); },
+    paOpen: function () { paOpen(); }, // 4.5.0
     plusPrev: function (el) { UI.sheet = { k: "plusPrev", v: el.dataset.v || "cap" }; render(); },
     wkHide: function () { S.wkSeen = E.iso(today()); save(); render(); },
     onOpen: function (el) { UI.onOpen = el.dataset.v; render(); setTimeout(function () { var t = document.getElementById("o-note"); if (t) t.focus(); }, 60); },

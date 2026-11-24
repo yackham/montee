@@ -7513,3 +7513,32 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 /* 4.4.8 (Yann : bulle grise « dégueu » en thème clair) : les bulles d'Ace posées sur une carte prennent le look de la bulle de l'accueil (.hd-bub) */
 .ace-peek .ace-bub { background: color-mix(in srgb, var(--card) 86%, #fff) !important; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.10), 0 8px 20px rgba(0,0,0,.14) !important; }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ace-peek .ace-bub { background: var(--card) !important; box-shadow: 0 1px 2px rgba(40,25,10,.10), 0 8px 20px rgba(40,25,10,.10) !important; }
+/* 4.5.0 (Yann, maquette validée le 24/11/2026) : « Tes prochains adversaires » : ligne à plat sous « Ce qui arrive », feuille en lignes séparées d'un trait fin */
+.pa-l { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 2px 2px; border: 0; background: none; font: inherit; text-align: left; color: var(--page-ink, var(--ink)); cursor: pointer; }
+.pa-av { display: flex; flex: none; }
+.pa-av i { width: 36px; height: 36px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; font-size: 12.5px; color: var(--page-ink, var(--ink)); background: color-mix(in srgb, var(--page-ink, var(--ink)) 16%, var(--bg)); }
+.pa-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pa-tx b { font-size: 15px; }
+.pa-tx span { font-size: 13.5px; color: color-mix(in srgb, var(--page-ink, var(--ink)) 80%, transparent); }
+.pa-dot { display: inline-block; width: 7px; height: 7px; border-radius: 4px; background: var(--balle); margin-right: 6px; vertical-align: 1px; }
+.pa-ch { flex: none; font-size: 20px; opacity: .6; }
+.sheet .pa-r { display: flex; gap: 12px; align-items: flex-start; padding: 14px 0; color: inherit; text-decoration: none; }
+.sheet .pa-r + .pa-r, .sheet .pa-list > .pa-lock { border-top: 1px solid var(--line); }
+.sheet .pa-r > i { flex: none; width: 34px; height: 34px; border-radius: 17px; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 800; font-size: 13px; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.sheet .pa-r > div { flex: 1; min-width: 0; }
+.sheet .pa-r b { font-size: 15px; }
+.sheet .pa-r small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+.sheet .pa-r p { margin: 6px 0 0; font-size: 14px; line-height: 1.45; }
+.sheet .pa-r .pa-ch { align-self: center; }
+.sheet .pa-calm { color: var(--muted); }
+.sheet .pa-new { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--gazon); margin-left: 6px; }
+.sheet .pa-ch2 { display: inline-flex; gap: 6px; align-items: center; margin-top: 8px; padding: 3px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; color: var(--gazon); background: color-mix(in srgb, var(--gazon) 14%, transparent); }
+.sheet .pa-ch2.dn { color: color-mix(in srgb, var(--terre) 78%, var(--ink)); background: color-mix(in srgb, var(--terre) 14%, transparent); }
+.sheet .pa-lock { filter: blur(6px); user-select: none; pointer-events: none; }
+.sheet .pa-lock .pa-r + .pa-r { border-top: 1px solid var(--line); }
+.sheet .pa-cta { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 1.45; }
+.sheet .pa-foot { font-size: 13px; color: var(--muted); margin: 14px 0 0; line-height: 1.45; }
+/* 4.5.0 (Yann : trop d'espace en haut et en bas de la carte des 3 anneaux) : 40 px → 20 px au-dessus des anneaux et sous la synthèse ; anneaux inchangés */
+.card.cr3 { padding-top: var(--s3); padding-bottom: var(--s3); }
+.card.cr3 .cr3-row { padding-top: var(--s2); }
+.card.cr3 button.pdj.pdj2 { padding-bottom: var(--s2); }

@@ -142,6 +142,29 @@
     });
     return { notes: out.slice(0, 2), pool: P };
   }
+  // ---- 4.5.0 (Montée+) : tes prochains adversaires bougent (fiches relues en arrière-plan) ----
+  // st.pa : { id: { n, r, last, w } } envoyé par l'appli (Montée+ seulement). Un nouveau classement, ou un match publié depuis.
+  var JR = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+  function agoTx(iso) { var E = root.MonteeEngine, d = E.parseDate(iso), t = nowD(); t.setHours(0, 0, 0, 0); var g = Math.round((t - d) / 864e5); return g <= 0 ? "aujourd'hui" : g === 1 ? "hier" : g < 7 ? JR[d.getDay()] : "le " + d.getDate() + "/" + (d.getMonth() + 1); }
+  function paNotes(pl, st, skip) {
+    var T = root.MonteeTenup, E = root.MonteeEngine, out = [], snap = Object.assign({}, st.pa || {});
+    if (!st.plus) return { notes: [], pa: snap };
+    (pl.fol || []).forEach(function (x) {
+      var o = snap[x.id], d = x.d || {}; if (!o || d.error) return;
+      var rank = T.normRank(d.profil && d.profil.classement) || o.r, ri = E.idx(rank), ro = E.idx(o.r);
+      var rows = []; try { rows = T.rows({ raw: d.raw }) || []; } catch (e) {}
+      rows = rows.filter(function (r) { return r.ok && r.date && !r.wo && (r.result === "V" || r.result === "D"); }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+      var fresh = o.last ? rows.filter(function (r) { return r.date > o.last; }) : [];
+      var when = o.w ? " Ton match : " + o.w + "." : "";
+      if (skip.indexOf(String(x.id)) < 0) {
+        if (ri != null && ro != null && ri !== ro) out.push({ title: o.n + (ri > ro ? " est monté " : " est descendu ") + rank, body: "Il était " + o.r + "." + when, ess: true, who: o.n });
+        else if (fresh.length === 1) { var r = fresh[0]; out.push({ title: o.n + (r.result === "V" ? " a gagné " : " a perdu ") + agoTx(r.date), body: "Contre un " + r.oppRank + (r.score ? ", " + r.score : "") + "." + when + " Tes chances sont à jour dans Montée.", ess: true, who: o.n }); }
+        else if (fresh.length > 1) { var v = fresh.filter(function (r) { return r.result === "V"; }).length; out.push({ title: o.n + " a joué " + fresh.length + " matchs", body: v + " gagné" + (v > 1 ? "s" : "") + ", " + (fresh.length - v) + " perdu" + (fresh.length - v > 1 ? "s" : "") + "." + when, ess: true, who: o.n }); }
+      }
+      snap[x.id] = { n: o.n, r: rank || o.r, last: rows[0] ? rows[0].date : o.last, w: o.w };
+    });
+    return { notes: out.slice(0, 2), pa: snap };
+  }
   // ---- 3.49 : jalons de saison (une fois par mois au plus, sauf un record) ----
   var JAL = [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100];
   function jalNotes(fresh, st, today) {
@@ -172,9 +195,11 @@
     // 3.43.2 : relance « joueurs suivis » seulement : ton palmarès n'a pas été relu
     if (pl.folOnly) {
       var FN0 = folNotes(pl, st, E.idx(st.rank || "") == null ? -1 : E.idx(st.rank || "")), WN0 = watchNotes(pl, st), PN0 = poolNotes(pl, st);
-      var o3 = { state: JSON.stringify(Object.assign({}, st, { fol: FN0.fol, watch: WN0.watch, pool: PN0.pool })) };
+      var AN0 = paNotes(pl, st, Object.keys(FN0.fol || {}).filter(function (k) { return (st.fol || {})[k]; })); // 4.5.0 : un joueur que tu suis déjà n'a pas 2 notifications
+      var o3 = { state: JSON.stringify(Object.assign({}, st, { fol: FN0.fol, watch: WN0.watch, pool: PN0.pool, pa: AN0.pa })) };
       var f0 = npOn(st, "fol") ? FN0.notes : [];
-      var m3 = (npOn(st, "poule") ? WN0.notes.map(function (n) { n.ess = true; return n; }).concat(PN0.notes) : []).concat(f0.length > 2 ? [{ title: f0.length + " joueurs que tu suis ont bougé", body: f0.map(function (n) { return n.title; }).join(" · ") + "." }] : f0);
+      AN0.notes = AN0.notes.filter(function (n) { return !(npOn(st, "poule") && PN0.notes.some(function (q) { return q.body.indexOf(n.who) >= 0; })); }); // déjà dit par « Ta poule a bougé »
+      var m3 = (npOn(st, "avant") ? AN0.notes : []).concat(npOn(st, "poule") ? WN0.notes.map(function (n) { n.ess = true; return n; }).concat(PN0.notes) : []).concat(f0.length > 2 ? [{ title: f0.length + " joueurs que tu suis ont bougé", body: f0.map(function (n) { return n.title; }).join(" · ") + "." }] : f0);
       return fin(o3, m3);
     }
     var rows = T.rows(pl).filter(function (r) { return r.ok; });
@@ -190,12 +215,13 @@
     var p = E.project(matches, cur, st.sex === "F" ? "F" : "H", { today: today, extra: st.extra || 0 });
     // plus de 2 joueurs suivis qui bougent : une seule notification qui les regroupe
     var FN = folNotes(pl, st, cur), fN = npOn(st, "fol") ? FN.notes : [], more = fN.length > 2 ? [{ title: fN.length + " joueurs que tu suis ont bougé", body: fN.map(function (n) { return n.title; }).join(" · ") + "." }] : fN;
+    var AN = paNotes(pl, st, Object.keys(st.fol || {})); if (npOn(st, "avant")) more = AN.notes.concat(more); // 4.5.0
     var jal = null;
     if (known.length && fresh.length) {
       var freshK = fresh.map(key), bef = cpLight(rows.filter(function (r) { return freshK.indexOf(key(r)) < 0; }), cur, today, st.eff), aft = cpLight(rows, cur, today, st.eff);
       if (npOn(st, "jalons")) { jal = jalNotes(fresh, st, today); more = (jal ? [jal] : []).concat(cpNotes(bef, aft, rank || "joueur de ton classement", !!st.plus)).concat(more); }
     }
-    var base = Object.assign({}, st, { keys: rows.map(key), rank: rank, fol: FN.fol });
+    var base = Object.assign({}, st, { keys: rows.map(key), rank: rank, fol: FN.fol, pa: AN.pa });
     if (jal) base.jalM = jal.jal;
     if (st.sv != null && known.length) { var y1 = today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1; base.sv = st.sv + fresh.filter(function (r) { return r.result === "V" && !r.wo && r.date >= y1 + "-09-01"; }).length; }
     var newState = JSON.stringify(base);
