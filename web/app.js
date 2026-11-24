@@ -1751,13 +1751,24 @@
   // Une phrase courte pour la ligne de l'accueil
   function paShort(o, n) { var nm = paName(o); return n.k === "up" ? nm + " est monté " + n.now.rank : n.k === "dn" ? nm + " est descendu " + n.now.rank : n.m0 ? nm + " a joué " + paAgo(n.m0.date) : nm + " a joué " + n.n + " matchs"; }
   // La ligne sous « Ce qui arrive » : la nouvelle du moment (gratuit : seulement ton prochain adversaire), sinon qui arrive
+  // 4.5.1 : les nouvelles du moment (gratuit : ton prochain adversaire seulement), un seul calcul pour la carte et la bulle d'Ace
+  function paHot() {
+    var L = paList(), open = isSup() ? L : L.slice(0, 1);
+    return { L: L, N: open.map(function (o) { return { o: o, n: paNews(o) }; }).filter(function (x) { return paIsNew(x.n); }) };
+  }
+  // La phrase d'Ace : « M. Caron a perdu lundi : tes chances jeudi passent à 57 %. »
+  function paAceLine(x) {
+    var o = x.o, n = x.n, nm = paName(o), b = (S.paSeen || {})[o.id], p = null; try { p = oppWait(o.id) ? null : paChance(o); } catch (e) {}
+    var t = n.k === "up" ? nm + " est monté " + n.now.rank : n.k === "dn" ? nm + " est descendu " + n.now.rank : n.m0 ? nm + (n.m0.result === "V" ? " a gagné " : " a perdu ") + paAgo(n.m0.date) : nm + " a joué " + n.n + " matchs";
+    var g = o.day ? dGap(o.day) : null, when = g == null ? "" : g === 0 ? " aujourd'hui" : g === 1 ? " demain" : g < 7 ? " " + JOURS[E.parseDate(o.day).getDay()] : " le " + fdate(o.day);
+    return t + (b && b.p != null && p != null && p !== b.p ? " : tes chances" + when + " passent à " + p + " %." : ".");
+  }
   function paLineHtml() {
-    var L = paList(); if (!L.length) return "";
-    var open = isSup() ? L : L.slice(0, 1), N = open.map(function (o) { return { o: o, n: paNews(o) }; }).filter(function (x) { return paIsNew(x.n); });
+    var H = paHot(), L = H.L, N = H.N; if (!L.length) return "";
     var who = N.length ? N[0].o : L[0];
-    var tx = N.length ? '<span class="pa-dot" aria-hidden="true"></span>' + esc(paShort(N[0].o, N[0].n)) + (N.length > 1 ? " · " + N.length + " nouvelles" : "")
+    var tx = N.length ? '<em class="pa-tag">' + (N.length > 1 ? N.length + " nouveaux" : "Nouveau") + "</em>" + esc(paShort(N[0].o, N[0].n))
       : "Rien de neuf · " + (L.length > 1 ? L.length + " adversaires suivis" : esc(paName(L[0])) + " suivi"); // 4.5.1 (Yann) : une seule ligne
-    return '<button class="card pa-l" data-a="paOpen"><span class="pa-av" aria-hidden="true"><i>' + esc(initials(paName(who))) + '</i></span><span class="pa-tx"><b>Tes prochains adversaires</b><span>' + tx + '</span></span><span class="pa-ch" aria-hidden="true">›</span></button>';
+    return '<button class="card pa-l' + (N.length ? " pa-hot" : "") + '" data-a="paOpen"><span class="pa-av" aria-hidden="true"><i>' + esc(initials(paName(who))) + '</i></span><span class="pa-tx"><b>Tes prochains adversaires</b><span>' + tx + '</span></span><span class="pa-ch" aria-hidden="true">›</span></button>';
   }
   // La feuille : figée à l'ouverture, puis ta visite devient la nouvelle référence (« depuis ta dernière visite »)
   function paRowHtml(o, n, p) {
@@ -1774,6 +1785,7 @@
     S.paSeen = S.paSeen || {};
     rows.forEach(function (x, i) { if (!plus && i > 0) return; var sc = (S.scout || {})[x.o.id]; if (sc && sc.rows) S.paSeen[x.o.id] = { snap: folSnap(sc), p: x.p != null ? x.p : (S.paSeen[x.o.id] || {}).p, at: Date.now() }; });
     var ids = {}; L.forEach(function (o) { ids[o.id] = 1; }); Object.keys(S.paSeen).forEach(function (k) { if (!ids[k] && Date.now() - (S.paSeen[k].at || 0) > 60 * 864e5) delete S.paSeen[k]; });
+    try { if (UI.coHomeId && /^pa:/.test(UI.coHomeId)) coMem().op[UI.coHomeId] = Date.now(); } catch (e) {}
     save(); UI.sheet = { k: "pa", v: 1 }; render();
   }
   // Leurs fiches relues à l'ouverture (6 h) : gratuit, ton prochain adversaire ; Montée+, tous (la nuit, c'est le téléphone qui relit)
@@ -2708,7 +2720,9 @@
     return { c: c, t: t, n: n, pos: t.cl || 0, R: R, res: res, num: (/(\d+)\s*$/.exec(t.nom || "") || [])[1] || "", mine: !c.cl, fem: /dame|femin|fille/i.test(String(c.nom || "")) };
   }
   function lcOrd(p, fem) { return p === 1 ? (fem ? "re" : "er") : "e"; }
-  function lcAll() { return myTeams(true).filter(function (c) { return !c.ent && c.teams; }).concat(clubTeams()); }
+  // 4.5.1 (Davy : « Équipe 1 de TE ? ») : ton équipe de tennis entreprise reste hors du club, sauf si le club joue le même championnat :
+  // elle y apparaît alors avec les autres équipes (Équipe 1 à côté de l'Équipe 2)
+  function lcAll() { var C = clubTeams(), cn = {}; C.forEach(function (c) { cn[champNm(c)] = 1; }); return myTeams(true).filter(function (c) { return c.teams && (!c.ent || cn[champNm(c)]); }).concat(C); }
   function lcCur() { return lcAll().filter(function (c) { return !clubDone(c); }).map(lcT); }
   function lcPosC(x) { return x.pos === 1 ? "g" : x.n > 2 && x.pos === x.n ? "r" : ""; }
   var LC_CUP = '<svg class="lc-cup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4M12 14v4M8 20h8"/></svg>';
@@ -9743,6 +9757,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (N) tips.push({ id: "news:" + N.n.at, hot: 1, t: "Nouveau sur Ten'Up : " + plural(N.ms.length, "résultat") + ". On regarde ce qui a changé ?", v: "news" });
     if (hier && hier.result === "D") tips.push({ id: "home:loss:" + hier.id, t: "Défaite " + hj + ", ça arrive. On regarde ce qui vient ensuite ?", v: "loss" });
     if (hier && hier.result === "V") tips.push({ id: "home:win:" + hier.id, t: "Bien joué " + hj + " ! Tu veux savoir ce que ça t'a rapporté ?", v: "win" });
+    // 4.5.1 (Yann) : Ace pousse les nouvelles de tes prochains adversaires ; sa bulle ouvre la feuille
+    try { var PH = paHot(); if (PH.N.length) { var px = PH.N[0], ps = px.n.now || {}; tips.push({ id: "pa:" + px.o.id + ":" + (ps.last || "") + ":" + (ps.rank || ""), hot: 1, t: paAceLine(px), v: "pa" }); } } catch (e) {}
     var oW = null; try { oW = c.proj.status !== "top" ? coNextOut(c) : null; } catch (e) {}
     if (oW && oW.days <= 21) tips.push({ id: "when:" + oW.iso, hot: 1, t: "Ta victoire contre un " + oW.rank + " sort de ton bilan le " + oW.dt + " : une victoire d'ici là la compense.", v: "when" });
     toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
@@ -9772,8 +9788,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // la toucher ouvre Ace sur ce sujet (la bulle disparaît une fois lue). Le lundi, la carte de la semaine parle déjà : la pastille suffit.
     // 4.4.8 (Yann) : Ace dit toujours sa phrase en arrivant, même déjà lue ; le point rouge et le rebond restent pour ce qui est nouveau
     var bub = !!t && !noBub;
-    return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot && !bub ? '<span class="ace-dot"></span>' : "") + "</span></button>" +
-      (bub ? '<button class="hd-bub" data-a="ace" data-v="' + esc(t.v || "") + '"><i aria-hidden="true"></i><span>' + esc(t.t) + "</span></button>" : "");
+    return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="' + (t && t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot && !bub ? '<span class="ace-dot"></span>' : "") + "</span></button>" +
+      (bub ? '<button class="hd-bub" data-a="' + (t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + esc(t.v || "") + '"><i aria-hidden="true"></i><span>' + esc(t.t) + "</span></button>" : "");
   }
   // 3.82.1 (Yann, maquette M1 du tour du 23/11) : la phrase d'Ace a sa carte sous le Salut (avant : bulle coupée dans l'en-tête)
   function aceHomeCard() {
