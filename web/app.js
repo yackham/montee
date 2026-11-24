@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.4.4",
+    VERSION: "4.4.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1175,7 +1175,7 @@
     if (page === "bienvenue") { mxWelcome(); return; }
     // Activité : la semaine, la carte 12 mois, les scores (1re fois du jour), les cartes paliers
     if (page === "palmares") {
-      var n = 0; mxQ(".dstrip .ds-d").forEach(function (d) { var ic = d.querySelector(".ds-ic, .tr-ic"); if (ic && !ic.classList.contains("e")) mxSet(ic, "mx-pop", n++, 200); if (d.classList.contains("on")) d.classList.add("mx-today"); });
+      var n = 0; mxQ(".dstrip .ds-d").forEach(function (d) { var ic = d.querySelector(".ds-ic, .tr-ic"); if (ic && !ic.classList.contains("e")) mxSet(ic, "mx-pop", n++, 200); });
       var as = document.querySelector(".as-c");
       if (as) {
         mxQ(".as-k b", as).forEach(function (b, i) { mxCount(b, null, { delay: 200 + i * 120 }); });
