@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.4.7",
+    VERSION: "4.4.8",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2674,9 +2674,15 @@
   function lcResSheet(k) {
     var L = lcCur(), X = []; L.forEach(function (x) { x.R.forEach(function (r, i) { if (!k || x.res[i] === k) X.push({ x: x, r: r, res: x.res[i] }); }); });
     X.sort(function (a, b) { return a.r.d < b.r.d ? 1 : -1; });
-    var rows = X.map(function (o) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
-      return '<a class="row ce-lr" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '"><span class="grow"><span class="t">' + esc(champNm(o.x.c) + (o.x.num ? " · éq. " + o.x.num : "")) + '</span><span class="s">' + esc(lcDay(String(r.d).slice(0, 10)) + " · " + (r.dom === me ? "contre " : "chez ") + tmNm(r.a === me ? r.bn : r.an)) + '</span></span><span class="ce-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span>" + I.next + "</a>"; }).join("");
-    return { title: k === "v" ? "Les victoires du club" : k === "n" ? "Les nuls du club" : k === "d" ? "Les défaites du club" : "Les rencontres de la saison", sub: plural(X.length, "rencontre", "rencontres") + " · équipes en lice, du point de vue du club", body: rows ? '<div class="ce-list">' + rows + "</div>" : '<span class="small">Rien pour l\'instant.</span>' };
+    // 4.4.8 (Yann) : regroupées par équipe, dans l'ordre du bilan de saison (catégorie, championnat, numéro d'équipe) ; la plus récente en tête de chaque équipe
+    var CO = ["mes", "dam", "jeu", "plus"], G = {}, gk = function (x) { return champNm(x.c) + (x.num ? " · éq. " + x.num : ""); };
+    X.forEach(function (o) { var g = gk(o.x); (G[g] = G[g] || []).push(o); });
+    var K = Object.keys(G).sort(function (a, b) { var xa = G[a][0].x, xb = G[b][0].x; return (CO.indexOf(clubCat(xa.c)) - CO.indexOf(clubCat(xb.c))) || champNm(xa.c).localeCompare(champNm(xb.c), "fr") || (+xa.num || 99) - (+xb.num || 99) || a.localeCompare(b, "fr"); });
+    var row = function (o) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
+      return '<a class="row ce-lr" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '"><span class="grow"><span class="t">' + esc((r.dom === me ? "Contre " : "Chez ") + tmNm(r.a === me ? r.bn : r.an)) + '</span><span class="s">' + esc(lcDay(String(r.d).slice(0, 10))) + '</span></span><span class="ce-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span>" + I.next + "</a>"; };
+    var body = K.map(function (g) { var R = G[g], nv = R.filter(function (o) { return o.res === "v"; }).length, nd = R.filter(function (o) { return o.res === "d"; }).length, nn = R.length - nv - nd;
+      return '<div class="lc-sub">' + esc(g) + "<small>" + (k ? plural(R.length, "rencontre", "rencontres") : nv + " V" + (nn ? " · " + nn + " N" : "") + " · " + nd + " D") + '</small></div><div class="ce-list">' + R.map(row).join("") + "</div>"; }).join("");
+    return { title: k === "v" ? "Les victoires du club" : k === "n" ? "Les nuls du club" : k === "d" ? "Les défaites du club" : "Les rencontres de la saison", sub: plural(X.length, "rencontre", "rencontres") + " · " + plural(K.length, "équipe", "équipes") + ", du point de vue du club", body: body || '<span class="small">Rien pour l\'instant.</span>' };
   }
   // Le bilan d'une saison passée : podium et coupe, premières de poule, toutes les équipes par catégorie
   function lcSeaSheet(k) {
@@ -9620,7 +9626,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     UI.coHome = dot ? { t: t, mood: h.mood } : null;
     // 4.4.6 (Yann, maquette accueil validée le 24/11) : Ace parle à côté de sa tête, bulle de 2 lignes au plus qui s'arrête avant la roue ;
     // la toucher ouvre Ace sur ce sujet (la bulle disparaît une fois lue). Le lundi, la carte de la semaine parle déjà : la pastille suffit.
-    var bub = dot && !noBub;
+    // 4.4.8 (Yann) : Ace dit toujours sa phrase en arrivant, même déjà lue ; le point rouge et le rebond restent pour ce qui est nouveau
+    var bub = !!t && !noBub;
     return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot && !bub ? '<span class="ace-dot"></span>' : "") + "</span></button>" +
       (bub ? '<button class="hd-bub" data-a="ace" data-v="' + esc(t.v || "") + '"><i aria-hidden="true"></i><span>' + esc(t.t) + "</span></button>" : "");
   }
