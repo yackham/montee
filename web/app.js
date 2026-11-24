@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.5.1",
+    VERSION: "4.5.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -4869,6 +4869,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   function levelHistory(cur) {
     var t = today(), out = [], all = S.matches.filter(counts);
+    // 4.5.2 (Davy : « pourquoi le graph est vide de janvier à avril ? ») : avant ton 1er match de la saison en cours, les saisons passées prennent le relais (même règle que histAll)
+    var d0 = all.map(function (m) { return m.date; }).filter(Boolean).sort()[0] || "9999", kn = {}; all.forEach(function (m) { kn[m.date + "|" + m.oppRank + "|" + m.result] = 1; });
+    all = all.concat((S.histMatches || []).filter(function (m) { return m.date && m.date < d0 && !kn[m.date + "|" + m.oppRank + "|" + m.result]; }));
     for (var k = 11; k >= 0; k--) {
       var rel = k ? firstTue(t.getFullYear(), t.getMonth() - k + 1) : t;
       // 4.2.3 : la courbe suit le calcul de l'anneau (levelNow) : adversaires à leur vrai niveau (effMs), 8 matchs au moins, et le dernier point = l'anneau
@@ -18075,8 +18078,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "3.54",
+    v: "4.5",
     pages: [
+      // 4.5 (Yann, 25/11/2026) : l'écran Quoi de neuf se met à jour à chaque évolution majeure
+      { hero: true, title: "Montée 4.5", text: "Tes prochains adversaires à l'œil, Ace qui te prévient, et tes résultats qui arrivent tout seuls au bon moment." },
+      { tag: "Nouveau", tone: "rose", title: "Tes prochains adversaires", vis: "pa45", text: "Sous « Ce qui arrive » : ceux que tu vas jouer. Quand l'un d'eux gagne, perd ou change de classement, tu vois ce que ça change à tes chances. Le premier est offert, tous avec Montée+." },
+      { tag: "Nouveau", tone: "rose", title: "Ace te prévient", vis: "ace45", text: "Un adversaire a bougé ? Ace te le dit sur l'accueil, avec tes nouvelles chances. Touche sa bulle pour voir le détail." },
+      { tag: "Amélioré", tone: "bleu", title: "Tes résultats, au bon moment", vis: "sy45", text: "Montée relit Ten'Up environ 2 h 30 après tes matchs et le matin de la sortie du classement. Tu n'as plus besoin d'ouvrir l'app pour les avoir." },
+      { tag: "Amélioré", tone: "bleu", title: "Tes épreuves en un tap", vis: "hd45", text: "Sur ta carte de l'accueil : Mes épreuves, sous le pouce, avec le nombre en cours, et Ma saison juste à côté." },
       { hero: true, title: "Montée 3.54", text: "Tes championnats par équipes, la courbe cardio de tes matchs avec les sets, tes zones cardio, et comment travailler chaque point de ton jeu." },
       { tag: "Nouveau", tone: "rose", title: "Ton match, côté cœur", vis: "hr54", text: IOS ? "Sur la fiche du match : ta courbe cardio lue dans Santé, avec les sets et le tie-break, ton pic et tes zones. Tes anciens matchs aussi." : "Sur la fiche du match : ta courbe cardio lue dans Santé connectée, avec les sets estimés, ton pic et tes zones. Tes anciens matchs aussi." },
       { tag: "Nouveau", tone: "rose", title: "Tes zones cardio", vis: "zn54", text: "Automatiques, méthode Karvonen avec ta FC de repos, ou à la main. Réglages › Tes zones cardio." },
@@ -18199,7 +18208,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-    var PHARES = ["eq51", "hr54", "zn54", "how54", "fdm51"]; // 3.43 : à compléter avec les autres nouveautés phares de la version
+    var PHARES = ["pa45", "ace45", "sy45", "hd45"]; // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     var plus = ANDROID && !isSup() ? [{ cta: 1, tag: "Montée+", tone: "rose", title: "Joue avec ton profil", vis: "cp43", text: "Ton profil de compétiteur, le bon moment pour jouer chaque adversaire de tes indivs, tes stats de tournois et 6 thèmes. 1 mois d'essai gratuit." }] : IOS && PLUS && !isSup() ? [{ cta: 1, tag: "Montée+", tone: "rose", title: "Montée+", vis: "plus25", text: "Le bon moment pour jouer chaque adversaire, ton profil de compétiteur, tes stats de tournois et le coach au poignet. 1 mois d'essai gratuit. Sans abonnement, un match à la montre reste offert chaque mois." }] : [];
@@ -18217,6 +18226,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var nvc = function (inner) { return '<div class="nv-mock">' + inner + "</div>"; };
     var DEMO_HR = [112, 118, 126, 131, 138, 135, 142, 149, 156, 151, 144, 139, 147, 158, 166, 171, 163, 152, 146, 154, 162, 168, 159, 148, 141, 150, 157, 165, 172, 161], DEMO_THR = [112, 131, 149, 168];
     var watchBox = function (inner) { return '<span style="display:flex;justify-content:center"><span style="width:170px;border-radius:38px;background:#000;box-shadow:0 0 0 6px #23262C;padding:14px 13px;display:flex;flex-direction:column;gap:6px;color:#F2F3F5">' + inner + "</span></span>"; };
+    // 4.5 : visuels des nouveautés (couleurs fixes : l'écran est toujours sombre ; noms d'exemple génériques)
+    var nvAv = function (t, c) { return '<span style="width:34px;height:34px;flex:none;border-radius:17px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:' + (c || "#3A3F49") + ';color:#F2F3F5">' + t + "</span>"; };
+    var nvPill = '<em style="font-style:normal;font-size:11.5px;font-weight:800;border-radius:99px;padding:2px 8px;background:#D4E64A;color:#121212;margin-right:6px">Nouveau</em>';
+    if (k === "pa45") return nvc('<span class="nv-k" style="color:#D4E64A">TES PROCHAINS ADVERSAIRES</span>' + [["MC", "M. Caron · 15/2", nvPill + "a perdu lundi", "47 % → 57 %", 1], ["TD", "T. Durand · 15/3", "Rien de neuf", "61 %", 0], ["JM", "J. Moreau · 15/1", "a gagné samedi", "38 % → 34 %", 0]].map(function (r) { return '<span style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)">' + nvAv(r[0]) + '<span style="flex:1;display:flex;flex-direction:column;min-width:0"><b style="font-size:14px">' + r[1] + '</b><span style="font-size:12.5px;opacity:' + (r[4] ? 1 : 0.7) + '">' + r[2] + '</span></span><b style="font-size:13px;color:' + (r[4] ? "#6FC28F" : "#F2F3F5") + ';white-space:nowrap">' + r[3] + "</b></span>"; }).join(""));
+    if (k === "ace45") return nvc('<span style="display:flex;gap:12px;align-items:flex-end"><span style="flex:none">' + coBall("nv45", "joie", "sm") + '</span><span style="background:#353944;border-radius:18px 18px 18px 6px;padding:11px 14px;font-size:14.5px;font-weight:600;line-height:1.35">M. Caron a perdu lundi : tes chances jeudi passent à <b style="color:#6FC28F">57 %</b>.</span></span><span style="display:flex;gap:10px;align-items:center;margin-top:8px;background:#2E323B;border-radius:14px;padding:9px 12px">' + nvAv("MC") + '<span style="flex:1;font-size:13px">' + nvPill + "M. Caron a perdu lundi</span></span>");
+    if (k === "sy45") return nvc('<span class="nv-k" style="color:#6CB8F0">MONTÉE RELIT TEN\'UP</span>' + [["Sam. 18:00", "Ton match", "#F2F3F5", 0], ["Sam. ≈ 20:30", "Ton résultat est là", "#6FC28F", 1], ["Mar. 8:30", "Nouveau classement relu", "#6FC28F", 1]].map(function (r, i) { return '<span style="display:flex;gap:12px;align-items:center;position:relative;padding:7px 0"><i style="width:12px;height:12px;flex:none;border-radius:6px;background:' + (r[3] ? r[2] : "transparent") + ';box-shadow:inset 0 0 0 2px ' + r[2] + '"></i><span style="width:92px;flex:none;font-size:12.5px;opacity:.7">' + r[0] + '</span><b style="font-size:14px;color:' + r[2] + '">' + r[1] + "</b></span>"; }).join("") + '<span style="font-size:12px;opacity:.6;margin-top:4px">Sans ouvrir l\'app.</span>');
+    if (k === "hd45") return nvc('<span style="display:flex;gap:12px;align-items:center;padding:4px 0 12px">' + nvAv("A", "#F2F3F5").replace("color:#F2F3F5", "color:#121212").replace(/34px/g, "44px").replace("17px", "22px") + '<span style="display:flex;flex-direction:column"><b style="font-size:19px">Salut Alex</b><span style="font-size:13px;font-weight:700"><i style="display:inline-block;width:8px;height:8px;border-radius:4px;background:#D4E64A;margin-right:6px"></i>15/2</span></span></span><span style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid rgba(255,255,255,.1);margin:0 -16px -14px"><span style="display:flex;align-items:center;justify-content:center;height:46px;font-weight:700;font-size:14px">Ma saison</span><span style="display:flex;align-items:center;justify-content:center;gap:8px;height:46px;font-weight:700;font-size:14px;position:relative"><i style="position:absolute;left:0;top:11px;width:1px;height:24px;background:rgba(255,255,255,.22)"></i>Mes épreuves<em style="font-style:normal;width:22px;height:22px;border-radius:11px;background:#D4E64A;color:#121212;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center">2</em></span></span>');
     if (k === "ep44") return nvc('<span style="display:flex;flex-direction:column;gap:7px">' + [["V", "1er tour", "Théo SIMON · 15/3", "+20", "var(--gazon)"], ["V", "2e tour", "Julien MOREAU · 15/3", "+20", "var(--gazon)"], ["3", "3e tour · demain 20:30", "Thomas DURAND · 15/1", "34 %", "var(--terre)"]].map(function (r, i) { return '<span style="display:flex;gap:10px;align-items:center"><span style="width:26px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;' + (r[0] === "V" ? "background:var(--gazon);color:#fff" : "background:var(--balle);color:var(--on-balle)") + '">' + r[0] + '</span><span style="flex:1;display:flex;flex-direction:column"><small style="font-size:10px;font-weight:900;letter-spacing:.06em;opacity:.6;text-transform:uppercase">' + r[1] + '</small><b style="font-size:13px">' + r[2] + '</b></span><b style="font-size:13px;color:' + r[4] + '">' + r[3] + "</b></span>"; }).join("") + "</span>");
     // 3.51 : visuels des nouveautés (couleurs fixes : l'écran Quoi de neuf est toujours sombre) (équipes, impact, feuille de match, widget face-à-face, notifications)
     // 3.54 : cardio d'un match, zones, comment travailler (couleurs fixes : l'écran est toujours sombre)
