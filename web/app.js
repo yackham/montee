@@ -1756,8 +1756,8 @@
     var open = isSup() ? L : L.slice(0, 1), N = open.map(function (o) { return { o: o, n: paNews(o) }; }).filter(function (x) { return paIsNew(x.n); });
     var who = N.length ? N[0].o : L[0];
     var tx = N.length ? '<span class="pa-dot" aria-hidden="true"></span>' + esc(paShort(N[0].o, N[0].n)) + (N.length > 1 ? " · " + N.length + " nouvelles" : "")
-      : "Rien de neuf · " + esc(L.slice(0, 2).map(paName).join(", ")) + (L.length > 2 ? " et " + (L.length - 2 === 1 ? "1 autre" : L.length - 2 + " autres") : "");
-    return '<button class="pa-l" data-a="paOpen"><span class="pa-av" aria-hidden="true"><i>' + esc(initials(paName(who))) + '</i></span><span class="pa-tx"><b>Tes prochains adversaires</b><span>' + tx + '</span></span><span class="pa-ch" aria-hidden="true">›</span></button>';
+      : "Rien de neuf · " + (L.length > 1 ? L.length + " adversaires suivis" : esc(paName(L[0])) + " suivi"); // 4.5.1 (Yann) : une seule ligne
+    return '<button class="card pa-l" data-a="paOpen"><span class="pa-av" aria-hidden="true"><i>' + esc(initials(paName(who))) + '</i></span><span class="pa-tx"><b>Tes prochains adversaires</b><span>' + tx + '</span></span><span class="pa-ch" aria-hidden="true">›</span></button>';
   }
   // La feuille : figée à l'ouverture, puis ta visite devient la nouvelle référence (« depuis ta dernière visite »)
   function paRowHtml(o, n, p) {
@@ -2958,14 +2958,14 @@
     var me = c.me.mine, R = (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.st === "T"; });
     if (!R.length) return "";
     var mS = S.matches.filter(function (m) { return !m.dbl && (m.result === "V" || m.result === "D"); }), mD = (S.doubles || []).filter(function (m) { return m.result === "V" || m.result === "D"; });
-    var W = { v: 0, n: 0, d: 0, k: 0 }, Wo = { v: 0, n: 0, d: 0, k: 0 }, myV = 0, myN = 0, sV = 0, sN = 0, dV = 0, dN = 0, teamWon = 0;
+    var W = { v: 0, n: 0, d: 0, k: 0 }, Wo = { v: 0, n: 0, d: 0, k: 0 }, myV = 0, myN = 0, sV = 0, sN = 0, dV = 0, dblN = 0, teamWon = 0;
     R.forEach(function (r) {
       var a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1, res = a > b ? "v" : a < b ? "d" : "n";
       var t1 = tmMine(c, r), s1 = t1.s, d1 = t1.d, with1 = s1.length + d1.length > 0, B = with1 ? W : Wo;
       B[res]++; B.k++; teamWon += a || 0;
-      s1.forEach(function (m) { sN++; if (m.result === "V") sV++; }); d1.forEach(function (m) { dN++; if (m.result === "V") dV++; });
+      s1.forEach(function (m) { sN++; if (m.result === "V") sV++; }); d1.forEach(function (m) { dblN++; if (m.result === "V") dV++; });
     });
-    myV = sV + dV; myN = sN + dN;
+    myV = sV + dV; myN = sN + dblN;
     if (!W.k) return '<div class="card tm-imp"><span class="eyebrow">Ton impact</span><span class="small">Tu n\'as pas encore joué dans ce championnat cette saison.</span></div>';
     var pc = function (B) { return B.k ? Math.round((B.v + B.n * 0.5) / B.k * 100) : 0; };
     var bar = function (lab, B, on) { return '<div class="tim-cl"><span class="tim-l' + (on ? " on" : "") + '">' + lab + '</span><span class="tim-tr">' + (B.k ? '<i class="v" style="width:' + B.v / B.k * 100 + '%"></i><i class="n" style="width:' + B.n / B.k * 100 + '%"></i><i class="d" style="width:' + B.d / B.k * 100 + '%"></i>' : "") + '</span><b class="' + (on && B.k ? "on" : "") + '">' + (B.k ? pc(B) + " %" : "–") + "</b></div>"; };
@@ -2986,7 +2986,7 @@
     var C = 2 * Math.PI * 14, part = teamWon ? Math.min(1, myV / teamWon) : 0;
     var ring = '<svg class="tim-ring" viewBox="0 0 36 36"><circle cx="18" cy="18" r="14" fill="none" stroke="var(--chip)" stroke-width="6"/>' + (part ? '<circle cx="18" cy="18" r="14" fill="none" stroke="var(--balle)" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + (C * part).toFixed(1) + " " + C.toFixed(1) + '" transform="rotate(-90 18 18)"/>' : "") + '<text x="18" y="21.3" text-anchor="middle" font-size="' + (teamWon > 9 ? 7.5 : 9) + '" font-weight="800" fill="var(--ink)">' + myV + "/" + teamWon + "</text></svg>";
     return '<div class="card tm-imp"><span class="eyebrow">Ton impact</span><div class="tim-fr">' + fr + '</div><div class="tim-cmp">' + bar("Avec toi", W, true) + bar("Sans toi", Wo) + "</div>" +
-      '<div class="tim-dn">' + ring + "<p><b>" + myV + " des " + plural(teamWon, "point", "points") + "</b> gagnés par l'équipe viennent de tes matchs" + (dV ? " (un double se gagne à deux)" : "") + "." + (sN || dN ? " " + cap1([sN ? plural(sV, "simple gagné", "simples gagnés") + " sur " + sN : "", dN ? plural(dV, "double gagné", "doubles gagnés") + " sur " + dN : ""].filter(Boolean).join(", ")) + "." : "") + (say ? '<br><span class="tim-say">' + say + "</span>" : "") + "</p></div>" +
+      '<div class="tim-dn">' + ring + "<p><b>" + myV + " des " + plural(teamWon, "point", "points") + "</b> gagnés par l'équipe viennent de tes matchs" + (dV ? " (un double se gagne à deux)" : "") + "." + (sN || dblN ? " " + cap1([sN ? plural(sV, "simple gagné", "simples gagnés") + " sur " + sN : "", dblN ? plural(dV, "double gagné", "doubles gagnés") + " sur " + dblN : ""].filter(Boolean).join(", ")) + "." : "") + (say ? '<br><span class="tim-say">' + say + "</span>" : "") + "</p></div>" +
       (byDay.length && byDay.length <= 4 ? '<div class="tim-days">' + byDay.join("") + "</div>" : "") + "</div>";
   }
   // 3.50.4 : l'état vide d'une liste (« viduel ») : le picto de la liste dans un cercle en pointillés, un titre, une phrase
