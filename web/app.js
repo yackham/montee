@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.4.6",
+    VERSION: "4.4.7",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -50,7 +50,7 @@
       else if (!on && mmLock) { mmLock.release().catch(function () {}); mmLock = null; }
     } catch (e) {}
   }
-  // 4.4.6 (quick win, Yann) : demande de note App Store / Play Store au bon moment (victoire de la semaine, montée).
+  // 4.4.7 (quick win, Yann) : demande de note App Store / Play Store au bon moment (victoire de la semaine, montée).
   // Fenêtre du système (Apple ou Google décident seuls de l'afficher). Au plus une fois tous les 4 mois, jamais avant 3 matchs.
   function reviewWish() { UI.revAsk = 1; }
   function reviewAsk() {
@@ -868,7 +868,7 @@
     var f = app.querySelector("[data-autofocus]"); if (f) f.focus();
     if (UI.fafFocus && parts[0] === "faf") { UI.fafFocus = false; var fq = document.getElementById("ff-q"); if (fq) setTimeout(function () { fq.focus(); }, 120); }
     if (UI.partyKey && S.celebrated !== UI.partyKey) { S.celebrated = UI.partyKey; save(); setTimeout(party, 350); }
-    reviewAsk(); // 4.4.6
+    reviewAsk(); // 4.4.7
     syncWidgets(); watchSync(); schedulePlanNotif(); try { scheduleTeamsNotif(); schedulePoolNotif(); } catch (e) {} try { scheduleSjNotif(); } catch (e) {}
   }
 
@@ -1676,12 +1676,12 @@
       var ty = z.bd ? "bd" : z.team ? "eq" : z.rel ? "so" : z.t ? (/^Poule/.test(eye || "") || (z.t.fmt === "poule" && z.todo) ? "po" : "to") : "li";
       var tyIc = { eq: TEAM_IC, so: FR_REL, po: FT_IC.po, to: FT_IC.to, li: FT_IC.li, bd: FT_IC.bd }[ty];
       return '<a class="fr-c ft-c ft-' + ty + (z.dim ? " dim" : "") + (z.d === td && !z.late ? " now" : "") + '" href="' + z.href + '"><span class="fr-h"><i></i>' + (z.late ? "Presque" : same ? "" : esc(rel(z.d)) + (z.live ? " · en direct" : "")) + "</span>" +
-        '<span class="ft"><span class="ft-top">' + (z.bd ? '<span class="ft-d ft-dbd" aria-hidden="true">' + tyIc + "</span>" : '<span class="ft-d"><small>' + esc(JOURS[x.getDay()].slice(0, 3)) + ".</small><b>" + x.getDate() + "</b><span>" + esc(MOIS[x.getMonth()]) + "</span></span>") + '<span class="ft-v"></span>' + // 4.4.6 : un badge n'est pas un rendez-vous, pas de date du jour
+        '<span class="ft"><span class="ft-top">' + (z.bd ? '<span class="ft-d ft-dbd" aria-hidden="true">' + tyIc + "</span>" : '<span class="ft-d"><small>' + esc(JOURS[x.getDay()].slice(0, 3)) + ".</small><b>" + x.getDate() + "</b><span>" + esc(MOIS[x.getMonth()]) + "</span></span>") + '<span class="ft-v"></span>' + // 4.4.7 : un badge n'est pas un rendez-vous, pas de date du jour
 
         '<span class="ft-m"><em>' + (z.bd ? "" : '<span class="ft-ic">' + tyIc + "</span>") + '<span class="ft-et">' + esc(eye || "") + "</span></em><b>" + esc(title) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></span>" +
         (bot ? '<span class="ft-perf"></span><span class="ft-bot">' + bot + "</span>" : "") + "</span></a>";
     };
-    return '<div class="fr"><div class="fr-t"><b>Ce qui arrive</b><span class="ob-frt"><button class="ob-calb' + (calChanged().length ? " dot" : "") + '" data-a="calOpen" aria-label="Ajouter tes dates à l\'agenda du téléphone">' + P_CAL_ADD + '<span>Agenda</span></button></span></div><div class="fr-s">' + L.map(FR_TICKETS ? tick : col).join("") + "</div>" + epLineHtml() + "</div>";
+    return '<div class="fr"><div class="fr-t"><b>Ce qui arrive</b><span class="ob-frt"><button class="ob-calb' + (calChanged().length ? " dot" : "") + '" data-a="calOpen" aria-label="Ajouter tes dates à l\'agenda du téléphone">' + P_CAL_ADD + '<span>Agenda</span></button></span></div><div class="fr-s">' + L.map(FR_TICKETS ? tick : col).join("") + "</div></div>"; // 4.4.6 : « Mes épreuves » est dans la carte profil
   }
   // 4.3 (Yann, maquette validée le 24/11/2026) : « Mes épreuves » en vraie ligne sous « Ce qui arrive » (avant : petit lien en haut à droite)
   function epLineHtml() {
@@ -4064,13 +4064,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (spK && !S.demo) dl0 = '<span class="small hd-d">' + esc((JOURS[d.getDay()] + " " + dN(d) + " " + MOIS[d.getMonth()]).replace(/^./, function (x) { return x.toUpperCase(); })) + "</span>";
     var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })();
     // 3.70.9 (Yann, maquette 1) : la roue des réglages, discrète, en face de la date ; la barre de profil prend toute la largeur
-    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + dl0 + '' + aceHd() + '<button class="iconbtn gearbtn hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + ' data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div></div></div></div>" : av0 +
-      '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div></div></div></div>");
+    var wkH0 = ""; if (S.matches.length && p.status !== "top") { try { wkH0 = weekHtml(c); } catch (e) { wkH0 = ""; } }
+    // 4.4.6 (Yann, maquette accueil validée le 24/11) : plus de date ; Ace et sa bulle à gauche, la roue dans un rond à droite ;
+    // la barre de profil devient une carte avec Mes épreuves et Ma saison en pied (avant : ligne « Mes épreuves » sous Ce qui arrive)
+    var nEp = 0; try { nEp = toursOn().length; } catch (e) {}
+    var hdFt = '<div class="hd-ft"><button data-a="hdGo" data-h="#/tournoi"><i>' + TOUR_IC + "</i>Mes épreuves" + (nEp ? '<span class="hd-n">' + nEp + "</span>" : "") + '</button><button data-a="goSeasonCard"><i>' + svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', 2.2) + "</i>Ma saison</button></div>";
+    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + aceHd(!!wkH0) + (S.demo ? dl0 : "") + '<button class="act-ic hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r hd-pc"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + ' data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div>" + hdFt + "</div></div></div>" : av0 +
+      '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div>" + hdFt + "</div></div></div>");
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
     // 4.1 (Yann, audit densité validé le 23/11) : le lundi, la carte d'Ace parle déjà du match de la semaine : pas de 2e bulle d'Ace au-dessus
-    var wkH0 = ""; if (S.matches.length && p.status !== "top") { try { wkH0 = weekHtml(c); } catch (e) { wkH0 = ""; } }
-    s += (pauseOn() ? pauseAceHtml() : pauseAceHtml() || (wkH0 ? "" : aceHomeCard())) + pauseHomeHtml(c) + btwHtml(); // 3.82.1 : Ace sous le Salut ; 3.94 : en pause, la reprise, entre deux matchs
+    s += (pauseOn() ? pauseAceHtml() : pauseAceHtml()) + pauseHomeHtml(c) + btwHtml(); // 3.82.1 : Ace sous le Salut ; 3.94 : en pause, la reprise, entre deux matchs
     if (!S.matches.length) {
       // 4.2.6 (identité passe 3, validé) : Ace accueille, et pendant la 1re lecture Ten'Up il dit qu'il lit (sans faux chiffres)
       if (UI.loading && S.tenup.linked) return s + '<div class="card id-dock vx-sync" role="status"><span class="ace-peek" aria-hidden="true">' + coBall("vx:sync", "concentree") + '<span class="ace-bub">Je lis…</span></span>' +
@@ -4191,14 +4195,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!freshStart()) {
       B.backup = bkDue() ? bkTodoHtml() : "";
       B.pay = payTodoHtml(); // 3.83 : inscription à un tournoi pas encore payée (lue sur Ten'Up)
-      B.notif = notifTodoHtml(); // 4.4.6
+      B.notif = notifTodoHtml(); // 4.4.7
       var tdK = ["annoter", "rate", "slot", "cordage", "pay", "notif", "sync", "backup"].filter(function (k) { return B[k]; });
       if (tdK.length === 1 && (tdK[0] === "backup" || tdK[0] === "pay" || tdK[0] === "notif")) B.sync = B[tdK[0]]; // seule chose à faire : à la place de la synchro
       else if (tdK.length >= 2 || tuOut) {
         var nQa = qaList().length, sec = (B.annoter ? 20 * Math.max(1, nQa) : 0) + (B.rate || B.slot ? 10 : 0) + (B.cordage ? 5 : 0) + (B.sync ? 15 : 0) + (B.backup ? 2 : 0) + (B.pay ? 5 : 0) + (B.notif ? 5 : 0), nT = tdK.length - (B.rate && B.slot ? 1 : 0) + (B.cordage ? (B.cordage.match(/class="card strc1/g) || [1]).length - 1 : 0);
         var tdH = '<div class="card td3"><div class="td3-h"><span class="eyebrow">À faire · ' + nT + '</span><span class="small">' + (sec < 60 ? sec + " s" : "≈ " + Math.round(sec / 60) + " min") + "</span></div>" + (function () {
           // 3.82.1 (Yann, maquette M4 du 23/11) : 2 tâches visibles, le reste derrière « N autres »
-          var ord = tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK; if (B.notif) ord = ["notif"].concat(ord.filter(function (k) { return k !== "notif"; })); /* 4.4.6 : la sortie n'attend pas */ var vis = moreOn("td") || ord.length <= 3 ? ord : ord.slice(0, 2), rest = ord.slice(vis.length);
+          var ord = tuOut ? ["sync"].concat(tdK.filter(function (k) { return k !== "sync"; })) : tdK; if (B.notif) ord = ["notif"].concat(ord.filter(function (k) { return k !== "notif"; })); /* 4.4.7 : la sortie n'attend pas */ var vis = moreOn("td") || ord.length <= 3 ? ord : ord.slice(0, 2), rest = ord.slice(vis.length);
           var TDN = { annoter: "annotation", rate: "ressenti", slot: "séance", cordage: "cordage", sync: "Ten'Up", backup: "sauvegarde", pay: "inscription", notif: "notifications" };
           return vis.map(function (k) { return '<div class="td3-i">' + (k === "rate" && !moreOn("rate") ? rateCardHtml(true) || B[k] : B[k]) + "</div>"; }).join("") +
             (rest.length ? moreBtn("td", cap1(rest.map(function (k) { return TDN[k] || k; }).join(", ")), rest.length > 1 ? rest.length + " autres" : "1 autre") : "");
@@ -9608,12 +9612,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // Accueil : Ace à côté de la roue des réglages (Yann, 23/11) : petit, il cligne des yeux ; quand il a un truc à te dire,
   // un point rouge, un petit rebond de temps en temps et sa phrase en une ligne à sa gauche
-  function aceHd() {
+  function aceHd(noBub) {
     UI.coHome = null;
     if (!S.onboarded || !S.matches.length) return "";
     var h = null; try { h = coHomeTip(ctx()); } catch (e) { return ""; }
     var m = coMem(), t = h.tip, dot = !!(t && !m.op[t.id]); UI.coHomeId = t ? t.id : null;
-    UI.coHome = dot ? { t: t, mood: h.mood } : null; return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot ? '<span class="ace-dot"></span>' : "") + "</span></button>";
+    UI.coHome = dot ? { t: t, mood: h.mood } : null;
+    // 4.4.6 (Yann, maquette accueil validée le 24/11) : Ace parle à côté de sa tête, bulle de 2 lignes au plus qui s'arrête avant la roue ;
+    // la toucher ouvre Ace sur ce sujet (la bulle disparaît une fois lue). Le lundi, la carte de la semaine parle déjà : la pastille suffit.
+    var bub = dot && !noBub;
+    return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot && !bub ? '<span class="ace-dot"></span>' : "") + "</span></button>" +
+      (bub ? '<button class="hd-bub" data-a="ace" data-v="' + esc(t.v || "") + '"><i aria-hidden="true"></i><span>' + esc(t.t) + "</span></button>" : "");
   }
   // 3.82.1 (Yann, maquette M1 du tour du 23/11) : la phrase d'Ace a sa carte sous le Salut (avant : bulle coupée dans l'en-tête)
   function aceHomeCard() {
@@ -12283,7 +12292,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (last) { var gd = -dGap(last); if (gd >= 7) frm += " Pas joué depuis " + gd + " jours."; }
     var secs = [{ ic: "◎", col: "var(--bleu3)", t: "Ton niveau", b: niv }, { ic: "↗", col: "var(--gazon)", t: "Ta montée", b: mon }, { ic: "⛨", col: "var(--terre)", t: "Ton maintien", b: mai }, { ic: "♥", col: "var(--balle)", t: "Ta forme", b: frm }].filter(function (x) { return x.b; });
     var text = [niv, (p.margin != null && p.margin >= 0 && !p.kept && !z && p.status !== "descente") ? "" : mai].filter(Boolean).join(" "); // 3.82.1 : « +X pts d'avance » est déjà dans la carte Sortie ; 3.46.5 : la montée est déjà dans la carte juste en dessous
-    return { ic: ic, col: col, title: title, text: text, secs: secs };
+    // 4.4.6 (Yann, maquette accueil validée le 24/11) : la synthèse sous les anneaux, en 3 phrases courtes, chiffres clés en gras
+    // à la couleur de leur anneau (niveau bleu, montée vert, forme couleur forme) ; mêmes valeurs que les 4 rubriques ci-dessus
+    var K = function (k, x) { return '<b class="pd-' + k + '">' + x + "</b>"; }, sh = [];
+    if (lvl != null) sh.push("Tu joues " + K("n", lab(lvl)) + (lvl === cur ? ", pile ton classement." : lvl > cur ? ", " + crans(lvl - cur) + " au-dessus." : ", " + crans(cur - lvl) + " en dessous."));
+    if (p.status === "montee") sh.push("Tu montes " + K("m", lab(p.projected)) + " le " + fdate(E.iso(p.release)).replace(/\.$/, "") + ".");
+    else if (p.margin != null && p.margin < 0 && !p.kept && cur > 0) sh.push("Maintien menacé : " + K("d", -p.margin + " pts") + " de retard.");
+    else if (d.norme && p.status !== "top") { var gp2 = Math.max(0, d.norme - d.total), rl2 = E.parseDate(d.releaseIso); sh.push(gp2 ? "Il te manque " + K("m", gp2 + " pts") + " pour monter le " + dN(rl2) + " " + MOIS[rl2.getMonth()].replace(/\.$/, "") + "." : "Tu as les points pour " + esc(d.label || nextL) + "."); }
+    if (F && n6) sh.push((up ? "Forme au top : " : dn ? "Forme en baisse : " : "Forme stable : ") + K("f", nv6 + " victoire" + (nv6 > 1 ? "s" : "") + " sur " + n6) + ".");
+    return { ic: ic, col: col, title: title, text: text, secs: secs, short: sh.join(" ") };
   }
   function courbesRings(c) {
     var w12 = (c.proj.matches || []).filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); });
@@ -12312,7 +12329,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var P = null; try { P = pointDuJour(c); } catch (e) {}
         if (!P) return '<div class="cr3-say' + (say.length <= 46 ? " c" : "") + '">' + esc(say) + "</div>";
         // 4.2 (Yann, allègement validé le 23/11/2026) : une seule ligne, le détail dans « Le point complet »
-        return '<button class="pdj pdj1" data-a="sheet" data-k="pdj"><span class="pdj-h"><i style="color:' + P.col + ";background:color-mix(in srgb," + P.col + ' 18%,transparent)">' + P.ic + "</i><b>" + esc(P.title) + '</b></span><span class="pdj-go">Le point complet ' + I.next + "</span></button>";
+        // 4.4.6 (Yann) : titre + texte court scannable, icône agrandir ; le tout ouvre « Ton point du jour »
+        return '<button class="pdj pdj1 pdj2" data-a="sheet" data-k="pdj" aria-label="Ton point du jour, le détail"><span class="pdj-h"><i style="color:' + P.col + ";background:color-mix(in srgb," + P.col + ' 18%,transparent)">' + P.ic + "</i><b>" + esc(P.title) + "</b>" + svg('<path d="M14 4h6v6M20 4l-6.5 6.5M10 20H4v-6M4 20l6.5-6.5"/>', 2) + "</span>" + (P.short ? '<span class="pdj-tx">' + P.short + "</span>" : "") + "</button>";
       })() + "</div>";
   }
   // 3.30 : jauge de couleur. Sous le seuil bas : alerte (terre). Au-dessus du seuil haut : vert. Entre les deux : bleu, « dans la norme ».
@@ -17116,7 +17134,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var q = {}; (m[2].split("?")[1] || "").split("&").forEach(function (kv) { var p = kv.split("="); if (p[0]) q[p[0]] = decodeURIComponent(p[1] || ""); });
     if (q.id && q.d) { A.slotYes({ dataset: { id: q.id, d: q.d } }); go(""); }
   }
-  // 4.4.6 (quick win) : l'autorisation des notifications relue à chaque ouverture. Activées après coup dans les réglages
+  // 4.4.7 (quick win) : l'autorisation des notifications relue à chaque ouverture. Activées après coup dans les réglages
   // du téléphone, elles repartent (sortie, lundi, match du jour) ; coupées là-bas, Montée arrête de les programmer.
   // S.notifOff = coupées par toi dans Montée : on ne les rallume pas.
   function notifRecheck() {
@@ -17135,7 +17153,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     setTimeout(oppWarm, 1500); // 4.2.3 : lecture étendue des niveaux de tes adversaires
     setTimeout(function () { try { toursAll().filter(function (t) { return !tourOver(t); }).forEach(function (t) { if (t.pool && t.pool.length > 1) poolSync(t); }); } catch (e) {} }, 3000); /* 4.2.3 : plus tôt (était 9 s) : les % de poule attendent ces fiches */ // 3.66.1 : aussi une poule qui commence dans plus de 2 jours
     setTimeout(function () { try { teamsRefresh(); } catch (e) {} }, 12000); // 3.50 : tes équipes // 3.49 : ta poule à jour (et ce que la relance en arrière-plan a déjà vu)
-    notifRecheck(); // 4.4.6
+    notifRecheck(); // 4.4.7
     supCheck(false);
     watchSync(true); watchTake(); watchStatusCheck();
     hcWake();
@@ -18182,7 +18200,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function bkLast() { var a = S.lastBackup || "", b = S.bkAutoAt || ""; return a > b ? a : b; }
   // 3.76.0 : « Mets tes matchs à l'abri » dans À faire, après 30 jours sans sauvegarde (20 matchs et plus)
   function bkDue() { var l = bkLast(); return (S.matches || []).length >= 20 && (!l || dGap(l) < -30); }
-  // 4.4.6 (quick win, Yann) : notifications coupées ou jamais demandées, à 10 jours d'une sortie → une ligne dans « À faire ».
+  // 4.4.7 (quick win, Yann) : notifications coupées ou jamais demandées, à 10 jours d'une sortie → une ligne dans « À faire ».
   // Une fois par sortie (S.notifAsk = sortie déjà proposée) ; jamais si tu les as coupées toi-même dans Montée.
   function notifTodoHtml() {
     if (!NATIVE || !LN || S.notif || S.notifOff || !S.onboarded) return "";
@@ -19113,7 +19131,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       toast("Compris, je ne te le redis pas avant 3 semaines.");
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
-    ace: function (el) { var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; Array.prototype.forEach.call(document.querySelectorAll(".wow-bub"), function (b) { b.remove(); }); save(); render(); haptic("light"); },
+    ace: function (el) { var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg") || el.classList.contains("hd-bub"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; Array.prototype.forEach.call(document.querySelectorAll(".wow-bub"), function (b) { b.remove(); }); save(); render(); haptic("light"); },
     aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
     aceClose: function () { UI.ace = null; UI.aceBack = null; render(); },
     aceTickle: function (el) { var b = el.querySelector(".cbl-b > div"); if (b && window.Balle && Balle.play2 && !b._busy) { haptic("light"); Balle.play2(b, "rire", 1300, b._base); } }, // 4.4 : on touche Ace, il rit
@@ -19128,7 +19146,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (S.notif) return ok();
       if (LN.requestPermissions) LN.requestPermissions().then(function (p) { S.notif = p && p.display === "granted"; save(); if (S.notif) ok(); else toast("Active les notifications de Montée dans les réglages du téléphone."); }).catch(function () {});
     },
-    notifTodo: function (el) { // 4.4.6 : rallumer les notifications (demande du système, sinon réglages du téléphone)
+    notifTodo: function (el) { // 4.4.7 : rallumer les notifications (demande du système, sinon réglages du téléphone)
       S.notifAsk = el.dataset.v; save(); render();
       if (!LN) return;
       (LN.checkPermissions ? LN.checkPermissions() : Promise.resolve({})).then(function (p) {

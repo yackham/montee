@@ -932,7 +932,7 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// 4.4.6 : demande de note de l'App Store (fenêtre d'Apple, qui décide seule de l'afficher : 3 fois par an au plus).
+    /// 4.4.7 : demande de note de l'App Store (fenêtre d'Apple, qui décide seule de l'afficher : 3 fois par an au plus).
     @objc func askReview(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
@@ -1034,7 +1034,7 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// iOS n'ouvre pas directement la page Santé de l'app : on ouvre les Réglages de Montée.
-    /// 4.4.6 : réglages de Montée dans l'iPhone (pour rallumer les notifications refusées).
+    /// 4.4.7 : réglages de Montée dans l'iPhone (pour rallumer les notifications refusées).
     @objc func notifSettings(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }

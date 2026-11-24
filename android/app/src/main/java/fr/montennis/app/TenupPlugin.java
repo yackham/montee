@@ -191,7 +191,7 @@ public class TenupPlugin extends Plugin {
         call.resolve(r);
     }
 
-    /** 4.4.6 : demande de note du Play Store (fenêtre de Google, qui décide seule de l'afficher). */
+    /** 4.4.7 : demande de note du Play Store (fenêtre de Google, qui décide seule de l'afficher). */
     @PluginMethod
     public void askReview(PluginCall call) {
         try {
@@ -520,7 +520,7 @@ public class TenupPlugin extends Plugin {
     }
 
     /** Réglages des autorisations de Montée dans Health Connect (si la demande a été refusée). */
-    /** 4.4.6 : réglages des notifications de Montée (pour les rallumer après un refus). */
+    /** 4.4.7 : réglages des notifications de Montée (pour les rallumer après un refus). */
     @PluginMethod
     public void notifSettings(PluginCall call) {
         final android.app.Activity a = getActivity();
