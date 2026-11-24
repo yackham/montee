@@ -641,7 +641,7 @@
   function go(path) { if (location.hash === "#/" + path) render(); else location.hash = "#/" + path; }
   // Navigation : une pile par onglet. Retour = page précédente de l'onglet ; changer d'onglet repart de zéro
   // (avant, le retour repassait par toutes les pages ouvertes, onglets compris).
-  var stack = [route()], navBack = false;
+  var stack = [route()], navBack = false, vtFrom = route();
   var TAB_ROOTS = { "": 1, palmares: 1, courbes: 1, faf: 1 };
   function back() {
     if (route() === "tournoi/import" && UI.trImp && UI.trImp.into && tourOf(UI.trImp.into)) { var bi = UI.trImp.into; UI.trImp = null; stack = stack.filter(function (x) { return !/^tournoi\//.test(x); }); stack.push("tournoi/" + bi); navBack = true; location.replace("#/tournoi/" + bi); return; }
@@ -671,12 +671,21 @@
     var prev = stack[stack.length - 1], y = 0;
     UI.scrollPos = UI.scrollPos || {};
     if (prev != null && !navBack) UI.scrollPos[prev] = window.scrollY || document.documentElement.scrollTop || 0;
-    var at = stack.lastIndexOf(r);
+    var at = stack.lastIndexOf(r), dir = navBack || at >= 0 ? "back" : TAB_ROOTS[r] != null ? "tab" : "fwd"; // 4.4.3 (B2) : sens de la transition
     if (navBack) { navBack = false; y = UI.scrollPos[r] || 0; }
     else if (TAB_ROOTS[r] != null) { stack = [r]; delete UI.scrollPos[r]; } // un onglet : sa pile repart de zéro
     else if (at >= 0) { stack = stack.slice(0, at + 1); y = UI.scrollPos[r] || 0; } // page déjà ouverte : on y revient, sans boucle
     else if (stack[stack.length - 1] !== r) { stack.push(r); delete UI.scrollPos[r]; }
-    UI.menu = false; render(); window.scrollTo(0, y);
+    UI.menu = false;
+    var show = function () { render(); window.scrollTo(0, y); };
+    // 4.4.3 (Yann, B2) : on glisse vers une page, on revient en glissant, on change d'onglet en fondu ; la barre d'onglets ne bouge pas
+    var de = document.documentElement, rm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var from = vtFrom; vtFrom = r;
+    if (document.startViewTransition && !rm && from !== r) {
+      de.dataset.vt = dir;
+      try { var vt = document.startViewTransition(show); vt.finished.then(function () { delete de.dataset.vt; }, function () { delete de.dataset.vt; }); }
+      catch (e) { delete de.dataset.vt; show(); }
+    } else show();
     if (y) requestAnimationFrame(function () { window.scrollTo(0, y); }); // après la mise en page (images, graphiques)
   });
 

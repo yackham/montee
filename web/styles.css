@@ -7403,3 +7403,21 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* la carte ouverte par-dessus : à plat dans la feuille (pas d'encadré dans un encadré) */
 .cb-sh { display: flex; flex-direction: column; gap: 12px; }
 .cb-sh > .card, .cb-sh > .gear-sec > .card { background: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0; }
+
+/* 4.4.3 (B2) : transitions entre écrans (View Transitions ; sans elles, l'apparition habituelle) */
+.tabbar { view-transition-name: tabbar; }
+:root[data-vt] .screen { animation: none !important; }
+::view-transition-group(root) { animation-duration: .34s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+:root[data-vt="fwd"]::view-transition-old(root) { animation: .34s cubic-bezier(.2, .8, .2, 1) both vtOutL; }
+:root[data-vt="fwd"]::view-transition-new(root) { animation: .34s cubic-bezier(.2, .8, .2, 1) both vtInR; }
+:root[data-vt="back"]::view-transition-old(root) { animation: .34s cubic-bezier(.2, .8, .2, 1) both vtOutR; z-index: 2; }
+:root[data-vt="back"]::view-transition-new(root) { animation: .34s cubic-bezier(.2, .8, .2, 1) both vtInL; }
+:root[data-vt="tab"]::view-transition-old(root) { animation: .18s ease both vtFo; }
+:root[data-vt="tab"]::view-transition-new(root) { animation: .22s ease both vtFi; }
+@keyframes vtInR { from { transform: translateX(100%); } }
+@keyframes vtOutL { to { transform: translateX(-28%); filter: brightness(.7); } }
+@keyframes vtOutR { to { transform: translateX(100%); } }
+@keyframes vtInL { from { transform: translateX(-28%); filter: brightness(.7); } }
+@keyframes vtFo { to { opacity: 0; } }
+@keyframes vtFi { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
