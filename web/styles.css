@@ -6189,7 +6189,6 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .pj-leg { flex-wrap: wrap; gap: 2px 10px; }
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .pj-bar .pj-how summary, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .pj-bar .pj-how .small { color: var(--page-muted); }
 /* 3.73.1 : Ace reprend l'ancien coach : pastille Montée+ dans une réponse */
-.ace-pl { display: inline-block; padding: 1px 8px; border-radius: 99px; border: 1.5px solid var(--acc-ink); font-size: .7em; font-weight: 700; vertical-align: middle; margin-right: 4px; }
 .ace-a small { display: block; font-size: 14px; opacity: .7; margin-top: 4px; }
 /* 3.73.1 : l'échange Ten'Up dans la ligne de synchro de l'accueil et les pastilles « Synchro » */
 .hd-sy .rally-l, .sy .rally-l { margin-right: 0; }
@@ -6368,10 +6367,6 @@ button.acr, a.acr { cursor: pointer; }
 .acd-plan { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
 .acd-plan small { font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--terre); } .acd-plan b { font-size: 15px; }
 .acp-hero { margin-bottom: 4px; } .acp-fl { width: 76px; } .acp-hero > span:last-child > b { font-size: 21px; }
-.acd-up { flex-direction: row; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
-.acd-up > span:nth-child(2) { flex: 1; min-width: 0; font-size: 14px; line-height: 1.35; color: var(--muted); }
-.acd-up > b { flex: none; display: flex; align-items: center; gap: 2px; font-size: 14px; color: var(--acc-ink); } .acd-up > b svg { width: 14px; height: 14px; }
-.acd-up .ace-pl { flex: none; margin: 0; }
 /* 3.74.1 (règle de Yann : pas de carte dans la feuille) : « d'où vient ce chiffre » en lignes à plat */
 .num-c { display: flex; flex-direction: column; }
 .acd-btn { align-self: flex-start; width: auto; margin-top: 8px; padding: 8px 16px; border: 1.5px solid var(--acc-ink) !important; border-radius: 99px; color: var(--acc-ink); font-weight: 700; background: transparent; }
@@ -7239,25 +7234,26 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* ---- Ace : conversation vivante ---- */
 .ace { background: radial-gradient(100% 34% at 50% 0%, color-mix(in srgb, var(--balle) 16%, transparent), transparent 72%), var(--bg); }
 .ace-in { padding-left: var(--s4); padding-right: var(--s4); gap: var(--s4); }
-.ace-a { position: relative; padding-left: 44px; }
-.ace-a > .ace-av { position: absolute; left: 0; top: -4px; width: 34px; }
+/* 4.4 (Yann : « ça ressort mal sur le fond ») : la réponse d'Ace dans sa bulle, Ace à côté */
+.ace-a { position: relative; margin-left: 54px; padding: 14px 16px; background: var(--card); border-radius: 6px 22px 22px 22px; font-size: 17px; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.ace-a > .ace-av { position: absolute; left: -54px; top: 0; width: 46px; display: flex; justify-content: center; }
 .ace-f { flex-direction: row; flex-wrap: wrap; gap: var(--s2); }
 .ace-f button { display: inline-flex; align-items: center; width: auto; max-width: 100%; border: 0; border-top: 0; border-radius: 999px; padding: 10px 14px; min-height: 44px;
   background: color-mix(in srgb, var(--balle) 14%, var(--card)); font-size: 15px; font-weight: 600; text-align: left; }
 .ace-f i { display: none; }
-.ace-me { border-radius: 20px 20px 6px 20px; }
-.ace-typing { display: inline-flex; align-self: flex-start; gap: 5px; padding: 12px 16px; border-radius: 20px; background: var(--card); margin-left: 44px;
+.ace-me { border-radius: 20px 20px 6px 20px; background: #D4E64A; color: #15170F; } /* 4.4 (Yann) : tes messages en jaune balle */
+.ace-typing { display: inline-flex; align-self: flex-start; gap: 5px; padding: 12px 16px; border-radius: 20px; background: var(--card); margin-left: 54px;
   animation: aceTy .9s linear both; overflow: hidden; }
 .ace-typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: aceDot 1s infinite; }
 .ace-typing i:nth-child(2) { animation-delay: .15s; } .ace-typing i:nth-child(3) { animation-delay: .3s; }
-@keyframes aceTy { 0%, 98% { opacity: 1; } 100% { opacity: 0; height: 0; padding: 0; margin: 0 0 -16px 44px; overflow: hidden; } }
+@keyframes aceTy { 0%, 98% { opacity: 1; } 100% { opacity: 0; height: 0; padding: 0; margin: 0 0 -16px 54px; overflow: hidden; } }
 @keyframes aceDot { 0%, 60%, 100% { transform: none; opacity: .4; } 30% { transform: translateY(-4px); opacity: 1; } }
 .ace-fresh .ace-a, .ace-fresh .ace-a ~ * { animation: wowIn .48s var(--ease-out) both; }
 .ace-fresh .ace-a { animation-delay: .9s; } .ace-fresh .ace-a ~ * { animation-delay: 1.1s; } .ace-fresh .ace-a ~ * ~ * { animation-delay: 1.25s; } .ace-fresh .ace-a ~ * ~ * ~ * { animation-delay: 1.4s; }
 
 @media (prefers-reduced-motion: reduce) {
   .wow-in > *, .sheet, .ace-fresh .ace-a, .ace-fresh .ace-a ~ *, .wow-bub, .ace-hd.wow { animation: none !important; }
-  .ace-typing { display: none; } .cr3-c, .tj3-c { transition: none; }
+  .ace-typing { display: none; } .cr3-c, .tj3-c { transition: none; } .ace-fresh .aw { animation: none !important; }
 }
 .ace-ctx { padding-left: 14px; }
 /* 4.3 (Yann) : la carte de profil ne se fond plus dans le haut du fond (thèmes sombres) */
@@ -7316,3 +7312,26 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* 4.3 (Yann) : pas de fond derrière les onglets non sélectionnés ; seul l'onglet choisi garde sa pastille (hors sélecteurs de formulaire) */
 .seg:not(.res):not(.mini), :root[data-skin] .seg:not(.res):not(.mini), :root[data-skin]:not([data-skin="retro"]) .seg:not(.res):not(.mini), :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .seg:not(.res):not(.mini) { background: transparent; box-shadow: none; }
 :root[data-theme="terre"] .seg:not(.res):not(.mini) button:not(.on) { color: var(--page-ink); text-shadow: 0 1px 2px rgba(60,20,5,.35); }
+
+/* ---- 4.4 : Ace, pertinence et Montée+ ---- */
+/* les pictos et les couleurs des billets de « Ce qui arrive » (poule, tournoi, sortie, équipe, match libre) */
+.ace { --ft-po: #6E7A00; --ft-to: #2F5BB7; --ft-eq: #B5651D; --ft-so: var(--gazon); --ft-li: var(--muted); }
+:root[data-theme="nuit"] .ace { --ft-po: var(--balle); --ft-to: #8FB2FF; --ft-eq: #F0A35E; --ft-so: #6FC28F; --ft-li: var(--muted); }
+.ace .aci-po { color: var(--ft-po); } .ace .aci-to { color: var(--ft-to); } .ace .aci-so { color: var(--ft-so); } .ace .aci-eq { color: var(--ft-eq); } .ace .aci-li { color: var(--ft-li); }
+.aci { display: inline-flex; vertical-align: -3px; margin-right: 6px; } .aci svg { width: 16px; height: 16px; }
+.ace-tile { position: relative; } .ace-tile i svg { width: 22px; height: 22px; }
+/* Montée+ : le titre se lit, le chiffre est flouté */
+.acr.lk .acr-v, .acr.lk small, .acr.lk .acr-bar { filter: blur(5px); user-select: none; -webkit-user-select: none; }
+.ace-plt { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, #D4E64A 24%, transparent); color: var(--acc-ink); font-size: 11px; font-weight: 800; letter-spacing: .02em; }
+.ace-tile .ace-plt { position: absolute; top: 12px; right: 12px; }
+.acl { gap: 10px; }
+.acl-r { display: flex; align-items: center; gap: 12px; }
+.acl-av { position: relative; flex: none; }
+.acl-av > i, .ace-plb { position: absolute; right: -4px; top: -4px; width: 18px; height: 18px; border-radius: 50%; background: #D4E64A; color: #15170F; font: 800 14px/18px system-ui, sans-serif; font-style: normal; text-align: center; }
+.acl-t { flex: 1; min-width: 0; font-size: 14px; line-height: 1.4; color: var(--muted); } .acl-t b { color: var(--ink); }
+.acd-p { margin: 2px 0 6px; font-size: 15px; line-height: 1.45; color: var(--ink); }
+/* Ace plus vivant : on le touche, il rit ; abonné, son « + » ; sa réponse s'écrit mot à mot */
+.ace-tk { position: relative; flex: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ace-tk .ace-plb { width: 24px; height: 24px; font-size: 18px; line-height: 24px; right: -2px; top: 0; }
+.ace-fresh .aw { animation: awIn .26s var(--ease-out) both; animation-delay: calc(.95s + var(--i) * 28ms); }
+@keyframes awIn { from { opacity: 0; } }
