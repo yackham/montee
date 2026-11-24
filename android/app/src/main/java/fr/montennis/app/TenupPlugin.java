@@ -70,6 +70,24 @@ public class TenupPlugin extends Plugin {
         });
     }
 
+    /** 4.6.0 : une page Ten'Up (fft.fr) ouverte dans Montée, avec la session du joueur. */
+    @PluginMethod
+    public void openPage(final PluginCall call) {
+        final String u = call.getString("url");
+        android.net.Uri p = u == null ? null : android.net.Uri.parse(u);
+        if (p == null || !"https".equals(p.getScheme()) || p.getHost() == null || !p.getHost().endsWith("fft.fr")) { call.reject("adresse refusée"); return; }
+        getActivity().runOnUiThread(() -> {
+            TenupPageActivity.url = u;
+            TenupPageActivity.title = call.getString("title", "Ten'Up");
+            TenupPageActivity.callback = () -> {
+                JSObject r = new JSObject();
+                r.put("closed", true);
+                call.resolve(r);
+            };
+            getActivity().startActivity(new Intent(getActivity(), TenupPageActivity.class));
+        });
+    }
+
     @PluginMethod
     public void refresh(final PluginCall call) {
         String s = call.getString("script");

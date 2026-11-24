@@ -7552,3 +7552,44 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .card.pa-l.pa-hot .pa-tx span { color: var(--ink); font-weight: 600; }
 .card.pa-l.pa-hot .pa-av { position: relative; }
 .card.pa-l.pa-hot .pa-av::after { content: ""; position: absolute; right: -1px; top: -1px; width: 11px; height: 11px; border-radius: 6px; background: var(--balle); box-shadow: 0 0 0 2.5px var(--card); }
+
+/* 4.6.0 (premier jet, 25/11/2026) : trouver un tournoi, infos pratiques d'un tournoi. Lignes à plat, trait fin, pas de contour. */
+.tz-blk { padding: 2px 16px; }
+.tz-r { display: flex; align-items: center; gap: 12px; padding: 13px 0; }
+.tz-r + .tz-r { border-top: 1px solid var(--line); }
+.tz-r .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tz-r .t { font-size: 13px; font-weight: 700; color: var(--muted); }
+.tz-r .s { font-size: 15px; line-height: 1.4; color: var(--ink); }
+.tz-r .tz-n { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+.tz-r.tz-due .s { color: var(--terre); font-weight: 600; }
+.tz-r.tz-lk .s { color: var(--muted); }
+.tz-acts { display: flex; gap: 6px; flex: none; }
+.tz-act { appearance: none; border: 0; font: inherit; font-size: 13.5px; font-weight: 700; padding: 7px 12px; border-radius: 99px; color: color-mix(in srgb, var(--gazon) 80%, var(--ink)); background: color-mix(in srgb, var(--gazon) 12%, transparent); text-decoration: none; white-space: nowrap; }
+.tz-foot { margin: 8px 4px 0; line-height: 1.45; }
+.tz-f { display: flex; gap: 8px; flex-wrap: wrap; margin: -2px 0 2px; }
+.tz-chip { appearance: none; border: 0; font: inherit; font-size: 13.5px; font-weight: 700; padding: 8px 14px; border-radius: 99px; color: var(--ink); background: var(--card); }
+.tz-chip::after { content: " ▾"; font-size: 10px; opacity: .55; }
+.tz-cp { gap: 8px; }
+.tz-cpf { display: flex; gap: 8px; margin-top: 6px; }
+.tz-cpf input { flex: 1; min-width: 0; font: inherit; font-size: 17px; padding: 10px 14px; border-radius: 14px; border: 0; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); }
+.tz-ace { appearance: none; border: 0; font: inherit; text-align: left; color: inherit; display: flex; flex-direction: column; gap: 4px; }
+.tz-ace .eyebrow { color: var(--gazon); }
+.tz-ace b { font-size: 17px; }
+.tz-ace span:last-child { font-size: 14px; line-height: 1.45; color: var(--muted); }
+.tz-list { padding: 2px 0; }
+.tz-list .tz-t { appearance: none; border: 0; background: none; font: inherit; color: inherit; text-align: left; width: 100%; padding: 12px 14px; align-items: center; }
+.tz-list .tz-t + .tz-t { border-top: 1px solid var(--line); }
+.tz-t .t { white-space: normal; }
+.tz-t .tz-v { font-size: 13px; font-weight: 700; color: var(--gazon); }
+.tz-t .tz-w { font-size: 13px; font-weight: 700; color: var(--terre); }
+.tz-d { flex: none; width: 44px; display: flex; flex-direction: column; align-items: center; line-height: 1.1; padding: 6px 0; border-radius: 12px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.tz-d small { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.tz-d b { font-size: 18px; font-weight: 800; }
+.tz-tabs { margin-top: 6px; }
+.tz-tabs .ch-plus { font-size: 11px; }
+.tz-cta { margin-top: 4px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; border-radius: 22px; background: var(--card); font-size: 14px; line-height: 1.45; }
+.sheet .tz-sh .tz-r { padding: 12px 0; }
+.sheet .tz-sh { margin-bottom: 12px; }
+.sheet .tz-sh ~ .pa-cta b { font-size: inherit; letter-spacing: 0; }
+.sheet .tz-sh ~ .pa-cta .mp-pill { align-self: flex-start; margin-top: 6px; }
+.sheet .tz-sh ~ .btn.primary { margin-top: 14px; }

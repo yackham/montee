@@ -181,7 +181,7 @@
           var ep = (x.epreuves || [])[0] || {}, pa = x.paiement || {}, st = String(ep.etatInscriptionJoueur || ""), ins = x.installation || {};
           return { id: String(x.id || ""), name: x.libelle || "", from: x.dateDebut || "", to: x.dateFin || "", club: x.nomClub || "", city: ins.ville || "",
             cat: ep.categorieAge || "", nature: ep.nature && ep.nature.libelle || "", fee: ep.tarif || 0, state: st, wait: !!ep.statutEnAttente || /ATTENTE/.test(st), ok: !!ep.statutValide,
-            paid: !!pa.totalitePaye && !(pa.restantAPayer > 0), due: pa.restantAPayer || 0, idEp: ep.idEpreuve || null, n: (x.epreuves || []).length };
+            paid: !!pa.totalitePaye && !(pa.restantAPayer > 0), due: pa.restantAPayer || 0, idEp: ep.idEpreuve || null, n: (x.epreuves || []).length, more: tuInfos(x) }; // 4.6.0 : juge-arbitre, adresse
         });
       };
       // 3.46.4 : l'API JSON trouvée par le diagnostic v3 (/api/back/v2/profil/inscriptions-tournois) ; la page en secours
@@ -208,6 +208,34 @@
         }
         return ok({ list: map(o), at: Date.now() });
       }).catch(err);
+    }
+    if (KIND === "tournois") {
+      // 4.6.0 : recherche de tournois. L'adresse de l'API de recherche n'est pas encore relevée sur un vrai compte : on essaie
+      // la configuration déjà trouvée (A.cfg), puis des adresses probables ; en échec, on rend des indices lus dans le code du site.
+      var Bt = location.origin, triedT = [];
+      var body = { pratique: "TENNIS", dateDebut: A.from, dateFin: A.to, latitude: A.lat, longitude: A.lng, distance: A.km, rayon: A.km, codePostal: A.cp, from: 0, size: 100 };
+      var cands = A.cfg ? [A.cfg] : [{ u: "/api/back/public/v1/tournois/recherche", m: "POST" }, { u: "/api/back/v1/tournois/recherche", m: "POST" }, { u: "/api/back/v2/tournois/recherche", m: "POST" }, { u: "/api/back/public/v2/tournois/recherche", m: "POST" }];
+      var findList = function (j) { var out = null; (function walk(x, d) { if (out || !x || typeof x !== "object" || d > 4) return; if (Array.isArray(x) && x.length && x[0] && typeof x[0] === "object" && (x[0].dateDebut || x[0].epreuves)) { out = x; return; } Object.keys(x).forEach(function (k) { walk(x[k], d + 1); }); })(j, 0); return out; };
+      var tryOne = function (c) { return fetch(Bt + c.u, { method: c.m, credentials: "include", headers: { "Accept": "application/json", "Content-Type": "application/json" }, body: c.m === "POST" ? JSON.stringify(body) : undefined }).then(function (r) {
+        triedT.push(c.u + " " + r.status); if (r.status === 401 || r.status === 403) throw new Error("auth"); if (!r.ok) return null; return r.json().then(function (j) { var L = findList(j); return L ? { cfg: c, list: L } : null; }, function () { return null; });
+      }, function () { return null; }); };
+      var hints = function () { return fetch(Bt + "/recherche/tournois", { credentials: "include" }).then(function (r) { return r.text(); }).then(function (h) {
+        var srcs = [], rs = /<script[^>]+src="([^"]+)"/g, m; while ((m = rs.exec(h))) srcs.push(m[1]);
+        var found = {}; return Promise.all(srcs.slice(0, 40).map(function (u) { return fetch(/^https?:/.test(u) ? u : Bt + u).then(function (x) { return x.text(); }).then(function (t) {
+          var re = /["'`]([^"'`\s]{0,60}tournoi[^"'`\s]{0,60})["'`]/gi, mm; while ((mm = re.exec(t)) && Object.keys(found).length < 40) if (/\/api|back|recherche/i.test(mm[1])) found[mm[1]] = 1;
+          var b = t.search(/buildRecherche\w*Tournoi/i); if (b >= 0) found["@" + t.slice(b, b + 400)] = 1;
+        }).catch(function () {}); })).then(function () { return Object.keys(found); });
+      }).catch(function () { return []; }); };
+      return cands.reduce(function (ch, c) { return ch.then(function (r) { return r || tryOne(c); }); }, Promise.resolve(null)).then(function (r) {
+        if (r) return ok({ list: r.list.map(tsMap).filter(Boolean), cfg: r.cfg, at: Date.now() });
+        return hints().then(function (hs) { return ok({ list: null, tried: triedT, hints: hs, at: Date.now() }); });
+      }).catch(err);
+    }
+    if (KIND === "inscrits") {
+      // 4.6.0 : les inscrits d'une épreuve (adresse relevée sur le padel le 24/11/2026, même API Ten'Up pour le tennis : à vérifier)
+      return fetch(location.origin + "/api/back/v1/tournois/" + encodeURIComponent(A.t) + "/epreuves/" + encodeURIComponent(A.e) + "/joueurs-inscrits", { credentials: "include", headers: { "Accept": "application/json" } }).then(function (r) {
+        if (r.status === 401 || r.status === 403) throw new Error("auth"); if (!r.ok) throw new Error("http " + r.status); return r.json();
+      }).then(function (j) { var m = inscritsMap(j); if (!m) throw new Error("format"); m.at = Date.now(); return ok(m); }).catch(err);
     }
     if (KIND === "rencontre") {
       // 3.50 : la feuille de match d'une rencontre (simples, doubles). On essaie l'API publique, sinon l'état de la page Ten'Up.
@@ -876,10 +904,74 @@
     });
   }
 
+  // ---- 4.6.0 : tournois (infos pratiques, recherche, inscrits). Noms de champs Ten'Up non documentés : lecture par motif. ----
+  // Première valeur courte (texte ou nombre) dont la clé correspond, en profondeur limitée.
+  function tuPick(o, re, d) {
+    var out = null; d = d == null ? 3 : d;
+    (function walk(x, n) { if (out != null || !x || typeof x !== "object" || n > d) return; Object.keys(x).forEach(function (k) { if (out != null) return; var v = x[k];
+      if (re.test(k) && (typeof v === "string" || typeof v === "number") && String(v).trim() !== "" && String(v).length < 160) out = typeof v === "string" ? v.trim() : v; }); Object.keys(x).forEach(function (k) { if (out == null && x[k] && typeof x[k] === "object") walk(x[k], n + 1); }); })(o, 0);
+    return out;
+  }
+  // Premier sous-objet dont la clé correspond (le juge-arbitre, l'installation…)
+  function tuObj(o, re, d) {
+    var out = null; d = d == null ? 3 : d;
+    (function walk(x, n) { if (out || !x || typeof x !== "object" || n > d) return; Object.keys(x).forEach(function (k) { if (out) return; var v = x[k]; if (re.test(k) && v && typeof v === "object" && !Array.isArray(v)) out = v; }); Object.keys(x).forEach(function (k) { if (!out && x[k] && typeof x[k] === "object") walk(x[k], n + 1); }); })(o, 0);
+    return out;
+  }
+  // Juge-arbitre et lieu d'un tournoi (inscription ou résultat de recherche)
+  function tuInfos(x) {
+    var out = {}; if (!x || typeof x !== "object") return out;
+    var ja = tuObj(x, /juge.?arbitre|^ja$|arbitre/i);
+    if (ja) {
+      var nm = [ja.prenom, ja.nom].filter(Boolean).join(" ") || ja.nomComplet || ja.libelle || ja.nomPrenom || "";
+      var tel = tuPick(ja, /t[eé]l|phone|portable|mobile/i, 1), mail = tuPick(ja, /mail|courriel/i, 1);
+      if (nm || tel || mail) out.ja = { name: String(nm || "").trim(), tel: tel ? String(tel).replace(/[^\d+]/g, "") : "", mail: mail ? String(mail).trim() : "" };
+    }
+    var ins = x.installation || tuObj(x, /installation|lieu|site|adresse|club/i) || {};
+    var ad = ins.adresse && typeof ins.adresse === "object" ? ins.adresse : ins;
+    var l1 = [ad.adresse1 || ad.ligne1 || ad.rue || ad.voie || (typeof ad.adresse === "string" ? ad.adresse : ""), ad.adresse2 || ad.ligne2 || ""].filter(Boolean).join(", ");
+    var cp = ad.codePostal || ad.cp || "", city = ad.ville || ad.commune || ins.ville || "";
+    if (l1 || cp || city) out.addr = [l1, [cp, city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+    if (ins.nom || ins.libelle) out.place = ins.nom || ins.libelle;
+    var lat = +(tuPick(ins, /^lat(itude)?$/i, 2) || 0), lng = +(tuPick(ins, /^(lng|lon|long|longitude)$/i, 2) || 0);
+    if (lat && lng) { out.lat = lat; out.lng = lng; }
+    return out;
+  }
+  // Un tournoi trouvé par la recherche Ten'Up, en forme Montée
+  function tsMap(o) {
+    if (!o || typeof o !== "object") return null;
+    var rk = function (v) { if (!v) return ""; if (typeof v === "object") v = v.libelle || v.code || v.valeur || ""; return String(v).trim(); };
+    var eps = (o.epreuves || o.listeEpreuves || []).map(function (e) {
+      var mn = "", mx = "";
+      Object.keys(e || {}).forEach(function (k) { if (!/class/i.test(k)) return; if (/min|inf|bas|plancher|depart/i.test(k) && !mn) mn = rk(e[k]); else if (/max|sup|haut|plafond|limite/i.test(k) && !mx) mx = rk(e[k]); });
+      var nat = e.nature && (e.nature.libelle || e.nature) || "", sx = String(e.sexe && (e.sexe.libelle || e.sexe) || e.typeEpreuve || nat || e.libelle || "");
+      return { id: String(e.id || e.idEpreuve || ""), name: String(e.libelle || e.nom || nat || "Épreuve"), sex: /dame|femin|^f$|simple d/i.test(sx) ? "F" : /mess|mascul|^h$|^m$|simple m/i.test(sx) ? "H" : "",
+        dbl: /double|mixte/i.test(String(e.libelle || "") + " " + sx), cat: String(e.categorieAge && (e.categorieAge.libelle || e.categorieAge) || ""), min: mn, max: mx,
+        fee: +(e.tarif || e.prix || e.tarifAdulte || 0) || 0, n: +(e.nbInscrits || e.nombreInscrits || e.nbJoueursInscrits || 0) || 0 };
+    });
+    var lim = tuPick(o, /date.?limite|fin.?inscription|cloture.?inscription/i, 2);
+    var r = { id: String(o.id || o.idTournoi || o.numero || ""), name: String(o.libelle || o.nom || o.nomTournoi || "Tournoi"), from: String(o.dateDebut || o.debut || "").slice(0, 10), to: String(o.dateFin || o.fin || "").slice(0, 10),
+      club: String(o.nomClub || (o.club && (o.club.nom || o.club.libelle)) || o.organisateur && o.organisateur.nom || ""), limit: lim ? String(lim).slice(0, 10) : "", eps: eps };
+    var inf = tuInfos(o); Object.keys(inf).forEach(function (k) { r[k] = inf[k]; });
+    r.city = String(tuPick(o.installation || o, /^(ville|commune)$/i, 2) || "");
+    var km = tuPick(o, /^distance(km)?$/i, 1); if (km != null && !isNaN(+km)) r.km = Math.round(+km);
+    return r.id && r.from ? r : null;
+  }
+  // Liste des inscrits d'une épreuve : classements (tableau, puis liste d'attente). Les noms ne sont pas gardés.
+  function inscritsMap(j) {
+    if (!j || typeof j !== "object") return null;
+    var rk = function (p) { var c = p && (p.classement || p.classementTennis || p.classementSimple); if (c && typeof c === "object") c = c.libelle || c.code; return c ? String(c).trim() : String(tuPick(p, /classement/i, 2) || ""); };
+    var arr = function (v) { return Array.isArray(v) ? v : []; };
+    var main = arr(j.tableau).concat(arr(j.qualifications)).concat(arr(j.inscrits)).concat(arr(j.joueurs)).concat(Array.isArray(j) ? j : []);
+    var wait = arr(j.listeAttente);
+    var flat = function (L) { var out = []; L.forEach(function (x) { if (!x) return; var pl = x.joueur1 || x.joueur || x.personne || x; out.push({ r: rk(pl), id: String(pl.idCrm || pl.id || "") }); }); return out; };
+    return { list: flat(main).filter(function (x) { return x.r; }), wait: flat(wait).length };
+  }
+
   var VERSION = "2.4";
   // Version pour l'app iPhone : corps d'une fonction async (WKWebView callAsyncJavaScript)
   // Le script embarque la recherche v2, utilisée en repli par tenupFetch
-  function src(fn) { return "var champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
+  function src(fn) { return "var tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
   // 3.47 : page de maintenance / file d'attente Ten'Up : on le dit au lieu de « Ten'Up n'a pas répondu »
   var MAINT = "var __mt = (document.title || \"\") + \" \" + Array.prototype.map.call(document.querySelectorAll(\"h1,h2\"), function (e) { return e.innerText; }).slice(0, 3).join(\" \");\n" +
     "if (/maintenance|mise à jour du site|file d'attente|queue-it|service (momentanément )?indisponible/i.test(__mt) || /maintenance/i.test(location.pathname)) return \"MONTEE-ERR maintenance\";\n";
@@ -1104,7 +1196,7 @@
   // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
   function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { tuInfos: tuInfos, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);
