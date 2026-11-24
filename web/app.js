@@ -1624,6 +1624,8 @@
   var FR_TICKETS = true; // 3.57 : « Ce qui arrive » en billets de convocation, prêt mais en attente de l'avis de Yann (true pour l'activer)
   function friseHtml() {
     var L = friseItems(); if (!L.length) return "";
+    // 4.4.3 (Yann, A6) : la frise commence par un vrai rendez-vous ; un badge presque obtenu passe en fin de frise (« Presque »)
+    var bdL = L.filter(function (z) { return z.bd; }); if (bdL.length && bdL.length < L.length) L = L.filter(function (z) { return !z.bd; }).concat(bdL.map(function (z) { return Object.assign({}, z, { late: 1 }); }));
     var td = E.iso(today());
     var hd = function (d) { var g = dGap(d), x = E.parseDate(d); return g === 0 ? "Aujourd'hui" : g === 1 ? "Demain" : JOURS[x.getDay()].slice(0, 3) + ". " + dN(x) + " " + MOIS[x.getMonth()]; };
     var col = function (z, i) {
@@ -1649,7 +1651,7 @@
       // 3.59 (Yann, piste B) : le type se lit au surtitre : son picto devant, et sa couleur (texte seulement)
       var ty = z.bd ? "bd" : z.team ? "eq" : z.rel ? "so" : z.t ? (/^Poule/.test(eye || "") || (z.t.fmt === "poule" && z.todo) ? "po" : "to") : "li";
       var tyIc = { eq: TEAM_IC, so: FR_REL, po: FT_IC.po, to: FT_IC.to, li: FT_IC.li, bd: FT_IC.bd }[ty];
-      return '<a class="fr-c ft-c ft-' + ty + (z.dim ? " dim" : "") + (z.d === td ? " now" : "") + '" href="' + z.href + '"><span class="fr-h"><i></i>' + (same ? "" : esc(rel(z.d)) + (z.live ? " · en direct" : "")) + "</span>" +
+      return '<a class="fr-c ft-c ft-' + ty + (z.dim ? " dim" : "") + (z.d === td && !z.late ? " now" : "") + '" href="' + z.href + '"><span class="fr-h"><i></i>' + (z.late ? "Presque" : same ? "" : esc(rel(z.d)) + (z.live ? " · en direct" : "")) + "</span>" +
         '<span class="ft"><span class="ft-top"><span class="ft-d"><small>' + esc(JOURS[x.getDay()].slice(0, 3)) + ".</small><b>" + x.getDate() + "</b><span>" + esc(MOIS[x.getMonth()]) + '</span></span><span class="ft-v"></span>' +
         '<span class="ft-m"><em><span class="ft-ic">' + tyIc + '</span><span class="ft-et">' + esc(eye || "") + "</span></em><b>" + esc(title) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></span>" +
         (bot ? '<span class="ft-perf"></span><span class="ft-bot">' + bot + "</span>" : "") + "</span></a>";
