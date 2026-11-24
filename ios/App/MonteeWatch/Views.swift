@@ -5,6 +5,8 @@ extension Color {
     static let balle = Color(red: 0.831, green: 0.902, blue: 0.290)
     static let gazon = Color(red: 0.435, green: 0.761, blue: 0.561)
     static let terre = Color(red: 0.910, green: 0.541, blue: 0.369)
+    /// 4.2.6 : bleu « dur » du code couleur (niveau, dates, chances), comme l'iPhone en Nuit
+    static let bleuDur = Color(red: 0.553, green: 0.706, blue: 1.0)
     static let card = Color(white: 0.16)
     static let encre = Color(red: 0.043, green: 0.141, blue: 0.086)
 }
@@ -584,9 +586,18 @@ struct OppDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 let revanche = (nx.fd ?? 0) > (nx.fv ?? 0) && !nx.when.isEmpty
-                DetailTitle(t: nx.when.isEmpty ? "Consulté récemment" : "Ton match · " + nx.when + (revanche ? " · la revanche" : ""), color: revanche ? .balle : .secondary)
-                Text(nx.name).font(.system(size: 19, weight: .heavy)).lineLimit(2)
-                if !nx.rank.isEmpty { Text(nx.rank + (nx.p.map { " · \($0) % de chances" } ?? "")).font(.system(size: 12, weight: .bold)).foregroundColor(.secondary) }
+                // 4.2.6 (identité, maquette validée) : date en bleu dur, Ace à côté du nom, balle devant le classement, chances en bleu
+                DetailTitle(t: nx.when.isEmpty ? "Consulté récemment" : "Ton match · " + nx.when + (revanche ? " · la revanche" : ""), color: revanche ? .balle : (nx.when.isEmpty ? .secondary : .bleuDur))
+                HStack(alignment: .center, spacing: 6) {
+                    Text(nx.name).font(.system(size: 19, weight: .heavy)).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                    AceBall(mood: (nx.p ?? 50) >= 40 ? "joie" : "repos", size: 28)
+                }
+                if !nx.rank.isEmpty {
+                    HStack(spacing: 5) {
+                        RankTag(r: nx.rank, size: 12).foregroundColor(.secondary)
+                        if let p = nx.p { Text("·").font(.system(size: 12, weight: .bold)).foregroundColor(.secondary); Text("\(p) % de chances").font(.system(size: 12, weight: .bold)).foregroundColor(.bleuDur) }
+                    }
+                }
                 // 3.49 (maquette validée) : votre face-à-face en tête
                 if let v = nx.fv, let d = nx.fd { FafBlock(v: v, d: d, seq: nx.fseq ?? "", last: nx.last) }
                 if nx.mode == "impossible" || nx.mode == "abyssal" {
@@ -2412,16 +2423,48 @@ struct CalTicket: View {
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
             VStack(alignment: .leading, spacing: 1) {
-                Eyebrow(t: head, color: x.k == "rel" ? .balle : .gazon)
-                Text(x.t).font(.system(size: 13.5, weight: .heavy)).lineLimit(2)
+                // 4.2.6 (identité, maquette validée) : dates en bleu dur, badge presque gagné en jaune balle (sans contour),
+                // balle devant le classement, points en vert gazon et chances en bleu
+                Eyebrow(t: x.k == "badge" ? (x.e ?? head) : head, color: x.k == "badge" || x.k == "rel" ? .balle : .bleuDur)
+                CalTitle(t: x.t)
                 if !sub.isEmpty { Text(sub).font(.system(size: 10.5, weight: .semibold)).foregroundColor(.secondary).lineLimit(1) }
-                if let st = x.st, !st.isEmpty { Text(st).font(.system(size: 11, weight: .heavy)).foregroundColor(.balle).lineLimit(1) }
+                if let st = x.st, !st.isEmpty { StakeLine(st: st) }
             }
             Spacer(minLength: 0)
             if play { Image(systemName: "play.circle.fill").font(.system(size: 20)).foregroundColor(.balle) }
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.card))
+    }
+}
+
+/// 4.2.6 : titre d'un billet, avec la petite balle devant un classement final (« Un 15/4 »)
+struct CalTitle: View {
+    let t: String
+    var body: some View {
+        let parts = t.split(separator: " ").map(String.init)
+        if parts.count >= 2, let last = parts.last, RANKS.contains(last) {
+            HStack(spacing: 4) {
+                Text(parts.dropLast().joined(separator: " ")).font(.system(size: 13.5, weight: .heavy)).lineLimit(1)
+                RankTag(r: last, size: 13.5)
+            }
+        } else {
+            Text(t).font(.system(size: 13.5, weight: .heavy)).lineLimit(2)
+        }
+    }
+}
+
+/// 4.2.6 : l'enjeu d'un billet (« +5 pts · 68 % ») : les points en vert gazon, les chances en bleu dur
+struct StakeLine: View {
+    let st: String
+    var body: some View {
+        let parts = st.components(separatedBy: " · ")
+        HStack(spacing: 3) {
+            ForEach(Array(parts.enumerated()), id: \.offset) { i, s in
+                if i > 0 { Text("·").foregroundColor(.secondary) }
+                Text(s).foregroundColor(s.contains("%") ? .bleuDur : s.contains("pt") ? .gazon : .balle)
+            }
+        }.font(.system(size: 11, weight: .heavy)).lineLimit(1)
     }
 }
 

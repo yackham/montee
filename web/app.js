@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.2.5",
+    VERSION: "4.2.6",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -271,8 +271,8 @@
     try { if (v && I.c1 && p1.next && p1.status !== "montee" && p1.status !== "top") ez = easiest(pistes(I.c1)); } catch (e) {}
     var bub = v ? (bd ? "Belle perf !" : "Jeu, set et match !") : "On repart.", h = "";
     h += '<span class="ace-peek" aria-hidden="true">' + coBall("mm:" + m.id, v ? "joie" : "concentree") + '<span class="ace-bub">' + bub + "</span></span>";
-    h += '<span class="mmt-pl"><span class="eyebrow id-pill ' + (v ? "c-gazon" : "c-terre") + '">' + (v ? "Victoire" : "Défaite") + "</span>" +
-      (v && bd ? '<span class="eyebrow id-pill c-acc">Perf · ' + rkTagOf(m) + "</span>" : "") + "</span>";
+    h += '<span class="mmt-pl"><span class="eyebrow id-pill id-tag ' + (v ? "c-gazon" : "c-terre") + '"><span>' + (v ? "Victoire" : "Défaite") + "</span></span>" +
+      (v && bd ? '<span class="eyebrow id-pill id-tag c-acc"><span>Perf · ' + rkTagOf(m) + "</span></span>" : "") + "</span>";
     h += sbHtml(m, sets, v);
     if (v && I.d > 0) h += '<span class="mmt-g"><b class="c-gazon">+' + I.d + " pts</b><span>bilan " + esc(I.label) + " : " + I.total + " / " + I.norme + "</span></span>" + ballBar(I.total * 100 / I.norme);
     else if (!v && I.norme && !I.msg) h += '<span class="mmt-l">Ton bilan ' + esc(I.label) + " ne bouge pas : <b>" + I.total + " / " + I.norme + "</b>. Rien n'est retiré.</span>";
@@ -3019,7 +3019,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       // 4.2.4 (passe 2, Yann 23/11/2026) : le conseil d'Ace garde tout son texte ; Ace se pose sur la carte du bilan quand elle existe
       var trS = poule ? "pl" : "tb", trT = ren ? null : coTrTips(t, pot, c), trB = "";
       if (pot > 0 && c.proj.status !== "top" && c.proj.next) { var now = c.proj.next.total, nm = c.proj.next.norme, pc = Math.min(100, Math.round(now * 100 / Math.max(1, nm))), pc2 = Math.min(100, Math.round((now + pot) * 100 / Math.max(1, nm)));
-        trB = '<div class="card tq-bil"><div class="tq-bh"><span class="eyebrow id-pill c-dur">Ton bilan ' + esc(lab(tgtI)) + '</span><b>' + now + ' → <span style="color:var(--gazon)">' + (now + pot) + "</span> / " + nm + '</b></div><span class="tq-bar"><i style="width:' + pc + '%"></i><i class="p" style="width:' + Math.max(0, pc2 - pc) + '%"></i></span><span class="small">' + (now + pot >= nm ? "Si tu gagnes tous tes matchs prévus, tu passes la norme " + esc(lab(tgtI)) + "." : "Si tu gagnes tous tes matchs prévus.") + "</span></div>";
+        trB = '<div class="card tq-bil"><div class="tq-bh"><span class="eyebrow id-pill id-dot c-dur">Ton bilan ' + esc(lab(tgtI)) + '</span><b>' + now + ' → <span style="color:var(--gazon)">' + (now + pot) + "</span> / " + nm + '</b></div><span class="tq-bar"><i style="width:' + pc + '%"></i><i class="p" style="width:' + Math.max(0, pc2 - pc) + '%"></i></span><span class="small">' + (now + pot >= nm ? "Si tu gagnes tous tes matchs prévus, tu passes la norme " + esc(lab(tgtI)) + "." : "Si tu gagnes tous tes matchs prévus.") + "</span></div>";
       }
       s += ren ? trB : trB ? dockAce(trB, trS, trT) : coachBubble(trS, trT); // 3.73
       if (t.ins) s += '<div class="ins-st"><span class="ins-p' + (t.wait ? " w" : t.ins.due > 0 ? " d" : "") + '">' + esc(insLab(t)) + "</span><span class=\"small\">" + esc([t.ins.cat, t.ins.club && t.ins.club !== t.ins.city ? insCase(t.ins.club) : "", insCase(t.ins.city || "")].filter(Boolean).join(" · ")) + '</span></div>';
@@ -3503,7 +3503,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     S.aceSeen = 1;
     // 4.2.4 (passe 2) : les 3 promesses avec leur couleur et un exemple chiffré, dans une seule carte
     var RK = function (r) { return '<b class="rk-tag">' + r + "</b>"; }, CAL = '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4.5" width="14" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 8.5h14M7 2.8v3M13 2.8v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
-    var it = function (c, k, demo, b, t) { return '<div class="w-r"><span class="eyebrow id-pill ' + c + '">' + k + '</span><span class="w-demo">' + demo + "</span><p><b>" + b + "</b> " + t + "</p></div>"; };
+    var it = function (c, k, demo, b, t) { return '<div class="w-r"><span class="eyebrow id-pill id-dot ' + c + '">' + k + '</span><span class="w-demo">' + demo + "</span><p><b>" + b + "</b> " + t + "</p></div>"; };
     return '<div class="screen welcome w-ace">' +
       '<div class="brand">' + I.logo(30) + "montée</div>" +
       '<div class="welcome-ill w-ball">' + coBall("w:intro", "arrivee", "xl") + '<span class="ace-bub w-bub">Salut !</span></div>' +
@@ -3986,7 +3986,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var wkH0 = ""; if (S.matches.length && p.status !== "top") { try { wkH0 = weekHtml(c); } catch (e) { wkH0 = ""; } }
     s += (pauseOn() ? pauseAceHtml() : pauseAceHtml() || (wkH0 ? "" : aceHomeCard())) + pauseHomeHtml(c) + btwHtml(); // 3.82.1 : Ace sous le Salut ; 3.94 : en pause, la reprise, entre deux matchs
     if (!S.matches.length) {
-      s += '<div class="card balle"><span class="eyebrow">Pour commencer</span><span style="font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.2">Récupère tes matchs des 12 derniers mois.</span><span style="font-size:15px">Sans eux, impossible de savoir si tu montes.</span></div>' +
+      // 4.2.6 (identité passe 3, validé) : Ace accueille, et pendant la 1re lecture Ten'Up il dit qu'il lit (sans faux chiffres)
+      if (UI.loading && S.tenup.linked) return s + '<div class="card id-dock vx-sync" role="status"><span class="ace-peek" aria-hidden="true">' + coBall("vx:sync", "concentree") + '<span class="ace-bub">Je lis…</span></span>' +
+        '<span class="eyebrow id-pill c-dur">Ten\'Up · synchro</span><b class="vx-t">Je lis tes matchs des 12 derniers mois</b><div class="vx-bar"><i></i></div>' +
+        '<span class="vx-s">Ça prend une vingtaine de secondes. Ensuite je calcule ton vrai niveau et ta sortie.</span></div></div>' + tabbar("home");
+      s += '<div class="card id-dock vx-start"><span class="ace-peek" aria-hidden="true">' + coBall("vx:start", "joie") + '<span class="ace-bub">On commence ?</span></span>' +
+        '<span class="eyebrow id-pill c-acc">Pour commencer</span><b class="vx-t">Récupère tes matchs des 12 derniers mois.</b><span class="vx-s">Sans eux, impossible de savoir si tu montes.</span>' +
+        '<div class="vx-ln"><span><b class="c-dur">1.</b> Je lis tes matchs des 12 derniers mois</span><span><b class="c-gazon">2.</b> Je calcule ton vrai niveau et ta sortie</span><span><b class="c-acc">3.</b> Je te dis quoi aller chercher</span></div></div>' +
         '<div class="stack"><a class="btn primary" href="#/tenup">' + I.link + " Récupérer depuis Ten'Up</a>" +
         '<button class="btn soft" data-a="newMatch">' + I.plus + " Ajouter un match à la main</button>" +
         '<button class="linkbtn" data-a="demo">Essayer avec un exemple</button></div>';
@@ -5069,7 +5075,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       s += '<div class="blk">' + (rec.length ? rec.map(function (x) { var pr = x.sc.profil || {}, nm = [pr.prenom, pr.nom].filter(Boolean).join(" "); return '<button class="row" data-a="recOpen" data-id="' + esc(x.id) + '"><span class="ini">' + esc(initials(nm)) + '</span><span class="grow"><span class="t">' + esc(nm) + ' <span class="muted" style="font-weight:400">· ' + esc(pr.classement || "") + '</span></span><span class="s">' + esc(pr.club || "") + "</span></span>" + I.next + "</button>"; }).join("") : '<span class="small" style="padding:10px 0">Les fiches que tu ouvres apparaîtront ici.</span>') + "</div>";
     } else if (!searching && !oppIndex().length) {
       // 3.57 (audit parcours P5, validé) : l'onglet vide dit à quoi il sert et comment le remplir
-      s += '<div class="card emp-c"><b>Ici, tous ceux que tu as joués, et ce qu\'ils deviennent</b><p>Ton bilan contre chacun, leur classement qui bouge, ta revanche. La liste se remplit avec tes matchs.</p>' +
+      s += '<div class="card emp-c id-dock"><span class="ace-peek" aria-hidden="true">' + coBall("vx:faf", "joie") + '<span class="ace-bub">Ils arrivent !</span></span><b>Ici, tous ceux que tu as joués, et ce qu\'ils deviennent</b>' +
+        '<div class="vx-ghost" aria-hidden="true">' + [0, 1, 2].map(function () { return '<div class="vx-g"><b></b><span><i></i><i></i></span><em></em></div>'; }).join("") + '</div><p>Ton bilan contre chacun, leur classement qui bouge, ta revanche. La liste se remplit avec tes matchs.</p>' +
         (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button>' +
         (S.tenup.linked ? "" : '<span class="small">Pour chercher un joueur par son nom, Montée lit Ten\'Up avec ta session : connecte ton compte d\'abord.</span>') + "</div>";
     } else s += (searching ? "" : h2hHtml(true)) + '<div class="blk" id="faf-known">' + knownRows(done ? "" : q.q) + "</div>"; // 3.48.8 (Yann) : les face-à-face quittent les Courbes pour « Tes adversaires »
@@ -5804,7 +5811,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var lossTxt = lo < 0 ? (down ? "Tu perdrais ta montée : défaite" : "Défaite") + " contre moins bien classé, une victoire de moins comptée" : hi >= D.me ? "Défaite contre un joueur de ton échelon ou au-dessus : rien n'est retiré" : "Elle ne change pas ton bilan";
     var tail = up1 ? "<b>Une victoire te fait monter " + nx.label + ".</b>" : gap > 0 && g > 0 ? "Après une victoire, <b>il te manquera " + gap + " pts pour monter " + nx.label + "</b>." : gap > 0 ? "Il te manque " + gap + " pts pour monter " + nx.label + "." : "";
     var him = hi < D.me ? "Pour lui : te battre vaudrait une perf (+" + E.BAREME.win(D.me - hi - 1) + " pts). Il jouera libéré." : hi === D.me ? "Pour lui aussi, c'est un match à son échelon." : "Pour lui : il a plus à perdre que toi.";
-    return '<div class="card key ff-stake"><span class="eyebrow id-pill c-gazon">Ce qui se joue pour toi</span><div class="stk2"><div class="sb g"><span class="k">Si tu gagnes</span><b>' + (g > 0 ? "+" + g : "0") + " pt" + (Math.abs(g) > 1 ? "s" : "") + "</b><span>" + esc(winTxt) + '</span></div><div class="sb t"><span class="k">Si tu perds</span><b>' + (lo < 0 ? lo : "0") + " pt" + (Math.abs(lo) > 1 ? "s" : "") + "</b><span>" + esc(lossTxt) + "</span></div></div>" +
+    return '<div class="card key ff-stake"><span class="eyebrow id-pill id-tag c-gazon"><span>Ce qui se joue pour toi</span></span><div class="stk2"><div class="sb g"><span class="k">Si tu gagnes</span><b>' + (g > 0 ? "+" + g : "0") + " pt" + (Math.abs(g) > 1 ? "s" : "") + "</b><span>" + esc(winTxt) + '</span></div><div class="sb t"><span class="k">Si tu perds</span><b>' + (lo < 0 ? lo : "0") + " pt" + (Math.abs(lo) > 1 ? "s" : "") + "</b><span>" + esc(lossTxt) + "</span></div></div>" +
       '<div class="prog"><i style="width:' + pct(nx.total) + '%;background:var(--gazon)"></i>' + (g > 0 ? '<i style="left:' + pct(nx.total) + "%;width:" + Math.max(0, pct(after) - pct(nx.total)) + '%;background:color-mix(in srgb,var(--gazon) 45%,transparent)"></i>' : "") + '</div><div class="pl"><span>' + nx.total + " aujourd'hui</span>" + (g > 0 ? '<span class="g">' + after + " si tu gagnes</span>" : "") + "<span>" + nx.norme + " pour " + esc(nx.label) + "</span></div>" +
       (tail ? '<span class="p">' + tail + "</span>" : "") + '<span class="small">' + esc(him) + "</span></div>";
   }
@@ -8229,7 +8236,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     pl = plans().filter(function (x) { return x.name && dGap(x.day) >= 0; }).sort(function (a, b) { return a.day < b.day ? -1 : 1; })[0];
     // 4.2.4 (passe 2) : chaque rubrique prend sa couleur (avant le match = balle, sur le court = gazon, pour monter = dur), ses pictos aussi
     var SC = { "Sur le court": "gazon", "Pour monter": "dur" }, sc = "acc";
-    var sec = function (t) { sc = SC[t] || "acc"; return '<div class="pw-sec pw-secp"><span class="eyebrow id-pill c-' + sc + '">' + t + "</span></div>"; }, RM = {}, row = function (r) { var h = pwRow(r).replace('class="pw-it"', 'class="pw-it pw-' + sc + '"'); RM[r.ic] = h; return h; };
+    var sec = function (t) { sc = SC[t] || "acc"; return '<div class="pw-sec pw-secp"><span class="eyebrow id-pill id-dot c-' + sc + '">' + t + "</span></div>"; }, RM = {}, row = function (r) { var h = pwRow(r).replace('class="pw-it"', 'class="pw-it pw-' + sc + '"'); RM[r.ic] = h; return h; };
     out += sec(pl ? "Avant ton prochain match" : "Avant tes matchs");
     out += row({ ic: "plan", ey: pl ? "Contre " + pl.name + (pl.rank ? " · " + pl.rank : "") + " · " + dayLab(pl.day) : "Sur la fiche de chaque adversaire", t: "Ton plan de match complet", s: "Ton service, son service, l'échange, les moments, le plan B. Chaque conseil avec sa preuve.", me: open ? "" : "Plan B : si tu es mené de 3 jeux, " + pwX("ce que tu changes") + "." });
     out += row({ ic: "goal", ey: "Tes objectifs de jeu", t: "Suivis match après match", s: "Tu les choisis gratuitement. Montée+ te montre ce que tu tiens sur la durée." });
@@ -8268,7 +8275,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       return s + "</div>";
     }
     // 4.2.4 (passe 2) : Ace se pose sur la carte, et 2 preuves tirées de tes matchs
-    var proof = R.has ? '<span class="sup-proof"><span class="eyebrow id-pill c-gazon">' + plural(R.n, "match lu", "matchs lus") + "</span>" + (R.cp && !R.cp.done ? '<span class="eyebrow id-pill c-dur">Ton cap · ' + plural(R.cp.n, "victoire") + "</span>" : "") + "</span>" : "";
+    var proof = R.has ? '<span class="sup-proof"><span class="eyebrow id-pill id-dot c-gazon">' + plural(R.n, "match lu", "matchs lus") + "</span>" + (R.cp && !R.cp.done ? '<span class="eyebrow id-pill id-dot c-dur">Ton cap · ' + plural(R.cp.n, "victoire") + "</span>" : "") + "</span>" : "";
     s += '<div class="card sup-hero id-dock"><span class="ace-peek" aria-hidden="true">' + coBall("sup:hero", "joie") + '</span><span class="eyebrow id-pill c-acc">Montée+' + (S.profile.name ? " · pour " + esc(S.profile.name) : "") + "</span><b>" +
       (R.has ? "Ace a lu tes " + plural(R.n, "match", "matchs") + ". Voilà ce qu'il ferait pour toi." : "Ace, de la préparation au dernier point.") + '</b><span class="small">' +
       (R.has ? "Tout ce qui suit vient de tes matchs. Les chiffres cachés s'ouvrent avec l'essai." : "Dès tes premiers matchs, tout ce qui suit parle de toi.") + "</span>" + proof + "</div>";
@@ -8971,12 +8978,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (p.status === "top") return '<div class="screen">' + topbar("Projection") + '<p class="lead">Les joueurs numérotés sont classés au concours des meilleurs bilans : pas de simulation possible.</p></div>';
     var cur = c.cur < 0 ? 0 : c.cur, nx = p.next;
     var head = p.status === "montee" ? "Tu montes à " + lab(p.projected) : p.status === "descente" ? "Risque de descente à " + lab(p.projected) : (p.gap ? "Il te manque " + plural(p.gap, "point") + " pour " + nx.label : "Il te manque une victoire contre un " + nx.label);
-    var s = '<div class="screen">' + topbar(head.replace(/(\d+ points?)/, "<em>$1</em>"), "Sortie du " + flong(p.release)).replace(/&lt;em&gt;|&lt;\/em&gt;/g, function (x) { return x.indexOf("/") > 0 ? "</em>" : "<em>"; });
+    var tb = topbar(head.replace(/(\d+ points?)/, "<em>$1</em>"), "Sortie du " + flong(p.release)).replace(/&lt;em&gt;|&lt;\/em&gt;/g, function (x) { return x.indexOf("/") > 0 ? "</em>" : "<em>"; });
+    // 4.2.6 (identité passe 3) : le haut de Ma montée (titre, barre, bonus) dans une carte, le texte ne repose plus sur le fond du thème
+    var h1i = tb.indexOf("<h1");
+    var s = '<div class="screen">' + tb.slice(0, h1i) + '<div class="card pj-headc">' + tb.slice(h1i);
     var hb = p.status === "descente" ? p.here : nx;
     // 3.34 : barre à balle sous le titre
     s += '<div class="pj-bar">' + ballBar(hb.norme ? Math.min(100, hb.total * 100 / hb.norme) : 0, hb.total + " sur " + hb.norme, p.status === "descente" ? "var(--terre)" : "var(--hacc3)") +
       '<div class="pj-leg"><span>' + (p.status === "descente" ? "Pour rester " : "Pour monter ") + esc(hb.label) + " : <b>" + hb.total + "</b> / " + hb.norme + " pts</span><span>" + plural(hb.n, "victoire comptée", "victoires comptées") + "</span></div>" + whyAtLevel(hb.label, p.status === "descente") +
-      (function () { var bt = (hb.bonusCh || 0) + (hb.bonusDbl || 0) + (hb.bonusSD || 0); return bt ? '<button class="bo-inbar" data-a="boGo">dont <b>+' + bt + " pts de bonus</b> · le détail " + I.next + "</button>" : ""; })() + "</div>";
+      (function () { var bt = (hb.bonusCh || 0) + (hb.bonusDbl || 0) + (hb.bonusSD || 0); return bt ? '<button class="bo-inbar" data-a="boGo">dont <b>+' + bt + " pts de bonus</b> · le détail " + I.next + "</button>" : ""; })() + "</div>" + "</div>";
 
     // 3.73 (Yann, maquettes validées) : « Ma montée » : projection, Et si… et bon moment sur une seule page, en 3 onglets
     var tab = ["pistes", "etsi", "quand"].indexOf(UI.mmTab) >= 0 ? UI.mmTab : "pistes";
@@ -11740,7 +11750,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (!S.matches.length) {
       // 3.57 (audit parcours P5, maquette 4 validée) : ce qui t'attend ici, dès combien de matchs, et les boutons pour commencer
       var cvL = function (a, b) { return '<div class="cv-li"><i></i><span><b>' + a + '</b><span class="small">' + b + "</span></span></div>"; };
-      return s + '<div class="card cv-empty"><span class="eyebrow">Ce qui t\'attend ici</span><b class="m2-t">Tes courbes s\'allument dès 3 matchs</b>' +
+      return s + '<div class="card cv-empty id-dock"><span class="ace-peek" aria-hidden="true">' + coBall("vx:cv", "joie") + '<span class="ace-bub">Encore 3 matchs</span></span>' +
+        '<span class="eyebrow id-pill c-dur">Ce qui t\'attend ici</span><b class="m2-t">Tes courbes s\'allument dès 3 matchs</b>' +
+        '<svg class="vx-curve" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><path d="M4 58 C60 52 90 30 140 34 S230 12 296 8" fill="none" stroke="var(--muted)" stroke-width="2.5" stroke-dasharray="5 7" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="296" cy="8" r="6" fill="#D4E64A"/></svg>' +
+        '<div class="vx-sl">' + idSlots(3, 0) + '<span>0 match sur 3 pour allumer tes courbes</span></div>' +
         cvL("Ton classement réel", "à quel niveau tu joues vraiment · dès 3 matchs") + cvL("Ton bilan et la prochaine sortie", "combien de points il te manque · dès 1 match") +
         cvL("Face à chaque classement", "contre qui tu gagnes plus que prévu · dès 3 matchs") + cvL("Tes records et ta forme", "plus belle victoire, séries · dès 1 match") +
         '<div class="cv-btns">' + (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button></div>' +
@@ -16923,8 +16936,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // ---------- Thèmes ----------
   var THEMES = [["auto", "Auto", "Lin le jour, Nuit le soir"], ["lin", "Lin", "Clair, le classique"], ["nuit", "Nuit", "Sombre"], ["terre", "Terre battue", "Fond d'argile ocre, vert profond", 1], ["dur", "Dur", "Bleu court sous les projecteurs", 1], ["gazon", "Gazon", "Blanc et gazon tondu", 1],
     ["indoor", "Indoor", "Bleu court couvert, lignes blanches", 1], ["nocturne", "Nocturne", "Ciel étoilé, lumière de projecteur", 1], ["retro", "Rétro", "Crème, bordeaux et vert sapin", 1]];
-  var THEME_SW = { lin: ["#F6F2EC", "#FFFFFF", "#1F5C3F", "#D4E64A"], nuit: ["#17181C", "#272930", "#6FC28F", "#D4E64A"], terre: ["#A34E27", "#FFFFFF", "#0B4D35", "#FFF4E8"], dur: ["#2F5584", "#FFFFFF", "#E3F25B", "#EAF1FB"], gazon: ["#F7F7F2", "#FFFFFF", "#006633", "#0F4A28"],
-    indoor: ["#0B1A3F", "#13285C", "#D4E64A", "#1A3576"], nocturne: ["#070A1C", "#12173A", "#E9F06A", "#1A1F48"], retro: ["#F1E7D2", "#FBF5E7", "#7B1E2C", "#1F4D3A"] };
+  var THEME_SW = { lin: ["#F2ECE1", "#FFFDF9", "#1F5C3F", "#D4E64A"], nuit: ["#17181C", "#2A2C34", "#6FC28F", "#D4E64A"], terre: ["#A44B25", "#FFFBF7", "#0B4D35", "#FFF4E8"], dur: ["#1A4580", "#FFFFFF", "#E3F25B", "#EAF1FB"], gazon: ["#F7F7F2", "#FFFFFF", "#006633", "#0F4A28"],
+    indoor: ["#0A1736", "#1B3874", "#D4E64A", "#1A3576"], nocturne: ["#070A1C", "#151B44", "#E9F06A", "#1A1F48"], retro: ["#F1E7D2", "#FBF5E7", "#7B1E2C", "#1F4D3A"] };
   // Thèmes Supporter : bâtis sur Nuit ou Lin, avec leurs propres couleurs (attribut data-skin)
   var SKIN_BASE = { indoor: "nuit", nocturne: "nuit", retro: "lin" };
   var darkMq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
@@ -17728,7 +17741,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (k === "analyse") return nvc('<span class="nv-k" style="color:#6FC28F">L\'ANALYSE DU MATCH</span><b style="font-size:18px;line-height:1.25">Grosse perf : tu as stoppé un joueur en pleine bourre.</b><span style="font-size:13px;opacity:.85">Il restait sur 6 victoires d\'affilée. Tu es le premier à le battre depuis le 14 sept.</span><span style="display:flex;gap:4px;margin-top:4px">' + new Array(7).join('<i style="width:20px;height:20px;border-radius:10px;background:#6FC28F;color:#0E2318;font-style:normal;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">V</i>') + '<i style="width:20px;height:20px;border-radius:10px;background:#E88A5E;color:#2A1208;font-style:normal;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #D4E64A">D</i></span>');
     if (k === "sante") return nvc('<span class="nv-k" style="color:#6FC28F">NOUVELLE SÉANCE · HEALTH CONNECT</span><b style="font-size:19px">Hier, 19 h · 1 h 30 de tennis</b><span style="font-size:13px;opacity:.8">On l\'ajoute à tes entraînements, avec ta N°1 ?</span><span style="display:flex;gap:6px;align-items:center;margin-top:4px"><span style="font-size:13px;opacity:.7;flex:1">Ignorer</span><span class="nv-pill">Détailler</span><span class="nv-pill" style="background:#D4E64A;color:#121212;font-weight:700">Ajouter</span></span>');
     if (k === "hcnotif") return nvc('<span style="display:flex;gap:10px;align-items:flex-start"><i style="flex:none;width:34px;height:34px;border-radius:10px;background:#1F5C3F;color:#D4E64A;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:800">M</i><span><b style="font-size:15px">Nouvelle séance de tennis</b><br><span style="font-size:13px;opacity:.8">Hier, 19 h · 1 h 30. Touche pour l\'ajouter à tes entraînements, avec ta raquette.</span></span></span>');
-    if (k === "themes") return nvc('<span class="nv-k">TES THÈMES</span><span style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">' + [["#F6F2EC", "#D4E64A", "Lin"], ["#17181C", "#6FC28F", "Nuit"], ["#B5582D", "#0B4D35", "Terre"], ["#2F5584", "#E3F25B", "Dur"], ["repeating-linear-gradient(90deg,#E3EED8 0 8px,#EDF4E4 8px 16px)", "#54287F", "Gazon"]].map(function (t) { return '<span style="display:flex;flex-direction:column;align-items:center;gap:4px"><i style="width:100%;height:58px;border-radius:12px;background:' + t[0] + ';position:relative;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)"><i style="position:absolute;left:6px;right:6px;top:8px;height:14px;border-radius:5px;background:#fff"></i><i style="position:absolute;right:7px;bottom:7px;width:14px;height:14px;border-radius:7px;background:' + t[1] + '"></i></i><span style="font-size:11px;opacity:.8">' + t[2] + "</span></span>"; }).join("") + "</span>");
+    if (k === "themes") return nvc('<span class="nv-k">TES THÈMES</span><span style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">' + [["#F6F2EC", "#D4E64A", "Lin"], ["#17181C", "#6FC28F", "Nuit"], ["#A44B25", "#0B4D35", "Terre"], ["#1A4580", "#E3F25B", "Dur"], ["repeating-linear-gradient(90deg,#E3EED8 0 8px,#EDF4E4 8px 16px)", "#54287F", "Gazon"]].map(function (t) { return '<span style="display:flex;flex-direction:column;align-items:center;gap:4px"><i style="width:100%;height:58px;border-radius:12px;background:' + t[0] + ';position:relative;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)"><i style="position:absolute;left:6px;right:6px;top:8px;height:14px;border-radius:5px;background:#fff"></i><i style="position:absolute;right:7px;bottom:7px;width:14px;height:14px;border-radius:7px;background:' + t[1] + '"></i></i><span style="font-size:11px;opacity:.8">' + t[2] + "</span></span>"; }).join("") + "</span>");
     if (k === "moi") return nvc('<span class="nv-k" style="color:#D4E64A">TOI CONTRE TOI</span><span style="display:flex;align-items:center;gap:10px"><i style="width:40px;height:40px;border-radius:20px;background:#D4E64A;color:#121212;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700">TM</i><b style="color:#D4E64A">VS</b><i style="width:40px;height:40px;border-radius:20px;border:2px dashed #D4E64A;color:#D4E64A;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700">TM</i></span><span class="nv-l"><i class="vd D">!</i><span>« L\'emmener au tie-break »</span></span><span class="nv-l"><i class="vd V">✓</i><span>Le 3e set : 5 gagnés sur 6</span></span>');
     if (k === "joueurs") return nvc('<span style="display:flex;align-items:center;gap:8px;background:#fff;color:#121212;border-radius:14px;padding:8px 10px"><span style="opacity:.5">⌕</span><span style="flex:1">Julien Moreau</span><b style="background:#121212;color:#fff;border-radius:10px;padding:4px 10px;font-size:12px">Chercher</b></span><span class="nv-l"><i class="vd" style="background:#2A2E1F;color:#D4E64A">15/4</i><span>Julien MOREAU · TC Dijon · <b style="color:#6FC28F">Déjà joué</b></span></span><span class="nv-l"><i class="vd" style="background:#2A2E1F;color:#D4E64A">30/1</i><span>Julien MOREAU · AS Beaune · 19 ans</span></span>');
     if (k === "rang") return nvc('<span class="nv-k" style="text-align:center">TON CLASSEMENT</span><b style="font-size:46px;line-height:1;text-align:center;letter-spacing:-.04em">15/3</b><span style="display:flex;justify-content:center;gap:6px;margin-top:6px"><span class="nv-pill">Meilleur 15/2</span><span class="nv-pill" style="background:#6FC28F;color:#0E2318;font-weight:700">↑ Montée à 15/2</span></span>');
