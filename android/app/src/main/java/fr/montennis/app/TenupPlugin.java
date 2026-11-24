@@ -191,6 +191,18 @@ public class TenupPlugin extends Plugin {
         call.resolve(r);
     }
 
+    /** 4.4.7 : demande de note du Play Store (fenêtre de Google, qui décide seule de l'afficher). */
+    @PluginMethod
+    public void askReview(PluginCall call) {
+        try {
+            com.google.android.play.core.review.ReviewManager rm = com.google.android.play.core.review.ReviewManagerFactory.create(getContext());
+            rm.requestReviewFlow().addOnCompleteListener(task -> {
+                if (!task.isSuccessful() || getActivity() == null) { JSObject r = new JSObject(); r.put("shown", false); call.resolve(r); return; }
+                rm.launchReviewFlow(getActivity(), task.getResult()).addOnCompleteListener(t2 -> { JSObject r = new JSObject(); r.put("shown", true); call.resolve(r); });
+            });
+        } catch (Exception e) { JSObject r = new JSObject(); r.put("shown", false); call.resolve(r); }
+    }
+
     /** Partager Montée : sélecteur de partage Android avec un texte (et son lien). */
     @PluginMethod
     public void shareText(PluginCall call) {
@@ -508,6 +520,22 @@ public class TenupPlugin extends Plugin {
     }
 
     /** Réglages des autorisations de Montée dans Health Connect (si la demande a été refusée). */
+    /** 4.4.7 : réglages des notifications de Montée (pour les rallumer après un refus). */
+    @PluginMethod
+    public void notifSettings(PluginCall call) {
+        final android.app.Activity a = getActivity();
+        a.runOnUiThread(() -> {
+            try {
+                Intent i = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+                i.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, a.getPackageName());
+                a.startActivity(i);
+            } catch (Exception e) {
+                try { a.startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + a.getPackageName()))); } catch (Exception ignored) {}
+            }
+        });
+        call.resolve();
+    }
+
     @PluginMethod
     public void healthSettings(PluginCall call) {
         final android.app.Activity a = getActivity();

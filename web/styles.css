@@ -7501,3 +7501,8 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .fr-t .ob-calb, .fr-t .ob-calb:is(*) { height: 36px; padding: 0 14px 0 11px !important; border-radius: 18px; background: var(--card) !important; color: var(--ink) !important; font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.10), 0 4px 12px rgba(0,0,0,.08) !important; }
 .fr-t .ob-calb svg { color: var(--acc-ink, var(--balle)); }
 :root[data-skin]:not([data-skin="retro"]) .fr-t .ob-calb, :root[data-theme="nuit"] .fr-t .ob-calb { background: color-mix(in srgb, var(--card) 90%, #fff) !important; }
+/* 4.4.7 (quick wins) : dans « Ce qui arrive », le badge « presque » montre son picto à la place d'une date (ce n'est pas un rendez-vous) */
+.ft-d.ft-dbd { justify-content: center; align-self: center; color: var(--ft-bd); }
+.ft-d.ft-dbd svg { width: 28px; height: 28px; }
+/* 4.4.7 : texte lu par VoiceOver / TalkBack seulement (ex. le chiffre de la carte Sortie, qui s'anime à l'écran) */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

@@ -621,6 +621,8 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "shareImage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setBars", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "haptic", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "askReview", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "notifSettings", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthSleep", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "healthRequest", returnType: CAPPluginReturnPromise),
@@ -930,6 +932,18 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// 4.4.7 : demande de note de l'App Store (fenêtre d'Apple, qui décide seule de l'afficher : 3 fois par an au plus).
+    @objc func askReview(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            if let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                SKStoreReviewController.requestReview(in: scene)
+                call.resolve(["shown": true])
+            } else {
+                call.resolve(["shown": false])
+            }
+        }
+    }
+
     /// Retour haptique discret (le Taptic Engine de l'iPhone).
     @objc func haptic(_ call: CAPPluginCall) {
         let style = call.getString("style") ?? "light"
@@ -1020,6 +1034,14 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     /// iOS n'ouvre pas directement la page Santé de l'app : on ouvre les Réglages de Montée.
+    /// 4.4.7 : réglages de Montée dans l'iPhone (pour rallumer les notifications refusées).
+    @objc func notifSettings(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+            call.resolve()
+        }
+    }
+
     @objc func healthSettings(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
