@@ -2410,7 +2410,7 @@ button.card.tj3 { font: inherit; color: var(--ink); border: 0; text-align: left;
 .cd3-r.ko .cd3-i { background: color-mix(in srgb, var(--terre) 18%, transparent); color: var(--terre); }
 .ct3-g + .card { margin-top: 12px; }
 /* 3.32 : pastille raquette (entraînement), 2 matchs le même jour, carte du mois */
-.tr-ic { flex: none; width: 34px; height: 34px; border-radius: 17px; background: var(--balle); color: #121212; display: flex; align-items: center; justify-content: center; }
+.tr-ic { flex: none; width: 34px; height: 34px; border-radius: 17px; background: var(--balle); color: var(--on-balle, #121212); display: flex; align-items: center; justify-content: center; }
 .tr-ic svg { width: 58%; height: 58%; }
 .tr-ic.lg { width: 40px; height: 40px; border-radius: 20px; }
 .tr-ic.sm { width: 16px; height: 16px; border-radius: 8px; }
@@ -7429,3 +7429,58 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .lc-blk .lc-flat { margin-top: 6px; border-top: 1px solid var(--line); }
 .lc-blk .lc-fr:last-child { border-bottom: 0; }
 .lc-fr .lc-dots { margin-left: auto; }
+
+/* 4.4.6 (Yann, maquette accueil validée le 24/11) : en-tête de l'accueil sans date. Ace à gauche, sa bulle à côté de sa tête
+   (2 lignes au plus, s'arrête avant la roue), la roue dans un rond ; la barre de profil devient une carte avec Mes épreuves et Ma saison */
+.hd-dr { min-height: 48px; justify-content: flex-start; gap: 0; }
+.hd-dr .ace-hd { flex: none; max-width: none; margin: 0; }
+.hd-dr .ace-hd .ace-bw .cbl-b, .hd-dr .ace-hd .ace-bw .cbl-b > div { width: 46px !important; height: 50px !important; }
+.hd .hd-gear.act-ic { flex: none; width: 48px; height: 48px; border-radius: 24px; margin: 0 0 0 auto; background: var(--card); color: var(--ink); }
+.hd .hd-gear.act-ic svg { width: 22px; height: 22px; }
+.hd-dr .demo-pill { margin-left: 12px; align-self: center; }
+.hd-bub { --bub: color-mix(in srgb, var(--card) 86%, #fff); position: relative; flex: 1; min-width: 0; margin: 0 10px 0 14px; padding: 8px 13px; border: 0; border-radius: 16px; background: var(--bub); color: var(--ink); font: inherit; font-size: 14px; font-weight: 650; line-height: 1.3; text-align: left; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.10), 0 8px 20px rgba(0,0,0,.14); -webkit-tap-highlight-color: transparent; animation: mvSide .38s cubic-bezier(.2,.8,.3,1) both .2s; }
+.hd-bub > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hd-bub > i { position: absolute; left: -9px; top: 50%; margin-top: -2px; width: 12px; height: 14px; background: var(--bub); clip-path: path('M0 4C4 5 8 3 12 0L12 14C8 12 4 8 0 4Z'); }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .hd-bub { --bub: var(--card); box-shadow: 0 1px 2px rgba(40,25,10,.10), 0 8px 20px rgba(40,25,10,.10); }
+@media (prefers-reduced-motion: reduce) { .hd-bub { animation: none; } }
+.hd-r.hd-pc { flex-direction: column; align-items: stretch; gap: 0; border-radius: 26px; background: var(--card); overflow: hidden; }
+.hd-pc > .hd-id, .hd-pc > .hd-id:not(.hd-sp) { background: transparent; box-shadow: none; border-radius: 0; padding: 12px 16px 12px 12px; }
+.hd-pc > .hd-id.hd-sp { box-shadow: none; }
+:root[data-theme="nuit"] .hd-pc { background: color-mix(in srgb, var(--card) 90%, #fff); box-shadow: var(--elev); }
+:root[data-skin="crep"] .hd-pc { background: color-mix(in srgb, var(--card) 84%, #fff); }
+:is(:root[data-theme="terre"], :root:not([data-theme]), :root[data-theme="gazon"]) .hd-pc { box-shadow: var(--elev-l); }
+.hd-ft { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); }
+.hd-ft button { display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border: 0; background: none; color: var(--ink); font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.hd-ft button + button { border-left: 1px solid var(--line); }
+.hd-ft i { display: flex; color: var(--acc-ink, var(--balle)); } .hd-ft svg { width: 18px; height: 18px; }
+.hd-n { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--balle); color: var(--on-balle, #151512); font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+/* Synthèse sous les anneaux : titre, texte court scannable (chiffres à la couleur de leur anneau), icône agrandir */
+button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
+.pdj2 .pdj-h b { flex: 1; font-size: 16px; letter-spacing: -.01em; }
+.pdj2 .pdj-h > svg { flex: none; width: 20px; height: 20px; color: var(--muted); }
+.pdj-tx { font-size: 14.5px; line-height: 1.5; font-weight: 500; color: color-mix(in srgb, var(--ink) 80%, transparent); }
+.pdj-tx b { font-weight: 800; color: var(--ink); }
+.pdj-tx .pd-n { color: var(--bleu3); } .pdj-tx .pd-m { color: var(--gazon); } .pdj-tx .pd-f { color: var(--forme3); } .pdj-tx .pd-d { color: var(--terre); }
+/* Ce qui arrive : haut de billet de même hauteur partout, les trous restent alignés ; espace de section avant le titre */
+.fr-s { align-items: flex-start; }
+.fr-c.ft-c .ft-top { height: 96px; min-height: 0; box-sizing: border-box; }
+.screen > .fr { margin-top: var(--s5, 28px); }
+/* Terre et Dur (Yann, 24/11) : la pastille de synchro du haut lisible sur le fond de page */
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .topbar .sy { color: var(--page-muted); border-color: color-mix(in srgb, var(--page-ink) 45%, transparent); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .topbar .sy b, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .topbar .sy.old { color: var(--page-ink); }
+.hd-ft button { white-space: nowrap; padding: 0 8px; min-width: 0; }
+@media (max-width: 350px) { .hd-ft button { font-size: 13.5px; gap: 6px; } .hd-bub { font-size: 13.5px; } }
+/* 4.4.6 (Yann : contrastes) : lettre du jour sélectionné lisible sur la pastille éclaircie des thèmes sombres ; picto d'entraînement
+   (raquette) dans la couleur prévue pour aller sur --balle (blanc sur le vert de Lin, Terre, Gazon ; noir sur le jaune) */
+:root[data-skin]:not([data-skin="retro"]) .ds-d.on small, :root[data-theme="nuit"] .ds-d.on small { color: color-mix(in srgb, var(--ink) 88%, transparent); }
+:root[data-skin="moquette"] .seg button.on { color: var(--ink); }
+:root[data-skin="moquette"] :is(.ds-d.on, .seg button.on) { background: color-mix(in srgb, var(--card) 91%, #fff); }
+/* 4.4.6 (Yann : contrastes) : couleurs lisibles selon le fond (texte ≥ 4,5:1) : forme de la synthèse et surtitres des billets
+   foncés sur les thèmes clairs, éclaircis sur les cartes colorées des thèmes sombres */
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"], :root[data-skin="retro"]) .pdj-tx .pd-f { color: color-mix(in srgb, var(--forme3) 55%, #000); }
+:root[data-theme="terre"] .pdj-tx .pd-n { color: #2F4FB0; }
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"], :root[data-skin="retro"]) .ft { --ft-po: #4F5800; --ft-to: #24479A; --ft-eq: #864410; --ft-bd: #6E5008; }
+:root[data-theme="terre"] .ft { --ft-po: #434B00; --ft-to: #1F3F8A; --ft-eq: #73390B; --ft-bd: #5E4406; --ft-so: #0F4A2D; }
+:root[data-skin]:not([data-skin="retro"]) .ft { --ft-po: #EEF59A; --ft-to: #C2D4FF; --ft-eq: #FFC796; --ft-so: #A9E8C0; --ft-bd: #F7DA8C; }
+:root[data-skin]:not([data-skin="retro"]) .pdj-h i { color: var(--ink) !important; }
+:is(:root[data-theme="terre"], :root[data-theme="gazon"]) .sj1-go { color: #121212; }

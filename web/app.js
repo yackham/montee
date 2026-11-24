@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.4.5",
+    VERSION: "4.4.6",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1668,7 +1668,7 @@
         '<span class="ft-m"><em><span class="ft-ic">' + tyIc + '</span><span class="ft-et">' + esc(eye || "") + "</span></em><b>" + esc(title) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></span>" +
         (bot ? '<span class="ft-perf"></span><span class="ft-bot">' + bot + "</span>" : "") + "</span></a>";
     };
-    return '<div class="fr"><div class="fr-t"><b>Ce qui arrive</b><span class="ob-frt"><button class="ob-calb' + (calChanged().length ? " dot" : "") + '" data-a="calOpen" aria-label="Ajouter tes dates à l\'agenda du téléphone">' + P_CAL_ADD + '<span>Agenda</span></button></span></div><div class="fr-s">' + L.map(FR_TICKETS ? tick : col).join("") + "</div>" + epLineHtml() + "</div>";
+    return '<div class="fr"><div class="fr-t"><b>Ce qui arrive</b><span class="ob-frt"><button class="ob-calb' + (calChanged().length ? " dot" : "") + '" data-a="calOpen" aria-label="Ajouter tes dates à l\'agenda du téléphone">' + P_CAL_ADD + '<span>Agenda</span></button></span></div><div class="fr-s">' + L.map(FR_TICKETS ? tick : col).join("") + "</div></div>"; // 4.4.6 : « Mes épreuves » est dans la carte profil
   }
   // 4.3 (Yann, maquette validée le 24/11/2026) : « Mes épreuves » en vraie ligne sous « Ce qui arrive » (avant : petit lien en haut à droite)
   function epLineHtml() {
@@ -4051,13 +4051,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (spK && !S.demo) dl0 = '<span class="small hd-d">' + esc((JOURS[d.getDay()] + " " + dN(d) + " " + MOIS[d.getMonth()]).replace(/^./, function (x) { return x.toUpperCase(); })) + "</span>";
     var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })();
     // 3.70.9 (Yann, maquette 1) : la roue des réglages, discrète, en face de la date ; la barre de profil prend toute la largeur
-    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + dl0 + '' + aceHd() + '<button class="iconbtn gearbtn hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + ' data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div></div></div></div>" : av0 +
-      '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div></div></div></div>");
+    var wkH0 = ""; if (S.matches.length && p.status !== "top") { try { wkH0 = weekHtml(c); } catch (e) { wkH0 = ""; } }
+    // 4.4.6 (Yann, maquette accueil validée le 24/11) : plus de date ; Ace et sa bulle à gauche, la roue dans un rond à droite ;
+    // la barre de profil devient une carte avec Mes épreuves et Ma saison en pied (avant : ligne « Mes épreuves » sous Ce qui arrive)
+    var nEp = 0; try { nEp = toursOn().length; } catch (e) {}
+    var hdFt = '<div class="hd-ft"><button data-a="hdGo" data-h="#/tournoi"><i>' + TOUR_IC + "</i>Mes épreuves" + (nEp ? '<span class="hd-n">' + nEp + "</span>" : "") + '</button><button data-a="goSeasonCard"><i>' + svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', 2.2) + "</i>Ma saison</button></div>";
+    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + aceHd(!!wkH0) + (S.demo ? dl0 : "") + '<button class="act-ic hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r hd-pc"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + ' data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div>" + hdFt + "</div></div></div>" : av0 +
+      '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div>" + hdFt + "</div></div></div>");
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
     // 4.1 (Yann, audit densité validé le 23/11) : le lundi, la carte d'Ace parle déjà du match de la semaine : pas de 2e bulle d'Ace au-dessus
-    var wkH0 = ""; if (S.matches.length && p.status !== "top") { try { wkH0 = weekHtml(c); } catch (e) { wkH0 = ""; } }
-    s += (pauseOn() ? pauseAceHtml() : pauseAceHtml() || (wkH0 ? "" : aceHomeCard())) + pauseHomeHtml(c) + btwHtml(); // 3.82.1 : Ace sous le Salut ; 3.94 : en pause, la reprise, entre deux matchs
+    s += (pauseOn() ? pauseAceHtml() : pauseAceHtml()) + pauseHomeHtml(c) + btwHtml(); // 3.82.1 : Ace sous le Salut ; 3.94 : en pause, la reprise, entre deux matchs
     if (!S.matches.length) {
       // 4.2.6 (identité passe 3, validé) : Ace accueille, et pendant la 1re lecture Ten'Up il dit qu'il lit (sans faux chiffres)
       if (UI.loading && S.tenup.linked) return s + '<div class="card id-dock vx-sync" role="status"><span class="ace-peek" aria-hidden="true">' + coBall("vx:sync", "concentree") + '<span class="ace-bub">Je lis…</span></span>' +
@@ -9593,12 +9597,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // Accueil : Ace à côté de la roue des réglages (Yann, 23/11) : petit, il cligne des yeux ; quand il a un truc à te dire,
   // un point rouge, un petit rebond de temps en temps et sa phrase en une ligne à sa gauche
-  function aceHd() {
+  function aceHd(noBub) {
     UI.coHome = null;
     if (!S.onboarded || !S.matches.length) return "";
     var h = null; try { h = coHomeTip(ctx()); } catch (e) { return ""; }
     var m = coMem(), t = h.tip, dot = !!(t && !m.op[t.id]); UI.coHomeId = t ? t.id : null;
-    UI.coHome = dot ? { t: t, mood: h.mood } : null; return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot ? '<span class="ace-dot"></span>' : "") + "</span></button>";
+    UI.coHome = dot ? { t: t, mood: h.mood } : null;
+    // 4.4.6 (Yann, maquette accueil validée le 24/11) : Ace parle à côté de sa tête, bulle de 2 lignes au plus qui s'arrête avant la roue ;
+    // la toucher ouvre Ace sur ce sujet (la bulle disparaît une fois lue). Le lundi, la carte de la semaine parle déjà : la pastille suffit.
+    var bub = dot && !noBub;
+    return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="ace" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot && !bub ? '<span class="ace-dot"></span>' : "") + "</span></button>" +
+      (bub ? '<button class="hd-bub" data-a="ace" data-v="' + esc(t.v || "") + '"><i aria-hidden="true"></i><span>' + esc(t.t) + "</span></button>" : "");
   }
   // 3.82.1 (Yann, maquette M1 du tour du 23/11) : la phrase d'Ace a sa carte sous le Salut (avant : bulle coupée dans l'en-tête)
   function aceHomeCard() {
@@ -12267,7 +12276,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (last) { var gd = -dGap(last); if (gd >= 7) frm += " Pas joué depuis " + gd + " jours."; }
     var secs = [{ ic: "◎", col: "var(--bleu3)", t: "Ton niveau", b: niv }, { ic: "↗", col: "var(--gazon)", t: "Ta montée", b: mon }, { ic: "⛨", col: "var(--terre)", t: "Ton maintien", b: mai }, { ic: "♥", col: "var(--balle)", t: "Ta forme", b: frm }].filter(function (x) { return x.b; });
     var text = [niv, (p.margin != null && p.margin >= 0 && !p.kept && !z && p.status !== "descente") ? "" : mai].filter(Boolean).join(" "); // 3.82.1 : « +X pts d'avance » est déjà dans la carte Sortie ; 3.46.5 : la montée est déjà dans la carte juste en dessous
-    return { ic: ic, col: col, title: title, text: text, secs: secs };
+    // 4.4.6 (Yann, maquette accueil validée le 24/11) : la synthèse sous les anneaux, en 3 phrases courtes, chiffres clés en gras
+    // à la couleur de leur anneau (niveau bleu, montée vert, forme couleur forme) ; mêmes valeurs que les 4 rubriques ci-dessus
+    var K = function (k, x) { return '<b class="pd-' + k + '">' + x + "</b>"; }, sh = [];
+    if (lvl != null) sh.push("Tu joues " + K("n", lab(lvl)) + (lvl === cur ? ", pile ton classement." : lvl > cur ? ", " + crans(lvl - cur) + " au-dessus." : ", " + crans(cur - lvl) + " en dessous."));
+    if (p.status === "montee") sh.push("Tu montes " + K("m", lab(p.projected)) + " le " + fdate(E.iso(p.release)).replace(/\.$/, "") + ".");
+    else if (p.margin != null && p.margin < 0 && !p.kept && cur > 0) sh.push("Maintien menacé : " + K("d", -p.margin + " pts") + " de retard.");
+    else if (d.norme && p.status !== "top") { var gp2 = Math.max(0, d.norme - d.total), rl2 = E.parseDate(d.releaseIso); sh.push(gp2 ? "Il te manque " + K("m", gp2 + " pts") + " pour monter le " + dN(rl2) + " " + MOIS[rl2.getMonth()].replace(/\.$/, "") + "." : "Tu as les points pour " + esc(d.label || nextL) + "."); }
+    if (F && n6) sh.push((up ? "Forme au top : " : dn ? "Forme en baisse : " : "Forme stable : ") + K("f", nv6 + " victoire" + (nv6 > 1 ? "s" : "") + " sur " + n6) + ".");
+    return { ic: ic, col: col, title: title, text: text, secs: secs, short: sh.join(" ") };
   }
   function courbesRings(c) {
     var w12 = (c.proj.matches || []).filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); });
@@ -12296,7 +12313,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var P = null; try { P = pointDuJour(c); } catch (e) {}
         if (!P) return '<div class="cr3-say' + (say.length <= 46 ? " c" : "") + '">' + esc(say) + "</div>";
         // 4.2 (Yann, allègement validé le 23/11/2026) : une seule ligne, le détail dans « Le point complet »
-        return '<button class="pdj pdj1" data-a="sheet" data-k="pdj"><span class="pdj-h"><i style="color:' + P.col + ";background:color-mix(in srgb," + P.col + ' 18%,transparent)">' + P.ic + "</i><b>" + esc(P.title) + '</b></span><span class="pdj-go">Le point complet ' + I.next + "</span></button>";
+        // 4.4.6 (Yann) : titre + texte court scannable, icône agrandir ; le tout ouvre « Ton point du jour »
+        return '<button class="pdj pdj1 pdj2" data-a="sheet" data-k="pdj" aria-label="Ton point du jour, le détail"><span class="pdj-h"><i style="color:' + P.col + ";background:color-mix(in srgb," + P.col + ' 18%,transparent)">' + P.ic + "</i><b>" + esc(P.title) + "</b>" + svg('<path d="M14 4h6v6M20 4l-6.5 6.5M10 20H4v-6M4 20l6.5-6.5"/>', 2) + "</span>" + (P.short ? '<span class="pdj-tx">' + P.short + "</span>" : "") + "</button>";
       })() + "</div>";
   }
   // 3.30 : jauge de couleur. Sous le seuil bas : alerte (terre). Au-dessus du seuil haut : vert. Entre les deux : bleu, « dans la norme ».
@@ -19077,7 +19095,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       toast("Compris, je ne te le redis pas avant 3 semaines.");
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
-    ace: function (el) { var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; Array.prototype.forEach.call(document.querySelectorAll(".wow-bub"), function (b) { b.remove(); }); save(); render(); haptic("light"); },
+    ace: function (el) { var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg") || el.classList.contains("hd-bub"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; Array.prototype.forEach.call(document.querySelectorAll(".wow-bub"), function (b) { b.remove(); }); save(); render(); haptic("light"); },
     aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
     aceClose: function () { UI.ace = null; UI.aceBack = null; render(); },
     aceTickle: function (el) { var b = el.querySelector(".cbl-b > div"); if (b && window.Balle && Balle.play2 && !b._busy) { haptic("light"); Balle.play2(b, "rire", 1300, b._base); } }, // 4.4 : on touche Ace, il rit
