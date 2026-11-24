@@ -7181,8 +7181,10 @@ button.ob-r, a.ob-r { cursor: pointer; }
 @keyframes v43Up { from { transform: translateY(100%); } }
 
 /* ---- Barre d'état : le haut de l'écran ne fait qu'un. En défilant, le haut se fond (dégradé) ---- */
-.sb-fade { position: fixed; left: 0; right: 0; top: 0; height: calc(var(--sat) + 8px); z-index: 30; pointer-events: none;
-  background: linear-gradient(to bottom, var(--sb-top, var(--bg)) 55%, transparent); opacity: 0; transition: opacity .25s; }
+/* 4.4.6 (Yann : « je comprends pas pourquoi tu fais cet effet de blur ») : barre unie et nette, sans dégradé ; elle cache juste
+   ce qui passe sous l'heure et la batterie en défilant, dans la couleur du haut de la page du thème */
+.sb-fade { position: fixed; left: 0; right: 0; top: 0; height: var(--sat); z-index: 30; pointer-events: none;
+  background: var(--sb-top, var(--bg)); box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 10%, transparent), 0 6px 14px rgba(0,0,0,.08); opacity: 0; transition: opacity .25s; }
 .sb-fade.on { opacity: 1; }
 
 /* ---- Thèmes 4.3 : sur fond sombre, cartes de la même teinte, un ton plus clair ---- */
@@ -7203,7 +7205,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 /* Terre : cartes sable plutôt que blanches */
 :root[data-theme="terre"] { --card: #F0D9C4; --chip: #E8CDB6; --line: #E2C4AC; --sb-top: #A44B25; --terre: #A0391A; }
 /* Rétro : store bordeaux en haut ; la barre d'état est posée sur la bande pleine */
-:root[data-skin="retro"] { --muted: #6E5644; --sb-top: #7B1E2C;
+:root[data-skin="retro"] { --muted: #6E5644; --sb-top: var(--bg);
   background: linear-gradient(180deg, #7B1E2C 0, #7B1E2C calc(var(--sat) + 3px), transparent calc(var(--sat) + 3px)),
     radial-gradient(13px 8px at 13px calc(var(--sat) + 21px), #7B1E2C 98%, transparent) 0 0 / 52px calc(var(--sat) + 30px) repeat-x,
     radial-gradient(13px 8px at 39px calc(var(--sat) + 21px), #E6D2AF 98%, transparent) 0 0 / 52px calc(var(--sat) + 30px) repeat-x,
