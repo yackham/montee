@@ -8466,6 +8466,27 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   }
   // Courbes : les cartes secondaires en lignes compactes, dépliées à la demande (rien n'est caché)
   var CB_COMPACT = []; // 3.33 : plus de « Plus de courbes », tout s'affiche à la suite
+  function cbName(k) { var n = ""; BLOCKS.courbes.forEach(function (x) { if (x[0] === k) n = x[1]; }); return n.replace(/\s*\(.*\)$/, ""); }
+  // 4.4.3 : la conclusion d'une courbe, lue sur sa carte (aucun calcul refait) ; null = la carte reste entière
+  function cbSum(k, html) {
+    try {
+      var d = document.createElement("div"); d.innerHTML = html;
+      var tx = function (sel) { var e = d.querySelector(sel); return e ? e.textContent.replace(/\s+/g, " ").trim() : ""; };
+      var c = "", v = "";
+      if (k === "records") { var nm = tx(".rc2-best > span > b"), rk = tx(".rc2-best .rk"); if (nm) { c = "Plus belle victoire : " + nm; v = rk ? '<b class="rk-tag">' + esc(rk) + "</b>" : ""; } }
+      else if (k === "forme") { c = tx(".fm3-h .tj3-pill").replace(/^[^A-Za-zÀ-ÿ]+/, ""); c = c ? c.charAt(0).toUpperCase() + c.slice(1) + " sur " + (tx(".fm3-h .ct .small").replace(/^Tes /, "tes ") || "tes derniers matchs") : ""; v = esc(tx(".fm3-k > b")); }
+      else if (k === "defend") c = tx(".chead ~ span");
+      else if (k === "where") c = d.querySelector(".mrow") ? "Par compétition, surface et lieu" : "";
+      else if (k === "raquette") c = tx(".ga2 .m2-t") || tx(".chead .small");
+      else {
+        c = tx(".m2-t") || tx(".ob-t") || tx(".nm2-big") || tx(".df-ml") || tx(".ws3-et");
+        if (k === "mental") { var m = /(\d+ sur \d+)/.exec(tx(".m2-s")); v = m ? m[1] : ""; }
+      }
+      c = c.replace(/[›\s]+$/, "").replace(/\.$/, "");
+      if (!c || c.length > 110) return null;
+      return { c: c, v: v, plus: /Montée\+/.test(tx(".ch-hd")) };
+    } catch (e) { return null; }
+  }
   function layout(page, B, anchors) {
     var pr = prefsOf(page), ks = pr.order.filter(function (k) { return pr.hidden.indexOf(k) < 0 && B[k]; });
     if (page === "courbes") {
@@ -8476,12 +8497,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       // 3.47.5 (Yann) : dès que ta montre a mesuré des matchs, « Ton service » passe en tête de « Ton jeu »
       var svOn = (function () { try { var w = watchServe(); return !!(w && w.n); } catch (e) { return false; } })(), pri = function (k) { return k === "service" && svOn ? -1 : 0; };
       ks = ks.map(function (k, i) { return { k: k, i: i }; }).sort(function (a, b) { return gi(a.k) - gi(b.k) || pri(a.k) - pri(b.k) || a.i - b.i; }).map(function (x) { return x.k; });
-      var out = "", cur = null;
+      var out = "", cur = null, fam = "", flush = function () { if (fam) out += '<div class="card cb-fam">' + fam + "</div>"; fam = ""; };
       ks.forEach(function (k, i) {
         var g = GRP[k] || "Et aussi";
-        if (g !== cur) { var n = 0; for (var j = i; j < ks.length && (GRP[ks[j]] || "Et aussi") === g; j++) n++; out += '<h2 class="h3sec cb-h">' + g + "</h2>"; cur = g; }
-        out += '<div class="cb-a" id="cb-' + k + '">' + B[k] + "</div>";
+        if (g !== cur) { flush(); out += '<h2 class="h3sec cb-h">' + g + "</h2>"; cur = g; }
+        // 4.4.3 (Yann, B3) : ton bilan et tes chances gardent leur carte ; les autres courbes en lignes (titre, conclusion), la carte complète s'ouvre par-dessus
+        var r = UI.cbRaw || k === "bilan" || k === "chances" ? null : cbSum(k, B[k]);
+        if (!r) { flush(); out += '<div class="cb-a" id="cb-' + k + '">' + B[k] + "</div>"; return; }
+        fam += '<button class="cb-r" id="cb-' + k + '" data-a="sheet" data-k="cbCard" data-v="' + k + '"><span class="cb-l"><small>' + esc(cbName(k)) + (r.plus ? ' <span class="cb-plus">Montée+</span>' : "") + "</small><b>" + esc(r.c) + "</b></span>" + (r.v ? '<span class="cb-v">' + r.v + "</span>" : "") + '<span class="chev">' + svg('<path d="M9 6l6 6-6 6"/>', 2.2) + "</span></button>";
       });
+      flush();
       return out + '<a class="linkbtn cb-perso" href="#/perso/courbes">Réorganiser les courbes</a>';
     }
     if (page === "courbes-old") {
@@ -12572,10 +12597,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       try {
         if (k === "train") html = trainMonthHtml();
         else if (k === "service") html = watchStatsHtml() + serveTrendHtml();
-        else { var box = document.createElement("div"), keep = UI.sheet; UI.sheet = null; box.innerHTML = V.courbes(); UI.sheet = keep; var el = box.querySelector("#cb-" + k); html = el ? el.innerHTML : ""; }
+        else { var box = document.createElement("div"), keep = UI.sheet; UI.sheet = null; UI.cbRaw = 1; try { box.innerHTML = V.courbes(); } finally { UI.cbRaw = 0; } UI.sheet = keep; var el = box.querySelector("#cb-" + k); html = el ? el.innerHTML : ""; }
       } catch (e) { html = ""; }
       var T0 = { plafond: "Face à chaque classement", gagner: "Ce qui fait la différence", train: "Tes entraînements", service: "Ton service", chiffres: "Tes chiffres" };
-      return { title: T0[k] || "Le détail", body: html || '<span class="small">Pas encore assez de données.</span>' };
+      return { title: T0[k] || cbName(k) || "Le détail", body: html ? '<div class="cb-sh">' + html + "</div>" : '<span class="small">Pas encore assez de données.</span>' };
     },
     // 3.48.4 (Yann) : chercher un joueur sans quitter l'écran : une feuille par le bas, puis sa fiche face-à-face (retour possible)
     pSearch: function () {
