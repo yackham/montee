@@ -2193,7 +2193,7 @@
     UI.dzBusy = true; UI.dzErr = null;
     tenupQuery("dispos", { t: t.tuid, from: t.from, to: t.to || t.from }).then(function (r) {
       UI.dzBusy = false; if (!r || r.error) { UI.dzErr = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
-      m.dz = { gen: r.gen, days: r.days, map: r.map, at: Date.now() }; save(); render();
+      m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; save(); render(); // 4.11.1 : pgen (ton profil) était perdu ici, donc l'écart avec le tournoi ne se voyait jamais
     });
   }
   V.dispos = function (id) {
@@ -2204,10 +2204,13 @@
     dzLoad(t);
     if (!D) return s + '<div class="card"><span class="small">' + esc(UI.dzErr ? UI.dzErr : NATIVE && S.tenup.linked ? "Lecture de tes dispos sur Ten'Up…" : "Relie Ten'Up pour voir tes dispos.") + "</span></div></div>";
     var can = Dl.ok && !!D.map, E1 = dzEd(t), n = Object.keys(E1).length;
-    var pDiff = D.pgen && [1, 2, 3, 4, 5, 6, 7].some(function (wd) { var iso = "2026-11-" + (22 + wd); return !T.dzSame(T.dzGenSlots(D.gen || [], iso, "iso"), T.dzGenSlots(D.pgen, iso, "iso")); }); // 4.9.3 : le tournoi garde la copie prise à l'inscription
     var hbOk = NATIVE && S.tenup.linked; // 4.10 : les créneaux habituels se changent depuis Montée, pour tous les tournois
+    if (hbOk) hbLoad(); // 4.11.1 (Yann : « j'ai modifié mes horaires habituels, rien n'a changé ») : comparer au profil tel qu'il est maintenant
+    var pGen = UI.hb && UI.hb.prof ? T.weekGen(UI.hb.prof.week) : D.pgen;
+    var pDiff = pGen && [1, 2, 3, 4, 5, 6, 7].some(function (wd) { var iso = "2026-11-" + (22 + wd); return !T.dzSame(T.dzGenSlots(D.gen || [], iso, "iso"), T.dzGenSlots(pGen, iso, "iso")); }); // 4.9.3 : le tournoi garde la copie prise à l'inscription
     s += '<h2>Tu es dispo, d\'habitude</h2>' + (hbOk ? '<p class="small" style="margin-top:-6px">Touche une ligne pour changer tes créneaux, pour tous tes tournois.</p>' : "") + '<div class="blk tz-blk tz-c' + (hbOk ? ' hb-open" role="button" tabindex="0" data-a="hbOpen' : "") + '">' + ((D.gen || []).length ? D.gen.map(function (g) {
-      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), hbOk ? I.next : ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>" + (pDiff ? '<p class="small dz-pd">Pour ce tournoi, Ten\'Up garde tes créneaux du moment de ton inscription : ils ont changé depuis sur ton profil.</p>' : "");
+      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), hbOk ? I.next : ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>" + (pDiff ? '<p class="small dz-pd">Pour ce tournoi, Ten\'Up garde tes créneaux du moment de ton inscription : ils ont changé depuis sur ton profil.</p>' +
+      (can ? '<button class="btn primary dz-pdb" data-a="hbTourOne" data-v="' + esc(t.id) + '"' + (UI.hbRun1 ? " disabled" : "") + ">" + (UI.hbRun1 ? "Mise à jour…" : "Mettre ce tournoi à jour") + "</button>" : "") : "");
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from);
     for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
     var exs = days.filter(function (iso) { return dzDay(t, D, iso).ex; }); // 4.10 (Yann) : voir et ajouter les indispos propres à ce tournoi
@@ -2344,8 +2347,10 @@
     b += '<div class="seg hb-seg2"><button data-a="dzaAll" data-v="1" class="' + (a.all ? "on" : "") + '">Toute la journée</button><button data-a="dzaAll" data-v="0" class="' + (a.all ? "" : "on") + '">Juste un moment</button></div>';
     if (!a.all) b += '<div class="dz-hh"><label>Pas dispo de' + hSel('id="dza-f"', a.from) + '</label><label>À' + hSel('id="dza-t"', a.to) + '</label></div>';
     b += hbFrise(res, false, off) + hbChrono(res, false, off);
-    if (!a.all && res.length) b += '<p class="small">Ce ' + JOURS[dt.getDay()] + ", tu joues " + esc(res.map(function (x) { return "de " + dzH(x.from) + " à " + dzH(x.to); }).join(" et ")) + (cur.length ? " au lieu de " + esc(cur.map(dzSl).join(" · ")) : "") + ".</p>";
-    return { title: "Ajouter une indispo", sub: t.name + " · " + fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), body: '<div class="tz-sh dz-sh hb-day">' + b + '</div><button class="btn primary" data-a="dzaOk">Ajouter l\'indispo du ' + esc(JOURS[dt.getDay()].slice(0, 3) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]) + "</button>" };
+    var same = !a.all && T.dzSame(res, cur); // 4.11.1 (Yann : « samedi 13, juste pas dispo le matin ») : un moment où tu ne joues déjà pas ne change rien
+    if (same) b += '<p class="small hb-same">Le ' + JOURS[dt.getDay()] + ", tu ne joues déjà pas à ce moment-là" + (cur.length ? " (d'habitude " + esc(cur.map(dzSl).join(" · ")) + ")" : "") + " : il n'y a rien à changer.</p>";
+    else if (!a.all && res.length) b += '<p class="small">Ce ' + JOURS[dt.getDay()] + ", tu joues " + esc(res.map(function (x) { return "de " + dzH(x.from) + " à " + dzH(x.to); }).join(" et ")) + (cur.length ? " au lieu de " + esc(cur.map(dzSl).join(" · ")) : "") + ".</p>";
+    return { title: "Ajouter une indispo", sub: t.name + " · " + fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), body: '<div class="tz-sh dz-sh hb-day">' + b + '</div><button class="btn primary" data-a="dzaOk"' + (same ? " disabled" : "") + '>Ajouter l\'indispo du ' + esc(JOURS[dt.getDay()].slice(0, 3) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]) + "</button>" };
   }
   // Glisser les ronds de la frise : l'heure suit le doigt par quarts d'heure, dans une bulle
   function hbDragInit() {
@@ -20720,12 +20725,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     hbOk: function () { var d = UI.hbd, H = UI.hb; if (!d || !H || !H.week) return;
       [d.wd].concat(Object.keys(d.also).filter(function (k) { return d.also[k]; }).map(Number)).forEach(function (k) { H.week[k] = d.play ? T.slotsMerge(d.slots).slots.map(function (x) { return { from: x.from, to: x.to }; }) : []; });
       UI.hbd = null; UI.sheet = { k: "hb" }; render(); },
-    hbSave: function () { var H = UI.hb; if (!H || !H.week || H.saving) return; var want = JSON.parse(JSON.stringify(H.week)); H.saving = true; render();
+    hbSave: function () { var H = UI.hb; if (!H || !H.week || H.saving) return; var want = JSON.parse(JSON.stringify(H.week)), before = JSON.parse(JSON.stringify(H.prof.week)); H.saving = true; render();
       tenupQuery("profDispoSave", { idCrm: H.prof.idCrm, body: T.profBody(H.prof, H.week) }).then(function (r) { H.saving = false;
         if (!r || r.error) { toast("Ten'Up a refusé : " + (r && r.error || "pas de réponse") + ". Rien n'a changé."); render(); return; }
         var ok = T.weekSame(r.week, want); H.prof = r; H.week = JSON.parse(JSON.stringify(r.week));
         toast(ok ? "Tes créneaux habituels sont enregistrés sur Ten'Up." : "Ten'Up n'a pas tout pris : vérifie tes créneaux.", ok);
-        UI.hbSel = {}; UI.sheet = ok && hbTours().length ? { k: "hbt" } : UI.sheet; render(); }); },
+        // 4.11.1 : « Et tes tournois ? » dès que Ten'Up a changé quelque chose, même s'il n'a pas tout pris
+        UI.hbSel = {}; UI.sheet = !T.weekSame(r.week, before) && hbTours().length ? { k: "hbt" } : UI.sheet; render(); }); },
+    hbTourOne: function (el) { var t = (S.tours || []).filter(function (x) { return x.id === el.dataset.v; })[0], H = UI.hb, D = t && (t.ins.more || {}).dz;
+      var gen = H && H.prof ? T.weekGen(H.prof.week) : D && D.pgen; if (!t || !gen || UI.hbRun1) return;
+      UI.hbRun1 = true; render();
+      hbTourRun(t, gen).then(function (ok) { return ok; }, function () { return false; }).then(function (ok) { UI.hbRun1 = false; save(); render();
+        toast(ok ? "Ton tournoi a tes créneaux habituels. Tes indispos juste pour lui sont gardées." : "Ten'Up n'a pas tout pris : vérifie les jours du tournoi.", ok); }); },
     hbTourTog: function (el) { UI.hbSel = UI.hbSel || {}; UI.hbSel[el.dataset.v] = UI.hbSel[el.dataset.v] === false; render(); },
     hbToursGo: function () { var H = UI.hb, sel = UI.hbSel || {}, L = hbTours().filter(function (t) { return sel[t.id] !== false; }); if (!H || !H.prof || UI.hbRun || !L.length) return;
       var gen = T.weekGen(H.prof.week), bad = 0; UI.hbRun = true; render();
@@ -20737,7 +20748,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     dzaAll: function (el) { if (UI.dza) UI.dza.all = el.dataset.v === "1"; render(); },
     dzaOk: function () { var a = UI.dza, t = a && (S.tours || []).filter(function (x) { return x.id === a.t; })[0]; if (!t || !(t.ins.more || {}).dz) return;
       if (!a.all && (!a.from || !a.to || a.to <= a.from)) { toast("L'heure de fin doit être après l'heure de début."); return; }
-      var cur = dzDay(t, t.ins.more.dz, a.iso).slots; dzEd(t)[a.iso] = a.all ? [] : T.slotsMinus(cur, a.from, a.to); UI.dza = null; UI.sheet = null; render(); },
+      var cur = dzDay(t, t.ins.more.dz, a.iso).slots, nx = a.all ? [] : T.slotsMinus(cur, a.from, a.to); if (!a.all && T.dzSame(nx, cur)) { toast("Tu ne joues déjà pas à ce moment-là : rien à changer."); return; } dzEd(t)[a.iso] = nx; UI.dza = null; UI.sheet = null; render(); },
     dzSave: function (el) { var t = (S.tours || []).filter(function (x) { return x.id === el.dataset.v; })[0]; if (t) dzSaveRun(t); },
     tzWhere: function () { UI.sheet = { k: "tzf" }; render(); },
     tzSet: function (el) { var P = tzPrefs(); P[el.dataset.k] = +el.dataset.v; save(); render(); },
