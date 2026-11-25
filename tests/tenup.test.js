@@ -70,7 +70,7 @@ test("tournois 4.6.0 : formats Ten'Up relevés le 25/11/2026", () => {
   assert.strictEqual(T.dispoLimFrom("Vous avez jusqu’au 1/12/2026 pour modifier vos disponibilités"), "2026-12-01");
   assert.strictEqual(T.dispoLimFrom("<p>Rien</p>"), "");
   const c = T.cardMap({ idHomologation: "MOJA_321545", libelleTournoi: "Open d'hiver", dateDebut: "2026-12-05", dateFin: "2026-12-20", club: { libelle: "TC Exemple" }, ville: "VILLE", distance: 12400, inscriptionEnLigne: true, naturesEpreuves: [] });
-  assert.strictEqual(c.id, "321545"); assert.strictEqual(c.fav, false); assert.strictEqual(c.km, 12); assert.strictEqual(c.eps, null);
+  assert.strictEqual(c.id, "321545"); assert.strictEqual(c.fav, false); assert.strictEqual(c.payOnline, false); assert.strictEqual(T.ficheMap({ paiementEnLigneObligatoire: true }).payReq, true); assert.strictEqual(c.km, 12); assert.strictEqual(c.eps, null);
   assert.strictEqual(T.cardsFrom('x{"nbResultats":1,"cards":[{"idHomologation":"A_1","libelleTournoi":"T"}]}y').cards.length, 1);
   const f = T.ficheMap({ mailJa: " ja@exemple.fr ", telephoneJa: "06 00 00 00 00", dateCloture: "2026-12-01T00:00", inscriptionEnLigne: true, epreuveList: [{ id: 7, typeEpreuve: "SM", nomEpreuve: "Simple messieurs" }, { id: 8, typeEpreuve: "DD", nomEpreuve: "Double dames" }] });
   assert.strictEqual(f.ja.tel, "0600000000"); assert.strictEqual(f.ja.mail, "ja@exemple.fr"); assert.strictEqual(f.closing, "2026-12-01");

@@ -983,12 +983,12 @@
   function cardMap(c) { // une carte de la recherche
     if (!c) return null; var m = String(c.idHomologation || "").match(/(\d+)$/); if (!m) return null;
     return { id: m[1], name: String(c.libelleTournoi || "Tournoi"), from: String(c.dateDebut || "").slice(0, 10), to: String(c.dateFin || c.dateDebut || "").slice(0, 10), club: String(c.club && c.club.libelle || ""),
-      city: String(c.ville || ""), km: c.distance != null ? Math.round(c.distance / 1000) : null, online: !!c.inscriptionEnLigne, fav: !!c.favori, natures: c.naturesEpreuves || [], aud: ageTxt(c), eps: null };
+      city: String(c.ville || ""), km: c.distance != null ? Math.round(c.distance / 1000) : null, online: !!c.inscriptionEnLigne, payOnline: !!c.paiementEnLigne, fav: !!c.favori, natures: c.naturesEpreuves || [], aud: ageTxt(c), eps: null };
   }
   function ficheMap(d) { // la fiche publique d'un tournoi
     if (!d || typeof d !== "object") return {};
     var tel = String(d.telephoneJa || "").replace(/[^\d+]/g, ""), mail = String(d.mailJa || "").trim(), out = { cat: String(d.libelleCategorie || ""), closing: d.dateCloture ? String(d.dateCloture).slice(0, 10) : "",
-      opens: d.dateOuvertureInscriptionEnLigne ? String(d.dateOuvertureInscriptionEnLigne).slice(0, 10) : "", online: !!d.inscriptionEnLigne, payOnline: !!d.paiementEnLigne,
+      opens: d.dateOuvertureInscriptionEnLigne ? String(d.dateOuvertureInscriptionEnLigne).slice(0, 10) : "", online: !!d.inscriptionEnLigne, payOnline: !!d.paiementEnLigne, payReq: !!d.paiementEnLigneObligatoire, insReq: !!d.inscriptionEnLigneObligatoire,
       eps: (d.epreuveList || []).map(function (e) { var ty = String(e.typeEpreuve || ""); return { id: String(e.id || ""), name: String(e.nomEpreuve || e.epreuveLibelle || ""), aud: ageTxt(e), sex: /^[SD]D$/.test(ty) ? "F" : /^[SD]M$/.test(ty) ? "H" : "", dbl: /^D/.test(ty) || /double|mixte/i.test(e.nomEpreuve || "") }; }) };
     if (tel || mail) out.ja = { name: "", tel: tel, mail: mail };
     // 4.11 (fiches publiques relevées le 25/11/2026) : surfaces (codes), couvert, dotation (espèces + lots, en €), TMC
