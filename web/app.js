@@ -2084,7 +2084,14 @@
   // Tes changements restent en brouillon (UI.dzEd) jusqu'à « Enregistrer » ; Montée renvoie alors le même contenu que la page Ten'Up, puis relit pour vérifier.
   var DZ_N = { iso: ["", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."], sun0: ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."], sun1: ["", "dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."] };
   function dzH(h) { var m = String(h || "").match(/^(\d\d):(\d\d)/); return m ? (+m[1]) + "\u00a0h" + (m[2] !== "00" ? m[2] : "") : ""; } // 4.10 : « 22 h » ne se coupe jamais
-  function dzSl(z) { return dzH(z.from) + " – " + dzH(z.to); }
+  // 4.10 (Yann) : les heures se choisissent de 15 en 15 min partout (la roue iOS d'un champ « time » ignore le pas) ; .value reste « HH:MM »
+  function hSel(attrs, v, empty) { v = String(v || "").slice(0, 5); var o = empty ? '<option value=""' + (v ? "" : " selected") + ">" + esc(empty) + "</option>" : "", seen = false;
+    for (var m = 0; m < 24 * 60; m += 15) { var hm = ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + (m % 60)).slice(-2);
+      if (!seen && v && v < hm && /^\d\d:\d\d$/.test(v)) { o += '<option value="' + v + '" selected>' + dzH(v) + "</option>"; seen = true; }
+      o += '<option value="' + hm + '"' + (hm === v ? " selected" : "") + ">" + dzH(hm) + "</option>"; if (hm === v) seen = true; }
+    if (!empty && !v) o = o.replace('value="18:00"', 'value="18:00" selected');
+    return '<select class="tsel" ' + attrs + ">" + o + "</select>"; }
+  function dzSl(z) { return dzH(z.from) + "\u00a0– " + dzH(z.to); }
   function dzJours(js, map) { var N = DZ_N[map] || DZ_N.iso, o = map === "sun0" ? [1, 2, 3, 4, 5, 6, 0] : map === "sun1" ? [2, 3, 4, 5, 6, 7, 1] : [1, 2, 3, 4, 5, 6, 7];
     var pos = (js || []).map(function (j) { return o.indexOf(j); }).filter(function (k) { return k >= 0; }).sort(), run = [], out = [];
     pos.forEach(function (k, i) { if (i && k === pos[i - 1] + 1) run.push(k); else { if (run.length) out.push(run); run = [k]; } }); if (run.length) out.push(run);
@@ -2140,7 +2147,7 @@
     var opt = function (k, lbl, sub) { return '<button class="dz-o' + (cur === k ? " on" : "") + '" data-a="dzPick" data-v="' + k + '"><span class="grow"><span class="t">' + lbl + '</span><span class="s">' + sub + '</span></span>' + (cur === k ? '<span class="dz-ck">✓</span>' : "") + "</button>"; };
     var b = opt("hab", "Comme d'habitude", hab.length ? esc(hab.map(dzSl).join(" · ")) : "Pas de créneau ce jour-là") + opt("off", "Pas dispo ce jour-là", "Toute la journée") +
       opt("autre", "Un autre horaire", "Dispo seulement sur ce créneau");
-    if (cur === "autre") b += '<div class="dz-hh"><label>De<input id="dz-f" type="time" step="900" value="' + esc(z.from) + '"></label><label>À<input id="dz-t" type="time" step="900" value="' + esc(z.to) + '"></label></div>';
+    if (cur === "autre") b += '<div class="dz-hh"><label>De' + hSel('id="dz-f"', z.from) + '</label><label>À' + hSel('id="dz-t"', z.to) + '</label></div>';
     return { title: cap1(JOURS[d.getDay()]) + " " + dN(d) + " " + MOIS[d.getMonth()], sub: t.name, body: '<div class="tz-sh dz-sh">' + b + '</div><button class="btn primary" data-a="dzOk" data-v="' + esc(cur) + '">OK</button>' };
   };
   function dzSaveRun(t) {
@@ -2252,7 +2259,7 @@
     var b = '<div class="small hb-alt">Quel jour ?</div><div class="hb-dates">' + days.map(function (iso) { var x = E.parseDate(iso); return '<button class="chip hb-dt' + (iso === a.iso ? " hb-dcoff" : "") + '" data-a="dzaDay" data-v="' + iso + '"><small>' + esc(JOURS[x.getDay()].slice(0, 3)) + ".</small><b>" + dN(x) + "</b></button>"; }).join("") + "</div>";
     b += '<p class="small">D\'habitude le ' + JOURS[dt.getDay()] + " : " + esc(cur.length ? cur.map(dzSl).join(" · ") : "pas dispo") + "</p>";
     b += '<div class="seg hb-seg2"><button data-a="dzaAll" data-v="1" class="' + (a.all ? "on" : "") + '">Toute la journée</button><button data-a="dzaAll" data-v="0" class="' + (a.all ? "" : "on") + '">Juste un moment</button></div>';
-    if (!a.all) b += '<div class="dz-hh"><label>Pas dispo de<input id="dza-f" type="time" step="900" value="' + esc(a.from) + '"></label><label>À<input id="dza-t" type="time" step="900" value="' + esc(a.to) + '"></label></div>';
+    if (!a.all) b += '<div class="dz-hh"><label>Pas dispo de' + hSel('id="dza-f"', a.from) + '</label><label>À' + hSel('id="dza-t"', a.to) + '</label></div>';
     b += hbFrise(res, false, off) + hbChrono(res, false, off);
     if (!a.all && res.length) b += '<p class="small">Ce ' + JOURS[dt.getDay()] + ", tu joues " + esc(res.map(function (x) { return "de " + dzH(x.from) + " à " + dzH(x.to); }).join(" et ")) + (cur.length ? " au lieu de " + esc(cur.map(dzSl).join(" · ")) : "") + ".</p>";
     return { title: "Ajouter une indispo", sub: t.name + " · " + fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), body: '<div class="tz-sh dz-sh hb-day">' + b + '</div><button class="btn primary" data-a="dzaOk">Ajouter l\'indispo du ' + esc(JOURS[dt.getDay()].slice(0, 3) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]) + "</button>" };
@@ -4044,7 +4051,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var x = t.pool[UI.plSched];
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="plSchedClose"></div><div class="sheet tq-sheet" role="dialog" aria-modal="true" aria-label="Programmer le match"><span class="sheet-grab"></span>' +
       '<div class="tq-hd"><b>Programmer le match</b><span>' + esc(trNm(x.name)) + "</span></div>" +
-      '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (x.day ? " v" : "") + '"><input type="date" id="ps-day" data-tn="psday" value="' + esc(x.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v"><input type="time" id="ps-time" value="' + esc(x.time || "") + '"><em></em></span></div>' +
+      '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (x.day ? " v" : "") + '"><input type="date" id="ps-day" data-tn="psday" value="' + esc(x.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('id="ps-time"', x.time, "Heure") + '<em></em></span></div>' +
       hostSeg(UI.plHost != null ? UI.plHost : x.host || "", "plHost") +
       '<span class="small">Montée te le rappelle la veille au soir' + (x.tid ? ", avec ton plan de jeu" : "") + ".</span>" +
       '<button class="btn primary" data-a="plSchedSave">Enregistrer</button>' +
@@ -4078,8 +4085,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (pool) s += '<span class="tq-lab">Son numéro · facultatif</span><div class="tq-sb"><span class="tq-mag">' + CALL_IC + '</span><input type="tel" inputmode="tel" data-tr="tel" value="' + esc(telFmt(R.tel || "")) + '" placeholder="06 12 34 56 78" autocomplete="off"></div>';
     // 3.45 (Yann) : en poule (ou épreuve longue), la date se saisit directement, pas de pastilles qui défilent
     var longEv = pool || (t.to && t.from && (E.parseDate(t.to) - E.parseDate(t.from)) / 864e5 > 7);
-    s += '<span class="tq-lab">Quand ?</span>' + (longEv ? '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v"><input type="time" data-tr="time" value="' + esc(R.time || "") + '"><em></em></span></div>' :
-      trDays(t, R) + '<label class="tq-h"><span>Heure · si tu la connais</span><input type="time" data-tr="time" value="' + esc(R.time || "") + '"></label>') +
+    s += '<span class="tq-lab">Quand ?</span>' + (longEv ? '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('data-tr="time"', R.time, "—") + '<em></em></span></div>' :
+      trDays(t, R) + '<label class="tq-h"><span>Heure · si tu la connais</span>' + hSel('data-tr="time"', R.time, "—") + '</label>') +
       '<button class="btn primary" data-a="trSave">' + (pool ? "Enregistrer ce match" : "Enregistrer le " + esc(lab.toLowerCase())) + "</button>" +
       (pool && R.i !== "new" && (t.pool[+R.i] || {}).res ? '<button class="linkbtn" data-a="trUndo" data-k="pool" data-i="' + R.i + '" style="align-self:center">Retirer le résultat (' + t.pool[+R.i].res + ")</button>" : "") +
       (R.i !== "new" && !pool ? '<button class="linkbtn" data-a="trRoundDel" style="align-self:center;color:var(--terre)">Supprimer ce tour</button>' : "") +
@@ -9434,7 +9441,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var s = '<div class="screen">' + topbar(isNew ? "Nouveau créneau" : "Créneau", "Ta semaine type", isNew ? "" : '<button class="iconbtn" data-a="delSlot" aria-label="Supprimer ce créneau">' + I.trash + "</button>");
     s += '<div class="form">' +
       '<div class="field"><span class="lbl">Jour</span><div class="chips">' + DAYS_L.map(function (d, i) { return '<button class="chip' + (sl.dow === i ? " on" : "") + '" data-a="slset" data-k="dow" data-v="' + i + '">' + d.slice(0, 3) + ".</button>"; }).join("") + "</div></div>" +
-      '<div class="field inline"><label for="sl-time">Heure</label><input id="sl-time" type="time" data-sl="time" value="' + esc(sl.time) + '"></div>' +
+      '<div class="field inline"><label for="sl-time">Heure</label>' + hSel('id="sl-time" data-sl="time"', sl.time) + '</div>' +
       '<div class="field"><span class="lbl">Durée</span><div class="chips">' + [60, 90, 120].map(function (n) { return '<button class="chip' + (sl.minutes === n ? " on" : "") + '" data-a="slset" data-k="minutes" data-v="' + n + '">' + fmtDur(n) + "</button>"; }).join("") + "</div></div>" +
       '<div class="field"><span class="lbl">Type</span><div class="chips">' + TLABELS.map(function (l) { return '<button class="chip' + (sl.label === l ? " on" : "") + '" data-a="slset" data-k="label" data-v="' + l + '">' + l + "</button>"; }).join("") + "</div></div>" +
       "</div>";
@@ -15157,7 +15164,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var head = '<span class="ob-eb"><span class="eyebrow">Entre deux matchs' + (tour ? " · " + esc(tour) : "") + '</span><span class="ob-tag ok">Aujourd\'hui</span></span>';
     var hm = obHm(B.time);
     if (!hm) return '<div class="card ob-c">' + head + '<b class="ob-t">À quelle heure est ton prochain match ?</b><span class="ob-s">' + esc(what) + " contre " + esc(who) + " " + obRk(rk) + ". Avec l'heure, Montée te dit quand manger, récupérer et t'échauffer.</span>" +
-      '<div class="ob-time"><input type="time" data-btw="t" aria-label="Heure du prochain match" value=""><button class="btn primary small" data-a="btwSet">Valider</button></div></div>';
+      '<div class="ob-time">' + hSel('data-btw="t" aria-label="Heure du prochain match"', "", "Heure") + '<button class="btn primary small" data-a="btwSet">Valider</button></div></div>';
     var now = new Date(), at = new Date(today().getTime()); at.setHours(hm.h, hm.m, 0, 0);
     var left = Math.round((at - now) / 60000);
     if (left < -15) return "";

@@ -3318,7 +3318,8 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-day.on { background: var(--ink); color: var(--bg); }
 .tq-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--chip); border-radius: 14px; padding: 4px 14px; }
 .tq-h span { font-size: 13.5px; color: var(--muted); }
-.tq-h input { border: 0; background: none; color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; text-align: right; min-width: 80px; min-height: 40px; outline: none; -webkit-appearance: none; appearance: none; }
+.tq-h select.tsel { text-align-last: right; }
+.tq-h input, .tq-h select.tsel { border: 0; background: none; color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; text-align: right; min-width: 80px; min-height: 40px; outline: none; -webkit-appearance: none; appearance: none; }
 .tq-stake b { font-size: 13px; }
 .tq-undo { align-self: center; font-size: 13px; }
 .tl-r .tl-vd { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
@@ -3483,7 +3484,7 @@ button.ts-t { border: 0; font: inherit; color: var(--ink); text-align: left; }
 .pl-when svg { width: 14px; height: 14px; } .pl-when.past { background: var(--chip); color: var(--muted); }
 .pl-cal { color: var(--gazon); }
 .ps-d { margin: 4px 0 2px; }
-.tn-d.field .tn-dd input[type=time] { display: block; width: 100%; min-width: 0; box-sizing: border-box; -webkit-appearance: none; appearance: none; font-size: 16px; padding: 12px 10px; min-height: 46px; border: 0; border-radius: 14px; background: var(--chip); color: var(--ink); font-family: inherit; }
+.tn-d.field .tn-dd input[type=time], .tn-d.field .tn-dd select.tsel { display: block; width: 100%; min-width: 0; box-sizing: border-box; -webkit-appearance: none; appearance: none; font-size: 16px; padding: 12px 10px; min-height: 46px; border: 0; border-radius: 14px; background: var(--chip); color: var(--ink); font-family: inherit; }
 .ps-d .tn-dd input { background: var(--chip) !important; border: 0 !important; border-radius: 14px !important; }
 /* 3.45.1 : le résultat Ten'Up mis en valeur */
 .blk.tu-res { box-shadow: inset 0 0 0 2px var(--balle); background: linear-gradient(180deg, var(--me-bg), var(--card) 70%); }
@@ -6767,7 +6768,7 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .ob-date { width: 100%; min-height: 44px; border-radius: 14px; border: 0; background: var(--chip); color: var(--ink); font: inherit; padding: 0 12px; margin-top: 8px; }
 .ob-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
 .ob-time { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
-.ob-time input { flex: 1; min-height: 44px; border-radius: 14px; border: 0; background: var(--chip); color: var(--ink); font: inherit; font-size: 17px; padding: 0 12px; }
+.ob-time input, .ob-time select.tsel { flex: 1; min-height: 44px; border-radius: 14px; border: 0; background: var(--chip); color: var(--ink); font: inherit; font-size: 17px; padding: 0 12px; }
 .ob-lk { border: 0; background: none; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
 .ob-ck { flex: none; width: 24px; height: 24px; border-radius: 7px; box-shadow: inset 0 0 0 2px var(--line); display: grid; place-items: center; font-size: 14px; font-weight: 900; }
 .ob-ck.on { box-shadow: inset 0 0 0 2px var(--gazon); color: var(--gazon); }
@@ -7627,7 +7628,7 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .dz-ck { color: var(--gazon); font-weight: 800; font-size: 18px; }
 .dz-hh { display: flex; gap: 10px; padding: 10px 0; }
 .dz-hh label { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
-.dz-hh input { font: inherit; font-size: 17px; padding: 10px 12px; border-radius: 14px; border: 0; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); }
+.dz-hh input, .dz-hh select.tsel { font: inherit; font-size: 17px; padding: 10px 12px; border-radius: 14px; border: 0; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); }
 .dz-o { appearance: none; border: 0; background: none; font: inherit; color: inherit; width: 100%; text-align: left; display: flex; align-items: center; gap: 10px; padding: 12px 0; }
 .dz-o + .dz-o { border-top: 1px solid var(--line); }
 .dz-o .grow { display: flex; flex-direction: column; gap: 2px; }
@@ -7713,3 +7714,7 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .dz-days .dz-ex .tz-d { position: relative; }
 .dz-days .dz-ex .tz-d::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--terre); box-shadow: 0 0 0 2px var(--card); }
 .dz-days .dz-ex .s { color: var(--terre); font-weight: 600; }
+
+/* 4.10 : sélecteur d'heure par quarts d'heure */
+select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; cursor: pointer; }
+.dz-hh select.tsel, .ob-time select.tsel, .tn-dd select.tsel { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238A8F98' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
