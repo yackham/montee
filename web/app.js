@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.9.1",
+    VERSION: "4.9.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1894,9 +1894,19 @@
     return Promise.resolve();
   }
   function tuNum(id) { return String(id || "").replace(/^\D+_?/, ""); }
-  function mapsUrl(q, lat, lng) {
-    var ll = lat && lng ? lat + "," + lng : "";
-    return IOS ? "https://maps.apple.com/?q=" + encodeURIComponent(q || ll) + (ll ? "&ll=" + ll : "") : "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(ll || q);
+  // 4.9.2 (Yann : « ça m'ouvre d'office Plans ») : l'itinéraire se choisit dans une petite feuille, avec l'app de navigation de son choix
+  function itinLinks(q, lat, lng) {
+    var ll = lat && lng ? lat + "," + lng : "", d = encodeURIComponent(ll || q), out = [];
+    if (IOS) out.push({ lab: "Plans", url: "https://maps.apple.com/?daddr=" + d + (q && ll ? "&q=" + encodeURIComponent(q) : "") });
+    out.push({ lab: "Google Maps", url: "https://www.google.com/maps/dir/?api=1&destination=" + d });
+    out.push({ lab: "Waze", url: "https://waze.com/ul?" + (ll ? "ll=" + encodeURIComponent(ll) : "q=" + encodeURIComponent(q)) + "&navigate=yes" });
+    if (!IOS) out.push({ lab: "Une autre app", sub: "Le choix de ton téléphone", url: "geo:" + (ll || "0,0") + "?q=" + encodeURIComponent(ll ? ll + "(" + (q || "") + ")" : q) });
+    return out;
+  }
+  function itinIc(q, lat, lng) { return tzIc("map", "Itinéraire", 'data-a="itin" data-q="' + esc(q || "") + '" data-ll="' + esc(lat && lng ? lat + "," + lng : "") + '"'); }
+  function DET_ITIN(v) {
+    var L = itinLinks(v.q, v.lat, v.lng);
+    return { title: "Itinéraire", sub: v.q, body: '<div class="itin-sh">' + L.map(function (x) { return '<a class="dz-o" href="' + esc(x.url) + '" target="_blank" rel="noopener" data-a="itinGo"><span class="grow"><span class="t">' + esc(x.lab) + "</span>" + (x.sub ? '<span class="s">' + esc(x.sub) + "</span>" : "") + "</span>" + I.next + "</a>"; }).join("") + '<span class="small itin-n">S\'il n\'est pas installé, l\'itinéraire s\'ouvre dans le navigateur.</span></div>' };
   }
   function tzRow(lbl, val, act, cls) {
     return '<div class="tz-r' + (cls ? " " + cls : "") + '"><span class="grow"><span class="t">' + lbl + '</span><span class="s">' + val + "</span></span>" + (act ? '<span class="tz-acts">' + act + "</span>" : "") + "</div>";
@@ -1904,7 +1914,7 @@
   function tzBtn(path, title, label) { return '<button class="tz-act" data-a="tzTu" data-v="' + esc(path) + '" data-t="' + esc(title) + '">' + esc(label) + "</button>"; }
   function tzLieu(m, fb) {
     var where = m.addr || fb || ""; if (!where) return "";
-    return tzRow("Lieu", esc((m.place && where.indexOf(m.place) < 0 ? insCase(m.place) + " · " : "") + where), tzIc("map", "Itinéraire", 'href="' + esc(mapsUrl(where, m.lat, m.lng)) + '" target="_blank" rel="noopener"'));
+    return tzRow("Lieu", esc((m.place && where.indexOf(m.place) < 0 ? insCase(m.place) + " · " : "") + where), itinIc(where, m.lat, m.lng));
   }
   function tzJa(m, num) {
     var j = m.ja;
@@ -1928,24 +1938,26 @@
     var g = dGap(lim); return g < 0 ? { ok: false, txt: "Plus modifiables depuis le " + fdate(lim) } : { ok: true, txt: g === 0 ? "Modifiables jusqu'à ce soir" : "Modifiables jusqu'au " + fdate(lim) };
   }
   function insFiche(t) { // 4.6.0 : le téléphone et le mail du juge-arbitre, et le point GPS du lieu, viennent de la fiche publique (une fois)
-    var i = t.ins, m = i.more = i.more || {}; if (m.fiAt || !NATIVE || !S.tenup.linked || offline() || (UI.insFi || {})[t.tuid]) return;
+    var i = t.ins, m = i.more = i.more || {}; if ((m.fiAt && (m.fiV >= 2 || (m.ja && m.ja.name))) || !NATIVE || !S.tenup.linked || offline() || (UI.insFi || {})[t.tuid]) return;
     UI.insFi = UI.insFi || {}; UI.insFi[t.tuid] = 1;
     setTimeout(function () { tenupQuery("fiche", { t: t.tuid }).then(function (r) {
-      if (!r || r.error) return; m.fiAt = Date.now(); var ja = m.ja || { name: "", tel: "", mail: "" };
-      if (r.ja) { ja.tel = ja.tel || r.ja.tel || ""; ja.mail = ja.mail || r.ja.mail || ""; } if (ja.name || ja.tel || ja.mail) m.ja = ja;
+      if (!r || r.error) return; m.fiAt = Date.now(); m.fiV = 2; var ja = m.ja || { name: "", tel: "", mail: "" };
+      if (r.ja) { ja.name = ja.name || r.ja.name || ""; ja.tel = ja.tel || r.ja.tel || ""; ja.mail = ja.mail || r.ja.mail || ""; } // 4.9.2 : le nom, lu sur la page du tournoi if (ja.name || ja.tel || ja.mail) m.ja = ja;
       ["addr", "place", "lat", "lng"].forEach(function (k) { if (m[k] == null && r[k] != null) m[k] = r[k]; });
       save(); render();
     }); }, 300);
   }
+  // 4.9.2 (Yann : « À régler m'ouvre toutes mes inscriptions ») : la page de CETTE inscription, où Ten'Up propose le paiement
+  function insPayUrl(m) { var x = String(m.dispoUrl || "").match(/^(\/user\/mes-inscriptions\/[^\/?#]+)/); return x ? x[1] : "/user/mes-inscriptions"; }
   function tzPratique(t) {
     var i = t.ins || {}, m = i.more || {}, num = tuNum(t.tuid), r = "", j = m.ja;
     var where = m.addr || [insCase(i.club || ""), insCase(i.city || "")].filter(Boolean).join(", "), short = m.place ? insCase(m.place) + (i.city ? ", " + insCase(i.city) : "") : where;
-    if (where) r += tzLine1("Lieu", m.place && m.addr ? esc(insCase(m.place)) + '<small class="tz-sub">' + esc(m.addr) + "</small>" : esc(short), tzIc("map", "Itinéraire", 'href="' + esc(mapsUrl(where, m.lat, m.lng)) + '" target="_blank" rel="noopener"'));
-    r += j ? tzLine1("Juge-arbitre", esc(j.name ? nameCase(j.name) : "Juge-arbitre"), (j.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(j.tel) + '"') : "") + (j.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(j.mail) + '"') : ""))
+    if (where) r += tzLine1("Lieu", m.place && m.addr ? esc(insCase(m.place)) + '<small class="tz-sub">' + esc(m.addr) + "</small>" : esc(short), itinIc(where, m.lat, m.lng));
+    r += j ? tzLine1("Juge-arbitre", esc(j.name ? nameCase(j.name) : "Le juge-arbitre du tournoi"), (j.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(j.tel) + '"') : "") + (j.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(j.mail) + '"') : ""))
       : tzLine1("Juge-arbitre", "Sur la page du tournoi", num ? '<button class="tz-act" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="Le tournoi">Voir</button>' : "");
     var D = tzDispo(m.dispoLim);
     r += tzLine1("Indispos", esc(D.txt), D.ok ? (NATIVE && S.tenup.linked ? tzIc("edit", "Modifier tes indispos", 'href="#/dispos/' + esc(t.id) + '"') : tzIc("edit", "Modifier tes indispos sur Ten'Up", 'data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos"')) : "", D.ok ? "" : "tz-mute");
-    if (i.due > 0) r += tzLine1("Paiement", esc(String(i.due)) + " € à régler", tzIc("pay", "Payer sur Ten'Up", 'data-a="tzTu" data-v="/user/mes-inscriptions" data-t="Paiement"'), "tz-due");
+    if (i.due > 0) r += tzLine1("Paiement", esc(String(i.due)) + " € à régler", tzIc("pay", "Payer sur Ten'Up", 'data-a="tzTu" data-v="' + esc(insPayUrl(m)) + '" data-t="Paiement"'), "tz-due");
     return '<h2>Pratique</h2><div class="blk tz-blk tz-c">' + r + '</div>';
   }
 
@@ -1977,15 +1989,21 @@
   }
   function tzEp(t) { // l'épreuve faite pour toi : simple, ton sexe, ton classement dans la fourchette
     if (t.eps == null) return { id: null, wait: true }; // 4.6.0 : la recherche ne donne pas les épreuves, la fiche les lira
-    var cur = curIdx(), sx = S.profile.sex, best = null;
+    if (tzYouth(t)) return null;
+    var cur = curIdx(), sx = S.profile.sex, best = null, old = null;
     (t.eps || []).forEach(function (e) {
       if (e.dbl || (e.sex && sx && e.sex !== sx)) return;
+      var et = (e.name || "") + " · " + (e.aud || ""); if (T.youthOnly(et)) return; // 4.9.2 : pas les épreuves jeunes (balle orange, U12…)
+      if (T.seniorsPlus(et)) { if (!old) old = e; return; } // seniors+ : seulement s'il n'y a rien d'ouvert à tous (l'âge n'est pas connu)
       var lo = e.min ? E.idx(T.normRank(e.min)) : null, hi = e.max ? E.idx(T.normRank(e.max)) : null;
       if (cur >= 0 && ((lo != null && cur < lo) || (hi != null && cur > hi))) return;
       if (!best) best = e;
     });
-    return best;
+    return best || old;
   }
+  // 4.9.2 : tournoi réservé aux jeunes, d'après son nom, sa catégorie et les libellés de la recherche (un seul calcul : T.youthOnly)
+  function tzSen(e) { var n = e ? T.seniorsPlus((e.name || "") + " · " + (e.aud || "")) : 0; return n === true ? "Seniors +" : n ? n + " ans et +" : ""; }
+  function tzYouth(t) { return T.youthOnly([t.name, t.cat, t.aud].filter(Boolean).join(" · ")); }
   function tzClash(t) { // ce que tu as déjà ces jours-là : épreuves, rencontres, matchs prévus, tes indispos Montée
     var a = t.from, b = t.to || t.from, out = [];
     try { obUpcoming(183).forEach(function (x) { var d1 = x.d, d2 = x.to || x.d; if (d1 <= b && d2 >= a) out.push({ d: x.d, t: x.title, ty: x.ty || "" }); }); } catch (e) {}
@@ -2015,7 +2033,7 @@
   }
   function tzAll() {
     var P = tzPrefs(), L = (S.tzr && S.tzr.list) || [], td = E.iso(today());
-    return L.filter(function (t) { return t.from >= td && !(toursAll().some(function (x) { return x.tuid && tuNum(x.tuid) === tuNum(t.id); })); })
+    return L.filter(function (t) { return t.from >= td && !tzYouth(t) && !(toursAll().some(function (x) { return x.tuid && tuNum(x.tuid) === tuNum(t.id); })); })
       .map(tzEval).filter(function (v) { return v.ep && (v.km == null || v.km <= P.km * 1.25); });
   }
   function tzFicheAuto() { // les fiches (épreuves, clôture) des 6 premiers, lues au rythme d'un humain
@@ -2028,13 +2046,13 @@
   function tzFiche(t, quiet) { // épreuves, clôture, juge-arbitre et lieu lus sur la fiche Ten'Up du tournoi, gardés avec le tournoi trouvé
     if (!NATIVE || !S.tenup.linked) return Promise.resolve();
     return tenupQuery("fiche", { t: t.id }).then(function (r) {
-      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; });
+      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
       if (quiet) return; save(); if (UI.sheet && UI.sheet.k === "tz") render();
     });
   }
   function tzBillet(d) { var x = E.parseDate(d); return '<span class="tz-d"><small>' + esc(JOURS[x.getDay()].slice(0, 3)) + ".</small><b>" + dN(x) + "</b><small>" + esc(MOIS[x.getMonth()]) + "</small></span>"; }
   function tzLine(v, open) {
-    var t = v.t, e = v.ep, sub = [t.city ? insCase(t.city) : "", v.km != null ? v.km + " km" : "", e.min || e.max ? (e.min || "NC") + " à " + (e.max || "…") : "", e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ");
+    var t = v.t, e = v.ep, sub = [t.city ? insCase(t.city) : "", v.km != null ? v.km + " km" : "", tzSen(e), e.min || e.max ? (e.min || "NC") + " à " + (e.max || "…") : "", e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ");
     var hot = v.clash.length ? '<span class="tz-w">' + esc("En même temps : " + v.clash[0].t) + "</span>"
       : v.close != null && v.close <= 7 ? '<span class="tz-w">' + esc(v.close === 0 ? "Inscriptions closes ce soir" : "Inscriptions closes dans " + plural(v.close, "jour")) + "</span>"
       : v.thr || v.rel ? '<span class="tz-v">' + (open ? esc(v.thr ? "Avant que des points sortent (" + fdate(E.iso(v.thr.rel)) + ")" : "Compte pour la sortie du " + fdate(E.iso(v.rel))) : pwX("Avant que des points sortent")) + "</span>" : "";
@@ -2043,7 +2061,7 @@
   V.trouver = function () {
     var P = tzPrefs(), plus = isSup(), s = '<div class="screen tz-scr">' + topbar("", backLab("Mes épreuves"));
     s += '<h1>Trouver un tournoi</h1><p class="lead" style="margin-top:-8px">Les tournois près de chez toi, sans collision avec ta saison.</p>';
-    if (!P.lat) return s + '<div class="card tz-cp"><b>D\'où pars-tu ?</b><span class="small">Ton code postal, pour la distance. Il reste sur ton téléphone.</span><div class="tz-cpf"><input id="tz-cp" inputmode="numeric" maxlength="5" placeholder="Code postal" value="' + esc(P.cp || "") + '"><button class="btn primary small" data-a="tzCp">OK</button></div></div></div>';
+    if (!P.lat) return s + '<div class="card tz-cp"><b>D\'où pars-tu ?</b><span class="small">Ton code postal, pour la distance. Il reste sur ton téléphone.</span><div class="tz-cpf"><input id="tz-cp" inputmode="numeric" autocomplete="postal-code" enterkeyhint="go" maxlength="5" placeholder="Code postal" value="' + esc(P.cp || "") + '"><button class="btn primary small" data-a="tzCp">OK</button></div></div></div>';
     s += '<div class="tz-f"><button class="tz-chip" data-a="tzWhere">' + esc((P.city || P.cp) + " · " + P.km + " km") + '</button><button class="tz-chip" data-a="tzWhere">' + P.wk + " semaines</button></div>";
     if ((!NATIVE || !S.tenup.linked) && !(S.tzr && S.tzr.list)) return s + viduel("tz", "Relie Ten'Up", "La recherche passe par ton compte Ten'Up, depuis ton téléphone.", "") + "</div>";
     tzSearch(false);
@@ -2135,7 +2153,7 @@
   }
   var DET_TZF = function () { // 4.6.0 (Yann) : où et quand chercher ; les mêmes réglages que la recherche Ten'Up (ville, rayon, dates)
     var P = tzPrefs(), b = "", seg = function (k, vals, cur, f) { return '<div class="seg tz-fs">' + vals.map(function (v) { return '<button data-a="tzSet" data-k="' + k + '" data-v="' + v + '" class="' + (v === cur ? "on" : "") + '">' + f(v) + "</button>"; }).join("") + "</div>"; };
-    b += tzRow("D'où tu pars", '<span class="tz-fc">' + esc(P.city ? P.city + " · " + P.cp : "Pas encore choisi") + '</span><div class="tz-cpf"><input id="tz-cp" inputmode="numeric" maxlength="5" placeholder="Autre code postal" value=""><button class="btn small" data-a="tzCp">Changer</button></div>', "");
+    b += tzRow("D'où tu pars", '<span class="tz-fc">' + esc(P.city ? P.city + " · " + P.cp : "Pas encore choisi") + '</span><div class="tz-cpf"><input id="tz-cp" inputmode="numeric" autocomplete="postal-code" enterkeyhint="go" maxlength="5" placeholder="Autre code postal" value=""><button class="btn small" data-a="tzCp">Changer</button></div>', "");
     b += tzRow("Jusqu'à", seg("km", [20, 40, 80, 150], P.km, function (v) { return v + " km"; }), "");
     var to = new Date(today().getTime() + P.wk * 7 * 864e5);
     b += tzRow("Période", seg("wk", [4, 8, 12], P.wk, function (v) { return v + " sem."; }) + '<span class="small tz-fn">Du ' + esc(fdate(E.iso(today()))) + " au " + esc(fdate(E.iso(to))) + "</span>", "");
@@ -2153,7 +2171,7 @@
     var when = v.thr ? "Fini avant la sortie du " + fdate(E.iso(v.thr.rel)) + ", où des points sortent" + (v.thr.need != null ? " : une victoire contre un " + lab(v.thr.need) + " les remplace." : ".")
       : "Tes victoires compteront à la sortie du " + fdate(E.iso(E.nextRelease(E.parseDate(t.to || t.from)))) + ".";
     b += tzRow("Le bon moment", open ? esc(when) : pwX("Fini avant la sortie du 2 déc., où des points sortent."), "");
-    if ((!t.ja || t.eps == null) && !(UI.tzFi || {})[t.id] && NATIVE && S.tenup.linked) { UI.tzFi = UI.tzFi || {}; UI.tzFi[t.id] = 1; setTimeout(function () { tzFiche(t); }, 600); } // 4.6.0 : épreuves et juge-arbitre en direct (Yann)
+    if ((!t.ja || !t.ja.name || t.eps == null) && !(UI.tzFi || {})[t.id] && NATIVE && S.tenup.linked) { UI.tzFi = UI.tzFi || {}; UI.tzFi[t.id] = 1; setTimeout(function () { tzFiche(t); }, 600); } // 4.6.0 : épreuves et juge-arbitre en direct (Yann)
     return { title: t.name, sub: [fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), t.club ? insCase(t.club) : ""].filter(Boolean).join(" · "),
       body: '<div class="tz-sh">' + b + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
         '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>' };
@@ -15271,7 +15289,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<span class="ob-foot">Un recordage compte environ ' + OB_RS_EUR + " € (≈) : 12 € le cordage et 10 € la pose. Les inscriptions sont celles que Ten'Up indique. " + (D.approx ? "Un tournoi déjà joué n'y figure plus, avec son prix : Montée le compte environ " + OB_INS_EUR + " € (≈). " : "") + "Rien ne sort de ton téléphone.</span>" };
   };
   function sheetHtml() {
-    DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.dz = DET_DZ; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
+    DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.dz = DET_DZ; DET.itin = DET_ITIN; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
     var d = DET[UI.sheet.k] && DET[UI.sheet.k](UI.sheet.v);
     if (!d) { UI.sheet = null; return ""; }
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + '</b><button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
@@ -20399,6 +20417,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 4.6.0 : trouver un tournoi, pages Ten'Up dans l'app
     // 4.6.0 (essai avec Yann) : 7 touches sur le numéro de version = relevé des noms de champs Ten'Up (aucune valeur perso), à partager
     tzTu: function (el) { tuPage(el.dataset.v, el.dataset.t); },
+    itin: function (el) { var ll = (el.dataset.ll || "").split(","); UI.sheet = { k: "itin", v: { q: el.dataset.q || "", lat: ll[0] || "", lng: ll[1] || "" }, back: UI.sheet && UI.sheet.k !== "itin" ? UI.sheet : null }; render(); },
+    itinGo: function () { var b = UI.sheet && UI.sheet.back; setTimeout(function () { UI.sheet = b || null; render(); }, 300); return true; },
     tzOpen: function (el) { UI.sheet = { k: "tz", v: el.dataset.v }; render(); },
     tzTab: function (el) { if (el.dataset.v === "rec" && !isSup()) { UI.supFrom = "trouver"; UI.sheet = { k: "plusPrev", v: "cap" }; render(); return; } UI.tzTab = el.dataset.v; render(); },
     tzCp: function () { var v = (document.getElementById("tz-cp") || {}).value; tzHome(v).then(function (P) { if (!P) { toast("Code postal introuvable."); return; } if (!UI.sheet) tzSearch(true); render(); }); },
@@ -20737,6 +20757,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && UI.ace && !UI.sheet) { if (UI.ace.q) UI.ace.q = ""; else UI.ace = null; render(); } }); // 3.74.1 : Échap = retour d'Android
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.tq && UI.trR) { ev.preventDefault(); if (nameSplits(UI.trR.q || "").length && NATIVE) { ev.target.blur(); A.trFind(); } } });
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.ff) { ev.preventDefault(); ev.target.blur(); UI.fafLocal = null; fafSearch(null); } });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "tz-cp") { ev.preventDefault(); ev.target.blur(); A.tzCp(); } }); // 4.9.2 : Entrée valide le code postal et ferme le clavier
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "ps-q") { ev.preventDefault(); ev.target.blur(); A.psFind(); } });
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "m-opp" && ev.target.parentNode && ev.target.parentNode.classList.contains("sbf")) { ev.preventDefault(); ev.target.blur(); A.mTuFind(); } });
 

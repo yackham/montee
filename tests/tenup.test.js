@@ -102,3 +102,17 @@ test("indispos 4.6.0 : créneaux habituels, numérotation des jours, contenu env
   assert.ok(/dzMapping/.test(T.queryScript("dispos", { t: "MOJA_1", from: "2027-02-08", to: "2027-02-14" })));
   assert.ok(/PUT/.test(T.queryScript("dispoSave", { t: "MOJA_1", body: {} })));
 });
+
+test("4.9.2 : épreuves jeunes et seniors+ reconnues dans les libellés", () => {
+  for (const x of ["Tmc orange", "Open Jeunes", "11/12 ans", "U14 garçons", "Galaxie vert", "Plateau balle verte", "17/18 ans"]) assert.equal(T.youthOnly(x), true, x);
+  for (const x of ["TMC Seniors", "Tournoi du Moulin Rouge", "Tournoi de Rougemont", "SM 4e série", "35 ans et +", "Simple Messieurs Seniors"]) assert.equal(T.youthOnly(x), false, x);
+  assert.equal(T.seniorsPlus("35 ans et +"), 35); assert.equal(T.seniorsPlus("Senior +45"), 45); assert.equal(T.seniorsPlus("SM 4e série"), 0);
+  assert.match(T.ageTxt({ libelleTournoi: "Tmc orange", club: { libelle: "TC Exemple" }, ville: "X" }), /Tmc orange/);
+});
+
+test("4.9.2 : nom du juge-arbitre lu sur la page du tournoi", () => {
+  assert.equal(T.jaNameFrom('<div><span>Juge-arbitre</span><span><a href="/x">Jean DUPONT</a></span></div>'), "Jean Dupont");
+  assert.equal(T.jaNameFrom('<p>Juge-arbitre</p><a href=x><span>Jean-Paul</span> <span>MARTIN-DURAND</span></a>'), "Jean-Paul Martin-Durand");
+  assert.equal(T.jaNameFrom('<p>Juge-arbitre</p><a href=x>Voir le site</a>'), "");
+  assert.equal(T.jaNameFrom("<p>rien</p>"), "");
+});
