@@ -32,3 +32,73 @@ test("tennis entreprise = championnat par équipes, pas une inscription (4.5.1, 
   assert.strictEqual(T.kindOf("TOURNOI CNGT DE GRANDVILLARS"), "tournoi");
   assert.strictEqual(T.kindOf("Championnat individuel TE"), "champ");
 });
+test("4.6.0 : juge-arbitre et lieu d'une inscription (champs lus par motif)", () => {
+  const x = { id: "FFT_1", installation: { nom: "Complexe des Sports", adresse: { adresse1: "12 allée des Sports", codePostal: "25000", ville: "Villeneuve" }, latitude: 47.2, longitude: 6.0 },
+    jugeArbitre: { prenom: "Julien", nom: "MOREAU", telephone: "06 00 00 00 00", email: "ja@exemple.fr" } };
+  const r = T.tuInfos(x);
+  assert.deepStrictEqual(r.ja, { name: "Julien MOREAU", tel: "0600000000", mail: "ja@exemple.fr" });
+  assert.strictEqual(r.addr, "12 allée des Sports, 25000 Villeneuve");
+  assert.strictEqual(r.lat, 47.2);
+  assert.deepStrictEqual(T.tuInfos({ id: 1 }), {});
+});
+test("4.6.0 : un tournoi de la recherche Ten'Up en forme Montée", () => {
+  const t = T.tsMap({ id: 1001, libelle: "Open de Noël", dateDebut: "2026-12-12T00:00:00", dateFin: "2026-12-23", nomClub: "TC Beaulieu", dateLimiteInscription: "2026-12-08",
+    installation: { ville: "Beaulieu" }, epreuves: [{ idEpreuve: 11, libelle: "Simple Messieurs", classementMin: { libelle: "30/1" }, classementMax: { libelle: "15/1" }, tarif: 22, nbInscrits: 18 },
+      { idEpreuve: 12, libelle: "Double Mixte", tarif: 15 }] });
+  assert.strictEqual(t.id, "1001"); assert.strictEqual(t.from, "2026-12-12"); assert.strictEqual(t.limit, "2026-12-08"); assert.strictEqual(t.city, "Beaulieu");
+  assert.deepStrictEqual([t.eps[0].sex, t.eps[0].min, t.eps[0].max, t.eps[0].fee, t.eps[0].n, t.eps[0].dbl], ["H", "30/1", "15/1", 22, 18, false]);
+  assert.strictEqual(t.eps[1].dbl, true);
+  assert.strictEqual(T.tsMap({ libelle: "sans id" }), null);
+});
+test("4.6.0 : inscrits d'une épreuve (classements, liste d'attente, pas de noms)", () => {
+  const m = T.inscritsMap({ tableau: [{ joueur: { idCrm: 5, nom: "X", classement: { libelle: "15/2" } } }, { classement: "30" }], listeAttente: [{ classement: "30/1" }] });
+  assert.deepStrictEqual(m.list.map((x) => x.r), ["15/2", "30"]); assert.strictEqual(m.wait, 1);
+  assert.ok(!JSON.stringify(m).includes('"X"'));
+});
+test("4.6.0 : les nouvelles lectures (tournois, inscrits) tournent dans le script injecté", async () => {
+  global.location = { origin: "https://exemple.invalid", hostname: "tenup.fft.fr", pathname: "/" };
+  global.document = { title: "", querySelectorAll: () => [] };
+  global.fetch = async () => ({ ok: false, status: 404, json: async () => ({}), text: async () => "" });
+  const AF = Object.getPrototypeOf(async function () {}).constructor;
+  for (const [k, a] of [["tournois", { from: "2026-12-01", to: "2027-01-31", lat: 47, lng: 6, km: 40, cp: "25000" }], ["fiche", { t: "FFT_1001" }], ["inscrits", { t: "1", e: "2" }], ["inscriptions", {}]]) {
+    const out = String(await new AF(T.queryScript(k, a))());
+    assert.ok(!/is not defined|ReferenceError/.test(out), k + " : " + out.slice(0, 200));
+  }
+});
+test("tournois 4.6.0 : formats Ten'Up relevés le 25/11/2026", () => {
+  assert.strictEqual(T.dispoLimFrom("Vous aviez jusqu&#x27;au 04/11/2026 pour modifier vos disponibilités"), "2026-11-04");
+  assert.strictEqual(T.dispoLimFrom("Vous avez jusqu’au 1/12/2026 pour modifier vos disponibilités"), "2026-12-01");
+  assert.strictEqual(T.dispoLimFrom("<p>Rien</p>"), "");
+  const c = T.cardMap({ idHomologation: "MOJA_321545", libelleTournoi: "Open d'hiver", dateDebut: "2026-12-05", dateFin: "2026-12-20", club: { libelle: "TC Exemple" }, ville: "VILLE", distance: 12400, inscriptionEnLigne: true, naturesEpreuves: [] });
+  assert.strictEqual(c.id, "321545"); assert.strictEqual(c.km, 12); assert.strictEqual(c.eps, null);
+  assert.strictEqual(T.cardsFrom('x{"nbResultats":1,"cards":[{"idHomologation":"A_1","libelleTournoi":"T"}]}y').cards.length, 1);
+  const f = T.ficheMap({ mailJa: " ja@exemple.fr ", telephoneJa: "06 00 00 00 00", dateCloture: "2026-12-01T00:00", inscriptionEnLigne: true, epreuveList: [{ id: 7, typeEpreuve: "SM", nomEpreuve: "Simple messieurs" }, { id: 8, typeEpreuve: "DD", nomEpreuve: "Double dames" }] });
+  assert.strictEqual(f.ja.tel, "0600000000"); assert.strictEqual(f.ja.mail, "ja@exemple.fr"); assert.strictEqual(f.closing, "2026-12-01");
+  assert.strictEqual(f.eps[0].sex, "H"); assert.strictEqual(f.eps[1].sex, "F"); assert.strictEqual(f.eps[1].dbl, true);
+  const l = T.lieuMap({ nomClub: "TC Exemple", adresse1: "1 rue du Court", codePostal: "75001", ville: "PARIS", lat: 48.86, lng: 2.34 });
+  assert.ok(/1 rue du Court/.test(l.addr)); assert.strictEqual(l.lat, 48.86);
+  const i = T.tuInfos({ jugeArbitre: { idCrm: 1, nom: "MARTIN", prenom: "Julien" }, installation: { adresse1: null, codePostal: "75001", nom: "Salle", ville: "PARIS" } });
+  assert.strictEqual(i.ja.name, "Julien MARTIN"); assert.strictEqual(i.place, "Salle");
+});
+test("indispos 4.6.0 : lecture jour par jour (relevé du 25/11/2026)", () => {
+  const d = T.dispoDays({ disponibilites: [{ date: "2027-02-13", horaires: [{ heureDebut: "2027-02-13T18:30:00", heureFin: "2027-02-13T22:00:00", particuliere: true }] }] });
+  assert.deepStrictEqual(d, [{ date: "2027-02-13", slots: [{ from: "18:30", to: "22:00", ex: true }] }]);
+  assert.ok(/dispoDays/.test(T.queryScript("dispos", { t: "MOJA_1" })));
+});
+test("indispos 4.6.0 : créneaux habituels, numérotation des jours, contenu envoyé", () => {
+  const gen = T.genMap({ personnes: [{ idCrm: 1, disponibilites: { generales: [{ jours: [1, 2, 3, 4, 5], heureDebut: "18:30:00", heureFin: "22:00:00" }, { jours: [6, 7], heureDebut: "09:00", heureFin: "20:00" }] } }] });
+  assert.strictEqual(gen[1].hd, "09:00:00");
+  // semaine du lundi 8 février 2027 : du lundi au vendredi 18 h 30 – 22 h, le week-end 9 h – 20 h, samedi 13 : exception
+  const days = ["2027-02-08", "2027-02-09", "2027-02-10", "2027-02-11", "2027-02-12"].map(d => ({ date: d, slots: [{ from: "18:30", to: "22:00", ex: false }] }))
+    .concat([{ date: "2027-02-13", slots: [{ from: "14:00", to: "18:00", ex: true }] }, { date: "2027-02-14", slots: [{ from: "09:00", to: "20:00", ex: false }] }]);
+  assert.strictEqual(T.dzMapping(gen, days), "iso");
+  assert.strictEqual(T.dzMapping(gen, days.map(d => d.date === "2027-02-08" ? { date: d.date, slots: [] } : d)), null); // rien ne colle : on n'écrit pas
+  let n = 0; const b = T.dzBody(gen, { "2027-02-13": [{ from: "14:00", to: "18:00" }], "2027-02-10": [] }, "iso", () => "id" + (n++));
+  assert.deepStrictEqual(b.generales[0], { jours: [1, 2, 3, 4, 5], heureDebut: "18:30:00", heureFin: "22:00:00" });
+  assert.deepStrictEqual(b.particulieres, [
+    { disponible: false, dateDebut: "2027-02-10T18:30:00", dateFin: "2027-02-10T22:00:00", generaleId: "id0" },
+    { disponible: false, dateDebut: "2027-02-13T09:00:00", dateFin: "2027-02-13T20:00:00", generaleId: "id1" },
+    { disponible: true, dateDebut: "2027-02-13T14:00:00", dateFin: "2027-02-13T18:00:00", generaleId: "id1" }]);
+  assert.ok(/dzMapping/.test(T.queryScript("dispos", { t: "MOJA_1", from: "2027-02-08", to: "2027-02-14" })));
+  assert.ok(/PUT/.test(T.queryScript("dispoSave", { t: "MOJA_1", body: {} })));
+});

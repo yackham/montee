@@ -604,11 +604,105 @@ final class CalAdder: NSObject, EKCalendarChooserDelegate {
 }
 
 @objc(TenupPlugin)
+// 4.6.0 : une page Ten'Up ouverte dans Montée (inscription, paiement, indispos), avec la session du joueur.
+// Montée ne lit ni ne remplit rien sur cette page. Les liens qui sortent du web (téléphone, mail, appli bancaire) s'ouvrent à part.
+final class TenupPageViewController: UIViewController, WKNavigationDelegate, WKUIDelegate {
+    private let url: URL
+    private let titleText: String
+    private var web: WKWebView!
+    var onClose: (() -> Void)?
+
+    init(url: URL, title: String) {
+        self.url = url
+        self.titleText = title
+        super.init(nibName: nil, bundle: nil)
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) non utilisé") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        let linen = UIColor(red: 0.965, green: 0.949, blue: 0.925, alpha: 1)
+        overrideUserInterfaceStyle = .light
+        view.backgroundColor = linen
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = .default()   // la même session Ten'Up que la connexion
+        config.userContentController.addUserScript(WKUserScript(source: TenupFetcher.refuseCookies, injectionTime: .atDocumentEnd, forMainFrameOnly: false))
+        web = WKWebView(frame: .zero, configuration: config)
+        web.navigationDelegate = self
+        web.uiDelegate = self
+        web.allowsBackForwardNavigationGestures = true
+
+        let bar = UIView()
+        bar.backgroundColor = linen
+        let title = UILabel()
+        title.text = titleText
+        title.font = .systemFont(ofSize: 17, weight: .semibold)
+        title.textColor = UIColor(red: 0.07, green: 0.07, blue: 0.07, alpha: 1)
+        let sub = UILabel()
+        sub.text = "Sur Ten'Up, avec ta connexion. Montée ne voit pas ton paiement."
+        sub.font = .systemFont(ofSize: 13)
+        sub.textColor = UIColor(red: 0.38, green: 0.36, blue: 0.33, alpha: 1)
+        sub.numberOfLines = 2
+        let close = UIButton(type: .system)
+        close.setTitle("Fermer", for: .normal)
+        close.titleLabel?.font = .systemFont(ofSize: 17)
+        close.tintColor = UIColor(red: 0.12, green: 0.36, blue: 0.25, alpha: 1)
+        close.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        for v in [bar, web!] as [UIView] { v.translatesAutoresizingMaskIntoConstraints = false; view.addSubview(v) }
+        for v in [title, sub, close] as [UIView] { v.translatesAutoresizingMaskIntoConstraints = false; bar.addSubview(v) }
+        NSLayoutConstraint.activate([
+            bar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            bar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            title.topAnchor.constraint(equalTo: bar.topAnchor, constant: 14),
+            title.leadingAnchor.constraint(equalTo: bar.leadingAnchor, constant: 20),
+            title.trailingAnchor.constraint(lessThanOrEqualTo: close.leadingAnchor, constant: -8),
+            close.centerYAnchor.constraint(equalTo: title.centerYAnchor),
+            close.trailingAnchor.constraint(equalTo: bar.trailingAnchor, constant: -16),
+            sub.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 4),
+            sub.leadingAnchor.constraint(equalTo: bar.leadingAnchor, constant: 20),
+            sub.trailingAnchor.constraint(equalTo: bar.trailingAnchor, constant: -20),
+            sub.bottomAnchor.constraint(equalTo: bar.bottomAnchor, constant: -12),
+            web.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            web.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            web.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            web.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        web.load(URLRequest(url: url))
+    }
+
+    // tel:, mailto:, appli de la banque (3-D Secure)… : hors de la page
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if let u = navigationAction.request.url, let sc = u.scheme?.lowercased(), sc != "https", sc != "http", sc != "about", sc != "blob", sc != "data" {
+            UIApplication.shared.open(u)
+            decisionHandler(.cancel)
+            return
+        }
+        decisionHandler(.allow)
+    }
+    // Lien « nouvelle fenêtre » (paiement…) : dans la même page
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        if navigationAction.targetFrame == nil, let u = navigationAction.request.url { webView.load(URLRequest(url: u)) }
+        return nil
+    }
+
+    @objc private func closeTapped() {
+        let cb = onClose
+        onClose = nil
+        dismiss(animated: true) { cb?() }
+    }
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        if let cb = onClose { onClose = nil; cb() }   // fermée d'un glissé vers le bas
+    }
+}
+
 public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "TenupPlugin"
     public let jsName = "Tenup"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "connect", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openPage", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "refresh", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "query", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setState", returnType: CAPPluginReturnPromise),
@@ -965,6 +1059,17 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             }
             call.resolve()
+        }
+    }
+
+    @objc func openPage(_ call: CAPPluginCall) {
+        guard let s = call.getString("url"), let u = URL(string: s), u.scheme == "https", let h = u.host, h.hasSuffix("fft.fr") else { call.reject("adresse refusée"); return }
+        let title = call.getString("title") ?? "Ten'Up"
+        DispatchQueue.main.async {
+            let vc = TenupPageViewController(url: u, title: title)
+            vc.modalPresentationStyle = .pageSheet
+            vc.onClose = { call.resolve(["closed": true]) }
+            self.bridge?.viewController?.present(vc, animated: true)
         }
     }
 
