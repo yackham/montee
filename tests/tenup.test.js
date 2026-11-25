@@ -75,6 +75,11 @@ test("tournois 4.6.0 : formats Ten'Up relevés le 25/11/2026", () => {
   const f = T.ficheMap({ mailJa: " ja@exemple.fr ", telephoneJa: "06 00 00 00 00", dateCloture: "2026-12-01T00:00", inscriptionEnLigne: true, epreuveList: [{ id: 7, typeEpreuve: "SM", nomEpreuve: "Simple messieurs" }, { id: 8, typeEpreuve: "DD", nomEpreuve: "Double dames" }] });
   assert.strictEqual(f.ja.tel, "0600000000"); assert.strictEqual(f.ja.mail, "ja@exemple.fr"); assert.strictEqual(f.closing, "2026-12-01");
   assert.strictEqual(f.eps[0].sex, "H"); assert.strictEqual(f.eps[1].sex, "F"); assert.strictEqual(f.eps[1].dbl, true);
+  const g = T.ficheMap({ codeSurfaces: ["TB", "RES", "XX"], courtList: [{ couvert: true }, { couvert: false }], prixEspece: 100, prixLots: 0, libelleCategorie: "TMC Messieurs", epreuveList: [{ id: 9, typeEpreuve: "SM", nomEpreuve: "Simple messieurs" }] });
+  assert.deepStrictEqual(g.surf, ["Terre battue", "Résine"]); assert.strictEqual(g.cov, "mix"); assert.strictEqual(g.cash, 100); assert.strictEqual(g.lots, undefined); assert.strictEqual(g.tmc, true);
+  T.epMerge(g, [{ eprId: 9, classementMin: "15/4 ", classementMax: "15/1 ", type: "MULTICHANCE", prixEspece: 100, prixLots: 50, mailConvocation: "x@exemple.fr" }]);
+  assert.strictEqual(g.eps[0].min, "15/4"); assert.strictEqual(g.eps[0].max, "15/1"); assert.strictEqual(g.eps[0].fmt, "tmc"); assert.strictEqual(g.lots, 50);
+  assert.ok(!JSON.stringify(g).includes("x@exemple.fr"));
   const l = T.lieuMap({ nomClub: "TC Exemple", adresse1: "1 rue du Court", codePostal: "75001", ville: "PARIS", lat: 48.86, lng: 2.34 });
   assert.ok(/1 rue du Court/.test(l.addr)); assert.strictEqual(l.lat, 48.86);
   const i = T.tuInfos({ jugeArbitre: { idCrm: 1, nom: "MARTIN", prenom: "Julien" }, installation: { adresse1: null, codePostal: "75001", nom: "Salle", ville: "PARIS" } });

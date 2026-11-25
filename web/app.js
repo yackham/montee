@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.10.2",
+    VERSION: "4.10.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2047,7 +2047,7 @@
   function tzFiche(t, quiet) { // épreuves, clôture, juge-arbitre et lieu lus sur la fiche Ten'Up du tournoi, gardés avec le tournoi trouvé
     if (!NATIVE || !S.tenup.linked) return Promise.resolve();
     return tenupQuery("fiche", { t: t.id }).then(function (r) {
-      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
+      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat", "surf", "cov", "cash", "lots", "tmc"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
       if (quiet) return; save(); if (UI.sheet && UI.sheet.k === "tz") render();
     });
   }

@@ -222,7 +222,7 @@
       // 4.6.0 : recherche de tournois, adresse relevée sur le vrai Ten'Up le 25/11/2026 (fil Vitre, 57 tournois) : la page de
       // résultats renvoie son flux de composants serveur (en-tête RSC) ; les tournois sont dans {"nbResultats": N, "cards": [...]}, 24 par page.
       var baseT = "/recherche/tournois/resultats?searchType=ville&pratique=TENNIS&ville=" + encodeURIComponent(A.ville || "") + "&lat=" + A.lat + "&lng=" + A.lng +
-        "&distance=" + (A.km || 30) + "&dateDebut=" + A.from + "&dateFin=" + A.to + "&utiliserMesDonnees=false&sort=DISTANCE&page=", allT = [], totT = 0;
+        "&distance=" + (A.km || 30) + "&dateDebut=" + A.from + "&dateFin=" + A.to + "&utiliserMesDonnees=true&sort=DISTANCE&page=", allT = [], totT = 0;
       var pageT = function (n) { return fetch(location.origin + baseT + n, { credentials: "include", headers: { "RSC": "1" } }).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.text(); }).then(function (t) {
         var o = cardsFrom(t); if (!o) throw new Error("format"); totT = o.nbResultats || 0;
         (o.cards || []).forEach(function (c) { var m = cardMap(c); if (m) allT.push(m); });
@@ -262,7 +262,10 @@
       var numF = String(A.t || "").replace(/^\D+_?/, ""), PB = location.origin + "/api/back/public/v1/";
       var jF = function (u) { return fetch(PB + u, { credentials: "include", headers: { "Accept": "application/json" } }).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }); };
       return jF("tournois/" + numF).then(function (d) {
-        var f = ficheMap(d); if (!d || !d.idLieu) return f;
+        var f = ficheMap(d); // 4.11 : classements min / max, format (TMC) et dotation de chaque épreuve, liste publique
+        return jF("tournois/" + numF + "/epreuves").then(function (l) { epMerge(f, l); return [d, f]; }, function () { return [d, f]; });
+      }).then(function (df) {
+        var d = df[0], f = df[1]; if (!d || !d.idLieu) return f;
         return jF("installations/" + d.idLieu).then(function (l) { var x = lieuMap(l); Object.keys(x).forEach(function (k) { f[k] = x[k]; }); return f; }, function () { return f; });
       }).then(function (f) { // 4.9.2 : le nom du juge-arbitre, lu sur la page du tournoi ; sans lui, on garde tél. et mail
         if (!f.ja) return f;
@@ -988,8 +991,28 @@
       opens: d.dateOuvertureInscriptionEnLigne ? String(d.dateOuvertureInscriptionEnLigne).slice(0, 10) : "", online: !!d.inscriptionEnLigne, payOnline: !!d.paiementEnLigne,
       eps: (d.epreuveList || []).map(function (e) { var ty = String(e.typeEpreuve || ""); return { id: String(e.id || ""), name: String(e.nomEpreuve || e.epreuveLibelle || ""), aud: ageTxt(e), sex: /^[SD]D$/.test(ty) ? "F" : /^[SD]M$/.test(ty) ? "H" : "", dbl: /^D/.test(ty) || /double|mixte/i.test(e.nomEpreuve || "") }; }) };
     if (tel || mail) out.ja = { name: "", tel: tel, mail: mail };
+    // 4.11 (fiches publiques relevées le 25/11/2026) : surfaces (codes), couvert, dotation (espèces + lots, en €), TMC
+    var sf = []; (d.codeSurfaces || []).forEach(function (c) { var l = SURF[String(c).toUpperCase()]; if (l && sf.indexOf(l) < 0) sf.push(l); });
+    if (sf.length) out.surf = sf;
+    var cl = d.courtList || [], nc = cl.filter(function (c) { return c && c.couvert === true; }).length;
+    if (cl.length) out.cov = nc === cl.length ? "in" : nc ? "mix" : "out";
+    if (+d.prixEspece > 0) out.cash = +d.prixEspece; if (+d.prixLots > 0) out.lots = +d.prixLots;
+    out.tmc = /\bTMC\b/i.test(String(d.libelleCategorie || ""));
     return out;
   }
+  // 4.11 : GET /api/back/public/v1/tournois/{n}/epreuves (relevé le 25/11/2026) : classementMin / classementMax ("15/4 "),
+  // type MULTICHANCE = TMC, STANDARD = tournoi classique, prixEspece / prixLots par épreuve. Le mail de convocation n'est pas gardé.
+  function epMerge(f, l) {
+    if (!f || !Array.isArray(l)) return f; var by = {}; l.forEach(function (e) { if (e && e.eprId != null) by[String(e.eprId)] = e; });
+    var tmc = false, cash = 0, lots = 0;
+    (f.eps || []).forEach(function (e) { var x = by[e.id]; if (!x) return;
+      var mn = String(x.classementMin || "").trim(), mx = String(x.classementMax || "").trim(); if (mn) e.min = mn; if (mx) e.max = mx;
+      if (x.type) { e.fmt = /MULTI/i.test(x.type) ? "tmc" : "std"; if (e.fmt === "tmc") tmc = true; }
+      if (+x.prixEspece > 0) { e.cash = +x.prixEspece; cash += e.cash; } if (+x.prixLots > 0) { e.lots = +x.prixLots; lots += e.lots; } });
+    if (tmc) f.tmc = true; if (!f.cash && cash) f.cash = cash; if (!f.lots && lots) f.lots = lots;
+    return f;
+  }
+  var SURF = { TB: "Terre battue", RES: "Résine", BP: "Béton poreux", TA: "Terre artificielle", GS: "Gazon synthétique", GAZ: "Gazon synthétique", MOQ: "Moquette" };
   function lieuMap(l) { // /installations/{idLieu}
     if (!l || typeof l !== "object") return {}; var o = {};
     var a = [l.adresse1, l.adresse2].filter(Boolean).join(", "), cv = [l.codePostal, l.ville].filter(Boolean).join(" ");
@@ -1375,7 +1398,7 @@
   // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
   function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { slotsMinus: slotsMinus, profMap: profMap, slotsMerge: slotsMerge, profBody: profBody, weekGen: weekGen, weekSame: weekSame, tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { slotsMinus: slotsMinus, profMap: profMap, slotsMerge: slotsMerge, profBody: profBody, weekGen: weekGen, weekSame: weekSame, tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, epMerge: epMerge, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);
