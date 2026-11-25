@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.11.4",
+    VERSION: "4.11.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2223,14 +2223,17 @@
   // 4.11.2 : relevé caché (demandé par Yann le 25/11 pour le samedi 13, À RETIRER une fois le bug compris) : ce que Ten'Up renvoie
   // (sans valeur perso, voir T.dispoRaw), ce que Montée envoie, et ce que tu touches sur les écrans de dispos. 7 touches sur la version du menu = partager.
   function dzLog(ev, o) { try { var L = S.dzLog = S.dzLog || []; L.push(Object.assign({ at: new Date().toISOString().slice(0, 19), ev: ev, v: CONFIG.VERSION }, o || {})); if (L.length > 40) L.splice(0, L.length - 40); } catch (e) {} }
-  function dzAmb(g) { return !!g && !(g.slots || []).length; }
-  function dzAmbDays(t, D, days) { var ed = dzEd(t); return days.filter(function (iso) { return !ed[iso] && dzAmb((D.days || []).filter(function (x) { return x.date === iso; })[0]); }); }
+  // 4.11.5 : un jour que TU as mis « pas dispo » depuis Montée (envoi au bon format, relu vide) n'est plus « pas clair »
+  function dzAmb(g, t) { return !!g && !(g.slots || []).length && !(t && ((t.ins.more || {}).dzOff || {})[g.date]); }
+  function dzOffNote(t, days, want, got) { var m = t.ins.more = t.ins.more || {}, o = m.dzOff = m.dzOff || {};
+    days.forEach(function (iso) { var g = (got || []).filter(function (x) { return x.date === iso; })[0]; if (!g) return; if (!g.slots.length && want[iso] && !want[iso].length) o[iso] = 1; else if (g.slots.length) delete o[iso]; }); }
+  function dzAmbDays(t, D, days) { var ed = dzEd(t); return days.filter(function (iso) { return !ed[iso] && dzAmb((D.days || []).filter(function (x) { return x.date === iso; })[0], t); }); }
   function dzDayName(iso) { var dt = E.parseDate(iso); return JOURS[dt.getDay()].slice(0, 3) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]; }
   function dzDay(t, D, iso) { // ce jour-là : { slots: [{from, to}] où tu es dispo, ex: exception, ed: changé dans Montée }
     var ed = dzEd(t)[iso], hab = dzHab(D, iso);
     if (ed) return { slots: ed, ex: !T.dzSame(ed, hab), ed: true };
     var g = (D.days || []).filter(function (x) { return x.date === iso; })[0], sl = g ? g.slots.map(function (z) { return { from: z.from, to: z.to }; }) : hab;
-    if (dzAmb(g)) return { slots: hab, ex: false, ed: false, amb: true };
+    if (dzAmb(g, t)) return { slots: hab, ex: false, ed: false, amb: true };
     return { slots: sl, ex: !T.dzSame(sl, hab), ed: false };
   }
   function dzLoad(t, force) {
@@ -2298,8 +2301,8 @@
       UI.dzSaving = false; dzLog("relu", { t: t.tuid, err: r && r.error || null, days: r && r.days, raw: r && r.raw });
       if (!r || r.error) { toast("Ten'Up a refusé : " + (r && r.error || "pas de réponse") + ". Rien n'a changé dans Montée."); render(); return; }
       var bad = days.filter(function (iso) { var g = (r.days || []).filter(function (x) { return x.date === iso; })[0]; return !T.dzSame(g ? g.slots : [], want[iso]); });
-      D.days = r.days; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
-      toast(bad.length ? "Ten'Up n'a pas tout pris (" + plural(bad.length, "jour") + ") : vérifie tes dispos." : "Tes dispos sont enregistrées sur Ten'Up.", !bad.length);
+      dzOffNote(t, days, want, r.days); D.days = r.days; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
+      toast(bad.length ? "Ten'Up n'a pas pris tes horaires du " + bad.map(dzDayName).join(", du ") + " : règle ce jour directement sur Ten'Up." : "Tes dispos sont enregistrées sur Ten'Up.", !bad.length);
     });
   }
   // ---- 4.10 (maquettes validées par Yann, 25/11) : créneaux habituels du profil, « Et tes tournois ? », ajouter une indispo ----
@@ -2373,14 +2376,14 @@
     return tenupQuery("dispos", { t: t.tuid, from: from, to: to }).then(function (r) {
       dzLog("lecture-maj", { t: t.tuid, err: r && r.error || null, gen: r && r.gen, pgen: r && r.pgen, newGen: gen, days: r && r.days, raw: r && r.raw, praw: r && r.praw });
       if (!r || r.error) return false; var ex = {}, want = {};
-      var amb = (r.days || []).filter(dzAmb).map(function (g) { return g.date; }); if (amb.length) { m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; return { amb: amb }; } // 4.11.2 : un jour pas clair, on n'envoie rien
+      var amb = (r.days || []).filter(function (g) { return dzAmb(g, t); }).map(function (g) { return g.date; }); if (amb.length) { m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; return { amb: amb }; } // 4.11.2 : un jour pas clair, on n'envoie rien
       (r.days || []).forEach(function (g) { var sl = g.slots.map(function (z) { return { from: z.from, to: z.to }; }); if (!T.dzSame(sl, T.dzGenSlots(r.gen, g.date, "iso"))) ex[g.date] = sl; });
       var days = [], d0 = E.parseDate(from), d1 = E.parseDate(to); for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
       days.forEach(function (iso) { want[iso] = ex[iso] || T.dzGenSlots(gen, iso, "iso"); });
       var hbBody = T.dzBody(gen, ex, "iso", hbUuid); dzLog("envoi-maj", { t: t.tuid, body: hbBody });
       return tenupQuery("dispoSave", { t: t.tuid, body: hbBody, from: from, to: to }).then(function (s) {
         dzLog("relu-maj", { t: t.tuid, err: s && s.error || null, days: s && s.days, raw: s && s.raw });
-        if (!s || s.error) return false; m.dz = { gen: gen, pgen: gen, days: s.days, map: "iso", at: Date.now() };
+        if (!s || s.error) return false; dzOffNote(t, days, want, s.days); m.dz = { gen: gen, pgen: gen, days: s.days, map: "iso", at: Date.now() };
         return days.every(function (iso) { var g = (s.days || []).filter(function (x) { return x.date === iso; })[0]; return T.dzSame(g ? g.slots : [], want[iso]); });
       });
     });
@@ -20778,7 +20781,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         if (k === "hab") ed[a[1]] = hab; else if (k === "off") ed[a[1]] = [];
         else { var f = (document.getElementById("dz-f") || {}).value, to = (document.getElementById("dz-t") || {}).value;
           if (!f || !to || to <= f) { toast("L'heure de fin doit être après l'heure de début."); return; } ed[a[1]] = [{ from: f.slice(0, 5), to: to.slice(0, 5) }]; }
-        var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && !dzAmb(g) && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
+        var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && !dzAmb(g, t) && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
       UI.dzPk = null; UI.sheet = null; render(); },
     // 4.10 : créneaux habituels (profil Ten'Up) et indispo d'un tournoi
     hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
