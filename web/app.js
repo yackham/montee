@@ -668,6 +668,9 @@
   document.addEventListener("focusin", function (e) { if (kbField(e.target)) document.body.classList.add("kb"); });
   document.addEventListener("focusout", function () { setTimeout(function () { if (!kbField(document.activeElement)) document.body.classList.remove("kb"); }, 80); });
   // 4.4.4 (Yann) : un toucher pendant une glissade n'est pas perdu : la glissade s'arrête net et le toucher part vers ce qui est dessous
+  // 4.8.0 (Yann : petits clignotements au chargement de Mes épreuves et de Ta saison) : on retient le dernier geste ;
+  // une mise à jour qui arrive toute seule (synchro Ten'Up, équipes, club) ne rejoue plus l'apparition des blocs ajoutés
+  ["pointerdown", "keydown"].forEach(function (ev) { document.addEventListener(ev, function () { UI.lastTap = Date.now(); }, true); });
   document.addEventListener("click", function (e) {
     if (!curVT || e.target !== document.documentElement) return;
     var v = curVT, x = e.clientX, y = e.clientY; e.preventDefault(); e.stopPropagation();
@@ -862,7 +865,7 @@
     var rKey = location.hash.split("?")[0];
     // 3.51.0 (Android, quelques clignotements restants) : rendu identique = on ne touche à rien ; même page = mise à jour sur place
     if (UI.lastRKey === rKey && app.firstChild && UI.lastHtml === html) { /* rien n'a changé */ }
-    else if (UI.lastRKey === rKey && app.firstChild) { morphInto(app, html); try { lcIo(); } catch (e) {} } // 3.81 : listes du club arrivées par mise à jour
+    else if (UI.lastRKey === rKey && app.firstChild) { UI.mQuiet = Date.now() - (UI.lastTap || 0) > 1500; morphInto(app, html); UI.mQuiet = false; try { lcIo(); } catch (e) {} } // 3.81 : listes du club arrivées par mise à jour
     else { app.innerHTML = html; countUp(app); try { motion(parts[0]); } catch (e) {} } // 3.59 : les chiffres clés défilent jusqu'à leur valeur, à l'ouverture de la page
     UI.lastHtml = html;
     UI.lastRKey = rKey;
@@ -1413,6 +1416,7 @@
     while (b) {
       var nb = b.nextSibling;
       if (mxX(a)) { a = a.nextSibling; continue; }
+      if (UI.mQuiet && b.nodeType === 1) b.classList.add("mv-no");
       if (!a) { from.appendChild(b); b = nb; continue; }
       var na = a.nextSibling;
       if (mStrict(a, b) || (mSame(a, b) && !mStrict(na, b) && !mStrict(a, nb))) { morphNode(a, b); a = na; b = nb; }
@@ -3523,7 +3527,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     // 3.44.2 : résultats déclarés avant cette version : on les ajoute une fois au palmarès
     var mig = false; (t.rounds || []).forEach(function (r) { if (r.res && !r.mx) { trMatchSync(t, r, false); mig = true; } }); (t.pool || []).forEach(function (r) { if (r.res && !r.mx) { trMatchSync(t, r, true); mig = true; } }); if (mig) save();
     var rs = t.rounds || [], over = tourOver(t), poule = t.fmt === "poule";
-    var s = '<div class="screen">' + topbar("", backLab("Mes épreuves"), syPill("pool", t.id) + (over || UI.trRen === t.id ? "" : '<button class="linkbtn" data-a="trEdit" style="padding:0 6px">Modifier</button>'));
+    var s = '<div class="screen">' + topbar("", backLab("Mes épreuves"), syPill("pool", t.id) + (over || UI.trRen === t.id || t.tuid ? "" : '<button class="linkbtn" data-a="trEdit" style="padding:0 6px">Modifier</button>'));
     if (over && rs.length) { var lr = rs.length - 1; while (lr > 0 && !rs[lr].res) lr--; s += recapHtml(t) + (rs[lr] && rs[lr].res ? '<button class="linkbtn tq-undo" data-a="trUndo" data-i="' + lr + '">' + (rs[lr].res === "D" ? "J'ai mis « perdu » par erreur" : "Corriger le dernier résultat") + "</button>" : ""); }
     else {
       var ren = UI.trRen === t.id;
@@ -19664,9 +19668,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     more: function (el) { UI.more = UI.more || {}; UI.more[el.getAttribute("data-v")] = 1; render(); }, // 4.1 : « N autres › », partout le même
     coachNo: function (el) {
       var m = coMem(), id = el.dataset.id, sc = el.dataset.s; m.no[id] = Date.now(); m.scr[sc] = (m.scr[sc] || 0) + 1; coPurge(m); save();
-      toast("Compris, je ne te le redis pas avant 3 semaines.");
+      // 4.8.0 (Yann : touché sans faire exprès) : « Annuler » dans le message pour le faire revenir tout de suite
+      UI.coUndo = { id: id, s: sc }; toast("Ce conseil ne reviendra pas avant 3 semaines.");
+      var tk = document.querySelector(".toast"); if (tk) { clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000); tk.insertAdjacentHTML("beforeend", ' <button class="tk-undo" data-a="coachUndo">Annuler</button>'); }
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
+    coachUndo: function () { var u = UI.coUndo, m = coMem(); if (!u) return; delete m.no[u.id]; if (m.scr[u.s]) m.scr[u.s]--; UI.coUndo = null; save(); var tk = document.querySelector(".toast"); if (tk) tk.remove(); render(); },
     ace: function (el) { var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg") || el.classList.contains("hd-bub"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; Array.prototype.forEach.call(document.querySelectorAll(".wow-bub"), function (b) { b.remove(); }); save(); render(); haptic("light"); },
     aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
     aceClose: function () { UI.ace = null; UI.aceBack = null; render(); },
