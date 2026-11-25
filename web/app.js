@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.9.0",
+    VERSION: "4.9.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -308,7 +308,13 @@
   function toast(msg, ok) {
     UI.toastMsg = msg; clearTimeout(UI.toastT); haptic(ok ? "success" : "light");
     var el = document.querySelector(".toast"); if (el) el.remove();
-    var t = document.createElement("div"); t.className = "toast" + (ok ? " tk-ok" : ""); t.setAttribute("role", "status"); t.textContent = msg; if (ok) t.insertAdjacentHTML("afterbegin", '<span class="mx-ck2">' + MX_CK + "</span>"); document.body.appendChild(t);
+    var t = document.createElement("div"); t.className = "toast" + (ok ? " tk-ok" : ""); t.setAttribute("role", "status"); t.textContent = msg; if (window.Balle) {
+      // 4.8.1 : messages plus visibles, avec la tête d'Ace qui réagit (joie si c'est réussi)
+      try { var ac = document.createElement("span"), md = ok ? "joie" : "repos", b = Balle.make(54); ac.className = "tk-ace"; ac.setAttribute("aria-hidden", "true"); ac.appendChild(b); t.insertBefore(ac, t.firstChild); t.classList.add("tk-hasace");
+        var red = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (!red && Balle.play) Balle.play(b, md, 1400); else if (Balle.M[md]) b.pose(Balle.M[md](ok ? 1 : 0.1)); } catch (e) {}
+    } else if (ok) t.insertAdjacentHTML("afterbegin", '<span class="mx-ck2">' + MX_CK + "</span>");
+    document.body.appendChild(t);
     UI.toastT = setTimeout(function () { t.remove(); }, msg.length > 60 ? 4500 : 2800);
   }
 
@@ -19714,7 +19720,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     coachNo: function (el) {
       var m = coMem(), id = el.dataset.id, sc = el.dataset.s; m.no[id] = Date.now(); m.scr[sc] = (m.scr[sc] || 0) + 1; coPurge(m); save();
       // 4.8.0 (Yann : touché sans faire exprès) : « Annuler » dans le message pour le faire revenir tout de suite
-      UI.coUndo = { id: id, s: sc }; toast("Ce conseil ne reviendra pas avant 3 semaines.");
+      UI.coUndo = { id: id, s: sc }; toast("Conseil masqué pour 3 semaines.");
       var tk = document.querySelector(".toast"); if (tk) { clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000); tk.insertAdjacentHTML("beforeend", ' <button class="tk-undo" data-a="coachUndo">Annuler</button>'); }
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
