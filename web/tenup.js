@@ -210,26 +210,16 @@
       }).catch(err);
     }
     if (KIND === "tournois") {
-      // 4.6.0 : recherche de tournois. L'adresse de l'API de recherche n'est pas encore relevée sur un vrai compte : on essaie
-      // la configuration déjà trouvée (A.cfg), puis des adresses probables ; en échec, on rend des indices lus dans le code du site.
-      var Bt = location.origin, triedT = [];
-      var body = { pratique: "TENNIS", dateDebut: A.from, dateFin: A.to, latitude: A.lat, longitude: A.lng, distance: A.km, rayon: A.km, codePostal: A.cp, from: 0, size: 100 };
-      var cands = A.cfg ? [A.cfg] : [{ u: "/api/back/public/v1/tournois/recherche", m: "POST" }, { u: "/api/back/v1/tournois/recherche", m: "POST" }, { u: "/api/back/v2/tournois/recherche", m: "POST" }, { u: "/api/back/public/v2/tournois/recherche", m: "POST" }];
-      var findList = function (j) { var out = null; (function walk(x, d) { if (out || !x || typeof x !== "object" || d > 4) return; if (Array.isArray(x) && x.length && x[0] && typeof x[0] === "object" && (x[0].dateDebut || x[0].epreuves)) { out = x; return; } Object.keys(x).forEach(function (k) { walk(x[k], d + 1); }); })(j, 0); return out; };
-      var tryOne = function (c) { return fetch(Bt + c.u, { method: c.m, credentials: "include", headers: { "Accept": "application/json", "Content-Type": "application/json" }, body: c.m === "POST" ? JSON.stringify(body) : undefined }).then(function (r) {
-        triedT.push(c.u + " " + r.status); if (r.status === 401 || r.status === 403) throw new Error("auth"); if (!r.ok) return null; return r.json().then(function (j) { var L = findList(j); return L ? { cfg: c, list: L } : null; }, function () { return null; });
-      }, function () { return null; }); };
-      var hints = function () { return fetch(Bt + "/recherche/tournois", { credentials: "include" }).then(function (r) { return r.text(); }).then(function (h) {
-        var srcs = [], rs = /<script[^>]+src="([^"]+)"/g, m; while ((m = rs.exec(h))) srcs.push(m[1]);
-        var found = {}; return Promise.all(srcs.slice(0, 40).map(function (u) { return fetch(/^https?:/.test(u) ? u : Bt + u).then(function (x) { return x.text(); }).then(function (t) {
-          var re = /["'`]([^"'`\s]{0,60}tournoi[^"'`\s]{0,60})["'`]/gi, mm; while ((mm = re.exec(t)) && Object.keys(found).length < 40) if (/\/api|back|recherche/i.test(mm[1])) found[mm[1]] = 1;
-          var b = t.search(/buildRecherche\w*Tournoi/i); if (b >= 0) found["@" + t.slice(b, b + 400)] = 1;
-        }).catch(function () {}); })).then(function () { return Object.keys(found); });
-      }).catch(function () { return []; }); };
-      return cands.reduce(function (ch, c) { return ch.then(function (r) { return r || tryOne(c); }); }, Promise.resolve(null)).then(function (r) {
-        if (r) return ok({ list: r.list.map(tsMap).filter(Boolean), cfg: r.cfg, at: Date.now() });
-        return hints().then(function (hs) { return ok({ list: null, tried: triedT, hints: hs, at: Date.now() }); });
-      }).catch(err);
+      // 4.6.0 : recherche de tournois, adresse relevée sur le vrai Ten'Up le 25/11/2026 (fil Vitre, 57 tournois) : la page de
+      // résultats renvoie son flux de composants serveur (en-tête RSC) ; les tournois sont dans {"nbResultats": N, "cards": [...]}, 24 par page.
+      var baseT = "/recherche/tournois/resultats?searchType=ville&pratique=TENNIS&ville=" + encodeURIComponent(A.ville || "") + "&lat=" + A.lat + "&lng=" + A.lng +
+        "&distance=" + (A.km || 30) + "&dateDebut=" + A.from + "&dateFin=" + A.to + "&utiliserMesDonnees=false&sort=DISTANCE&page=", allT = [], totT = 0;
+      var pageT = function (n) { return fetch(location.origin + baseT + n, { credentials: "include", headers: { "RSC": "1" } }).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.text(); }).then(function (t) {
+        var o = cardsFrom(t); if (!o) throw new Error("format"); totT = o.nbResultats || 0;
+        (o.cards || []).forEach(function (c) { var m = cardMap(c); if (m) allT.push(m); });
+        if (allT.length < totT && n < 4 && (o.cards || []).length) return pageT(n + 1);
+      }); };
+      return pageT(1).then(function () { var seen = {}; return ok({ list: allT.filter(function (c) { if (seen[c.id]) return false; seen[c.id] = 1; return true; }), total: totT, at: Date.now() }); }).catch(err);
     }
     if (KIND === "explore") {
       // 4.6.0 (essai avec Yann, 25/11) : relevé des NOMS de champs Ten'Up utiles aux tournois (inscription, fiche, inscrits,
@@ -257,19 +247,14 @@
       }).catch(err);
     }
     if (KIND === "fiche") {
-      // 4.6.0 (Yann, 25/11) : la fiche d'un tournoi (juge-arbitre, lieu) pour les joindre d'un tap. Adresses probables, puis la page du tournoi.
-      var num = String(A.t || "").replace(/^\D+_?/, ""), Bf = location.origin, triedF = [];
-      var apis = ["/api/back/public/v1/tournois/" + num, "/api/back/v1/tournois/" + num, "/api/back/public/v1/tournois/" + num + "/fiche-tournoi", "/api/public/v1/tournois/" + num + "/fiche-tournoi"];
-      var jf = function (u) { return fetch(Bf + u, { credentials: "include", headers: { "Accept": "application/json" } }).then(function (r) { triedF.push(u + " " + r.status); if (!r.ok) return null; return r.json().catch(function () { return null; }); }, function () { return null; }); };
-      var flF = function (h) { var f = "", re = /self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)/g, m; while ((m = re.exec(h))) { try { f += JSON.parse(m[1]); } catch (e) {} } return f; };
-      var fromPage = function () { return fetch(Bf + "/tournoi/" + num, { credentials: "include" }).then(function (r) { triedF.push("/tournoi/" + num + " " + r.status); return r.text(); }).then(function (h) {
-        var f = flF(h), i = f.search(/"juge.?arbitre"\s*:\s*\{/i); if (i < 0) return null;
-        var j = f.indexOf("{", i), d = 0, q = false, e = false; for (var k = j; k < f.length; k++) { var ch = f.charAt(k); if (q) { if (e) e = false; else if (ch === "\\") e = true; else if (ch === '"') q = false; continue; } if (ch === '"') q = true; else if (ch === "{") d++; else if (ch === "}") { d--; if (!d) { try { return { jugeArbitre: JSON.parse(f.slice(j, k + 1)) }; } catch (x) { return null; } } } }
-        return null;
-      }).catch(function () { return null; }); };
-      return apis.reduce(function (ch, u) { return ch.then(function (r) { return r && tuInfos(r).ja ? r : jf(u).then(function (x) { return x || r; }); }); }, Promise.resolve(null)).then(function (r) {
-        return r && tuInfos(r).ja ? r : fromPage().then(function (x) { return x || r; });
-      }).then(function (r) { var inf = tuInfos(r || {}); inf.tried = triedF; inf.at = Date.now(); return ok(inf); }).catch(err);
+      // 4.6.0 : fiche publique d'un tournoi (relevée le 25/11/2026) : contact du juge-arbitre (mailJa, telephoneJa), clôture,
+      // inscription et paiement en ligne, épreuves ; le lieu via /installations/{idLieu} (adresse, lat, lng).
+      var numF = String(A.t || "").replace(/^\D+_?/, ""), PB = location.origin + "/api/back/public/v1/";
+      var jF = function (u) { return fetch(PB + u, { credentials: "include", headers: { "Accept": "application/json" } }).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }); };
+      return jF("tournois/" + numF).then(function (d) {
+        var f = ficheMap(d); if (!d || !d.idLieu) return f;
+        return jF("installations/" + d.idLieu).then(function (l) { var x = lieuMap(l); Object.keys(x).forEach(function (k) { f[k] = x[k]; }); return f; }, function () { return f; });
+      }).then(function (f) { f.at = Date.now(); return ok(f); }).catch(err);
     }
     if (KIND === "inscrits") {
       // 4.6.0 : les inscrits d'une épreuve (adresse relevée sur le padel le 24/11/2026, même API Ten'Up pour le tennis : à vérifier)
@@ -944,6 +929,31 @@
     });
   }
 
+  // ---- 4.6.0 : formats relevés sur le vrai Ten'Up le 25/11/2026 ----
+  function cardsFrom(text) { // l'objet {"nbResultats":…,"cards":[…]} dans le flux de la page de résultats
+    text = String(text || ""); var i = text.indexOf('{"nbResultats"'); if (i < 0) return null;
+    var d = 0, q = false, e = false, k; for (k = i; k < text.length; k++) { var c = text[k]; if (q) { if (e) e = false; else if (c === "\\") e = true; else if (c === '"') q = false; continue; } if (c === '"') q = true; else if (c === "{") d++; else if (c === "}") { d--; if (!d) break; } }
+    try { return JSON.parse(text.slice(i, k + 1)); } catch (x) { return null; }
+  }
+  function cardMap(c) { // une carte de la recherche
+    if (!c) return null; var m = String(c.idHomologation || "").match(/(\d+)$/); if (!m) return null;
+    return { id: m[1], name: String(c.libelleTournoi || "Tournoi"), from: String(c.dateDebut || "").slice(0, 10), to: String(c.dateFin || c.dateDebut || "").slice(0, 10), club: String(c.club && c.club.libelle || ""),
+      city: String(c.ville || ""), km: c.distance != null ? Math.round(c.distance / 1000) : null, online: !!c.inscriptionEnLigne, natures: c.naturesEpreuves || [], eps: null };
+  }
+  function ficheMap(d) { // la fiche publique d'un tournoi
+    if (!d || typeof d !== "object") return {};
+    var tel = String(d.telephoneJa || "").replace(/[^\d+]/g, ""), mail = String(d.mailJa || "").trim(), out = { cat: String(d.libelleCategorie || ""), closing: d.dateCloture ? String(d.dateCloture).slice(0, 10) : "",
+      opens: d.dateOuvertureInscriptionEnLigne ? String(d.dateOuvertureInscriptionEnLigne).slice(0, 10) : "", online: !!d.inscriptionEnLigne, payOnline: !!d.paiementEnLigne,
+      eps: (d.epreuveList || []).map(function (e) { var ty = String(e.typeEpreuve || ""); return { id: String(e.id || ""), name: String(e.nomEpreuve || e.epreuveLibelle || ""), sex: /^S?D$|^SD/.test(ty) ? "F" : /^SM|^DM/.test(ty) ? "H" : "", dbl: /^D/.test(ty) && ty.length === 2 && ty !== "SD" ? true : /double|mixte/i.test(e.nomEpreuve || "") }; }) };
+    if (tel || mail) out.ja = { name: "", tel: tel, mail: mail };
+    return out;
+  }
+  function lieuMap(l) { // /installations/{idLieu}
+    if (!l || typeof l !== "object") return {}; var o = {};
+    var a = [l.adresse1, l.adresse2].filter(Boolean).join(", "), cv = [l.codePostal, l.ville].filter(Boolean).join(" ");
+    if (a || cv) o.addr = [a, cv].filter(Boolean).join(", "); if (l.nomClub) o.place = l.nomClub; if (l.lat && l.lng) { o.lat = +l.lat; o.lng = +l.lng; }
+    return o;
+  }
   // ---- 4.6.0 : tournois (infos pratiques, recherche, inscrits). Noms de champs Ten'Up non documentés : lecture par motif. ----
   // Première valeur courte (texte ou nombre) dont la clé correspond, en profondeur limitée.
   function tuPick(o, re, d) {
@@ -1013,7 +1023,7 @@
   var VERSION = "2.4";
   // Version pour l'app iPhone : corps d'une fonction async (WKWebView callAsyncJavaScript)
   // Le script embarque la recherche v2, utilisée en repli par tenupFetch
-  function src(fn) { return "var tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
+  function src(fn) { return "var cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
   // 3.47 : page de maintenance / file d'attente Ten'Up : on le dit au lieu de « Ten'Up n'a pas répondu »
   var MAINT = "var __mt = (document.title || \"\") + \" \" + Array.prototype.map.call(document.querySelectorAll(\"h1,h2\"), function (e) { return e.innerText; }).slice(0, 3).join(\" \");\n" +
     "if (/maintenance|mise à jour du site|file d'attente|queue-it|service (momentanément )?indisponible/i.test(__mt) || /maintenance/i.test(location.pathname)) return \"MONTEE-ERR maintenance\";\n";
@@ -1238,7 +1248,7 @@
   // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
   function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { tuInfos: tuInfos, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, lieuMap: lieuMap, tuInfos: tuInfos, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);
