@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.11.1",
+    VERSION: "4.11.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2215,10 +2215,16 @@
     return out.map(function (r) { return r.length > 2 ? N[o[r[0]]] + " au " + N[o[r[r.length - 1]]] : r.map(function (k) { return N[o[k]]; }).join(", "); }).join(", "); }
   function dzEd(t) { UI.dzEd = UI.dzEd || {}; return (UI.dzEd[t.id] = UI.dzEd[t.id] || {}); }
   function dzHab(D, iso) { return D.map ? T.dzGenSlots(D.gen || [], iso, D.map) : []; }
+  // 4.11.2 (Yann, samedi 13) : Ten'Up renvoie parfois un jour VIDE, sans « particuliere », alors que sa page l'affiche dispo. Vide = pas clair :
+  // on ne l'affiche pas « Pas dispo » et on n'envoie rien tant que tu n'as pas dit ce que tu veux pour ce jour-là.
+  function dzAmb(g) { return !!g && !(g.slots || []).length; }
+  function dzAmbDays(t, D, days) { var ed = dzEd(t); return days.filter(function (iso) { return !ed[iso] && dzAmb((D.days || []).filter(function (x) { return x.date === iso; })[0]); }); }
+  function dzDayName(iso) { var dt = E.parseDate(iso); return JOURS[dt.getDay()].slice(0, 3) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]; }
   function dzDay(t, D, iso) { // ce jour-là : { slots: [{from, to}] où tu es dispo, ex: exception, ed: changé dans Montée }
     var ed = dzEd(t)[iso], hab = dzHab(D, iso);
     if (ed) return { slots: ed, ex: !T.dzSame(ed, hab), ed: true };
     var g = (D.days || []).filter(function (x) { return x.date === iso; })[0], sl = g ? g.slots.map(function (z) { return { from: z.from, to: z.to }; }) : hab;
+    if (dzAmb(g)) return { slots: hab, ex: false, ed: false, amb: true };
     return { slots: sl, ex: !T.dzSame(sl, hab), ed: false };
   }
   function dzLoad(t, force) {
@@ -2253,9 +2259,9 @@
       return '<button class="dz-o hb-jr" data-a="dzDay" data-v="' + iso + '"' + (can ? "" : " disabled") + '><span class="grow"><span class="t">' + esc(cap1(JOURS[dt.getDay()].slice(0, 3)) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]) + '</span><span class="s">' + (x.slots.length ? esc("Dispo " + x.slots.map(dzSl).join(" · ") + (hab.length ? " seulement (au lieu de " + hab.map(dzSl).join(" · ") + ")" : "")) : '<span class="hb-offt">Pas dispo</span>') + (x.ed ? " · pas encore enregistré" : "") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") +
       (!exs.length ? '<p class="small hb-none">Aucune pour l\'instant : tes créneaux habituels s\'appliquent tous les jours.</p>' : "") + (can ? '<button class="dz-add hb-addx" data-a="dzAdd" data-v="' + esc(t.id) + '">+ Ajouter une indispo</button>' : "") + "</div>";
     s += '<h2>Pendant le tournoi</h2>' + (can ? '<p class="small" style="margin-top:-6px">Touche un jour pour dire que tu n\'es pas dispo, ou changer l\'horaire.</p>' : "") + '<div class="blk dz-days">' + days.map(function (iso) {
-      var x = dzDay(t, D, iso), off = !x.slots.length;
-      return '<button class="row dz-d' + (off ? " dz-off" : x.ex ? " dz-ex" : "") + '" data-a="dzDay" data-v="' + iso + '"' + (can ? "" : " disabled") + ">" + tzBillet(iso) + '<span class="grow"><span class="t">' + esc(off ? "Pas dispo" : x.slots.map(dzSl).join(" · ")) + '</span>' +
-        '<span class="s">' + (x.ed ? "Changé, pas encore enregistré" : x.ex ? "Juste ce jour-là" : "Comme d'habitude") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") + "</div>";
+      var x = dzDay(t, D, iso), off = !x.slots.length && !x.amb;
+      return '<button class="row dz-d' + (off ? " dz-off" : x.ex ? " dz-ex" : "") + '" data-a="dzDay" data-v="' + iso + '"' + (can ? "" : " disabled") + ">" + tzBillet(iso) + '<span class="grow"><span class="t">' + esc(x.amb ? "À vérifier sur Ten'Up" : off ? "Pas dispo" : x.slots.map(dzSl).join(" · ")) + '</span>' +
+        '<span class="s">' + (x.amb ? "Ten'Up ne le dit pas clairement à Montée : touche pour choisir" : x.ed ? "Changé, pas encore enregistré" : x.ex ? "Juste ce jour-là" : "Comme d'habitude") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") + "</div>";
     if (!Dl.ok) { var J = m.ja; s += '<h2>Un souci ?</h2><div class="blk tz-blk tz-c">' + (J && (J.tel || J.mail) ? tzLine1("Juge-arbitre", esc(J.name ? nameCase(J.name) : "Le juge-arbitre du tournoi"), (J.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(J.tel) + '"') : "") + (J.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(J.mail) + '"') : "")) : tzLine1("Juge-arbitre", "Ses coordonnées sont sur la page du tournoi", "")) + '</div><p class="small">Les indispos ne se changent plus dans l\'app : le juge-arbitre peut encore en tenir compte si tu le préviens.</p>'; }
     if (Dl.ok && !D.map) s += '<p class="small">Montée ne reconnaît pas encore tes créneaux habituels. Pour ne rien abîmer, change tes dispos sur Ten\'Up.</p><button class="btn" data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos">Ouvrir sur Ten\'Up</button>';
     if (can) s += '<button class="btn primary" data-a="dzSave" data-v="' + esc(t.id) + '"' + (n && !UI.dzSaving ? "" : " disabled") + ">" + (UI.dzSaving ? "Envoi à Ten'Up…" : n ? "Enregistrer sur Ten'Up" : "Rien à enregistrer") + '</button><p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion, puis relu pour vérifier. Le juge-arbitre les voit comme d\'habitude.</p>';
@@ -2269,6 +2275,7 @@
     var b = opt("hab", "Comme d'habitude", hab.length ? esc(hab.map(dzSl).join(" · ")) : "Pas de créneau ce jour-là") + opt("off", "Pas dispo ce jour-là", "Toute la journée") +
       opt("autre", "Un autre horaire", "Dispo seulement sur ce créneau");
     if (cur === "autre") b += '<div class="dz-hh"><label>De' + hSel('id="dz-f"', z.from) + '</label><label>À' + hSel('id="dz-t"', z.to) + '</label></div>';
+    if (x.amb) b = '<p class="small">Ten\'Up ne dit pas clairement à Montée si tu es dispo ce jour-là. Regarde sur Ten\'Up et choisis : rien n\'est envoyé avant.</p>' + b;
     return { title: cap1(JOURS[d.getDay()]) + " " + dN(d) + " " + MOIS[d.getMonth()], sub: t.name, body: '<div class="tz-sh dz-sh">' + b + '</div><button class="btn primary" data-a="dzOk" data-v="' + esc(cur) + '">OK</button>' };
   };
   function dzSaveRun(t) {
@@ -2276,6 +2283,7 @@
     if (Date.now() - D.at > 10 * 6e4) { toast("Je relis d'abord tes dispos sur Ten'Up, réessaie dans un instant."); dzLoad(t, true); return; }
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from), ex = {}, want = {};
     for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
+    var amb = dzAmbDays(t, D, days); if (amb.length) { toast("Ten'Up ne dit pas clairement si tu es dispo le " + amb.map(dzDayName).join(", le ") + ". Touche ce jour et choisis, puis enregistre : rien n'est envoyé avant."); return; }
     days.forEach(function (iso) { var x = dzDay(t, D, iso); want[iso] = x.slots; if (x.ex) ex[iso] = x.slots; });
     var uuid = function () { try { return crypto.randomUUID(); } catch (e) { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); }); } };
     var body = T.dzBody(D.gen, ex, D.map, uuid); UI.dzSaving = true; render();
@@ -2357,6 +2365,7 @@
     var m = t.ins.more = t.ins.more || {}, from = t.from, to = t.to || t.from;
     return tenupQuery("dispos", { t: t.tuid, from: from, to: to }).then(function (r) {
       if (!r || r.error) return false; var ex = {}, want = {};
+      var amb = (r.days || []).filter(dzAmb).map(function (g) { return g.date; }); if (amb.length) { m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; return { amb: amb }; } // 4.11.2 : un jour pas clair, on n'envoie rien
       (r.days || []).forEach(function (g) { var sl = g.slots.map(function (z) { return { from: z.from, to: z.to }; }); if (!T.dzSame(sl, T.dzGenSlots(r.gen, g.date, "iso"))) ex[g.date] = sl; });
       var days = [], d0 = E.parseDate(from), d1 = E.parseDate(to); for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
       days.forEach(function (iso) { want[iso] = ex[iso] || T.dzGenSlots(gen, iso, "iso"); });
@@ -20745,7 +20754,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         if (k === "hab") ed[a[1]] = hab; else if (k === "off") ed[a[1]] = [];
         else { var f = (document.getElementById("dz-f") || {}).value, to = (document.getElementById("dz-t") || {}).value;
           if (!f || !to || to <= f) { toast("L'heure de fin doit être après l'heure de début."); return; } ed[a[1]] = [{ from: f.slice(0, 5), to: to.slice(0, 5) }]; }
-        var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
+        var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && !dzAmb(g) && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
       UI.dzPk = null; UI.sheet = null; render(); },
     // 4.10 : créneaux habituels (profil Ten'Up) et indispo d'un tournoi
     hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
@@ -20779,11 +20788,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var gen = H && H.prof ? T.weekGen(H.prof.week) : D && D.pgen; if (!t || !gen || UI.hbRun1) return;
       UI.hbRun1 = true; render();
       hbTourRun(t, gen).then(function (ok) { return ok; }, function () { return false; }).then(function (ok) { UI.hbRun1 = false; save(); render();
+        if (ok && ok.amb) { toast("Rien n'est envoyé : Ten'Up ne dit pas clairement si tu es dispo le " + ok.amb.map(dzDayName).join(", le ") + ". Touche ce jour dans la liste et choisis d'abord."); return; }
         toast(ok ? "Ton tournoi a tes créneaux habituels. Tes indispos juste pour lui sont gardées." : "Ten'Up n'a pas tout pris : vérifie les jours du tournoi.", ok); }); },
     hbTourTog: function (el) { UI.hbSel = UI.hbSel || {}; UI.hbSel[el.dataset.v] = UI.hbSel[el.dataset.v] === false; render(); },
     hbToursGo: function () { var H = UI.hb, sel = UI.hbSel || {}, L = hbTours().filter(function (t) { return sel[t.id] !== false; }); if (!H || !H.prof || UI.hbRun || !L.length) return;
       var gen = T.weekGen(H.prof.week), bad = 0; UI.hbRun = true; render();
-      L.reduce(function (p, t) { return p.then(function () { return hbTourRun(t, gen).then(function (ok) { if (!ok) bad++; }, function () { bad++; }); }); }, Promise.resolve()).then(function () {
+      L.reduce(function (p, t) { return p.then(function () { return hbTourRun(t, gen).then(function (ok) { if (!ok || ok.amb) bad++; }, function () { bad++; }); }); }, Promise.resolve()).then(function () {
         UI.hbRun = false; UI.sheet = null; save(); render();
         toast(bad ? plural(bad, "tournoi") + " pas mis à jour : ouvre ses indispos pour vérifier." : (L.length > 1 ? "Tes " + L.length + " tournois sont à jour." : "Ton tournoi est à jour."), !bad); }); },
     dzAdd: function (el) { UI.dza = null; UI.sheet = { k: "dza", v: el.dataset.v }; render(); },
