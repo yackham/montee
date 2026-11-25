@@ -142,3 +142,28 @@ test("4.9.3 : un tournoi garde sa copie des créneaux habituels (relevé de Yann
   assert.deepEqual(T.dzGenSlots(g, "2027-02-08", "iso"), [{ from: "18:00", to: "22:00" }]); // lundi pas vu : le profil
   assert.ok(/tourGen/.test(T.queryScript("dispos", { t: "MOJA_1", from: "2027-02-12", to: "2027-02-14" })));
 });
+
+test("4.10 : créneaux habituels du profil (lecture, fusion, envoi des 7 jours)", () => {
+  const j = { utilisateurs: [{ idCrm: 1, codeClub: null, disponibilites: [
+    { jour: 1, horaires: [{ heureDebut: "1970-01-01T18:00:00", heureFin: "1970-01-01T22:00:00", idDisponibilite: 9 }] },
+    { jour: 6, horaires: [{ heureDebut: "1970-01-01T14:00:00", heureFin: "1970-01-01T22:00:00", idDisponibilite: 8 }] }] }] };
+  const p = T.profMap(j);
+  assert.deepEqual(p.week[1], [{ from: "18:00", to: "22:00", id: 9 }]); assert.deepEqual(p.week[3], []);
+  // 10 h – 14 h + 14 h – 22 h = 10 h – 22 h ; 14 h – 18 h dans 14 h – 22 h = 14 h – 22 h
+  assert.deepEqual(T.slotsMerge([{ from: "14:00", to: "22:00" }, { from: "10:00", to: "14:00" }]).slots.map((x) => [x.from, x.to]), [["10:00", "22:00"]]);
+  assert.equal(T.slotsMerge([{ from: "14:00", to: "16:00" }, { from: "20:00", to: "22:00" }]).merged.length, 0);
+  const w = Object.assign({}, p.week, { 6: [{ from: "14:00", to: "16:00" }, { from: "20:00", to: "22:00" }] });
+  const b = T.profBody(p, w).utilisateurs[0];
+  assert.equal(b.idCrm, 1); assert.equal(b.codeClub, null); assert.equal(b.disponibilites.length, 7);
+  assert.deepEqual(b.disponibilites[0].horaires, [{ heureDebut: "1970-01-01T18:00:00", heureFin: "1970-01-01T22:00:00", idDisponibilite: 9 }]);
+  assert.deepEqual(b.disponibilites[5].horaires.map((h) => h.heureDebut.slice(11, 16)), ["14:00", "20:00"]);
+  assert.deepEqual(b.disponibilites[2].horaires, []);
+  assert.deepEqual(T.weekGen(w), [{ jours: [1], hd: "18:00:00", hf: "22:00:00" }, { jours: [6], hd: "14:00:00", hf: "16:00:00" }, { jours: [6], hd: "20:00:00", hf: "22:00:00" }]);
+  assert.ok(T.weekSame(p.week, p.week)); assert.ok(!T.weekSame(p.week, w));
+});
+
+test("4.10 : une indispo « juste un moment » retire ce moment des créneaux", () => {
+  assert.deepEqual(T.slotsMinus([{ from: "18:00", to: "22:00" }], "18:00", "20:00"), [{ from: "20:00", to: "22:00" }]);
+  assert.deepEqual(T.slotsMinus([{ from: "14:00", to: "22:00" }], "16:00", "20:00"), [{ from: "14:00", to: "16:00" }, { from: "20:00", to: "22:00" }]);
+  assert.deepEqual(T.slotsMinus([{ from: "18:00", to: "22:00" }], "08:00", "12:00"), [{ from: "18:00", to: "22:00" }]);
+});
