@@ -7670,8 +7670,13 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .hb-days .hb-dc { padding: 0; border: 0; box-shadow: none; min-height: 40px; justify-content: center; }
 .hb-days .hb-dc:disabled { opacity: 1; }
 .chip.hb-dcoff { background: var(--terre); color: var(--on-terre); text-decoration: line-through; }
-.hb-warn { margin: 12px 0 0; line-height: 1.45; }
-.hb-warn b, .hb-offt { color: var(--terre); font-weight: 700; font-size: inherit; }
+.hb-warn { display: flex; gap: 12px; align-items: flex-start; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.hb-wi { flex: none; width: 36px; height: 36px; border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--terre); background: color-mix(in srgb, var(--terre) 14%, transparent); }
+.hb-wi svg { width: 20px; height: 20px; }
+.hb-warn .grow { display: flex; flex-direction: column; gap: 3px; }
+.hb-warn b { color: var(--terre); font-weight: 700; font-size: 16px; }
+.hb-warn .grow span { font-size: 14px; line-height: 1.4; color: var(--muted); }
+.hb-offt { color: var(--terre); font-weight: 700; }
 .hb-ch1 { color: var(--gazon); font-weight: 700; }
 .hb-later { margin-top: 8px; }
 .dz-o .s.hb-kept { color: var(--terre); }

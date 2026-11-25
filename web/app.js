@@ -2209,7 +2209,7 @@
     b += '<div class="hb-also"><div class="small hb-alt">Pareil pour' + (d.play ? "" : ' <span class="hb-offt">(pas dispo)</span>') + '</div><div class="hb-days">' + [1, 2, 3, 4, 5, 6, 7].map(function (k) { var on = k === wd || d.also[k];
       return '<button class="chip hb-dc' + (on ? (d.play ? " on" : " hb-dcoff") : "") + '" data-a="hbAlso" data-v="' + k + '"' + (k === wd ? " disabled" : "") + ' aria-label="' + hbDayName(k) + '">' + "LMMJVSD"[k - 1] + "</button>"; }).join("") + "</div></div>";
     var n = hbOffCount(proj), warn = n >= 2 && n > hbOffCount(H.prof.week);
-    if (warn) b += '<p class="small hb-warn"><b>' + n + " jours sans tennis chaque semaine, c'est beaucoup.</b> Le juge-arbitre doit pouvoir te programmer : s'il n'y arrive pas, il peut refuser ton inscription. Tu es sûr ?</p>";
+    if (warn) b += '<div class="hb-warn"><span class="hb-wi">' + I.warn + '</span><span class="grow"><b>' + n + ' jours sans tennis par semaine</b><span>Le juge-arbitre doit pouvoir te programmer. S\'il n\'y arrive pas, il peut refuser ton inscription.</span></span></div>'; // 4.10 (Yann) : titre seul sur sa ligne, explication dessous
     return { title: "Le " + JOURS[wd % 7], sub: "D'habitude : " + (hab.length ? hab.map(dzSl).join(" · ") : "pas dispo"), body: '<div class="tz-sh dz-sh hb-day">' + b + '</div><button class="btn primary" data-a="hbOk">' + (warn ? "Oui, je ne joue pas ces jours-là" : "OK") + "</button>" };
   }
   function hbTours() { // tes tournois à venir dont les indispos se changent encore
