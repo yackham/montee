@@ -1985,6 +1985,9 @@
       UI.tzBusy = false;
       if (!r || r.error) { UI.tzErr = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
       UI.tzErr = null; if (r.cfg) S.tzCfg = r.cfg;
+      // 4.11.1 : un tournoi déjà lu garde sa fiche (épreuves, classements, clôture…) quand la recherche est relancée (autre distance, autres semaines)
+      var old = {}; ((S.tzr && S.tzr.list) || []).forEach(function (x) { if (x.eps != null) old[tuNum(x.id)] = x; });
+      (r.list || []).forEach(function (t) { var o = old[tuNum(t.id)]; if (o) ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "cat", "surf", "cov", "cash", "lots", "tmc", "kind", "payReq", "insReq"].forEach(function (k) { if (o[k] != null && t[k] == null) t[k] = o[k]; }); });
       S.tzr = { at: Date.now(), q: P.cp + "/" + P.km + "/" + P.wk + "/v411", list: r.list, hints: r.list ? null : { tried: r.tried, hints: r.hints } };
       save(); render(); tzFicheAuto();
     });
@@ -2031,7 +2034,7 @@
     try { thr = defendThreat(c); } catch (e) {}
     var forRel = end && end < E.iso(rel) ? rel : null, forThr = thr && end && end < E.iso(thr.rel) ? thr : null;
     var close = t.closing && t.closing >= E.iso(today()) ? dGap(t.closing) : null;
-    var score = (km == null ? 10 : Math.max(0, 1 - km / Math.max(P.km, 20)) * 30) + (forThr ? 30 : 0) + (forRel ? 10 : 0) - (clash.length ? 60 : 0) - (ep ? 0 : 200) - (t.closing && close == null ? 100 : 0);
+    var score = (km == null ? 10 : 30 * 50 / (50 + km)) /* 4.11.1 (Yann) : la proximité ne dépend plus de la distance choisie : élargir n'ajoute que des tournois, sans changer l'ordre des autres */ + (forThr ? 30 : 0) + (forRel ? 10 : 0) - (clash.length ? 60 : 0) - (ep ? 0 : 200) - (t.closing && close == null ? 100 : 0);
     return { t: t, ep: ep, km: km, clash: clash, rel: forRel, thr: forThr, close: close, score: score };
   }
   function tzWhy(v) { // la phrase d'Ace, tirée du même calcul : des faits (agenda, distance, sorties du classement), jamais un pronostic
