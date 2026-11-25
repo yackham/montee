@@ -60,7 +60,7 @@ test("4.6.0 : les nouvelles lectures (tournois, inscrits) tournent dans le scrip
   global.document = { title: "", querySelectorAll: () => [] };
   global.fetch = async () => ({ ok: false, status: 404, json: async () => ({}), text: async () => "" });
   const AF = Object.getPrototypeOf(async function () {}).constructor;
-  for (const [k, a] of [["tournois", { from: "2026-12-01", to: "2027-01-31", lat: 47, lng: 6, km: 40, cp: "25000" }], ["fiche", { t: "FFT_1001" }], ["inscrits", { t: "1", e: "2" }], ["inscriptions", {}]]) {
+  for (const [k, a] of [["tournois", { from: "2026-12-01", to: "2027-01-31", lat: 47, lng: 6, km: 40, cp: "25000" }], ["fiche", { t: "FFT_1001" }], ["explore", {}], ["inscrits", { t: "1", e: "2" }], ["inscriptions", {}]]) {
     const out = String(await new AF(T.queryScript(k, a))());
     assert.ok(!/is not defined|ReferenceError/.test(out), k + " : " + out.slice(0, 200));
   }

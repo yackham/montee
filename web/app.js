@@ -1507,7 +1507,7 @@
       (isStandalone() || NATIVE ? "" : ln("install", I.phone, "Installer l'application")) +
       ln("share", I.share, "Partager Montée") +
       (CONFIG.CONTACT_EMAIL ? ln("contact", I.mail, "Donner mon avis") : "") +
-      '</div><div class="menu-foot"><button class="linkbtn" data-a="goReglages">Réglages</button><i>·</i><button class="linkbtn" data-a="goApropos">À propos et calcul</button><i>·</i><span>v' + esc(CONFIG.VERSION) + "</span></div></div></div>";
+      '</div><div class="menu-foot"><button class="linkbtn" data-a="goReglages">Réglages</button><i>·</i><button class="linkbtn" data-a="goApropos">À propos et calcul</button><i>·</i><span data-a="verTap">v' + esc(CONFIG.VERSION) + "</span></div></div></div>";
   }
 
   var V = {};
@@ -20196,6 +20196,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       pr.order.splice(j, 0, pr.order.splice(i, 1)[0]); S.prefs[pg] = pr; save(); render();
     },
     // 4.6.0 : trouver un tournoi, pages Ten'Up dans l'app
+    // 4.6.0 (essai avec Yann) : 7 touches sur le numéro de version = relevé des noms de champs Ten'Up (aucune valeur perso), à partager
+    verTap: function () {
+      UI.verN = (UI.verN || 0) + 1; clearTimeout(UI.verT); UI.verT = setTimeout(function () { UI.verN = 0; }, 2500);
+      if (UI.verN < 7) return; UI.verN = 0; toast("Relevé Ten'Up en cours…");
+      tenupQuery("explore", {}).then(function (r) {
+        var txt = "Relevé Ten'Up Montée " + CONFIG.VERSION + "\n" + JSON.stringify(r);
+        if (Tenup && typeof Tenup.shareText === "function") Tenup.shareText({ title: "Relevé Ten'Up", text: txt }); else try { navigator.clipboard.writeText(txt); toast("Relevé copié."); } catch (e) {}
+      });
+    },
     tzTu: function (el) { tuPage(el.dataset.v, el.dataset.t); },
     tzOpen: function (el) { UI.sheet = { k: "tz", v: el.dataset.v }; render(); },
     tzTab: function (el) { if (el.dataset.v === "rec" && !isSup()) { UI.supFrom = "trouver"; UI.sheet = { k: "plusPrev", v: "cap" }; render(); return; } UI.tzTab = el.dataset.v; render(); },
