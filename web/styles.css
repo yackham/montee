@@ -6953,6 +6953,10 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .card.id-dock.ace-gone { margin-top: 0; }
 .ace-peek { position: absolute !important; right: 14px; top: -46px; z-index: 3; pointer-events: none; display: block; }
 .ace-peek .cbl-b { margin: 0; }
+/* 4.9 (Yann, 25/11/2026) : Ace posé sur une carte se touche et ouvre sa conversation sur la carte */
+.ace-peek[data-a] { pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ace-peek[data-a]:focus-visible { outline: 2px solid var(--acc-ink); outline-offset: 3px; border-radius: 50%; }
+.ace-peek[data-a]:active .cbl-b { transform: scale(.94); }
 .ace-peek .cbl-b.sm { margin-top: 6px; }
 .ace-off, .cbl-b.ace-off { display: none !important; }
 .ace-bub { position: absolute; right: 64px; top: 8px; width: max-content; max-width: 220px; background: var(--card); color: var(--ink); font-size: 13px; font-weight: 700; padding: 6px 11px; border-radius: 14px 14px 4px 14px; box-shadow: 0 0 0 1.5px var(--acc-ink); }
