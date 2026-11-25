@@ -3634,10 +3634,10 @@
     var jOf = function (r) { var k = r.dt || r.d, j = cal.filter(function (x) { return x.d === k; })[0]; return j ? j.j : null; };
     var tm = function (r) {
       var sc1 = tmScore(r) ? (tmLive(r) && (r.c1 || r.c2) ? r.c1 : r.s1) : null, sc2 = sc1 != null ? (tmLive(r) && (r.c1 || r.c2) ? r.c2 : r.s2) : null, lv = tmLive(r) && (r.c1 || r.c2), mine = r.a === me || r.b === me;
-      var ln = function (id, nm, x, y) { var win = x != null && y != null && x > y; return '<span class="ln' + (id === me ? " me" : "") + (win ? " w" : "") + '"><span class="nm">' + esc(tmNm(nm)) + (r.dom === id ? '<small class="tm-dom-t"> · à domicile</small>' : "") + '</span><b class="sc">' + (x != null ? x : "") + "</b></span>"; };
+      var ln = function (id, nm, x, y) { var win = x != null && y != null && x > y; return '<span class="ln' + (id === me ? " me" : "") + (win ? " w" : "") + '"><span class="nm">' + esc(tmNm(nm)) + (r.dom === id ? '<small class="tm-dom-t"> · à domicile</small>' : "") + (r.f && r.f === id ? ' <span class="tm-ff">forfait</span>' : "") + '</span><b class="sc">' + (x != null ? x : "") + "</b></span>"; };
       var moved = r.dt && r.d && r.dt !== r.d, lk = r.st === "T" || lv, tg = lk ? "a" : "div";
       return "<" + tg + ' class="tm-m' + (mine ? " mine" : "") + (lv ? " lv" : "") + '"' + (lk ? ' href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"' : "") + ">" + ln(r.a, r.an, sc1, sc2) + ln(r.b, r.bn, sc2, sc1) +
-        (r.f || moved || r.rep || lv ? '<small class="mv">' + (r.f ? "forfait de " + esc(tmNm(r.f === r.a ? r.an : r.bn)) : lv ? "en cours" : r.rep && !moved ? "reportée" : "jouée " + dayLab(r.d)) + "</small>" : "") + "</" + tg + ">";
+        (!r.f && (moved || r.rep || lv) ? '<small class="mv">' + (lv ? "en cours" : r.rep && !moved ? "reportée" : "jouée " + dayLab(r.d)) + "</small>" : "") + "</" + tg + ">";
     };
     var groups = function (L, desc) {
       var by = {}; L.forEach(function (r) { var j = jOf(r), k = j != null ? "j" + (100 + j) : "d" + r.d; (by[k] = by[k] || { j: j, d: r.dt || r.d, L: [] }).L.push(r); });
