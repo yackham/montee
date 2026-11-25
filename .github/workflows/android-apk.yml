@@ -21,6 +21,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+          # Garde les bibliothèques Android d'un build à l'autre : moins de téléchargements,
+          # donc plus de refus « 429 Too Many Requests » du dépôt Maven Central.
+          cache: gradle
       - uses: android-actions/setup-android@v3
         with:
           # Le paquet « tools » n'existe plus chez Google : on ne demande que platform-tools
@@ -41,7 +44,14 @@ jobs:
       - name: Construire l'APK
         run: |
           cd android && chmod +x gradlew
-          if [ -f keystore.properties ]; then ./gradlew assembleRelease; else ./gradlew assembleDebug; fi
+          if [ -f keystore.properties ]; then TACHE=assembleRelease; else TACHE=assembleDebug; fi
+          # Maven Central refuse parfois les téléchargements (429) : on réessaie après une pause.
+          for essai in 1 2 3; do
+            ./gradlew $TACHE && exit 0
+            echo "Essai $essai échoué, nouvel essai dans $((essai * 45)) s."
+            sleep $((essai * 45))
+          done
+          exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: Montee-apk
