@@ -1911,6 +1911,16 @@
     if (!lim) return { ok: true, txt: "Sur Ten'Up" };
     var g = dGap(lim); return g < 0 ? { ok: false, txt: "Plus modifiables depuis le " + fdate(lim) } : { ok: true, txt: g === 0 ? "Modifiables jusqu'à ce soir" : "Modifiables jusqu'au " + fdate(lim) };
   }
+  function insFiche(t) { // 4.6.0 : le téléphone et le mail du juge-arbitre, et le point GPS du lieu, viennent de la fiche publique (une fois)
+    var i = t.ins, m = i.more = i.more || {}; if (m.fiAt || !NATIVE || !S.tenup.linked || offline() || (UI.insFi || {})[t.tuid]) return;
+    UI.insFi = UI.insFi || {}; UI.insFi[t.tuid] = 1;
+    setTimeout(function () { tenupQuery("fiche", { t: t.tuid }).then(function (r) {
+      if (!r || r.error) return; m.fiAt = Date.now(); var ja = m.ja || { name: "", tel: "", mail: "" };
+      if (r.ja) { ja.tel = ja.tel || r.ja.tel || ""; ja.mail = ja.mail || r.ja.mail || ""; } if (ja.name || ja.tel || ja.mail) m.ja = ja;
+      ["addr", "place", "lat", "lng"].forEach(function (k) { if (m[k] == null && r[k] != null) m[k] = r[k]; });
+      save(); render();
+    }); }, 300);
+  }
   function tzPratique(t) {
     var i = t.ins || {}, m = i.more || {}, num = tuNum(t.tuid), r = "", j = m.ja;
     var where = m.addr || [insCase(i.club || ""), insCase(i.city || "")].filter(Boolean).join(", "), short = m.place ? insCase(m.place) + (i.city ? ", " + insCase(i.city) : "") : where;
@@ -1918,7 +1928,7 @@
     r += j ? tzLine1("Juge-arbitre", esc(j.name ? nameCase(j.name) : "Juge-arbitre"), (j.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(j.tel) + '"') : "") + (j.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(j.mail) + '"') : ""))
       : tzLine1("Juge-arbitre", "Sur la page du tournoi", num ? '<button class="tz-act" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="Le tournoi">Voir</button>' : "");
     var D = tzDispo(m.dispoLim);
-    r += tzLine1("Indispos", esc(D.txt), D.ok ? tzIc("edit", "Modifier tes indispos sur Ten'Up", 'data-a="tzTu" data-v="/user/mes-inscriptions" data-t="Tes indispos"') : "", D.ok ? "" : "tz-mute");
+    r += tzLine1("Indispos", esc(D.txt), D.ok ? tzIc("edit", "Modifier tes indispos sur Ten'Up", 'data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos"') : "", D.ok ? "" : "tz-mute");
     if (i.due > 0) r += tzLine1("Paiement", esc(String(i.due)) + " € à régler", tzIc("pay", "Payer sur Ten'Up", 'data-a="tzTu" data-v="/user/mes-inscriptions" data-t="Paiement"'), "tz-due");
     return '<h2>Pratique</h2><div class="blk tz-blk tz-c">' + r + '</div>';
   }
@@ -1941,7 +1951,7 @@
     var P = tzPrefs(); if (!NATIVE || !S.tenup.linked || S.tenup.expired || offline() || UI.tzBusy || !P.lat) return;
     if (!force && S.tzr && S.tzr.q === P.cp + "/" + P.km + "/" + P.wk && Date.now() - (S.tzr.at || 0) < 12 * 3600e3) return;
     UI.tzBusy = true; var td = today(), to = new Date(td.getTime() + P.wk * 7 * 864e5);
-    tenupQuery("tournois", { from: E.iso(td), to: E.iso(to), lat: P.lat, lng: P.lng, km: P.km, cp: P.cp, cfg: S.tzCfg || null }).then(function (r) {
+    tenupQuery("tournois", { from: E.iso(td), to: E.iso(to), ville: P.city || "", lat: P.lat, lng: P.lng, km: P.km }).then(function (r) {
       UI.tzBusy = false;
       if (!r || r.error) { UI.tzErr = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
       UI.tzErr = null; if (r.cfg) S.tzCfg = r.cfg;
@@ -1950,6 +1960,7 @@
     });
   }
   function tzEp(t) { // l'épreuve faite pour toi : simple, ton sexe, ton classement dans la fourchette
+    if (t.eps == null) return { id: null, wait: true }; // 4.6.0 : la recherche ne donne pas les épreuves, la fiche les lira
     var cur = curIdx(), sx = S.profile.sex, best = null;
     (t.eps || []).forEach(function (e) {
       if (e.dbl || (e.sex && sx && e.sex !== sx)) return;
@@ -1995,9 +2006,10 @@
       .map(tzEval).filter(function (v) { return v.ep && (v.km == null || v.km <= P.km * 1.25); });
   }
   function tzInsAuto() { // Montée+ : les inscrits des 5 meilleurs, lus au rythme d'un humain
-    if (UI.tzInsBusy) return; var todo = tzAll().sort(function (a, b) { return b.score - a.score; }).slice(0, 5).filter(function (v) { var k = v.t.id + "/" + v.ep.id, x = (S.tzIns || {})[k]; return !x || Date.now() - x.at > 12 * 3600e3; });
+    if (UI.tzInsBusy) return; var todo = tzAll().sort(function (a, b) { return b.score - a.score; }).slice(0, 5).filter(function (v) { if (!v.ep.id) return true; var k = v.t.id + "/" + v.ep.id, x = (S.tzIns || {})[k]; return !x || Date.now() - x.at > 12 * 3600e3; });
     if (!todo.length) return; UI.tzInsBusy = true; var ch = Promise.resolve();
-    todo.forEach(function (v) { ch = ch.then(function () { return tzInsGet(v.t, v.ep, true); }); });
+    todo.forEach(function (v) { ch = ch.then(function () { if (v.ep.id) return tzInsGet(v.t, v.ep, true);
+      return tzFiche(v.t).then(function () { var e = tzEp(v.t); if (e && e.id) return tzInsGet(v.t, e, true); }); }); }); // épreuves d'abord (fiche), puis inscrits
     ch.then(function () { UI.tzInsBusy = false; save(); if (route() === "trouver") render(); });
   }
   function tzInsGet(t, ep, quiet) {
@@ -2009,7 +2021,7 @@
   }
   function tzFiche(t) { // juge-arbitre et lieu lus sur la fiche Ten'Up du tournoi, gardés avec le tournoi trouvé
     return tenupQuery("fiche", { t: t.id }).then(function (r) {
-      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; });
+      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; });
       save(); if (UI.sheet && UI.sheet.k === "tz") render();
     });
   }
@@ -3449,7 +3461,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       }
       s += ren ? trB : trB ? dockAce(trB, trS, trT) : coachBubble(trS, trT); // 3.73
       if (t.ins) s += '<div class="ins-st"><span class="ins-p' + (t.wait ? " w" : t.ins.due > 0 ? " d" : "") + '">' + esc(insLab(t)) + "</span><span class=\"small\">" + esc([t.ins.cat, t.ins.club && t.ins.club !== t.ins.city ? insCase(t.ins.club) : "", insCase(t.ins.city || "")].filter(Boolean).join(" · ")) + '</span></div>';
-      if (t.ins && t.tuid && !over) s += tzPratique(t); // 4.6.0 : lieu, juge-arbitre, indispos, paiement
+      if (t.ins && t.tuid && !over) { s += tzPratique(t); insFiche(t); } // 4.6.0 : lieu, juge-arbitre, indispos, paiement
       if (!(poule && t.kind === "champ" && !(t.pool || []).length && !t.resUrl)) s += resLinkHtml(t);
       trOppSync(t); // 3.47.3 : la fiche Ten'Up des adversaires du tableau, pour un % identique à leur fiche
       if (poule && !(t.pool || []).length && UI.plEdit !== t.id) s += "<h2>Ta poule</h2>" + poolEmptyHtml(t);

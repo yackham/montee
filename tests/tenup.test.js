@@ -65,3 +65,18 @@ test("4.6.0 : les nouvelles lectures (tournois, inscrits) tournent dans le scrip
     assert.ok(!/is not defined|ReferenceError/.test(out), k + " : " + out.slice(0, 200));
   }
 });
+test("tournois 4.6.0 : formats Ten'Up relevés le 25/11/2026", () => {
+  assert.strictEqual(T.dispoLimFrom("Vous aviez jusqu&#x27;au 04/11/2026 pour modifier vos disponibilités"), "2026-11-04");
+  assert.strictEqual(T.dispoLimFrom("Vous avez jusqu’au 1/12/2026 pour modifier vos disponibilités"), "2026-12-01");
+  assert.strictEqual(T.dispoLimFrom("<p>Rien</p>"), "");
+  const c = T.cardMap({ idHomologation: "MOJA_321545", libelleTournoi: "Open d'hiver", dateDebut: "2026-12-05", dateFin: "2026-12-20", club: { libelle: "TC Exemple" }, ville: "VILLE", distance: 12400, inscriptionEnLigne: true, naturesEpreuves: [] });
+  assert.strictEqual(c.id, "321545"); assert.strictEqual(c.km, 12); assert.strictEqual(c.eps, null);
+  assert.strictEqual(T.cardsFrom('x{"nbResultats":1,"cards":[{"idHomologation":"A_1","libelleTournoi":"T"}]}y').cards.length, 1);
+  const f = T.ficheMap({ mailJa: " ja@exemple.fr ", telephoneJa: "06 00 00 00 00", dateCloture: "2026-12-01T00:00", inscriptionEnLigne: true, epreuveList: [{ id: 7, typeEpreuve: "SM", nomEpreuve: "Simple messieurs" }, { id: 8, typeEpreuve: "DD", nomEpreuve: "Double dames" }] });
+  assert.strictEqual(f.ja.tel, "0600000000"); assert.strictEqual(f.ja.mail, "ja@exemple.fr"); assert.strictEqual(f.closing, "2026-12-01");
+  assert.strictEqual(f.eps[0].sex, "H"); assert.strictEqual(f.eps[1].sex, "F"); assert.strictEqual(f.eps[1].dbl, true);
+  const l = T.lieuMap({ nomClub: "TC Exemple", adresse1: "1 rue du Court", codePostal: "75001", ville: "PARIS", lat: 48.86, lng: 2.34 });
+  assert.ok(/1 rue du Court/.test(l.addr)); assert.strictEqual(l.lat, 48.86);
+  const i = T.tuInfos({ jugeArbitre: { idCrm: 1, nom: "MARTIN", prenom: "Julien" }, installation: { adresse1: null, codePostal: "75001", nom: "Salle", ville: "PARIS" } });
+  assert.strictEqual(i.ja.name, "Julien MARTIN"); assert.strictEqual(i.place, "Salle");
+});

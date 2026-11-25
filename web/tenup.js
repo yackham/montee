@@ -196,7 +196,16 @@
         if (j && Array.isArray(j.tournois)) return { api: j };
         return page();
       }).then(function (h) {
-        if (h && h.api) return ok({ list: map(h.api), at: Date.now(), src: "api" });
+        if (h && h.api) {
+          // 4.6.0 : date limite des indispos, lue sur la page de chaque inscription à venir (6 au plus : Ten'Up limite les pages)
+          var L = map(h.api), today = new Date().toISOString().slice(0, 10), ch = Promise.resolve();
+          L.filter(function (t) { return t.id && (t.to || t.from) >= today; }).slice(0, 6).forEach(function (t) {
+            ch = ch.then(function () { return fetch(location.origin + "/user/mes-inscriptions/" + encodeURIComponent(t.id) + "/disponibilites", { credentials: "include" })
+              .then(function (r) { return r.ok ? r.text() : ""; }).then(function (x) { var d = dispoLimFrom(x); if (d) t.more.dispoLim = d; if (x) t.more.dispoUrl = "/user/mes-inscriptions/" + t.id + "/disponibilites"; })
+              .catch(function () {}); });
+          });
+          return Promise.race([ch, new Promise(function (r) { setTimeout(r, 12000); })]).then(function () { return ok({ list: L, at: Date.now(), src: "api" }); });
+        }
         var flight = "", re = /self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)/g, m;
         while ((m = re.exec(h))) { try { flight += JSON.parse(m[1]); } catch (e) {} }
         var o = grab(flight);
@@ -944,7 +953,7 @@
     if (!d || typeof d !== "object") return {};
     var tel = String(d.telephoneJa || "").replace(/[^\d+]/g, ""), mail = String(d.mailJa || "").trim(), out = { cat: String(d.libelleCategorie || ""), closing: d.dateCloture ? String(d.dateCloture).slice(0, 10) : "",
       opens: d.dateOuvertureInscriptionEnLigne ? String(d.dateOuvertureInscriptionEnLigne).slice(0, 10) : "", online: !!d.inscriptionEnLigne, payOnline: !!d.paiementEnLigne,
-      eps: (d.epreuveList || []).map(function (e) { var ty = String(e.typeEpreuve || ""); return { id: String(e.id || ""), name: String(e.nomEpreuve || e.epreuveLibelle || ""), sex: /^S?D$|^SD/.test(ty) ? "F" : /^SM|^DM/.test(ty) ? "H" : "", dbl: /^D/.test(ty) && ty.length === 2 && ty !== "SD" ? true : /double|mixte/i.test(e.nomEpreuve || "") }; }) };
+      eps: (d.epreuveList || []).map(function (e) { var ty = String(e.typeEpreuve || ""); return { id: String(e.id || ""), name: String(e.nomEpreuve || e.epreuveLibelle || ""), sex: /^[SD]D$/.test(ty) ? "F" : /^[SD]M$/.test(ty) ? "H" : "", dbl: /^D/.test(ty) || /double|mixte/i.test(e.nomEpreuve || "") }; }) };
     if (tel || mail) out.ja = { name: "", tel: tel, mail: mail };
     return out;
   }
@@ -989,6 +998,14 @@
     var dl = tuPick(x, /(limite|fin|cloture).{0,24}(dispo|modif)|(dispo|modif).{0,24}(limite|fin|cloture)/i, 3); if (dl && /^\d{4}-\d{2}-\d{2}/.test(String(dl))) out.dispoLim = String(dl).slice(0, 10);
     return out;
   }
+  // 4.6.0 (relevé de Yann, 25/11) : la page /user/mes-inscriptions/{id}/disponibilites écrit
+  // « Vous avez (aviez) jusqu'au JJ/MM/AAAA pour modifier vos disponibilités » → date ISO, ou "".
+  function dispoLimFrom(h) {
+    var t = String(h || "").replace(/&#x27;|&#39;|&apos;|’/g, "'");
+    var m = t.match(/jusqu'au\s*(\d{1,2})\/(\d{1,2})\/(\d{4})[^<]{0,40}modifier/i);
+    if (!m) return "";
+    return m[3] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[1]).slice(-2);
+  }
   // Un tournoi trouvé par la recherche Ten'Up, en forme Montée
   function tsMap(o) {
     if (!o || typeof o !== "object") return null;
@@ -1023,7 +1040,7 @@
   var VERSION = "2.4";
   // Version pour l'app iPhone : corps d'une fonction async (WKWebView callAsyncJavaScript)
   // Le script embarque la recherche v2, utilisée en repli par tenupFetch
-  function src(fn) { return "var cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
+  function src(fn) { return "var cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
   // 3.47 : page de maintenance / file d'attente Ten'Up : on le dit au lieu de « Ten'Up n'a pas répondu »
   var MAINT = "var __mt = (document.title || \"\") + \" \" + Array.prototype.map.call(document.querySelectorAll(\"h1,h2\"), function (e) { return e.innerText; }).slice(0, 3).join(\" \");\n" +
     "if (/maintenance|mise à jour du site|file d'attente|queue-it|service (momentanément )?indisponible/i.test(__mt) || /maintenance/i.test(location.pathname)) return \"MONTEE-ERR maintenance\";\n";
@@ -1248,7 +1265,7 @@
   // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
   function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, lieuMap: lieuMap, tuInfos: tuInfos, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);
