@@ -9925,7 +9925,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return a.href ? '<a class="cbl-go" href="' + a.href + '">' + esc(a.l) + " ›</a>" : '<button class="cbl-go" data-a="' + a.a + '"' + (a.k ? ' data-k="' + esc(a.k) + '"' : "") + (a.v != null ? ' data-v="' + esc(a.v) + '"' : "") + ">" + esc(a.l) + " ›</button>";
   }
   // 4.9 (Yann, 25/11/2026) : Ace posé sur une carte se touche et ouvre sa conversation sur cette carte (q = le sujet, "" = l'accueil d'Ace)
-  function acePeek(q, ask) { return '<span class="ace-peek" role="button" tabindex="0" data-a="ace" data-v="' + esc(q || "") + '" aria-label="Demander à Ace">' + (ask && !S.aceTap ? '<span class="ace-bub ace-ask">Je t\'explique ?</span>' : ""); }
+  function acePeek(q, ask) { return '<span class="ace-peek" role="button" tabindex="0" data-a="ace" data-v="' + esc(q || "") + '" aria-label="Demander à Ace">' + (ask ? '<span class="ace-bub ace-ask">Je t\'explique ?</span>' : "") /* 4.9.2 (Yann) : la bulle reste, c'est elle qui dit qu'Ace se touche (le ⓘ est parti) */; }
   function coBall(id, mood, sz) { return '<span class="cbl-b' + (sz ? " " + sz : "") + '" data-k="' + esc(id) + '" data-id="' + esc(id) + '" data-m="' + (mood || "repos") + '" aria-hidden="true"></span>'; }
   function coachBubble(scr, tips) {
     var t = coPick(scr, tips); if (!t) return "";
@@ -10394,7 +10394,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (cB.length) XH += acCard("Ce qui fait tes " + bB.total, cB.slice(0, 3).map(rowW).join("") +
         (restB.length ? acRow({ l: restB.length > 1 ? "Tes " + restB.length + " autres victoires" : "Ton autre victoire", s: restB.length > 1 ? "de +" + restB[0].pts + " à +" + restB[restB.length - 1].pts : "", v: "+" + sumR, sheet: ["mmBilan", "up"] }) : acRow({ l: "Les matchs qui comptent", s: "ce que rapporte chacun", sheet: ["mmBilan", "up"] })) +
         bonB.map(function (x) { return acRow({ l: x[1], s: x[2], v: (bB[x[0]] > 0 ? "+" : "") + bB[x[0]], cl: bB[x[0]] > 0 ? "g" : "r" }); }).join("") +
-        '<span class="acd-f">La courbe, c\'est ce total à chaque sortie.' + (relB ? " Le dernier point, c'est le " + esc(relB) + "." : "") + "</span>");
+        '<span class="acd-f">La courbe, c\'est ce total à chaque sortie, sur les 12 mois avant elle. Les pointillés, c\'est la norme (' + bB.norme + ")." + (relB ? " Le dernier point, c'est le " + esc(relB) + "." : "") + " Touche un point pour voir une autre sortie.</span>");
       F.push([p.status === "descente" ? "Comment je reste " + lab(cur) + " ?" : "Comment je monte " + bB.label + " ?", "up"]); F.push(["Qu'est-ce qui sort de mon bilan ?", "when"]); F.push(["Je progresse ou pas ?", "prog"]);
     } else if (k[0] === "piste" && p.next) {
       // 4.9 : « C'est quoi, une piste ? », depuis Ace posé sur « Tes pistes » (mêmes pistes que la carte)
@@ -13429,8 +13429,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         else if (k === "service") html = watchStatsHtml() + serveTrendHtml();
         else { var box = document.createElement("div"), keep = UI.sheet; UI.sheet = null; UI.cbRaw = 1; try { box.innerHTML = V.courbes(); } finally { UI.cbRaw = 0; } UI.sheet = keep; var el = box.querySelector("#cb-" + k); html = el ? el.innerHTML : ""; }
       } catch (e) { html = ""; }
-      var T0 = { plafond: "Face à chaque classement", gagner: "Ce qui fait la différence", train: "Tes entraînements", service: "Ton service", chiffres: "Tes chiffres" };
-      return { title: T0[k] || cbName(k) || "Le détail", body: html ? '<div class="cb-sh">' + html + "</div>" : '<span class="small">Pas encore assez de données.</span>' };
+      var T0 = { plafond: "Face à chaque classement", gagner: "Ce qui fait la différence", train: "Tes entraînements", service: "Ton service", chiffres: "Tes chiffres" }, ttl = T0[k] || cbName(k) || "Le détail";
+      // 4.9.2 (Yann : « y'a redite ») : le titre de la carte répète celui de la feuille → on le cache, on garde ce qu'il ajoute (« · 12 mois », « · 15/2 »)
+      if (html) try { var bx = document.createElement("div"), nk = function (t) { return String(t || "").replace(/[’']/g, "'").replace(/\s+/g, " ").trim().toLowerCase(); }; bx.innerHTML = html;
+        Array.prototype.forEach.call(bx.querySelectorAll(".eyebrow, .chead .ct > b, .fm3-h .ct > b"), function (e) {
+          var tn = null; Array.prototype.forEach.call(e.childNodes, function (n) { if (!tn && n.nodeType === 3 && n.textContent.trim()) tn = n; });
+          var T = nk(ttl); if (!tn) return; var t = nk(tn.textContent);
+          if (t === T) { if (nk(e.textContent) === T) e.classList.add("cb-dup"); else tn.textContent = ""; } // titre seul : caché ; titre + pastille (Montée+) : la pastille reste
+          else if (t.indexOf(T) === 0 && /^\s*·/.test(t.slice(T.length))) tn.textContent = tn.textContent.replace(/^[^·]*·\s*/, ""); // « Mental · 12 mois » → « 12 mois »
+        });
+        html = bx.innerHTML; } catch (e) {}
+      return { title: ttl, body: html ? '<div class="cb-sh">' + html + "</div>" : '<span class="small">Pas encore assez de données.</span>' };
     },
     // 3.48.4 (Yann) : chercher un joueur sans quitter l'écran : une feuille par le bas, puis sa fiche face-à-face (retour possible)
     pSearch: function () {
@@ -20696,7 +20705,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var el = ev.target.closest("[data-a]");
     if (!el || el.tagName === "INPUT") return;
     var a = el.dataset.a;
-    if (A[a]) { if (el.tagName !== "A" || a === "bmHelp") ev.preventDefault(); CUR_ACT = { a: a, el: el, ev: ev }; A[a](el, ev); }
+    if (A[a]) { if (el.tagName !== "A" || a === "bmHelp") ev.preventDefault(); CUR_ACT = { a: a, el: el, ev: ev };
+      // 4.9.2 (Yann : « ça fait escalier ») : un onglet changé dans une feuille ne la fait plus sauter, elle garde sa plus grande hauteur
+      var shE = el.closest(".sheet"), shK = shE && UI.sheet ? JSON.stringify(UI.sheet) : "", shH = shE ? shE.getBoundingClientRect().height : 0;
+      A[a](el, ev);
+      if (shK && UI.sheet && JSON.stringify(UI.sheet) === shK) { var shN = document.querySelectorAll(".sheet"); shN = shN[shN.length - 1]; if (shN && shN.getBoundingClientRect().height < shH) shN.style.minHeight = Math.round(shH) + "px"; }
+    }
   });
   // Pages qui défilent à l'horizontale (mode match) : les points suivent ; sommaire des courbes : la pastille suit
   document.addEventListener("scroll", function (ev) {

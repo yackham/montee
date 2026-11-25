@@ -2728,7 +2728,7 @@ button.pdj { font: inherit; color: var(--ink); background: none; border: 0; bord
 .ga2-h { display: flex; align-items: center; gap: 8px; font-size: 15px; margin-bottom: 2px; }
 .ga2-h i { width: 10px; height: 10px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(127,127,127,.4); }
 .ga2-r { display: flex; flex-direction: column; gap: 5px; padding: 8px 0; border-top: 1px solid var(--line, rgba(127,127,127,.14)); }
-.ga2-h + .ga2-r { border-top: 0; }
+.ga2-h + .ga2-r, .ga2-g > .ga2-r:first-child { border-top: 0; } /* 4.9.2 : onglet Usure, plus de double trait */
 .ga2-r.few { opacity: .55; }
 .ga2-r .m2-h > span:first-child { font-size: 13.5px; }
 .ga2 .m2-bar { height: 8px; } .ga2 .m2-bar u { height: 16px; }
@@ -6958,6 +6958,8 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .ace-peek[data-a] { pointer-events: auto; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .ace-peek[data-a]:focus-visible { outline: 2px solid var(--acc-ink); outline-offset: 3px; border-radius: 50%; }
 .ace-peek[data-a]:active .cbl-b { transform: scale(.94); }
+/* 4.9.2 (Yann) : sur une carte où Ace est posé, Ace explique la carte : plus de ⓘ (il revient si Ace n'y est pas) */
+.id-dock:not(.ace-gone) > .bl2-h .bl2-i { display: none; }
 .ace-peek .cbl-b.sm { margin-top: 6px; }
 .ace-off, .cbl-b.ace-off { display: none !important; }
 .ace-bub { position: absolute; right: 64px; top: 8px; width: max-content; max-width: 220px; background: var(--card); color: var(--ink); font-size: 13px; font-weight: 700; padding: 6px 11px; border-radius: 14px 14px 4px 14px; box-shadow: 0 0 0 1.5px var(--acc-ink); }
@@ -7416,7 +7418,9 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .cb-plus { font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 99px; background: color-mix(in srgb, var(--balle) 22%, transparent); color: var(--acc-ink); letter-spacing: 0; text-transform: none; margin-left: 4px; }
 /* la carte ouverte par-dessus : à plat dans la feuille (pas d'encadré dans un encadré) */
 .cb-sh { display: flex; flex-direction: column; gap: 12px; }
-.cb-sh > .card, .cb-sh > .gear-sec > .card { background: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0; }
+.cb-sh > .card, .cb-sh > .gear-sec > .card, .cb-sh > .gear-sec, .cb-sh .card .card { background: none !important; box-shadow: none !important; padding: 0 !important; border-radius: 0; }
+/* 4.9.2 (Yann) : le titre de la carte est déjà celui de la feuille */
+.cb-sh .cb-dup { display: none !important; }
 
 /* 4.4.3 (B2) : transitions entre écrans (View Transitions ; sans elles, l'apparition habituelle) */
 .tabbar { view-transition-name: tabbar; }
