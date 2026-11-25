@@ -2110,7 +2110,7 @@
     if (!todo.length) return; UI.tzFiBusy = true; var ch = Promise.resolve();
     // 4.11.1 (Yann : « les infos ne sont lues qu'en ouvrant la fiche ») : chaque tuile se complète dès que sa fiche est lue, sans attendre les 30
     var paint = function () { if (route() === "trouver" && !UI.sheet && !UI.ace) render(); };
-    todo.forEach(function (v, i) { UI.tzFi[v.t.id] = 1; ch = ch.then(function () { return tzFiche(v.t, true); }).then(function () { return i < 12 ? tzInsRead(v.t) : null; }).then(paint).then(function () { return new Promise(function (r) { setTimeout(r, 400); }); }); });
+    todo.forEach(function (v) { UI.tzFi[v.t.id] = 1; /* 4.11.1 (Yann) : les inscrits ne sont lus qu'à l'ouverture d'une fiche, comme sur Ten'Up */ ch = ch.then(function () { return tzFiche(v.t, true); }).then(paint).then(function () { return new Promise(function (r) { setTimeout(r, 400); }); }); });
     ch.then(function () { UI.tzFiBusy = false; save(); if (route() === "trouver") render(); });
   }
   // 4.11 : tes favoris, ceux de Ten'Up (le même cœur des deux côtés) ; relus toutes les 30 min, et après chaque cœur touché
