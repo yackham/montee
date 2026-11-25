@@ -308,7 +308,13 @@
   function toast(msg, ok) {
     UI.toastMsg = msg; clearTimeout(UI.toastT); haptic(ok ? "success" : "light");
     var el = document.querySelector(".toast"); if (el) el.remove();
-    var t = document.createElement("div"); t.className = "toast" + (ok ? " tk-ok" : ""); t.setAttribute("role", "status"); t.textContent = msg; if (ok) t.insertAdjacentHTML("afterbegin", '<span class="mx-ck2">' + MX_CK + "</span>"); document.body.appendChild(t);
+    var t = document.createElement("div"); t.className = "toast" + (ok ? " tk-ok" : ""); t.setAttribute("role", "status"); t.textContent = msg; if (window.Balle) {
+      // 4.8.1 : messages plus visibles, avec la tête d'Ace qui réagit (joie si c'est réussi)
+      try { var ac = document.createElement("span"), md = ok ? "joie" : "repos", b = Balle.make(54); ac.className = "tk-ace"; ac.setAttribute("aria-hidden", "true"); ac.appendChild(b); t.insertBefore(ac, t.firstChild); t.classList.add("tk-hasace");
+        var red = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (!red && Balle.play) Balle.play(b, md, 1400); else if (Balle.M[md]) b.pose(Balle.M[md](ok ? 1 : 0.1)); } catch (e) {}
+    } else if (ok) t.insertAdjacentHTML("afterbegin", '<span class="mx-ck2">' + MX_CK + "</span>");
+    document.body.appendChild(t);
     UI.toastT = setTimeout(function () { t.remove(); }, msg.length > 60 ? 4500 : 2800);
   }
 

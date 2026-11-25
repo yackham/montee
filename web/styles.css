@@ -7632,3 +7632,10 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .toast .tk-undo { flex: none; appearance: none; border: 0; background: none; font: inherit; font-weight: 800; color: inherit; text-decoration: none; color: var(--on-solid); background: color-mix(in srgb, var(--on-solid) 16%, transparent); border-radius: 99px; padding: 6px 14px; pointer-events: auto; cursor: pointer; }
 /* 4.8.0 : bloc ajouté par une mise à jour en arrière-plan : il apparaît sans rejouer l'arrivée (sinon il clignote) */
 .screen > .mv-no, .mv-no :is(.list > .row, .h3h-r, .lgc, .df-r, .fr-c, .h2s-l > .row), :is(.list > .row, .h3h-r, .lgc, .df-r, .fr-c, .h2s-l > .row).mv-no, .mv-no :is(.ft-bar, .df-bar, .h3h-b) i { animation: none !important; }
+
+/* 4.8.1 : messages plus visibles, tête d'Ace */
+.toast.tk-hasace { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 18px 10px 10px; font-size: 15.5px; font-weight: 600; line-height: 1.3; border-radius: 26px; box-shadow: 0 12px 34px rgba(0,0,0,.38); animation: tkIn .42s cubic-bezier(.2,1.4,.4,1); }
+.toast.tk-hasace { overflow: visible; }
+.toast.tk-hasace .tk-ace { flex: none; width: 54px; height: 59px; margin: -30px 0 -8px -2px; display: block; filter: drop-shadow(0 4px 6px rgba(0,0,0,.25)); }
+.toast.tk-hasace:has(.tk-undo) { padding-right: 10px; }
+@keyframes tkIn { from { transform: translate(-50%, 28px) scale(.9); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
