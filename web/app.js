@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.11.1",
+    VERSION: "4.11.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1518,7 +1518,7 @@
       (isStandalone() || NATIVE ? "" : ln("install", I.phone, "Installer l'application")) +
       ln("share", I.share, "Partager Montée") +
       (CONFIG.CONTACT_EMAIL ? ln("contact", I.mail, "Donner mon avis") : "") +
-      '</div><div class="menu-foot"><button class="linkbtn" data-a="goReglages">Réglages</button><i>·</i><button class="linkbtn" data-a="goApropos">À propos et calcul</button><i>·</i><span>v' + esc(CONFIG.VERSION) + "</span></div></div></div>";
+      '</div><div class="menu-foot"><button class="linkbtn" data-a="goReglages">Réglages</button><i>·</i><button class="linkbtn" data-a="goApropos">À propos et calcul</button><i>·</i><span data-a="verTap">v' + esc(CONFIG.VERSION) + "</span></div></div></div>";
   }
 
   var V = {};
@@ -2159,6 +2159,8 @@
   var TZ_HEART = '<svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
   function tzKindOf(v) { var t = v.t, e = v.ep || {}; if (t.kind === "indiv" || /individuel/i.test(t.name || "")) return "indiv";
     return e.fmt ? (e.fmt === "tmc" ? "tmc" : "tournoi") : t.tmc || /\bTMC\b/i.test(t.name || "") ? "tmc" : "tournoi"; }
+  // 4.11.2 (Yann : « tu me proposes de m'inscrire alors que je suis déjà en liste d'attente ») : ce tournoi est-il déjà dans Mes épreuves ?
+  function tzMine(id) { var n = tuNum(id); return toursAll().filter(function (x) { return x.tuid && tuNum(x.tuid) === n; })[0] || null; }
   function tzRange(e) { return e && (e.min || e.max) ? (e.min || "NC") + " à " + (e.max || "…") : ""; }
   function tzHeart(id) { var on = !!tzFavOf(id); return '<span class="tz-fav' + (on ? " on" : "") + '" role="button" tabindex="0" data-a="tzFav" data-v="' + esc(id) + '" aria-pressed="' + on + '" aria-label="' + (on ? "Retirer de tes favoris" : "Mettre en favori") + '">' + TZ_HEART + "</span>"; }
   function tzLine(v, open) {
@@ -2166,7 +2168,8 @@
     var sub = [t.city ? insCase(t.city) : "", v.km != null ? v.km + " km" : "", tzSen(e), e.fee ? e.fee + " €" + (t.payOnline ? " en ligne" : "") : ""].filter(Boolean).join(" · ");
     var ln = (rg ? '<b class="rk-tag">' + esc(rg) + "</b>" : "") + (k !== "tournoi" ? '<span class="tz-tag">' + (k === "tmc" ? "TMC" : "Indivs") + "</span>" : "") +
       ((t.surf || []).length ? '<span class="tz-sf" aria-label="' + esc(t.surf.join(", ")) + '">' + t.surf.map(surfPic).join("") + "</span>" : "") + (tot ? '<span class="tz-cup">' + TZ_CUP + tot + " €</span>" : "");
-    var hot = v.clash.length ? '<span class="tz-w">' + esc("En même temps : " + v.clash[0].t) + "</span>"
+    var mine = tzMine(t.id); // 4.11.2 (Yann) : un favori où tu es déjà : on le dit, au lieu de pousser à l'inscription
+    var hot = mine ? '<span class="tz-v">' + (mine.wait ? "Tu es en liste d'attente" : "Tu es inscrit") + "</span>" : v.clash.length ? '<span class="tz-w">' + esc("En même temps : " + v.clash[0].t) + "</span>"
       : v.ins ? '<span class="tz-w">' + esc(v.ins.txt) + "</span>"
       : v.close != null && v.close <= 7 ? '<span class="tz-w">' + esc(v.close === 0 ? "Inscriptions closes ce soir" : "Inscriptions closes dans " + plural(v.close, "jour")) + "</span>"
       : v.thr || v.rel ? '<span class="tz-v">' + (open ? esc(v.thr ? "Avant que des points sortent (" + fdate(E.iso(v.thr.rel)) + ")" : "Compte pour la sortie du " + fdate(E.iso(v.rel))) : pwX("Avant que des points sortent")) + "</span>" : "";
@@ -2215,10 +2218,19 @@
     return out.map(function (r) { return r.length > 2 ? N[o[r[0]]] + " au " + N[o[r[r.length - 1]]] : r.map(function (k) { return N[o[k]]; }).join(", "); }).join(", "); }
   function dzEd(t) { UI.dzEd = UI.dzEd || {}; return (UI.dzEd[t.id] = UI.dzEd[t.id] || {}); }
   function dzHab(D, iso) { return D.map ? T.dzGenSlots(D.gen || [], iso, D.map) : []; }
+  // 4.11.2 (Yann, samedi 13) : Ten'Up renvoie parfois un jour VIDE, sans « particuliere », alors que sa page l'affiche dispo. Vide = pas clair :
+  // on ne l'affiche pas « Pas dispo » et on n'envoie rien tant que tu n'as pas dit ce que tu veux pour ce jour-là.
+  // 4.11.2 : relevé caché (demandé par Yann le 25/11 pour le samedi 13, À RETIRER une fois le bug compris) : ce que Ten'Up renvoie
+  // (sans valeur perso, voir T.dispoRaw), ce que Montée envoie, et ce que tu touches sur les écrans de dispos. 7 touches sur la version du menu = partager.
+  function dzLog(ev, o) { try { var L = S.dzLog = S.dzLog || []; L.push(Object.assign({ at: new Date().toISOString().slice(0, 19), ev: ev, v: CONFIG.VERSION }, o || {})); if (L.length > 40) L.splice(0, L.length - 40); } catch (e) {} }
+  function dzAmb(g) { return !!g && !(g.slots || []).length; }
+  function dzAmbDays(t, D, days) { var ed = dzEd(t); return days.filter(function (iso) { return !ed[iso] && dzAmb((D.days || []).filter(function (x) { return x.date === iso; })[0]); }); }
+  function dzDayName(iso) { var dt = E.parseDate(iso); return JOURS[dt.getDay()].slice(0, 3) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]; }
   function dzDay(t, D, iso) { // ce jour-là : { slots: [{from, to}] où tu es dispo, ex: exception, ed: changé dans Montée }
     var ed = dzEd(t)[iso], hab = dzHab(D, iso);
     if (ed) return { slots: ed, ex: !T.dzSame(ed, hab), ed: true };
     var g = (D.days || []).filter(function (x) { return x.date === iso; })[0], sl = g ? g.slots.map(function (z) { return { from: z.from, to: z.to }; }) : hab;
+    if (dzAmb(g)) return { slots: hab, ex: false, ed: false, amb: true };
     return { slots: sl, ex: !T.dzSame(sl, hab), ed: false };
   }
   function dzLoad(t, force) {
@@ -2228,6 +2240,7 @@
     UI.dzBusy = true; UI.dzErr = null;
     tenupQuery("dispos", { t: t.tuid, from: t.from, to: t.to || t.from }).then(function (r) {
       UI.dzBusy = false; if (!r || r.error) { UI.dzErr = r && r.error || "Ten'Up n'a pas répondu"; UI.dzErrAt = Date.now(); render(); return; } UI.dzErrAt = 0;
+      dzLog("lecture", { t: t.tuid, du: t.from, au: t.to, gen: r.gen, pgen: r.pgen, days: r.days, raw: r.raw, praw: r.praw });
       m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; save(); render(); // 4.11.1 : pgen (ton profil) était perdu ici, donc l'écart avec le tournoi ne se voyait jamais
     });
   }
@@ -2253,9 +2266,9 @@
       return '<button class="dz-o hb-jr" data-a="dzDay" data-v="' + iso + '"' + (can ? "" : " disabled") + '><span class="grow"><span class="t">' + esc(cap1(JOURS[dt.getDay()].slice(0, 3)) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]) + '</span><span class="s">' + (x.slots.length ? esc("Dispo " + x.slots.map(dzSl).join(" · ") + (hab.length ? " seulement (au lieu de " + hab.map(dzSl).join(" · ") + ")" : "")) : '<span class="hb-offt">Pas dispo</span>') + (x.ed ? " · pas encore enregistré" : "") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") +
       (!exs.length ? '<p class="small hb-none">Aucune pour l\'instant : tes créneaux habituels s\'appliquent tous les jours.</p>' : "") + (can ? '<button class="dz-add hb-addx" data-a="dzAdd" data-v="' + esc(t.id) + '">+ Ajouter une indispo</button>' : "") + "</div>";
     s += '<h2>Pendant le tournoi</h2>' + (can ? '<p class="small" style="margin-top:-6px">Touche un jour pour dire que tu n\'es pas dispo, ou changer l\'horaire.</p>' : "") + '<div class="blk dz-days">' + days.map(function (iso) {
-      var x = dzDay(t, D, iso), off = !x.slots.length;
-      return '<button class="row dz-d' + (off ? " dz-off" : x.ex ? " dz-ex" : "") + '" data-a="dzDay" data-v="' + iso + '"' + (can ? "" : " disabled") + ">" + tzBillet(iso) + '<span class="grow"><span class="t">' + esc(off ? "Pas dispo" : x.slots.map(dzSl).join(" · ")) + '</span>' +
-        '<span class="s">' + (x.ed ? "Changé, pas encore enregistré" : x.ex ? "Juste ce jour-là" : "Comme d'habitude") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") + "</div>";
+      var x = dzDay(t, D, iso), off = !x.slots.length && !x.amb;
+      return '<button class="row dz-d' + (off ? " dz-off" : x.ex ? " dz-ex" : "") + '" data-a="dzDay" data-v="' + iso + '"' + (can ? "" : " disabled") + ">" + tzBillet(iso) + '<span class="grow"><span class="t">' + esc(x.amb ? "À vérifier sur Ten'Up" : off ? "Pas dispo" : x.slots.map(dzSl).join(" · ")) + '</span>' +
+        '<span class="s">' + (x.amb ? "Ten'Up ne le dit pas clairement à Montée : touche pour choisir" : x.ed ? "Changé, pas encore enregistré" : x.ex ? "Juste ce jour-là" : "Comme d'habitude") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") + "</div>";
     if (!Dl.ok) { var J = m.ja; s += '<h2>Un souci ?</h2><div class="blk tz-blk tz-c">' + (J && (J.tel || J.mail) ? tzLine1("Juge-arbitre", esc(J.name ? nameCase(J.name) : "Le juge-arbitre du tournoi"), (J.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(J.tel) + '"') : "") + (J.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(J.mail) + '"') : "")) : tzLine1("Juge-arbitre", "Ses coordonnées sont sur la page du tournoi", "")) + '</div><p class="small">Les indispos ne se changent plus dans l\'app : le juge-arbitre peut encore en tenir compte si tu le préviens.</p>'; }
     if (Dl.ok && !D.map) s += '<p class="small">Montée ne reconnaît pas encore tes créneaux habituels. Pour ne rien abîmer, change tes dispos sur Ten\'Up.</p><button class="btn" data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos">Ouvrir sur Ten\'Up</button>';
     if (can) s += '<button class="btn primary" data-a="dzSave" data-v="' + esc(t.id) + '"' + (n && !UI.dzSaving ? "" : " disabled") + ">" + (UI.dzSaving ? "Envoi à Ten'Up…" : n ? "Enregistrer sur Ten'Up" : "Rien à enregistrer") + '</button><p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion, puis relu pour vérifier. Le juge-arbitre les voit comme d\'habitude.</p>';
@@ -2269,6 +2282,7 @@
     var b = opt("hab", "Comme d'habitude", hab.length ? esc(hab.map(dzSl).join(" · ")) : "Pas de créneau ce jour-là") + opt("off", "Pas dispo ce jour-là", "Toute la journée") +
       opt("autre", "Un autre horaire", "Dispo seulement sur ce créneau");
     if (cur === "autre") b += '<div class="dz-hh"><label>De' + hSel('id="dz-f"', z.from) + '</label><label>À' + hSel('id="dz-t"', z.to) + '</label></div>';
+    if (x.amb) b = '<p class="small">Ten\'Up ne dit pas clairement à Montée si tu es dispo ce jour-là. Regarde sur Ten\'Up et choisis : rien n\'est envoyé avant.</p>' + b;
     return { title: cap1(JOURS[d.getDay()]) + " " + dN(d) + " " + MOIS[d.getMonth()], sub: t.name, body: '<div class="tz-sh dz-sh">' + b + '</div><button class="btn primary" data-a="dzOk" data-v="' + esc(cur) + '">OK</button>' };
   };
   function dzSaveRun(t) {
@@ -2276,11 +2290,12 @@
     if (Date.now() - D.at > 10 * 6e4) { toast("Je relis d'abord tes dispos sur Ten'Up, réessaie dans un instant."); dzLoad(t, true); return; }
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from), ex = {}, want = {};
     for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
+    var amb = dzAmbDays(t, D, days); if (amb.length) { dzLog("refus", { t: t.tuid, amb: amb }); toast("Ten'Up ne dit pas clairement si tu es dispo le " + amb.map(dzDayName).join(", le ") + ". Touche ce jour et choisis, puis enregistre : rien n'est envoyé avant."); return; }
     days.forEach(function (iso) { var x = dzDay(t, D, iso); want[iso] = x.slots; if (x.ex) ex[iso] = x.slots; });
     var uuid = function () { try { return crypto.randomUUID(); } catch (e) { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); }); } };
-    var body = T.dzBody(D.gen, ex, D.map, uuid); UI.dzSaving = true; render();
+    var body = T.dzBody(D.gen, ex, D.map, uuid); UI.dzSaving = true; render(); dzLog("envoi", { t: t.tuid, ed: JSON.parse(JSON.stringify(ed)), body: body });
     tenupQuery("dispoSave", { t: t.tuid, body: body, from: t.from, to: t.to || t.from }).then(function (r) {
-      UI.dzSaving = false;
+      UI.dzSaving = false; dzLog("relu", { t: t.tuid, err: r && r.error || null, days: r && r.days, raw: r && r.raw });
       if (!r || r.error) { toast("Ten'Up a refusé : " + (r && r.error || "pas de réponse") + ". Rien n'a changé dans Montée."); render(); return; }
       var bad = days.filter(function (iso) { var g = (r.days || []).filter(function (x) { return x.date === iso; })[0]; return !T.dzSame(g ? g.slots : [], want[iso]); });
       D.days = r.days; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
@@ -2356,11 +2371,15 @@
   function hbTourRun(t, gen) { // un tournoi : relire, garder ses jours particuliers, envoyer, relire
     var m = t.ins.more = t.ins.more || {}, from = t.from, to = t.to || t.from;
     return tenupQuery("dispos", { t: t.tuid, from: from, to: to }).then(function (r) {
+      dzLog("lecture-maj", { t: t.tuid, err: r && r.error || null, gen: r && r.gen, pgen: r && r.pgen, newGen: gen, days: r && r.days, raw: r && r.raw, praw: r && r.praw });
       if (!r || r.error) return false; var ex = {}, want = {};
+      var amb = (r.days || []).filter(dzAmb).map(function (g) { return g.date; }); if (amb.length) { m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; return { amb: amb }; } // 4.11.2 : un jour pas clair, on n'envoie rien
       (r.days || []).forEach(function (g) { var sl = g.slots.map(function (z) { return { from: z.from, to: z.to }; }); if (!T.dzSame(sl, T.dzGenSlots(r.gen, g.date, "iso"))) ex[g.date] = sl; });
       var days = [], d0 = E.parseDate(from), d1 = E.parseDate(to); for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
       days.forEach(function (iso) { want[iso] = ex[iso] || T.dzGenSlots(gen, iso, "iso"); });
-      return tenupQuery("dispoSave", { t: t.tuid, body: T.dzBody(gen, ex, "iso", hbUuid), from: from, to: to }).then(function (s) {
+      var hbBody = T.dzBody(gen, ex, "iso", hbUuid); dzLog("envoi-maj", { t: t.tuid, body: hbBody });
+      return tenupQuery("dispoSave", { t: t.tuid, body: hbBody, from: from, to: to }).then(function (s) {
+        dzLog("relu-maj", { t: t.tuid, err: s && s.error || null, days: s && s.days, raw: s && s.raw });
         if (!s || s.error) return false; m.dz = { gen: gen, pgen: gen, days: s.days, map: "iso", at: Date.now() };
         return days.every(function (iso) { var g = (s.days || []).filter(function (x) { return x.date === iso; })[0]; return T.dzSame(g ? g.slots : [], want[iso]); });
       });
@@ -2413,7 +2432,7 @@
   };
   var DET_TZ = function (id) {
     var fv = tzFavOf(id), t = tzFind(id) || (fv && tzFavT(fv)); if (!t) return null;
-    var v = tzEval(t), e = v.ep, plus = isSup(), best = tzBest(), open = plus || (best && best.t.id === id), num = tuNum(t.id), b = "";
+    var mine = tzMine(id), v = tzEval(t), e = v.ep, plus = isSup(), best = tzBest(), open = plus || (best && best.t.id === id), num = tuNum(t.id), b = "";
     // 4.11.1 (maquette « fiche v2 » validée par Yann le 25/11) : l'essentiel en 4 cases, la phrase d'Ace, puis le pratique
     var cell = function (l, v1, s1, cls) { return '<div class="tzv-c"><span class="tzv-l">' + l + '</span><span class="tzv-v' + (cls ? " " + cls : "") + '">' + v1 + '</span><span class="tzv-s">' + s1 + "</span></div>"; };
     var rg = e && !e.wait ? tzRange(e) : "", g = "", tot = (t.cash || 0) + (t.lots || 0), sf = t.surf || [];
@@ -2436,7 +2455,8 @@
     if ((!t.ja || !t.ja.name || t.eps == null) && !(UI.tzFi || {})[t.id] && NATIVE && S.tenup.linked) { UI.tzFi = UI.tzFi || {}; UI.tzFi[t.id] = 1; setTimeout(function () { tzFiche(t); }, 600); } // 4.6.0 : épreuves et juge-arbitre en direct (Yann)
     return { title: t.name, hd: tzHeart(t.id), sub: [fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), t.club ? insCase(t.club) : ""].filter(Boolean).join(" · "),
       body: b + '<div class="tzv-h">Pratique</div><div class="tz-sh">' + pr + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
-        '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>' };
+        (mine ? '<button class="btn primary" data-a="tzMineGo" data-v="' + esc(mine.id) + '">' + (mine.wait ? "Tu es en liste d'attente : voir" : "Tu es inscrit : voir") + '</button><p class="small tz-foot">' + (mine.wait ? "Montée te prévient dès que tu es pris." : "Ton inscription est dans Mes épreuves.") + "</p>"
+          : '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>') };
   };
   var REFRESH_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>';
   function agoLab(ts) { var m = Math.round((Date.now() - ts) / 6e4); return m < 2 ? "à l'instant" : m < 60 ? "il y a " + m + " min" : m < 1440 ? "il y a " + Math.round(m / 60) + " h" : "il y a " + plural(Math.round(m / 1440), "jour"); }
@@ -10259,7 +10279,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       (nx && g ? (nx.total < nx.norme && nx.total + g >= nx.norme ? " Gagne-le et tu passes la norme " + esc(nx.label) + "." : " Gagne-le et ton bilan passe à " + (nx.total + g) + " / " + nx.norme + ".") : ""));
     var d = coD(), wk = d ? coWeak(d) : null;
     if (sup && wk && CP_HOW[wk.k] && CP_HOW[wk.k].m) A.push("<b>Ta consigne :</b> " + esc(CP_HOW[wk.k].m.charAt(0).toLowerCase() + CP_HOW[wk.k].m.slice(1)));
-    var fiche = o.tid ? "#/joueur/" + encodeURIComponent(o.tid) : h ? "#/adversaire/" + encodeURIComponent(o.key) : o.href || "";
+    // 4.11.2 (Yann : « j'ai pas son nom mais tu me proposes de voir sa fiche, et ça plante ») : pas de nom = pas de fiche ; le tournoi reste dans « Voir le tournoi »
+    var fiche = !o.name ? "" : o.tid ? "#/joueur/" + encodeURIComponent(o.tid) : h ? "#/adversaire/" + encodeURIComponent(o.key) : "";
     var last = h ? E.parseDate(h.ms[0].date) : null;
     XH += acCard(o.d ? "Ton match" : "Contre lui", acRow({ l: nm + acRk(o.rank), s: (o.d ? esc(coWhen(o)) + (o.comp ? " · " : "") : "") + esc(o.comp || (o.rank ? "classé " + o.rank : "")), href: fiche || null }) +
       (pc != null ? acRow({ l: "Tes chances", bar: pc, cl: acTone(pc), v: pc + " %" }) : "") +
@@ -10374,7 +10395,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var oW = null; try { oW = c.proj.status !== "top" ? coNextOut(c) : null; } catch (e) {}
     if (oW && oW.days <= 21) tips.push({ id: "when:" + oW.iso, hot: 1, t: "Ta victoire contre un " + oW.rank + " sort de ton bilan le " + oW.dt + " : une victoire d'ici là la compense.", v: "when" });
     toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
-      if (t.fmt === "poule") { var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }); if (left.length) tips.push({ id: "home:pl:" + t.id + ":" + left.length, t: (left.length > 1 ? left.length + " matchs de poule à caler" : "Un match de poule à caler") + ", on regarde ?", v: "poule:" + t.id }); }
+      if (t.fmt === "poule") { var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }); if (left.length) { var plU = left.filter(function (x) { return !x.day; }), plN = left.filter(function (x) { return x.day && x.day >= t0; }).sort(function (a, b) { return a.day < b.day ? -1 : 1; })[0]; // 4.11.2 (Yann : « ils sont calés ») : une date posée = un match calé
+        tips.push({ id: "home:pl:" + t.id + ":" + left.length + ":" + plU.length, t: plU.length ? (plU.length > 1 ? plU.length + " matchs de poule à caler" : "Un match de poule à caler") + ", on regarde ?" : plN ? "Poule : " + (nameCase(plN.name).split(" ")[0] || "ton prochain match") + " " + (plN.day === t0 ? "aujourd'hui" : "le " + fdate(plN.day)) + ", on le prépare ?" : "Des scores de poule à entrer ?", v: "poule:" + t.id }); } }
       else { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r && r.day && r.day >= t0 && !(nm && nm.t === t)) tips.push({ id: "home:tb:" + t.id + ":" + r.day, t: "Ton prochain tour " + (r.day === t0 ? "aujourd'hui" : "le " + fdate(r.day)) + " : on le prépare ?", v: "tour:" + t.id }); }
     });
     if (c.proj.status !== "top" && c.proj.next) { var gap = Math.max(0, c.proj.next.norme - c.proj.next.total); tips.push({ id: "home:up:" + gap, t: c.proj.status === "montee" ? "Tu montes " + lab(c.proj.projected) + " à la sortie. On en parle ?" : gap ? upTipT(c, gap) : "Il te manque une victoire pour " + c.proj.next.label + ", on voit laquelle ?", v: "up" }); }
@@ -10437,7 +10459,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var nPo = opT.filter(function (t) { return poLeft(t).length; }).length, nTb = opT.filter(function (t) { return t.fmt !== "poule" && (t.rounds || []).some(function (x) { return !x.res; }); }).length;
     opT.forEach(function (t) {
       var left = poLeft(t), tn = (t.name || "").trim();
-      if (t.fmt === "poule" && left.length) Q.push(["now", "poule:" + t.id, nPo > 1 && tn ? "Je joue qui en premier dans ma poule « " + tn + " » ?" : "Je joue qui en premier dans ma poule ?", "Ta poule", (nPo > 1 && tn ? tn + " · " : "") + (left.length > 1 ? left.length + " matchs à caler" + (nPo > 1 && tn ? "" : " : lequel d'abord ?") : "Un match à caler"), "list", "po"]);
+      if (t.fmt === "poule" && left.length) Q.push(["now", "poule:" + t.id, nPo > 1 && tn ? "Je joue qui en premier dans ma poule « " + tn + " » ?" : "Je joue qui en premier dans ma poule ?", "Ta poule", (nPo > 1 && tn ? tn + " · " : "") + (function () { var u = left.filter(function (x) { return !x.day; }).length, nx = left.filter(function (x) { return x.day && x.day >= t0; }).sort(function (a, b) { return a.day < b.day ? -1 : 1; })[0];
+        return u ? (u > 1 ? u + " matchs à caler" + (nPo > 1 && tn ? "" : " : lequel d'abord ?") : "Un match à caler") : nx ? "Prochain : " + nameCase(nx.name) + ", " + fdate(nx.day) : plural(left.length, "score") + " à entrer"; })(), "list", "po"]);
       else if (t.fmt !== "poule" && !(up && up.t === t)) { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r) Q.push(["now", "tour:" + t.id, nTb > 1 && tn ? "Mon prochain tour « " + tn + " », il vaut quoi ?" : "Mon prochain tour, il vaut quoi ?", "Ton prochain tour", (r.day ? fdate(r.day) + " · " : "") + (t.name || "Tournoi"), "versus", "to"]); }
     });
     // 4.4 : « Ce qui sort » (gratuit), les mêmes victoires et les mêmes points que « Points à défendre ». « Le bon moment » reste le timing Montée+ de chaque adversaire.
@@ -10573,11 +10596,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     } else if (k[0] === "poule") {
       var t = tourOf(k[1]), trk = TR_KIND; mood = "concentree";
       if (t) { TR_KIND = t.kind === "champ" ? "champ" : "tournoi"; // les points comme sur la page de l'épreuve (bonus championnat)
-        var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }).map(function (x) { var rk = x.rankNow || x.rank; return { n: nameCase(x.name), r: x.rank, p: oppWait(x.tid) ? null : trP(rk, x.tid, x.name), w: oppWait(x.tid), g: trGain(rk) || 0 }; }).sort(function (a, b) { return (b.p || 0) - (a.p || 0) || b.g - a.g; });
+        var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }).map(function (x) { var rk = x.rankNow || x.rank; return { n: nameCase(x.name), r: x.rank, d: x.day || "", p: oppWait(x.tid) ? null : trP(rk, x.tid, x.name), w: oppWait(x.tid), g: trGain(rk) || 0 }; })
+          .sort(function (a, b) { return (a.d ? 0 : 1) - (b.d ? 0 : 1) || (a.d < b.d ? -1 : a.d > b.d ? 1 : 0) || (b.p || 0) - (a.p || 0) || b.g - a.g; }); // 4.11.2 (Yann : « ils sont calés ») : les matchs datés d'abord, dans l'ordre des dates ; les autres par chances
         if (left.length) {
-          var a0 = left[0];
-          XH += acCard("Tes matchs à jouer", left.map(function (x, i) { return acRow({ l: esc(x.n) + acRk(x.r), s: (x.p != null ? x.p + " % de chances" : x.w ? "lecture de sa fiche…" : "chances inconnues") + (i ? "" : " · le plus jouable"), scl: i ? "" : "g", bar: x.p, cl: acTone(x.p), v: x.g ? "+" + x.g + "<small> pts</small>" : "" }); }).join(""));
-          A.push("<b>" + esc(a0.n) + " d'abord.</b> C'est ton match le plus jouable" + (left[1] ? ", puis " + left.slice(1).map(function (x) { return esc(x.n); }).join(", ") + "." : "."));
+          var dat = left.filter(function (x) { return x.d; }), und = left.filter(function (x) { return !x.d; }), t0p = E.iso(today()), pf = function (x) { return x.d < t0p ? "le " + fdate(x.d) + ", score à entrer" : x.d === t0p ? "aujourd'hui" : "le " + fdate(x.d); };
+          XH += acCard("Tes matchs à jouer", left.map(function (x, i) { var best = !x.d && x === und[0] && und.length > 1; return acRow({ l: esc(x.n) + acRk(x.r), s: (x.d ? esc(cap1(pf(x))) + " · " : "") + (x.p != null ? x.p + " % de chances" : x.w ? "lecture de sa fiche…" : "chances inconnues") + (best ? " · le plus jouable" : ""), scl: best ? "g" : "", bar: x.p, cl: acTone(x.p), v: x.g ? "+" + x.g + "<small> pts</small>" : "" }); }).join(""));
+          var dot = function (z) { return /\.$/.test(z) ? z : z + "."; };
+          if (dat.length) A.push("<b>" + dot(esc(dat[0].n) + " " + esc(pf(dat[0]))) + "</b>" + (dat[1] ? " Puis " + dot(dat.slice(1).map(function (x) { return esc(x.n) + " " + esc(pf(x)); }).join(", ")) : ""));
+          if (und.length) A.push(dat.length ? (und.length > 1 ? "Reste à caler : <b>" + esc(und[0].n) + " d'abord</b>, c'est le plus jouable, puis " + und.slice(1).map(function (x) { return esc(x.n); }).join(", ") + "." : "Reste à caler : <b>" + esc(und[0].n) + "</b>.")
+            : "<b>" + esc(und[0].n) + " d'abord.</b> C'est ton match le plus jouable" + (und[1] ? ", puis " + und.slice(1).map(function (x) { return esc(x.n); }).join(", ") + "." : "."));
 
           var pot = left.reduce(function (s, x) { return s + x.g; }, 0);
           if (p.next && pot) XH += acCard("Si tu gagnes tout", acBig((p.next.total + pot) + "<small> / " + p.next.norme + "</small>", "ton bilan pour " + esc(p.next.label), p.next.total + pot >= p.next.norme ? "g" : "y", 100 * (p.next.total + pot) / (p.next.norme || 1), p.next.total + pot >= p.next.norme ? '<b class="g">Tu montes</b>' : '<b class="r">− ' + (p.next.norme - p.next.total - pot) + "</b> pts"));
@@ -12475,7 +12502,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var So = P.R.solid;
     if (So && So.g && So.g.n >= 4 && (So.st === "faible" || cpSurv(So))) {
       var lo = since.filter(function (m) { return E.idx(m.oppRank) != null && E.idx(m.oppRank) < d.cur; }).slice(0, 3);
-      out.push({ t: "Gagne tes 3 prochains matchs contre des moins bien classés.", s: "Saison : " + So.g.v + " sur " + So.g.n + ". Même routine qu'en finale : 1re balle sûre, de la marge au filet.", dots: lo.map(function (m) { return m.result === "V" ? "on" : "off"; }), n: 3, num: "cp:solid" });
+      out.push({ t: "Gagne tes 3 prochains matchs contre des moins bien classés.", s: "Saison : " + So.g.v + " sur " + So.g.n + ". Joue-les comme des finales : 1re balle sûre, de la marge au filet.", dots: lo.map(function (m) { return m.result === "V" ? "on" : "off"; }), n: 3, num: "cp:solid" });
     }
     var dz = (d.drops || []).filter(function (x) { return x.m && (!by || x.leaves <= new Date(by.getTime() + 31 * 864e5)); }).sort(function (a, b) { return b.pts - a.pts; })[0];
     if (dz && out.length < 3) {
@@ -12641,7 +12668,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 1 consigne en match, et le thème d'entraînement à cocher pour suivre l'effet sur tes matchs
   var CP_HOW = {
     perf: { tr: "match", d: [["Des points qui partent mal", "À l'entraînement, joue des jeux qui démarrent à 15-30 ou 30-40 contre plus fort : tu apprends à jouer libéré quand tu es mené."], ["Ta balle d'attaque", "20 fois : coup droit croisé long puis la balle suivante le long de la ligne. C'est le schéma qui fait les perfs."]], m: "Joue ton jeu, pas le sien : 2 cibles (croisé profond, son revers) et prends la balle tôt, même mené." },
-    solid: { tr: "regul", d: [["Régularité à marge", "Séries de 20 échanges croisés sans faute, la balle 1 m au-dessus du filet. On recommence à 0 à chaque faute."], ["Matchs à handicap", "Contre un partenaire moins fort, commence chaque jeu à 0-15 : tu apprends à ne rien donner."]], m: "Même routine qu'en finale : 1re balle à 70 %, de la marge au filet, pas de coup gagnant avant le 4e échange." },
+    solid: { tr: "regul", d: [["Régularité à marge", "Séries de 20 échanges croisés sans faute, la balle 1 m au-dessus du filet. On recommence à 0 à chaque faute."], ["Matchs à handicap", "Contre un partenaire moins fort, commence chaque jeu à 0-15 : tu apprends à ne rien donner."]], m: "Joue-le comme une finale : 1re balle à 70 %, de la marge au filet, pas de coup gagnant avant le 4e échange." },
     mental: { tr: "mental", d: [["Remonter un retard", "Joue des sets qui commencent à 2-4 : l'habitude de revenir, à l'entraînement d'abord."], ["Ta routine entre les points", "Toujours la même : dos au filet, respiration, regard sur les cordes, puis une cible. À répéter en séance jusqu'à ce qu'elle soit automatique."]], m: "Après un set perdu, change une seule chose (rythme, cible ou 1re balle) au lieu de forcer." },
     endu: { tr: "physique", d: [["Fractionné court", "Une fois par semaine : 10 × 30 s à fond, 30 s de récupération (déplacements latéraux, sprints courts)."], ["Finir fatigué", "Termine tes séances par un super tie-break quand tu es déjà cuit : c'est là que se joue un 3e set."]], m: "Bois à chaque changement de côté et raccourcis les points au 3e set : attaque plus tôt." },
     rythme: { tr: "regul", d: [["Une séance par semaine", "Même 45 minutes : ce qui te coûte des points, c'est la coupure, pas le niveau."], ["Avant une reprise", "Après 2 ou 3 semaines sans jouer, 2 séances avant le match, dont un match d'entraînement en conditions réelles."]], m: "Après une coupure : 1re balle sûre et échanges longs sur les premiers jeux, le temps de retrouver tes repères." },
@@ -20723,6 +20750,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     itin: function (el) { var ll = (el.dataset.ll || "").split(","); UI.sheet = { k: "itin", v: { q: el.dataset.q || "", lat: ll[0] || "", lng: ll[1] || "" }, back: UI.sheet && UI.sheet.k !== "itin" ? UI.sheet : null }; render(); },
     itinGo: function () { var b = UI.sheet && UI.sheet.back; setTimeout(function () { UI.sheet = b || null; render(); }, 300); return true; },
     tzKind: function (el) { tzPrefs().kind = el.dataset.v || "all"; save(); render(); haptic("light"); },
+    tzMineGo: function (el) { UI.sheet = null; location.hash = "#/tournoi/" + el.dataset.v; render(); },
     tzFav: function (el) { // 4.11 : le cœur, le même que sur Ten'Up ; affiché tout de suite, puis vérifié en relisant tes favoris
       var id = el.dataset.v, f = tzFavOf(id), t = tzFind(id) || (UI.tzFavT || {})[tuNum(id)] || {}; haptic("light");
       if (!NATIVE || !S.tenup.linked) { toast("Relie Ten'Up pour garder tes favoris"); return; }
@@ -20745,7 +20773,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         if (k === "hab") ed[a[1]] = hab; else if (k === "off") ed[a[1]] = [];
         else { var f = (document.getElementById("dz-f") || {}).value, to = (document.getElementById("dz-t") || {}).value;
           if (!f || !to || to <= f) { toast("L'heure de fin doit être après l'heure de début."); return; } ed[a[1]] = [{ from: f.slice(0, 5), to: to.slice(0, 5) }]; }
-        var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
+        var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && !dzAmb(g) && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
       UI.dzPk = null; UI.sheet = null; render(); },
     // 4.10 : créneaux habituels (profil Ten'Up) et indispo d'un tournoi
     hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
@@ -20779,13 +20807,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var gen = H && H.prof ? T.weekGen(H.prof.week) : D && D.pgen; if (!t || !gen || UI.hbRun1) return;
       UI.hbRun1 = true; render();
       hbTourRun(t, gen).then(function (ok) { return ok; }, function () { return false; }).then(function (ok) { UI.hbRun1 = false; save(); render();
+        if (ok && ok.amb) { toast("Rien n'est envoyé : Ten'Up ne dit pas clairement si tu es dispo le " + ok.amb.map(dzDayName).join(", le ") + ". Touche ce jour dans la liste et choisis d'abord."); return; }
         toast(ok ? "Ton tournoi a tes créneaux habituels. Tes indispos juste pour lui sont gardées." : "Ten'Up n'a pas tout pris : vérifie les jours du tournoi.", ok); }); },
     hbTourTog: function (el) { UI.hbSel = UI.hbSel || {}; UI.hbSel[el.dataset.v] = UI.hbSel[el.dataset.v] === false; render(); },
     hbToursGo: function () { var H = UI.hb, sel = UI.hbSel || {}, L = hbTours().filter(function (t) { return sel[t.id] !== false; }); if (!H || !H.prof || UI.hbRun || !L.length) return;
       var gen = T.weekGen(H.prof.week), bad = 0; UI.hbRun = true; render();
-      L.reduce(function (p, t) { return p.then(function () { return hbTourRun(t, gen).then(function (ok) { if (!ok) bad++; }, function () { bad++; }); }); }, Promise.resolve()).then(function () {
+      L.reduce(function (p, t) { return p.then(function () { return hbTourRun(t, gen).then(function (ok) { if (!ok || ok.amb) bad++; }, function () { bad++; }); }); }, Promise.resolve()).then(function () {
         UI.hbRun = false; UI.sheet = null; save(); render();
         toast(bad ? plural(bad, "tournoi") + " pas mis à jour : ouvre ses indispos pour vérifier." : (L.length > 1 ? "Tes " + L.length + " tournois sont à jour." : "Ton tournoi est à jour."), !bad); }); },
+    verTap: function () { // 4.11.2 : relevé caché des dispos (7 touches), à retirer une fois le bug du samedi 13 compris
+      UI.verN = (UI.verAt && Date.now() - UI.verAt < 2500 ? UI.verN || 0 : 0) + 1; UI.verAt = Date.now(); if (UI.verN < 7) return; UI.verN = 0;
+      var L = S.dzLog || []; if (!L.length) { toast("Rien de relevé pour l'instant : ouvre les indispos d'un tournoi d'abord."); return; }
+      sharePlain("Relevé dispos Montée " + CONFIG.VERSION + " (" + L.length + " lignes)\n" + JSON.stringify(L)); },
     dzAdd: function (el) { UI.dza = null; UI.sheet = { k: "dza", v: el.dataset.v }; render(); },
     dzaDay: function (el) { if (UI.dza) { UI.dza.iso = el.dataset.v; UI.dza.from = ""; UI.dza.to = ""; } render(); },
     dzaAll: function (el) { if (UI.dza) UI.dza.all = el.dataset.v === "1"; render(); },
@@ -20893,6 +20926,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (A[a]) { if (el.tagName !== "A" || a === "bmHelp") ev.preventDefault(); CUR_ACT = { a: a, el: el, ev: ev };
       // 4.9.2 (Yann : « ça fait escalier ») : un onglet changé dans une feuille ne la fait plus sauter, elle garde sa plus grande hauteur
       var shE = el.closest(".sheet"), shK = shE && UI.sheet ? JSON.stringify(UI.sheet) : "", shH = shE ? shE.getBoundingClientRect().height : 0;
+      if (/^(dz|hb)/.test(a)) dzLog("touche", { a: a, d: el.dataset.v || "", h: location.hash, f: (document.getElementById("dz-f") || {}).value || undefined, to: (document.getElementById("dz-t") || {}).value || undefined });
       A[a](el, ev);
       if (shK && UI.sheet && JSON.stringify(UI.sheet) === shK) { var shN = document.querySelectorAll(".sheet"); shN = shN[shN.length - 1]; if (shN && shN.getBoundingClientRect().height < shH) shN.style.minHeight = Math.round(shH) + "px"; }
     }
