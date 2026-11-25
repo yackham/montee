@@ -2007,11 +2007,12 @@
       return rg ? { id: null, wait: true, min: rg[0], max: rg[1] } : { id: null, wait: true };
     }
     if (tzYouth(t)) return null;
-    var best = null, old = null;
+    var best = null, old = null, ag = +tuMe().age || 0;
     (t.eps || []).forEach(function (e) {
       var es = e.sex || T.nameSex(e.name); if (e.dbl || (es && sx && es !== sx)) return;
+      if (ag && ((e.aMin && ag < e.aMin) || (e.aMax && ag > e.aMax))) return; // 4.11.1 (Yann) : l'âge autorisé par Ten'Up pour l'épreuve (Senior, 35 ans…)
       var et = (e.name || "") + " · " + (e.aud || ""); if (T.youthOnly(et)) return; // 4.9.2 : pas les épreuves jeunes (balle orange, U12…)
-      if (T.seniorsPlus(et)) { if (!old) old = e; return; } // seniors+ : seulement s'il n'y a rien d'ouvert à tous (l'âge n'est pas connu)
+      if (e.aMin == null && T.seniorsPlus(et)) { if (!old) old = e; return; } // sans les âges de Ten'Up : seniors+ seulement s'il n'y a rien d'autre // seniors+ : seulement s'il n'y a rien d'ouvert à tous (l'âge n'est pas connu)
       if (!tzRgOk(e.min, e.max, cur)) return;
       if (!best) best = e;
     });
@@ -2033,9 +2034,10 @@
     var km = t.km != null ? t.km : tzKm(P, t), clash = tzClash(t), rel = E.nextRelease(today()), thr = null;
     try { thr = defendThreat(c); } catch (e) {}
     var forRel = end && end < E.iso(rel) ? rel : null, forThr = thr && end && end < E.iso(thr.rel) ? thr : null;
-    var close = t.closing && t.closing >= E.iso(today()) ? dGap(t.closing) : null;
-    var score = (km == null ? 10 : 30 * 50 / (50 + km)) /* 4.11.1 (Yann) : la proximité ne dépend plus de la distance choisie : élargir n'ajoute que des tournois, sans changer l'ordre des autres */ + (forThr ? 30 : 0) + (forRel ? 10 : 0) - (clash.length ? 60 : 0) - (ep ? 0 : 200) - (t.closing && close == null ? 100 : 0);
-    return { t: t, ep: ep, km: km, clash: clash, rel: forRel, thr: forThr, close: close, score: score };
+    var cl = (ep && ep.close) || t.closing; // 4.11.1 : la clôture de TON épreuve, sinon celle du tournoi
+    var close = cl && cl >= E.iso(today()) ? dGap(cl) : null;
+    var score = (km == null ? 10 : 30 * 50 / (50 + km)) /* 4.11.1 (Yann) : la proximité ne dépend plus de la distance choisie : élargir n'ajoute que des tournois, sans changer l'ordre des autres */ + (forThr ? 30 : 0) + (forRel ? 10 : 0) - (clash.length ? 60 : 0) - (ep ? 0 : 200) - (cl && close == null ? 100 : 0);
+    return { t: t, ep: ep, km: km, clash: clash, rel: forRel, thr: forThr, close: close, cl: cl, score: score };
   }
   function tzWhy(v) { // la phrase d'Ace, tirée du même calcul : des faits (agenda, distance, sorties du classement), jamais un pronostic
     if (!v.ep) return "Pas d'épreuve de simple pour toi.";
@@ -2058,7 +2060,7 @@
   function tzVs(x, v) { // ce qui manque à un autre tournoi, face au conseil d'Ace
     if (!x.ep) return "pas d'épreuve de simple pour toi";
     if (x.clash.length) return (x.km != null ? x.km + " km, mais en" : "En") + " même temps que " + x.clash[0].t.replace(/^Indispo : /, "ton indispo : ");
-    if (x.t.closing && x.close == null) return "inscriptions closes";
+    if (x.cl && x.close == null) return "inscriptions closes";
     if ((v.thr && !x.thr) || (v.rel && !x.rel && !x.thr)) return (x.km != null ? x.km + " km, " : "") + "finit après la sortie du " + fdate(E.iso(v.thr ? v.thr.rel : v.rel));
     if (x.km != null && v.km != null && x.km > v.km) return x.km + " km, " + (x.km - v.km) + " de plus";
     return x.km != null ? x.km + " km" : "";
@@ -2077,7 +2079,7 @@
     if (!v.clash.length) rows += ok("Rien d'autre ces jours-là", "ni tournoi, ni match d'équipe, ni indispo");
     if (v.km != null) rows += ok(v.km + " km", near ? "le plus proche de ceux qui restent" : "");
     if (v.thr) rows += ok("Avant que des points sortent", "sortie du " + fdate(E.iso(v.thr.rel))); else if (v.rel) rows += ok("Compte pour la sortie du " + fdate(E.iso(v.rel)), t.to ? "il finit le " + fdate(t.to) : "");
-    if (v.close != null) rows += ok("Inscriptions ouvertes", "jusqu'au " + fdate(t.closing));
+    if (v.close != null) rows += ok("Inscriptions ouvertes", "jusqu'au " + fdate(v.cl));
     XH += acCard("Ce que j'ai regardé", rows + '<span class="acd-f">Je ne fais pas de pronostic : le tableau n\'est pas publié avant le tournoi.</span>');
     var oth = L.filter(function (x) { return x !== v; }).sort(function (a, b2) { return b2.score - a.score; }).slice(0, 3);
     if (oth.length) XH += acCard("Et les autres ?", oth.map(function (x) { return acRow({ l: esc(x.t.name), s: esc(cap1(tzVs(x, v))), sheet: ["tz", x.t.id] }); }).join(""));
@@ -2390,7 +2392,7 @@
     if ((t.surf || []).length) b += tzRow("Courts", t.surf.map(surfPic).join("") + esc(t.surf.join(", ") + (t.cov === "in" ? ", couverts" : t.cov === "out" ? ", extérieurs" : t.cov === "mix" ? ", couverts et extérieurs" : "")), "");
     if (t.cash || t.lots) b += tzRow("Dotation", esc(((t.cash || 0) + (t.lots || 0)) + " €" + (t.cash && t.lots ? " : " + t.cash + " € en espèces, " + t.lots + " € en lots" : t.cash ? " en espèces" : " en lots")), "");
     if (t.payReq) b += tzRow("Paiement", "En ligne, obligatoire pour être inscrit", ""); else if (t.payOnline) b += tzRow("Paiement", "En ligne ou sur place", "");
-    if (t.closing) b += tzRow("Inscriptions", (v.close == null ? "Closes depuis le " : "Jusqu'au ") + esc(fdate(t.closing)), "", v.close != null && v.close <= 7 ? "tz-due" : "");
+    if (v.cl) b += tzRow("Inscriptions", (v.close == null ? "Closes depuis le " : "Jusqu'au ") + esc(fdate(v.cl)), "", v.close != null && v.close <= 7 ? "tz-due" : "");
     b += tzRow("Ta saison", v.clash.length ? esc(v.clash.map(function (x) { return obDayLab(x.d) + " : " + x.t; }).join(" · ")) : "Rien d'autre ces jours-là.", "", v.clash.length ? "tz-due" : "");
     var when = v.thr ? "Fini avant la sortie du " + fdate(E.iso(v.thr.rel)) + ", où des points sortent" + (v.thr.need != null ? " : une victoire contre un " + lab(v.thr.need) + " les remplace." : ".")
       : "Tes victoires compteront à la sortie du " + fdate(E.iso(E.nextRelease(E.parseDate(t.to || t.from)))) + ".";

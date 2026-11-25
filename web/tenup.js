@@ -1017,6 +1017,10 @@
     (f.eps || []).forEach(function (e) { var x = by[e.id]; if (!x) return;
       var mn = String(x.classementMin || "").trim(), mx = String(x.classementMax || "").trim(); if (mn) e.min = mn; if (mx) e.max = mx;
       if (x.type) { e.fmt = /MULTI/i.test(x.type) ? "tmc" : "std"; if (e.fmt === "tmc") tmc = true; }
+      // 4.11.1 (relevé public du 25/11) : âges autorisés (ex. Senior : 19 à 44 ans), sexe, ouverture et clôture des inscriptions de CETTE épreuve
+      if (x.ageMinAutorise != null) e.aMin = +x.ageMinAutorise; if (x.ageMaxAutorise != null) e.aMax = +x.ageMaxAutorise;
+      if (!e.sex) e.sex = x.messieurs && !x.dames ? "H" : x.dames && !x.messieurs ? "F" : ""; if (x.double || x.mixte) e.dbl = true;
+      if (x.dateHeureClotureInscription) e.close = String(x.dateHeureClotureInscription).slice(0, 10); if (x.dateHeureOuvertureInscription) e.open = String(x.dateHeureOuvertureInscription).slice(0, 10);
       if (+x.tarifAdulte > 0 && !e.fee) e.fee = +x.tarifAdulte; if (+x.prixEspece > 0) { e.cash = +x.prixEspece; cash += e.cash; } if (+x.prixLots > 0) { e.lots = +x.prixLots; lots += e.lots; } });
     if (tmc) f.tmc = true; if (!f.cash && cash) f.cash = cash; if (!f.lots && lots) f.lots = lots;
     return f;
