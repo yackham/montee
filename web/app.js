@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.7.0",
+    VERSION: "4.7.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -9329,9 +9329,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function bonusData(hb, c) {
     var o = { ind: [], dbl: [], tot: 0, ch: 0, db: 0, sd: 0 }; if (!hb) return o;
     try {
-      var ch = E.BAREME.champ(hb.calc), n = 0, rel = c.opts.release || E.nextRelease(today());
-      E.windowMatches(sortedMatches().filter(function (m) { return m.kind === "champ" && m.result === "V" && !m.wo && !m.dbl && !m._dbl && counts(m); }), rel, today(), false)
-        .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) { var on = hb.bonusCh && n < ch.max; if (on) n++; o.ind.push({ m: m, pts: on ? ch.par : 0, val: ch.par, on: on }); });
+      // 4.7.1 (Davy) : la valeur de chaque bonus vient du moteur (15 en seniors+), les mêmes retenus que le bilan
+      var rel = c.opts.release || E.nextRelease(today());
+      E.champBonuses(E.windowMatches(sortedMatches().filter(function (m) { return !m._dbl && counts(m); }), rel, today(), false), hb.calc)
+        .forEach(function (x) { var on = !!hb.bonusCh && x.on; o.ind.push({ m: x.m, pts: on ? x.pts : 0, val: x.val, on: on }); });
     } catch (e) {}
     (hb.doubles || []).forEach(function (x) { if (x && x.m) o.dbl.push({ m: x.m, pts: x.pts || 0, on: true }); });
     o.ch = hb.bonusCh || 0; o.db = hb.bonusDbl || 0; o.sd = hb.bonusSD || 0; o.tot = o.ch + o.db + o.sd;
@@ -9354,8 +9355,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var ace = "";
     if (first) {
       var fx = first.x, nm = esc(nameCase(fx.m.opp || "") || "ce match");
+      // le relais : le meilleur bonus en réserve encore là après la sortie (15 en seniors+ : le total peut baisser)
+      var rl = res.filter(function (x) { var l = E.leaveDate(x.m); return !l || l > first.l; }).sort(function (a, b) { return b.val - a.val || (a.m.date < b.m.date ? -1 : 1); })[0];
       ace = fx.m.kind === "champ" && B.ind.indexOf(fx) >= 0
-        ? (res.length ? "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus contre " + nm + " sort.</b> Ta victoire contre " + esc(nameCase(res[0].m.opp || "") || "un " + res[0].m.oppRank) + " prend le relais : tu gardes tes " + B.ch + " pts." : "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus contre " + nm + " (+" + fx.pts + ") sort.</b> Gagne un match de poule d'ici là pour le garder.")
+        ? (rl ? "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus contre " + nm + " sort.</b> Ta victoire contre " + esc(nameCase(rl.m.opp || "") || "un " + rl.m.oppRank) + " prend le relais : " + (rl.val >= fx.pts ? "tu gardes tes " + B.ch + " pts." : "+" + rl.val + " au lieu de +" + fx.pts + ", tes bonus passent à " + (B.ch - fx.pts + rl.val) + " pts.") : "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus contre " + nm + " (+" + fx.pts + ") sort.</b> Gagne un match de poule d'ici là pour le garder.")
         : "<b>En " + MOIS_L[first.l.getMonth()] + ", ton bonus double contre " + nm + " (+" + fx.pts + ") sort.</b> Une victoire en double d'ici là le remplace.";
     }
     return '<div class="card bo-card" id="bo-card"><div class="bo-h"><span class="eyebrow">Tes bonus</span><span>pour ' + esc(hb.label) + "</span></div>" +
@@ -10301,9 +10304,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var chB = {};
     try {
       var nx = c.proj.next; if (!nx || !nx.bonusCh) return chB;
-      var ch = E.BAREME.champ(nx.calc), n = 0, rel = c.opts.release || E.nextRelease(today());
-      E.windowMatches((list || []).filter(function (m) { return m.kind === "champ" && m.result === "V" && !m.wo && !m.dbl && !m._dbl && counts(m); }), rel, today(), false)
-        .sort(function (a, b) { return a.date < b.date ? -1 : 1; }).forEach(function (m) { if (n < ch.max) { chB[m.id] = ch.par; n++; } });
+      var rel = c.opts.release || E.nextRelease(today());
+      E.champBonuses(E.windowMatches((list || []).filter(function (m) { return !m._dbl && counts(m); }), rel, today(), false), nx.calc)
+        .forEach(function (x) { if (x.on) chB[x.m.id] = x.pts; });
     } catch (e) {}
     return chB;
   }
