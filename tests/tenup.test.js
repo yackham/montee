@@ -119,8 +119,8 @@ test("indispos 4.6.0 : créneaux habituels, numérotation des jours, contenu env
   assert.deepStrictEqual(b.generales[0], { jours: [1, 2, 3, 4, 5], heureDebut: "18:30:00", heureFin: "22:00:00" });
   assert.deepStrictEqual(b.particulieres, [
     { disponible: false, dateDebut: "2027-02-10T18:30:00", dateFin: "2027-02-10T22:00:00", generaleId: "id0" },
-    { disponible: false, dateDebut: "2027-02-13T09:00:00", dateFin: "2027-02-13T20:00:00", generaleId: "id1" },
-    { disponible: true, dateDebut: "2027-02-13T14:00:00", dateFin: "2027-02-13T18:00:00", generaleId: "id1" }]);
+    { disponible: false, dateDebut: "2027-02-13T09:00:00", dateFin: "2027-02-13T14:00:00", generaleId: "id1" },
+    { disponible: false, dateDebut: "2027-02-13T18:00:00", dateFin: "2027-02-13T20:00:00", generaleId: "id1" }]); // 4.11.3 : seulement ce qui est retiré
   assert.ok(/dzMapping/.test(T.queryScript("dispos", { t: "MOJA_1", from: "2027-02-08", to: "2027-02-14" })));
   assert.ok(/PUT/.test(T.queryScript("dispoSave", { t: "MOJA_1", body: {} })));
 });
@@ -210,4 +210,19 @@ test("4.11.2 : relevé caché des dispos, aucune valeur perso ne passe", () => {
   const r = T.dispoRaw({ idCrm: 123456, nom: "MOREAU", email: "a@b.fr", dateNaissance: "1990-01-01", disponibilites: [{ date: "2027-02-13", horaires: [], particuliere: false, statut: "GENERALE" }], h: "14:00:00", tel: "0601020304" });
   assert.deepEqual(r, { idCrm: "#", nom: "…", email: "…", dateNaissance: "…", disponibilites: [{ date: "2027-02-13", horaires: [], particuliere: false, statut: "GENERALE" }], h: "…", tel: "…" });
   assert.ok(/dispoRaw/.test(T.queryScript("dispos", { t: "MOJA_1" })));
+});
+
+test("4.11.3 : on n'envoie que la différence avec l'habituel (relevé de Yann : 19 h 45 – 22 h devenu 19 h 45 – 20 h)", () => {
+  const gen = [{ jours: [1, 2, 4, 5], hd: "18:30:00", hf: "22:00:00" }, { jours: [3], hd: "20:00:00", hf: "22:00:00" }, { jours: [6, 7], hd: "14:00:00", hf: "22:00:00" }];
+  const p = (b) => b.particulieres.map((x) => [x.disponible, x.dateDebut.slice(11, 16), x.dateFin.slice(11, 16)]);
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-10": [{ from: "19:45", to: "22:00" }] }, "iso", () => "u")), [[true, "19:45", "20:00"]]); // plus tôt : on ajoute juste 19 h 45 – 20 h
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-10": [{ from: "20:30", to: "22:00" }] }, "iso", () => "u")), [[false, "20:00", "20:30"]]); // plus tard : on retire juste 20 h – 20 h 30
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-13": [{ from: "10:00", to: "18:00" }] }, "iso", () => "u")), [[false, "18:00", "22:00"], [true, "10:00", "14:00"]]);
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-13": [] }, "iso", () => "u")), [[false, "14:00", "22:00"]]);
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-13": [{ from: "14:00", to: "22:00" }] }, "iso", () => "u")), []); // comme d'habitude : rien
+});
+
+test("4.11.3 : deux morceaux qui se touchent n'en font qu'un à la lecture", () => {
+  const d = T.dispoDays({ disponibilites: [{ date: "2027-02-10", horaires: [{ heureDebut: "2027-02-10T20:00:00", heureFin: "2027-02-10T22:00:00", particuliere: false }, { heureDebut: "2027-02-10T19:45:00", heureFin: "2027-02-10T20:00:00", particuliere: true }] }] });
+  assert.deepStrictEqual(d, [{ date: "2027-02-10", slots: [{ from: "19:45", to: "22:00", ex: true }] }]);
 });
