@@ -12561,6 +12561,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     h[h.length - 1] = E.history(allMatches(), target, c.sex, cur, today(), c.opts.extra).pop(); // la projection reste celle de l'appli
     var first = hAll.map(function (m) { return m.date; }).filter(Boolean).sort()[0];
     if (first) h.forEach(function (p) { var ws = E.iso(new Date(p.date.getFullYear() - 1, p.date.getMonth(), p.date.getDate() + 20)); p.partial = !p.projected && ws < first; });
+    h.first = first; // la note « En gris » de Courbes en a besoin (sans ça : « first is not defined »)
     return h;
   }
   V.courbes = function () {
@@ -12588,7 +12589,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       B.bilan = '<div class="card chart bl2"><span class="bl2-h"><span class="eyebrow">Ton bilan pour ' + esc(lab(target)) + '</span><button class="bl2-i" data-a="bilanInfo" aria-label="Comment lire cette courbe">ⓘ</button></span>' +
         '<span class="bl2-v"><b>' + hl.total + "</b><span>/ " + hl.norme + " pts</span><em>" + (miss ? "il manque " + miss : "norme atteinte") + "</em></span>" +
         '<span class="bl2-bar"><i style="width:' + pc + '%"></i></span>' + lineChart(h) +
-        (partN ? '<span class="small bl2-note">En gris : Montée n\'a pas tous tes matchs des 12 mois avant ' + (partN > 1 ? "ces sorties" : "cette sortie") + " (avant " + esc(fdate(first)) + ") : le bilan y est sous-estimé.</span>" : "") +
+        (partN ? '<span class="small bl2-note">En gris : Montée n\'a pas tous tes matchs des 12 mois avant ' + (partN > 1 ? "ces sorties" : "cette sortie") + " (avant " + esc(fdate(h.first)) + ") : le bilan y est sous-estimé.</span>" : "") +
         (UI.bilanInfo ? '<span class="small bl2-note">Chaque point : ton bilan à cette sortie, sur les 12 mois glissants avant elle. Pointillés : la norme pour être ' + lab(target) + " (" + h[0].norme + " pts). Dernier point : projection pour la prochaine sortie. Touche un point pour voir une autre sortie.</span>" : "") + "</div>";
       UI._hist = { h: h, target: target, cur: cur };
     }
