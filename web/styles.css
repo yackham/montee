@@ -7593,3 +7593,12 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .sheet .tz-sh ~ .pa-cta b { font-size: inherit; letter-spacing: 0; }
 .sheet .tz-sh ~ .pa-cta .mp-pill { align-self: flex-start; margin-top: 6px; }
 .sheet .tz-sh ~ .btn.primary { margin-top: 14px; }
+/* 4.6.0 (Yann, 25/11) : « Pratique » en version courte : une ligne par info, actions rondes */
+.tz-c { padding: 2px 14px; }
+.tz-l1 { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 6px 0; }
+.tz-l1 + .tz-l1 { border-top: 1px solid var(--line); }
+.tz-lb { flex: none; width: 92px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.tz-vl { flex: 1; min-width: 0; font-size: 15px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tz-l1.tz-due .tz-vl { color: var(--terre); font-weight: 700; }
+.tz-l1.tz-mute .tz-vl { color: var(--muted); }
+.tz-ic { appearance: none; border: 0; flex: none; width: 38px; height: 38px; border-radius: 19px; display: inline-flex; align-items: center; justify-content: center; color: color-mix(in srgb, var(--gazon) 80%, var(--ink)); background: color-mix(in srgb, var(--gazon) 12%, transparent); }

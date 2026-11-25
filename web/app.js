@@ -1888,22 +1888,39 @@
   function tzBtn(path, title, label) { return '<button class="tz-act" data-a="tzTu" data-v="' + esc(path) + '" data-t="' + esc(title) + '">' + esc(label) + "</button>"; }
   function tzLieu(m, fb) {
     var where = m.addr || fb || ""; if (!where) return "";
-    return tzRow("Lieu", esc((m.place && where.indexOf(m.place) < 0 ? insCase(m.place) + " · " : "") + where), '<a class="tz-act" href="' + esc(mapsUrl(where, m.lat, m.lng)) + '" target="_blank" rel="noopener">Itinéraire</a>');
+    return tzRow("Lieu", esc((m.place && where.indexOf(m.place) < 0 ? insCase(m.place) + " · " : "") + where), tzIc("map", "Itinéraire", 'href="' + esc(mapsUrl(where, m.lat, m.lng)) + '" target="_blank" rel="noopener"'));
   }
   function tzJa(m, num) {
     var j = m.ja;
     if (!j) return tzRow("Juge-arbitre", "Ses coordonnées sont sur la page du tournoi.", num ? tzBtn("/tournoi/" + num, "Le tournoi", "Voir") : "");
     return tzRow("Juge-arbitre", esc(j.name ? nameCase(j.name) : "Le juge-arbitre du tournoi") + (j.tel ? '<br><span class="tz-n">' + esc(j.tel.replace(/(\d{2})(?=\d)/g, "$1 ")) + "</span>" : ""),
-      (j.tel ? '<a class="tz-act" href="tel:' + esc(j.tel) + '">Appeler</a>' : "") + (j.mail ? '<a class="tz-act" href="mailto:' + esc(j.mail) + '">Écrire</a>' : ""));
+      (j.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(j.tel) + '"') : "") + (j.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(j.mail) + '"') : ""));
   }
   // La fiche d'un tournoi où tu es inscrit : où, qui appeler, tes indispos, le paiement (Yann, 25/11/2026)
+  // Version courte (Yann : « prenne moins d'espace ») : une ligne par info, actions en boutons ronds.
+  var TZ_IC = {
+    map: '<path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/>',
+    tel: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+    pay: '<rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h4"/>'
+  };
+  function tzIc(k, lab, attrs) { return '<' + (/href=/.test(attrs) ? "a" : "button") + ' class="tz-ic" aria-label="' + esc(lab) + '" ' + attrs + '><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + TZ_IC[k] + "</svg></" + (/href=/.test(attrs) ? "a" : "button") + ">"; }
+  function tzLine1(lbl, val, act, cls) { return '<div class="tz-l1' + (cls ? " " + cls : "") + '"><span class="tz-lb">' + lbl + '</span><span class="tz-vl">' + val + '</span>' + (act ? '<span class="tz-acts">' + act + "</span>" : "") + "</div>"; }
+  function tzDispo(lim) { // 4.6.0 (Yann) : les indispos ne se modifient que jusqu'à une date avant le tournoi
+    if (!lim) return { ok: true, txt: "Sur Ten'Up" };
+    var g = dGap(lim); return g < 0 ? { ok: false, txt: "Plus modifiables depuis le " + fdate(lim) } : { ok: true, txt: g === 0 ? "Modifiables jusqu'à ce soir" : "Modifiables jusqu'au " + fdate(lim) };
+  }
   function tzPratique(t) {
-    var i = t.ins || {}, m = i.more || {}, num = tuNum(t.tuid), r = "";
-    r += tzLieu(m, [insCase(i.club || ""), insCase(i.city || "")].filter(Boolean).join(", "));
-    r += tzJa(m, num);
-    r += tzRow("Tes indispos", "Les jours ou créneaux où tu ne peux pas jouer, pour le juge-arbitre.", tzBtn("/user/mes-inscriptions", "Tes indispos", "Modifier"));
-    if (i.due > 0) r += tzRow("Paiement", "Reste " + esc(String(i.due)) + " € à régler.", tzBtn("/user/mes-inscriptions", "Paiement", "Payer"), "tz-due");
-    return '<h2>Pratique</h2><div class="blk tz-blk">' + r + '</div><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée, avec ta connexion. Le paiement se fait sur Ten\'Up : Montée ne voit jamais ta carte.</p>';
+    var i = t.ins || {}, m = i.more || {}, num = tuNum(t.tuid), r = "", j = m.ja;
+    var where = m.addr || [insCase(i.club || ""), insCase(i.city || "")].filter(Boolean).join(", "), short = m.place ? insCase(m.place) + (i.city ? ", " + insCase(i.city) : "") : where;
+    if (where) r += tzLine1("Lieu", esc(short), tzIc("map", "Itinéraire", 'href="' + esc(mapsUrl(where, m.lat, m.lng)) + '" target="_blank" rel="noopener"'));
+    r += j ? tzLine1("Juge-arbitre", esc(j.name ? nameCase(j.name) : "Juge-arbitre"), (j.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(j.tel) + '"') : "") + (j.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(j.mail) + '"') : ""))
+      : tzLine1("Juge-arbitre", "Sur la page du tournoi", num ? '<button class="tz-act" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="Le tournoi">Voir</button>' : "");
+    var D = tzDispo(m.dispoLim);
+    r += tzLine1("Indispos", esc(D.txt), D.ok ? tzIc("edit", "Modifier tes indispos sur Ten'Up", 'data-a="tzTu" data-v="/user/mes-inscriptions" data-t="Tes indispos"') : "", D.ok ? "" : "tz-mute");
+    if (i.due > 0) r += tzLine1("Paiement", esc(String(i.due)) + " € à régler", tzIc("pay", "Payer sur Ten'Up", 'data-a="tzTu" data-v="/user/mes-inscriptions" data-t="Paiement"'), "tz-due");
+    return '<h2>Pratique</h2><div class="blk tz-blk tz-c">' + r + '</div>';
   }
 
   // ---- Le sélecteur : recherche Ten'Up, puis UN SEUL calcul (tzEval) pour le tri, la ligne, la feuille et le conseil d'Ace ----
@@ -1949,29 +1966,28 @@
     return out;
   }
   function tzEval(t) {
+    // 4.6.0 (Yann, 25/11) : le tableau n'est pas publié avant le tournoi : aucun pronostic de tour, seulement des faits.
+    // Les inscrits lus sur Ten'Up : ta place parmi eux, combien sont mieux classés (perfs possibles), dont juste au-dessus de toi.
     var c = ctx(), cur = c.cur < 0 ? 0 : c.cur, ep = tzEp(t), P = tzPrefs();
     var km = t.km != null ? t.km : tzKm(P, t), clash = tzClash(t);
     var key = t.id + "/" + (ep && ep.id), ins = (S.tzIns || {})[key], L = ins ? ins.list.map(function (x) { return E.idx(T.normRank(x.r)); }).filter(function (x) { return x != null; }) : [];
-    if (!L.length && ep) { var lo = ep.min ? E.idx(T.normRank(ep.min)) : cur - 2, hi = ep.max ? E.idx(T.normRank(ep.max)) : cur + 1; for (var i = Math.max(0, lo); i <= hi; i++) L.push(i); } // sans inscrits : la fourchette de l'épreuve
     L.sort(function (x, y) { return x - y; });
-    // 1er tour : un joueur de ton classement ou juste en dessous (ceux qui sortent des tours d'avant), sinon le plus proche
-    var near = L.filter(function (o) { return o <= cur && o >= cur - 2; }); if (!near.length) near = L.slice().sort(function (x, y) { return Math.abs(x - cur) - Math.abs(y - cur); }).slice(0, 3);
-    var first = near.length ? near.slice().sort(function (x, y) { return x - y; })[Math.floor(near.length / 2)] : null;
-    var p1 = first != null ? Math.round(expWin(first, cur) * 100) : null;
-    var up = L.filter(function (o) { return o > cur && expWin(o, cur) >= 0.25; }), top = up.length ? up[up.length - 1] : null;
-    TR_KIND = "tournoi"; var gain = top != null ? trGain(lab(top)) : first != null ? trGain(lab(first)) : null;
+    var up = L.filter(function (o) { return o > cur; }), near = up.filter(function (o) { return o <= cur + 2; });
+    var nx = up.length ? up[0] : null; TR_KIND = "tournoi"; var gain = nx != null ? trGain(lab(nx)) : null;
     var med = L.length ? L[Math.floor(L.length / 2)] : null;
-    var score = (p1 || 0) * 0.45 + Math.min(gain || 0, 120) / 120 * 35 + (km == null ? 10 : Math.max(0, 1 - km / Math.max(P.km, 20)) * 20) - (clash.length ? 60 : 0) - (ep ? 0 : 200);
-    return { t: t, ep: ep, km: km, clash: clash, p1: p1, gain: gain, top: top != null ? lab(top) : "", perfs: L.filter(function (o) { return o > cur; }).length, n: ins ? ins.list.length : ep && ep.n || 0, real: !!ins, med: med != null ? lab(med) : "", score: score };
+    var score = (ins ? Math.min(near.length, 6) / 6 * 45 + Math.min(up.length, 10) / 10 * 15 + 10 : 0) + (km == null ? 10 : Math.max(0, 1 - km / Math.max(P.km, 20)) * 20) - (clash.length ? 60 : 0) - (ep ? 0 : 200);
+    return { t: t, ep: ep, km: km, clash: clash, gain: gain, nx: nx != null ? lab(nx) : "", perfs: up.length, near: near.length, place: ins ? up.length + 1 : null,
+      n: ins ? L.length : ep && ep.n || 0, real: !!ins, med: med != null ? lab(med) : "", score: score };
   }
-  function tzWhy(v) { // la phrase d'Ace, tirée du même calcul
+  function tzWhy(v) { // la phrase d'Ace, tirée du même calcul : des faits (inscrits, barème, distance), jamais un pronostic
     if (!v.ep) return "Aucune épreuve ouverte à ton classement.";
     if (v.clash.length) return "Ça tombe en même temps que " + v.clash[0].t.toLowerCase().replace(/^indispo : /, "ton indispo : ") + ".";
     var a = [];
-    if (v.p1 != null) a.push(v.p1 >= 60 ? "un 1er tour à ta portée (" + v.p1 + " %)" : v.p1 >= 45 ? "un 1er tour ouvert (" + v.p1 + " %)" : "un 1er tour costaud (" + v.p1 + " %)");
-    if (v.perfs) a.push(plural(v.perfs, "joueur mieux classé", "joueurs mieux classés") + " à aller chercher" + (v.gain ? " (+" + v.gain + " pts la victoire)" : ""));
+    if (v.real && v.near) a.push(plural(v.near, "joueur juste au-dessus de toi", "joueurs juste au-dessus de toi") + (v.gain ? " : +" + v.gain + " pts la perf contre un " + v.nx : ""));
+    else if (v.real && v.perfs) a.push(plural(v.perfs, "joueur mieux classé", "joueurs mieux classés") + " inscrits");
+    if (v.real) a.push("tu serais " + v.place + (v.place === 1 ? "er" : "e") + " sur " + (v.n + 1) + " au classement des inscrits");
     if (v.km != null) a.push(v.km <= 15 ? "à côté de chez toi" : "à " + v.km + " km");
-    return cap1(a.join(", ")) + ".";
+    return a.length ? cap1(a.join(", ")) + "." : "Inscrits pas encore lus.";
   }
   function tzAll() {
     var P = tzPrefs(), L = (S.tzr && S.tzr.list) || [], td = E.iso(today());
@@ -1991,11 +2007,17 @@
       if (!quiet) { save(); render(); }
     });
   }
+  function tzFiche(t) { // juge-arbitre et lieu lus sur la fiche Ten'Up du tournoi, gardés avec le tournoi trouvé
+    return tenupQuery("fiche", { t: t.id }).then(function (r) {
+      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; });
+      save(); if (UI.sheet && UI.sheet.k === "tz") render();
+    });
+  }
   function tzBillet(d) { var x = E.parseDate(d); return '<span class="tz-d"><small>' + esc(JOURS[x.getDay()].slice(0, 3)) + ".</small><b>" + dN(x) + "</b><small>" + esc(MOIS[x.getMonth()]) + "</small></span>"; }
   function tzLine(v, open) {
     var t = v.t, e = v.ep, sub = [t.city ? insCase(t.city) : "", v.km != null ? v.km + " km" : "", e.min || e.max ? (e.min || "NC") + " à " + (e.max || "…") : "", e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ");
     var hot = v.clash.length ? '<span class="tz-w">' + esc("En même temps : " + v.clash[0].t) + "</span>"
-      : '<span class="tz-v">' + (open ? (v.p1 != null ? v.p1 + " % au 1er tour" : "") + (v.perfs ? " · " + plural(v.perfs, "perf possible", "perfs possibles") : "") : "1er tour " + pwX("54 %") + " · " + pwX("3 perfs")) + "</span>";
+      : '<span class="tz-v">' + (!v.real ? "Inscrits pas encore lus" : open ? (v.place + (v.place === 1 ? "er" : "e") + " sur " + (v.n + 1) + " · " + plural(v.perfs, "mieux classé", "mieux classés")) : pwX("4e sur 13") + " · " + pwX("5 mieux classés")) + "</span>";
     return '<button class="row tz-t" data-a="tzOpen" data-v="' + esc(t.id) + '">' + tzBillet(t.from) + '<span class="grow"><span class="t">' + esc(t.name) + '</span><span class="s">' + esc(sub) + "</span>" + hot + "</span>" + I.next + "</button>";
   }
   V.trouver = function () {
@@ -2014,7 +2036,7 @@
     s += '<div class="seg tz-tabs"><button data-a="tzTab" data-v="rec" class="' + (tab === "rec" ? "on" : "") + '">Conseillés' + (plus ? "" : ' <span class="ch-plus">+</span>') + '</button><button data-a="tzTab" data-v="date" class="' + (tab === "date" ? "on" : "") + '">Par date</button></div>';
     var L = tab === "rec" ? rec : all.slice().sort(function (a, b) { return a.t.from < b.t.from ? -1 : 1; });
     s += '<div class="blk tz-list">' + L.map(function (v) { return tzLine(v, plus || v === best); }).join("") + "</div>";
-    if (!plus) s += '<div class="pa-cta tz-cta"><span><b>Avec Montée+</b> : tous les tournois classés selon ce qu\'ils peuvent te rapporter, le niveau des inscrits et tes chances au 1er tour.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>';
+    if (!plus) s += '<div class="pa-cta tz-cta"><span><b>Avec Montée+</b> : tous les tournois classés selon ce qu\'ils peuvent te rapporter, ta place parmi les inscrits et les perfs possibles.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>';
     return s + '<p class="small tz-foot">Lu sur Ten\'Up ' + (S.tzr && S.tzr.at ? agoLab(S.tzr.at) : "") + ". Tu t'inscris et tu paies sur Ten'Up, ouvert dans Montée.</p></div>";
   };
   var DET_TZ = function (id) {
@@ -2026,10 +2048,11 @@
     if (t.limit) b += tzRow("Inscriptions", "Jusqu'au " + esc(fdate(t.limit)), "");
     b += tzRow("Inscrits", v.real ? plural(v.n, "inscrit") + (open && v.med ? " · la moitié est " + esc(v.med) + " ou mieux" : "") : v.n ? plural(v.n, "inscrit") : "Liste lue à l'ouverture", "");
     b += tzRow("Ta saison", v.clash.length ? esc(v.clash.map(function (x) { return obDayLab(x.d) + " : " + x.t; }).join(" · ")) : "Rien d'autre ces jours-là.", "", v.clash.length ? "tz-due" : "");
-    b += tzRow("Ce que ça peut t'apporter", open ? esc((v.p1 != null ? v.p1 + " % de chances au 1er tour" : "") + (v.perfs ? " · " + plural(v.perfs, "joueur mieux classé", "joueurs mieux classés") + (v.gain ? ", +" + v.gain + " pts la perf" : "") : "")) : pwX("62 % de chances au 1er tour · jusqu'à +60 pts"), "", open ? "" : "tz-lk");
+    b += tzRow("Ce que ça peut t'apporter", !v.real ? "Inscrits pas encore lus." : open ? esc("Tu serais " + v.place + (v.place === 1 ? "er" : "e") + " sur " + (v.n + 1) + " au classement des inscrits · " + plural(v.perfs, "joueur mieux classé", "joueurs mieux classés") + (v.gain ? ", +" + v.gain + " pts la perf contre un " + v.nx : "")) : pwX("Tu serais 4e sur 13 · 5 mieux classés, +40 pts la perf"), "", open || !v.real ? "" : "tz-lk");
     if (!v.real && e) setTimeout(function () { tzInsGet(t, e); }, 300);
+    if (!t.ja && !(UI.tzFi || {})[t.id] && NATIVE && S.tenup.linked) { UI.tzFi = UI.tzFi || {}; UI.tzFi[t.id] = 1; setTimeout(function () { tzFiche(t); }, 600); } // 4.6.0 : le juge-arbitre en direct (Yann)
     return { title: t.name, sub: [fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), t.club ? insCase(t.club) : ""].filter(Boolean).join(" · "),
-      body: '<div class="tz-sh">' + b + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : tes chances et ce que chaque tournoi peut te rapporter, d\'après les inscrits.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
+      body: '<div class="tz-sh">' + b + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : ta place parmi les inscrits et ce que chaque perf peut te rapporter.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
         '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>' };
   };
   var REFRESH_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>';

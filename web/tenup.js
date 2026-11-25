@@ -231,6 +231,21 @@
         return hints().then(function (hs) { return ok({ list: null, tried: triedT, hints: hs, at: Date.now() }); });
       }).catch(err);
     }
+    if (KIND === "fiche") {
+      // 4.6.0 (Yann, 25/11) : la fiche d'un tournoi (juge-arbitre, lieu) pour les joindre d'un tap. Adresses probables, puis la page du tournoi.
+      var num = String(A.t || "").replace(/^\D+_?/, ""), Bf = location.origin, triedF = [];
+      var apis = ["/api/back/public/v1/tournois/" + num, "/api/back/v1/tournois/" + num, "/api/back/public/v1/tournois/" + num + "/fiche-tournoi", "/api/public/v1/tournois/" + num + "/fiche-tournoi"];
+      var jf = function (u) { return fetch(Bf + u, { credentials: "include", headers: { "Accept": "application/json" } }).then(function (r) { triedF.push(u + " " + r.status); if (!r.ok) return null; return r.json().catch(function () { return null; }); }, function () { return null; }); };
+      var flF = function (h) { var f = "", re = /self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)/g, m; while ((m = re.exec(h))) { try { f += JSON.parse(m[1]); } catch (e) {} } return f; };
+      var fromPage = function () { return fetch(Bf + "/tournoi/" + num, { credentials: "include" }).then(function (r) { triedF.push("/tournoi/" + num + " " + r.status); return r.text(); }).then(function (h) {
+        var f = flF(h), i = f.search(/"juge.?arbitre"\s*:\s*\{/i); if (i < 0) return null;
+        var j = f.indexOf("{", i), d = 0, q = false, e = false; for (var k = j; k < f.length; k++) { var ch = f.charAt(k); if (q) { if (e) e = false; else if (ch === "\\") e = true; else if (ch === '"') q = false; continue; } if (ch === '"') q = true; else if (ch === "{") d++; else if (ch === "}") { d--; if (!d) { try { return { jugeArbitre: JSON.parse(f.slice(j, k + 1)) }; } catch (x) { return null; } } } }
+        return null;
+      }).catch(function () { return null; }); };
+      return apis.reduce(function (ch, u) { return ch.then(function (r) { return r && tuInfos(r).ja ? r : jf(u).then(function (x) { return x || r; }); }); }, Promise.resolve(null)).then(function (r) {
+        return r && tuInfos(r).ja ? r : fromPage().then(function (x) { return x || r; });
+      }).then(function (r) { var inf = tuInfos(r || {}); inf.tried = triedF; inf.at = Date.now(); return ok(inf); }).catch(err);
+    }
     if (KIND === "inscrits") {
       // 4.6.0 : les inscrits d'une épreuve (adresse relevée sur le padel le 24/11/2026, même API Ten'Up pour le tennis : à vérifier)
       return fetch(location.origin + "/api/back/v1/tournois/" + encodeURIComponent(A.t) + "/epreuves/" + encodeURIComponent(A.e) + "/joueurs-inscrits", { credentials: "include", headers: { "Accept": "application/json" } }).then(function (r) {
@@ -935,6 +950,8 @@
     if (ins.nom || ins.libelle) out.place = ins.nom || ins.libelle;
     var lat = +(tuPick(ins, /^lat(itude)?$/i, 2) || 0), lng = +(tuPick(ins, /^(lng|lon|long|longitude)$/i, 2) || 0);
     if (lat && lng) { out.lat = lat; out.lng = lng; }
+    // 4.6.0 (Yann) : date jusqu'à laquelle les indispos se modifient
+    var dl = tuPick(x, /(limite|fin|cloture).{0,24}(dispo|modif)|(dispo|modif).{0,24}(limite|fin|cloture)/i, 3); if (dl && /^\d{4}-\d{2}-\d{2}/.test(String(dl))) out.dispoLim = String(dl).slice(0, 10);
     return out;
   }
   // Un tournoi trouvé par la recherche Ten'Up, en forme Montée
