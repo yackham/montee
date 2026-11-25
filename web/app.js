@@ -2121,9 +2121,29 @@
   function tzFavT(f) { // un favori hors de ta recherche : un tournoi en forme Montée, complété par sa fiche à l'ouverture
     UI.tzFavT = UI.tzFavT || {}; return UI.tzFavT[f.id] || (UI.tzFavT[f.id] = { id: f.id, name: f.name, from: f.from, to: f.to, club: f.club, city: "", online: f.online, payOnline: f.payOnline, eps: null }); }
   function tzFavHtml() { // Mes épreuves : tes favoris à venir, sans lancer de recherche
-    var td = E.iso(today()), L = ((S.tzFav && S.tzFav.list) || []).filter(function (f) { return (f.to || f.from) >= td; }).sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+    var td = E.iso(today()), L = ((S.tzFav && S.tzFav.list) || []).filter(function (f) { return (f.to || f.from) >= td; });
     if (!L.length) return "";
-    return '<div class="blk tz-list tz-favs"><div class="blk-h"><span class="eyebrow">Tes favoris</span><span class="small">' + L.length + "</span></div>" + L.map(function (f) { return tzLine(tzEval(tzFind(f.id) || tzFavT(f)), true); }).join("") + "</div>";
+    // 4.11.1 (Yann : « pas rater la date d'inscription ») : la fiche de chaque favori est lue (clôture) ; ceux qui ferment dans 14 jours passent devant
+    var V = L.map(function (f) { return tzEval(tzFind(f.id) || tzFavT(f)); }), soon = function (v) { return v.close != null && v.close <= 14 ? v.close : 999; };
+    V.sort(function (a, b) { return soon(a) - soon(b) || (a.t.from < b.t.from ? -1 : 1); });
+    tzFavFiches(V);
+    return '<div class="blk tz-list tz-favs"><div class="blk-h"><span class="eyebrow">Tes favoris</span><span class="small">' + L.length + "</span></div>" + V.map(function (v) { return tzLine(v, true); }).join("") + "</div>";
+  }
+  function tzFavFiches(V) { // une lecture légère par favori pas encore lu, au rythme d'un humain
+    if (UI.tzFavFi) return; UI.tzFi = UI.tzFi || {}; var todo = V.filter(function (v) { return v.t.eps == null && !UI.tzFi[v.t.id]; }).slice(0, 10); if (!todo.length) return;
+    UI.tzFavFi = true; var ch = Promise.resolve();
+    todo.forEach(function (v) { UI.tzFi[v.t.id] = 1; ch = ch.then(function () { return tzFiche(v.t, true); }).then(function () { return new Promise(function (r) { setTimeout(r, 400); }); }); });
+    ch.then(function () { UI.tzFavFi = false; save(); if (route() === "tournoi" && !UI.sheet) render(); });
+  }
+  // 4.11.1 (maquette validée par Yann le 25/11) : Ta saison et Trouver un tournoi, en deux tuiles côte à côte
+  function meTilesHtml() {
+    var L = obUpcoming(183), n = L.length, nx = L[0], x = nx && E.parseDate(nx.d), P = S.tz || {}, sh = P.lat && S.tzr && S.tzr.list ? tzShown().length : null;
+    var dots = ""; for (var i = 0; i < Math.min(6, Math.max(n, 1)); i++) dots += "<i" + (i < n ? "" : ' class="o"') + "></i>";
+    var a = '<a class="met-t" href="#/saison"><span class="met-k">Ta saison</span>' + (nx ? '<span class="met-d"><b>' + dN(x) + "</b><span>" + esc(MOIS[x.getMonth()]) + '</span></span><span class="met-s">Ta prochaine date, un ' + esc(JOURS[x.getDay()]) + '</span><span class="met-dots">' + dots + '</span><span class="met-s met-s0">' + plural(n, "date", "dates") + " d'ici 6 mois</span>"
+      : '<span class="met-d"><b class="met-b0">Libre</b></span><span class="met-s">Rien de prévu d\'ici 6 mois. Tes épreuves, ton équipe et tes indispos arriveront ici.</span>') + "</a>";
+    var b = '<a class="met-t" href="#/trouver">' + coBall("mxtz", "repos", "sm") + '<span class="met-k">Tournois</span>' + (sh != null ? '<span class="met-n">' + sh + '</span><span class="met-s">pour toi autour de ' + esc(P.city || "chez toi") + ", à " + (P.km || 40) + " km</span>"
+      : '<span class="met-n met-n0">Trouver</span><span class="met-s">' + esc(P.city ? "Autour de " + P.city + ", à " + (P.km || 40) + " km" : "Ouverts à ton classement, près de chez toi") + "</span>") + '<span class="met-go">' + (sh ? "Trouver le mien ›" : "Chercher ›") + "</span></a>";
+    return '<div class="met-g">' + a + b + "</div>";
   }
   function tzFiche(t, quiet) { // épreuves, clôture, juge-arbitre et lieu lus sur la fiche Ten'Up du tournoi, gardés avec le tournoi trouvé
     if (!NATIVE || !S.tenup.linked) return Promise.resolve();
@@ -3779,9 +3799,9 @@
       viduel("eq", "Pas encore de rencontre par équipes", "Montée suit ton palmarès Ten'Up : dès ta première rencontre avec ton club, ton équipe s'affiche ici avec son classement et ses résultats.", [S.teams && S.teams.club && S.teams.club.nom ? tmNm(S.teams.club.nom) : "", seas].filter(Boolean).join(" · ")) +
       // 3.74.0 : un responsable sportif qui ne joue dans aucune équipe voit quand même celles du club (3.81 : dans l'onglet « Le club »)
       clubFolHtml()) + "</div>";
-    return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs + saisonRowHtml() + tzEntryHtml() + (tzFavs(false), tzFavHtml()) +
+    return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs + meTilesHtml() +
       (!all.length ? viduel("toi", "Aucun tournoi ni indivs cette saison", "Dès que tu t'inscris sur Ten'Up, ton tournoi ou ta poule d'indivs arrive ici tout seul : tableau, adversaires, tes chances.", "Ta " + seas) : "") +
-sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
+sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tzFavs(false), tzFavHtml()) /* 4.11.1 (Yann) : les favoris sous tes épreuves en cours */ +
       (off.length ? '<button class="row tl-off" data-a="tlOff"><span class="grow"><span class="t">Terminées</span><span class="s">' + plural(off.length, "épreuve") + "</span></span>" + '<span class="tl-ch' + (UI.tlOff ? " on" : "") + '">' + I.next + "</span></button>" + (UI.tlOff ? '<div class="blk">' + off.map(row).join("") + "</div>" : "") : "") + "</div>";
   }
   V.tournoi = function (id) {
