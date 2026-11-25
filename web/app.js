@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.5.2",
+    VERSION: "4.5.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -4805,14 +4805,22 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // son classement au match, son classement d'aujourd'hui s'il a été relu, et le niveau réel de ses résultats (oppLevelOf, le calcul de
   // sa fiche : résultats, saisons passées, meilleur classement), retenu dès qu'il dépasse son classement de 0,6 échelon.
   // Sert aussi à ne pas compter comme contre-perf une défaite contre un joueur qui jouait déjà au-dessus de son classement.
-  function oppEffIdx(m) {
-    var o = E.idx(T.normRank(m.oppRank)), p = (S.anPal || {})[m.id];
-    if (o == null) return o;
+  // 4.5.3 (Davy : « 5 montés ? il n'y en a que 3 ») : son classement OFFICIEL d'aujourd'hui, seul (palmarès lu, fiche ouverte, joueur suivi).
+  // Une seule fonction : oppEffIdx l'utilise, et tout ce qui dit « monté depuis » aussi (oppRose).
+  function oppNowIdx(m) {
+    var p = (S.anPal || {})[m.id];
     if (!p || !p.rows) p = oppPal(m.oid, m.opp) || p; // 4.2.3 : son palmarès lu pour un autre de vos matchs compte aussi
     var r = p && p.rank ? E.idx(T.normRank(p.rank)) : null;
-    // 3.47 : son classement d'aujourd'hui s'il a été lu (fiche ouverte, joueur suivi)
     var sc = m.oid && S.scout && S.scout[m.oid], fo = m.oid && S.follow && S.follow[m.oid];
     [sc && sc.profil && sc.profil.classement, fo && fo.rank].forEach(function (x) { var k = x ? E.idx(T.normRank(x)) : null; if (k != null && (r == null || k > r)) r = k; });
+    return { r: r, p: p };
+  }
+  // vraiment monté au classement depuis le match (pas seulement « joue au-dessus » d'après son niveau réel)
+  function oppRose(m) { var o = E.idx(T.normRank(m.oppRank0 || m.oppRank)), r = oppNowIdx(m).r; return o != null && r != null && r > o; }
+  function oppEffIdx(m) {
+    var o = E.idx(T.normRank(m.oppRank));
+    if (o == null) return o;
+    var N = oppNowIdx(m), r = N.r, p = N.p;
     var lv = oppRealOf(m.oid || (p && p.id), p);
     if (lv != null && lv - o >= 0.6) { var k2 = Math.round(lv); if (r == null || k2 > r) r = k2; }
     return r != null && r > o ? r : o;
@@ -4881,12 +4889,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     }
     return out;
   }
+  // 4.5.3 : « (dont 3 montés depuis, 2 plus forts que leur classement) » : montés = classement officiel, plus forts = niveau réel (comptés à ce niveau)
+  function riseNote(rz, up) {
+    var a = []; if (rz) a.push(rz + " monté" + (rz > 1 ? "s" : "") + " depuis"); if (up) a.push(up + " plus fort" + (up > 1 ? "s" : "") + " que leur classement");
+    return a.length ? " (dont " + a.join(", ") + ")" : "";
+  }
   function levelReasons(f) {
     var g = {};
-    f.ms.forEach(function (m) { var o = E.idx(T.normRank(m.oppRank0 || m.oppRank)), oe = E.idx(m.oppRank); (g[o] = g[o] || { o: o, v: 0, n: 0, tight: 0, sets: 0, scores: [], ex: 0, rz: 0 }); g[o].n++; g[o].ex += expWin(oe, f.cur); if (oe > o) g[o].rz++; if (m.result === "V") g[o].v++; else { g[o].tight += tightSets(m); g[o].sets += setsOf(m.score).length; if (tightSets(m)) g[o].scores.push(m.score); } });
+    f.ms.forEach(function (m) { var o = E.idx(T.normRank(m.oppRank0 || m.oppRank)), oe = E.idx(m.oppRank); (g[o] = g[o] || { o: o, v: 0, n: 0, tight: 0, sets: 0, scores: [], ex: 0, rz: 0, up: 0 }); g[o].n++; g[o].ex += expWin(oe, f.cur); if (oe > o) { if (oppRose(m)) g[o].rz++; else g[o].up++; } if (m.result === "V") g[o].v++; else { g[o].tight += tightSets(m); g[o].sets += setsOf(m.score).length; if (tightSets(m)) g[o].scores.push(m.score); } });
     var list = Object.keys(g).map(function (k) { return g[k]; }).filter(function (x) { return x.n >= 3; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 3).sort(function (a, b) { return a.o - b.o; });
     return list.map(function (x) {
-      var vd = vsVerdict(x.v, x.ex, x.n), exN = Math.round(x.ex), head = "Contre les " + lab(x.o) + (x.rz ? " (dont " + x.rz + " monté" + (x.rz > 1 ? "s" : "") + " depuis)" : "") + ", ";
+      var vd = vsVerdict(x.v, x.ex, x.n), exN = Math.round(x.ex), head = "Contre les " + lab(x.o) + riseNote(x.rz, x.up) + ", ";
       if (vd === "above") return head + "tu gagnes <b>" + x.v + " match" + (x.v > 1 ? "s" : "") + " sur " + x.n + "</b> : plus qu'on attend d'un " + lab(f.cur) + " (plutôt " + exN + ").";
       if (vd === "below") {
         var t = head + "<b>" + x.v + " victoire" + (x.v > 1 ? "s" : "") + " sur " + x.n + "</b>, moins qu'on attend d'un " + lab(f.cur) + " (plutôt " + exN + ")";
@@ -12297,7 +12310,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       var oe = oppEffIdx(m); if (oe == null || oe < o) oe = o;
       byRank[o] = byRank[o] || { o: o, v: 0, d: 0, e: 0, rz: 0, rzD: 0, ms: [] };
       if (m.result === "V" || m.result === "D") byRank[o].ms.push(m);
-      byRank[o].e += expM(oe); if (oe > o) { byRank[o].rz++; risenN++; if (m.result === "D") byRank[o].rzD++; }
+      byRank[o].e += expM(oe); if (oe > o) { if (oppRose(m)) byRank[o].rz++; else byRank[o].up = (byRank[o].up || 0) + 1; risenN++; if (m.result === "D") byRank[o].rzD++; }
       if (m.result === "V") byRank[o].v++; else if (m.result === "D") byRank[o].d++;
     });
     if (!byRank[c.cur] && c.cur >= 0) byRank[c.cur] = { o: c.cur, v: 0, d: 0, e: 0, rz: 0, rzD: 0, ms: [] };
@@ -14939,7 +14952,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var up = sum(ok.filter(function (r) { return r.o > cur; })), eq = ok.filter(function (r) { return r.o === cur; })[0], low = ok.filter(function (r) { return r.o < cur; });
     var L = [];
     var weak = low.filter(function (r) { return vsVerdict(r.v, exp(r) * n(r), n(r)) === "below"; }).sort(function (a, b) { return (b.o - a.o) || ((exp(b) * n(b) - b.v) - (exp(a) * n(a) - a.v)); })[0];
-    if (weak) L.push({ w: 3, ic: "!", c: "var(--terre)", t: "Point faible : " + lab(weak.o) + " · " + weak.v + " sur " + n(weak), s: weak.rz ? (weak.rz > 1 ? weak.rz + " de ces " + lab(weak.o) + " sont montés depuis" : "1 de ces " + lab(weak.o) + " est monté depuis") + ". En les comptant à leur vrai niveau, un " + lab(cur) + " en gagne " + ex(weak) + "." : "Un " + lab(cur) + " en gagne " + ex(weak) + "." });
+    if (weak) L.push({ w: 3, ic: "!", c: "var(--terre)", t: "Point faible : " + lab(weak.o) + " · " + weak.v + " sur " + n(weak), s: weak.rz || weak.up ? "Parmi ces " + lab(weak.o) + riseNote(weak.rz, weak.up).replace(" (dont ", " : ").replace(/\)$/, "") + ". En les comptant à leur vrai niveau, un " + lab(cur) + " en gagne " + ex(weak) + "." : "Un " + lab(cur) + " en gagne " + ex(weak) + "." });
     // 3.39.1 : une contre-perf = toute défaite contre un moins bien classé (comme la FFT) ; on détaille par classement
     var cp = low.filter(function (r) { return r.d > 0; }).sort(function (a, b) { return b.o - a.o; }), cpn = cp.reduce(function (s, r) { return s + r.d; }, 0);
     var cpz = cp.reduce(function (s, r) { return s + (r.rzD || 0); }, 0);
