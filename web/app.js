@@ -1849,7 +1849,10 @@
       if (!t) { t = { id: uid(), name: insName(x.name, x.cat), kind: kind, fmt: kind === "champ" ? "poule" : "", from: x.from, to: x.to, rounds: [], pool: [], qual: 1, src: "tenup" }; S.tours.push(t); }
       if (t.ins && t.wait && !x.wait && x.ok) news.push(t);
       t.tuid = x.id; if (x.from) t.from = x.from; if (x.to) t.to = x.to; t.wait = !!x.wait;
-      t.ins = { ok: x.ok, paid: x.paid, due: x.due, fee: x.fee, club: x.club, city: x.city, cat: x.cat, idEp: x.idEp || null, more: x.more || null };
+      var om = t.ins && t.ins.more || {}, nm = x.more || {}; // 4.6.0 : garder ce que la fiche a ajouté (téléphone et mail du juge-arbitre, point GPS)
+      ["fiAt", "lat", "lng", "addr", "place"].forEach(function (k) { if (nm[k] == null && om[k] != null) nm[k] = om[k]; });
+      if (om.ja && (om.ja.tel || om.ja.mail)) { nm.ja = nm.ja || { name: "", tel: "", mail: "" }; nm.ja.tel = nm.ja.tel || om.ja.tel || ""; nm.ja.mail = nm.ja.mail || om.ja.mail || ""; }
+      t.ins = { ok: x.ok, paid: x.paid, due: x.due, fee: x.fee, club: x.club, city: x.city, cat: x.cat, idEp: x.idEp || null, more: nm };
     });
     // Désinscription : on ne retire qu'une épreuve créée par Ten'Up, à venir, où tu n'as rien saisi (ni tour, ni poule, ni lien). Jamais sur une liste vide (lecture ratée ?)
     if (list.length) S.tours = S.tours.filter(function (t) { return !(t.src === "tenup" && t.tuid && !seen[t.tuid] && t.from > td && !(t.rounds || []).length && !(t.pool || []).length && !t.resUrl); });
@@ -1872,7 +1875,9 @@
     var url = /^https?:/.test(path) ? path : "https://tenup.fft.fr" + path;
     if (NATIVE && Tenup && typeof Tenup.openPage === "function") {
       return Promise.resolve().then(function () { return Tenup.openPage({ url: url, title: title || "Ten'Up" }); })
-        .then(function () { if (S.tenup && S.tenup.linked) insRefresh(true); }, function () { window.open(url, "_blank"); });
+        .then(function () { if (!(S.tenup && S.tenup.linked)) return; var had = {}; (S.tours || []).forEach(function (t) { if (t.tuid) had[t.tuid] = 1; });
+          return insRefresh(true).then(function () { var nw = (S.tours || []).filter(function (t) { return t.tuid && !had[t.tuid]; })[0];
+            if (nw) { toast("Inscription ajoutée : " + nw.name, true); location.hash = "#/tournoi/" + nw.id; } }); }, function () { window.open(url, "_blank"); });
     }
     try { window.open(url, "_blank"); } catch (e) {}
     return Promise.resolve();
@@ -2028,7 +2033,7 @@
     var P = tzPrefs(), plus = isSup(), s = '<div class="screen tz-scr">' + topbar("", backLab("Mes épreuves"));
     s += '<h1>Trouver un tournoi</h1><p class="lead" style="margin-top:-8px">Les tournois près de chez toi, sans collision avec ta saison.</p>';
     if (!P.lat) return s + '<div class="card tz-cp"><b>D\'où pars-tu ?</b><span class="small">Ton code postal, pour la distance. Il reste sur ton téléphone.</span><div class="tz-cpf"><input id="tz-cp" inputmode="numeric" maxlength="5" placeholder="Code postal" value="' + esc(P.cp || "") + '"><button class="btn primary small" data-a="tzCp">OK</button></div></div></div>';
-    s += '<div class="tz-f"><button class="tz-chip" data-a="tzWhere">' + esc((P.city || P.cp) + " · " + P.km + " km") + '</button><button class="tz-chip" data-a="tzWk">' + P.wk + " semaines</button></div>";
+    s += '<div class="tz-f"><button class="tz-chip" data-a="tzWhere">' + esc((P.city || P.cp) + " · " + P.km + " km") + '</button><button class="tz-chip" data-a="tzWhere">' + P.wk + " semaines</button></div>";
     if ((!NATIVE || !S.tenup.linked) && !(S.tzr && S.tzr.list)) return s + viduel("tz", "Relie Ten'Up", "La recherche passe par ton compte Ten'Up, depuis ton téléphone.", "") + "</div>";
     tzSearch(false);
     if (UI.tzBusy && !(S.tzr && S.tzr.list)) return s + '<div class="card"><span class="small">Recherche sur Ten\'Up…</span></div></div>';
@@ -2042,6 +2047,15 @@
     s += '<div class="blk tz-list">' + L.map(function (v) { return tzLine(v, plus || v === best); }).join("") + "</div>";
     if (!plus) s += '<div class="pa-cta tz-cta"><span><b>Avec Montée+</b> : les tournois classés pour toi : distance, agenda, et le bon moment avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>';
     return s + '<p class="small tz-foot">Lu sur Ten\'Up ' + (S.tzr && S.tzr.at ? agoLab(S.tzr.at) : "") + ". Tu t'inscris et tu paies sur Ten'Up, ouvert dans Montée.</p></div>";
+  };
+  var DET_TZF = function () { // 4.6.0 (Yann) : où et quand chercher ; les mêmes réglages que la recherche Ten'Up (ville, rayon, dates)
+    var P = tzPrefs(), b = "", seg = function (k, vals, cur, f) { return '<div class="seg tz-fs">' + vals.map(function (v) { return '<button data-a="tzSet" data-k="' + k + '" data-v="' + v + '" class="' + (v === cur ? "on" : "") + '">' + f(v) + "</button>"; }).join("") + "</div>"; };
+    b += tzRow("D'où tu pars", '<span class="tz-fc">' + esc(P.city ? P.city + " · " + P.cp : "Pas encore choisi") + '</span><div class="tz-cpf"><input id="tz-cp" inputmode="numeric" maxlength="5" placeholder="Autre code postal" value=""><button class="btn small" data-a="tzCp">Changer</button></div>', "");
+    b += tzRow("Jusqu'à", seg("km", [20, 40, 80, 150], P.km, function (v) { return v + " km"; }), "");
+    var to = new Date(today().getTime() + P.wk * 7 * 864e5);
+    b += tzRow("Période", seg("wk", [4, 8, 12], P.wk, function (v) { return v + " sem."; }) + '<span class="small tz-fn">Du ' + esc(fdate(E.iso(today()))) + " au " + esc(fdate(E.iso(to))) + "</span>", "");
+    b += tzRow("Épreuves", "Simples de ta catégorie, inscriptions ouvertes", "");
+    return { title: "Où et quand", sub: "La recherche passe par Ten'Up, avec ton compte.", body: '<div class="tz-sh">' + b + '</div><button class="btn primary" data-a="tzGo">Voir les tournois</button>' };
   };
   var DET_TZ = function (id) {
     var t = ((S.tzr && S.tzr.list) || []).filter(function (x) { return x.id === id; })[0]; if (!t) return null;
@@ -15117,7 +15131,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<span class="ob-foot">Un recordage compte environ ' + OB_RS_EUR + " € (≈) : 12 € le cordage et 10 € la pose. Les inscriptions sont celles que Ten'Up indique. " + (D.approx ? "Un tournoi déjà joué n'y figure plus, avec son prix : Montée le compte environ " + OB_INS_EUR + " € (≈). " : "") + "Rien ne sort de ton téléphone.</span>" };
   };
   function sheetHtml() {
-    DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
+    DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
     var d = DET[UI.sheet.k] && DET[UI.sheet.k](UI.sheet.v);
     if (!d) { UI.sheet = null; return ""; }
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + '</b><button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
@@ -20212,9 +20226,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     tzTu: function (el) { tuPage(el.dataset.v, el.dataset.t); },
     tzOpen: function (el) { UI.sheet = { k: "tz", v: el.dataset.v }; render(); },
     tzTab: function (el) { if (el.dataset.v === "rec" && !isSup()) { UI.supFrom = "trouver"; UI.sheet = { k: "plusPrev", v: "cap" }; render(); return; } UI.tzTab = el.dataset.v; render(); },
-    tzCp: function () { var v = (document.getElementById("tz-cp") || {}).value; tzHome(v).then(function (P) { if (!P) { toast("Code postal introuvable."); return; } tzSearch(true); render(); }); },
-    tzWhere: function () { var P = tzPrefs(), K = [20, 40, 80, 150]; P.km = K[(K.indexOf(P.km) + 1) % K.length]; save(); tzSearch(true); render(); },
-    tzWk: function () { var P = tzPrefs(), W = [4, 8, 12]; P.wk = W[(W.indexOf(P.wk) + 1) % W.length]; save(); tzSearch(true); render(); },
+    tzCp: function () { var v = (document.getElementById("tz-cp") || {}).value; tzHome(v).then(function (P) { if (!P) { toast("Code postal introuvable."); return; } if (!UI.sheet) tzSearch(true); render(); }); },
+    tzWhere: function () { UI.sheet = { k: "tzf" }; render(); },
+    tzSet: function (el) { var P = tzPrefs(); P[el.dataset.k] = +el.dataset.v; save(); render(); },
+    tzGo: function () { UI.sheet = null; tzSearch(true); render(); },
     persoReset: function (el) { S.prefs = S.prefs || {}; delete S.prefs[el.dataset.p]; save(); render(); toast("Affichage d'origine rétabli."); },
     nativeRepair: function () {
       toast("Réparation de la connexion Ten'Up…");
