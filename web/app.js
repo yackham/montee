@@ -10278,7 +10278,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       (nx && g ? (nx.total < nx.norme && nx.total + g >= nx.norme ? " Gagne-le et tu passes la norme " + esc(nx.label) + "." : " Gagne-le et ton bilan passe à " + (nx.total + g) + " / " + nx.norme + ".") : ""));
     var d = coD(), wk = d ? coWeak(d) : null;
     if (sup && wk && CP_HOW[wk.k] && CP_HOW[wk.k].m) A.push("<b>Ta consigne :</b> " + esc(CP_HOW[wk.k].m.charAt(0).toLowerCase() + CP_HOW[wk.k].m.slice(1)));
-    var fiche = o.tid ? "#/joueur/" + encodeURIComponent(o.tid) : h ? "#/adversaire/" + encodeURIComponent(o.key) : o.href || "";
+    // 4.11.2 (Yann : « j'ai pas son nom mais tu me proposes de voir sa fiche, et ça plante ») : pas de nom = pas de fiche ; le tournoi reste dans « Voir le tournoi »
+    var fiche = !o.name ? "" : o.tid ? "#/joueur/" + encodeURIComponent(o.tid) : h ? "#/adversaire/" + encodeURIComponent(o.key) : "";
     var last = h ? E.parseDate(h.ms[0].date) : null;
     XH += acCard(o.d ? "Ton match" : "Contre lui", acRow({ l: nm + acRk(o.rank), s: (o.d ? esc(coWhen(o)) + (o.comp ? " · " : "") : "") + esc(o.comp || (o.rank ? "classé " + o.rank : "")), href: fiche || null }) +
       (pc != null ? acRow({ l: "Tes chances", bar: pc, cl: acTone(pc), v: pc + " %" }) : "") +
