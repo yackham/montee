@@ -80,3 +80,8 @@ test("tournois 4.6.0 : formats Ten'Up relevés le 25/11/2026", () => {
   const i = T.tuInfos({ jugeArbitre: { idCrm: 1, nom: "MARTIN", prenom: "Julien" }, installation: { adresse1: null, codePostal: "75001", nom: "Salle", ville: "PARIS" } });
   assert.strictEqual(i.ja.name, "Julien MARTIN"); assert.strictEqual(i.place, "Salle");
 });
+test("indispos 4.6.0 : lecture jour par jour (relevé du 25/11/2026)", () => {
+  const d = T.dispoDays({ disponibilites: [{ date: "2027-02-13", horaires: [{ heureDebut: "2027-02-13T18:30:00", heureFin: "2027-02-13T22:00:00", particuliere: true }] }] });
+  assert.deepStrictEqual(d, [{ date: "2027-02-13", slots: [{ from: "18:30", to: "22:00", ex: true }] }]);
+  assert.ok(/dispoDays/.test(T.queryScript("dispos", { t: "MOJA_1" })));
+});

@@ -255,6 +255,13 @@
         return Promise.race([ch, new Promise(function (r) { setTimeout(function () { rep.cut = 1; r(); }, 25000); })]).then(function () { return ok(rep); }); // le téléphone coupe à 30 s
       }).catch(err);
     }
+    if (KIND === "dispos") {
+      // 4.6.0 (relevé de Yann, 25/11/2026) : tes dispos pour un tournoi, jour par jour ; « particuliere » = exception de ce jour-là
+      var numD = String(A.t || "").replace(/^\D+_?/, "");
+      return fetch(location.origin + "/api/back/v1/tournois/" + numD + "/disponibilites", { credentials: "include", headers: { "Accept": "application/json" } }).then(function (r) {
+        if (r.status === 401 || r.status === 403) throw new Error("auth"); if (!r.ok) throw new Error("http " + r.status); return r.json();
+      }).then(function (d) { return ok({ days: dispoDays(d), at: Date.now() }); }).catch(err);
+    }
     if (KIND === "fiche") {
       // 4.6.0 : fiche publique d'un tournoi (relevée le 25/11/2026) : contact du juge-arbitre (mailJa, telephoneJa), clôture,
       // inscription et paiement en ligne, épreuves ; le lieu via /installations/{idLieu} (adresse, lat, lng).
@@ -1006,6 +1013,10 @@
     if (!m) return "";
     return m[3] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[1]).slice(-2);
   }
+  function dispoDays(d) { // GET …/disponibilites → [{date, slots:[{from:"HH:MM", to:"HH:MM", ex:bool}]}]
+    return ((d && d.disponibilites) || []).map(function (j) { return { date: String(j.date || "").slice(0, 10), slots: (j.horaires || []).map(function (h) {
+      return { from: String(h.heureDebut || "").slice(11, 16), to: String(h.heureFin || "").slice(11, 16), ex: !!h.particuliere }; }) }; });
+  }
   // Un tournoi trouvé par la recherche Ten'Up, en forme Montée
   function tsMap(o) {
     if (!o || typeof o !== "object") return null;
@@ -1040,7 +1051,7 @@
   var VERSION = "2.4";
   // Version pour l'app iPhone : corps d'une fonction async (WKWebView callAsyncJavaScript)
   // Le script embarque la recherche v2, utilisée en repli par tenupFetch
-  function src(fn) { return "var cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
+  function src(fn) { return "var cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar dispoDays = " + dispoDays.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
   // 3.47 : page de maintenance / file d'attente Ten'Up : on le dit au lieu de « Ten'Up n'a pas répondu »
   var MAINT = "var __mt = (document.title || \"\") + \" \" + Array.prototype.map.call(document.querySelectorAll(\"h1,h2\"), function (e) { return e.innerText; }).slice(0, 3).join(\" \");\n" +
     "if (/maintenance|mise à jour du site|file d'attente|queue-it|service (momentanément )?indisponible/i.test(__mt) || /maintenance/i.test(location.pathname)) return \"MONTEE-ERR maintenance\";\n";
@@ -1265,7 +1276,7 @@
   // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
   function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);
