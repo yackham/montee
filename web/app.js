@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.10.0",
+    VERSION: "4.10.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -5250,9 +5250,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function oppNowIdx(m) {
     var p = (S.anPal || {})[m.id];
     if (!p || !p.rows) p = oppPal(m.oid, m.opp) || p; // 4.2.3 : son palmarès lu pour un autre de vos matchs compte aussi
-    var r = p && p.rank ? E.idx(T.normRank(p.rank)) : null;
+    // 4.10.1 (retour testeur) : son classement officiel LE PLUS RÉCENT connu, pas le plus haut de toutes les sources
+    // (une fiche ou un suivi ancien pouvait le faire paraître « monté » alors qu'il est redescendu ou resté au même classement)
     var sc = m.oid && S.scout && S.scout[m.oid], fo = m.oid && S.follow && S.follow[m.oid];
-    [sc && sc.profil && sc.profil.classement, fo && fo.rank].forEach(function (x) { var k = x ? E.idx(T.normRank(x)) : null; if (k != null && (r == null || k > r)) r = k; });
+    var tOf = function (x) { var t = typeof x === "number" ? x : x ? new Date(x).getTime() : 0; return isNaN(t) ? 0 : t; };
+    var r = null, rt = -1;
+    [[p && p.rank, p && (p.ts || p.at)], [sc && sc.profil && sc.profil.classement, sc && (sc.ts || sc.at)], [fo && fo.rank, fo && fo.at]].forEach(function (x) {
+      var k = x[0] ? E.idx(T.normRank(x[0])) : null, t = tOf(x[1]); if (k == null) return;
+      if (t > rt || (t === rt && k > r)) { r = k; rt = t; }
+    });
     return { r: r, p: p };
   }
   // vraiment monté au classement depuis le match (pas seulement « joue au-dessus » d'après son niveau réel)
@@ -6240,10 +6246,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (won) r.v++;
       var g = o > own ? r.up : o === own ? r.eq : r.dn; g.n++; if (won) g.v++;
       var t = m.kind === "equipes" ? r.team : r.tour; t.n++; if (won) t.v++;
-      // 3.47 (Yann) : meilleure victoire = un fait (son classement le jour du match) ; pire défaite = un jugement (son niveau réel : s'il est monté depuis, ce n'était pas une si mauvaise défaite)
+      // 4.10.1 (retour testeur) : meilleure victoire ET pire défaite = des faits, le classement de l'adversaire le jour du match.
+      // Avant, la pire défaite prenait son niveau réel estimé : une défaite contre un 30 « qui joue 15/5 » disparaissait.
       var o0 = E.idx(T.normRank(m.oppRank0 || m.oppRank));
       if (won && (!r.best || o0 > E.idx(T.normRank(r.best.oppRank0 || r.best.oppRank)))) r.best = m;
-      if (!won && (!r.worst || o < E.idx(r.worst.oppRank))) r.worst = m;
+      if (!won && (!r.worst || o0 < E.idx(T.normRank(r.worst.oppRank0 || r.worst.oppRank)))) r.worst = m;
       if (!sets.length) return;
       r.scored++;
       sets.forEach(function (x, i) {
@@ -6545,7 +6552,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       s += ffSameTable(D);
       var A = D.A, B = D.B, first = D.first;
       // 4. Vos repères, en miroir : toi à gauche, lui à droite, le meilleur en couleur
-      var idx = function (m) { var x = m ? E.idx(m.oppRank) : null; return x == null ? null : x; };
       var sub = function (m) { return m ? [m.score, ffMonth(m.date)].filter(Boolean).join(" · ") : "aucune"; };
       var rowM = function (lab0, lv, ls, rv, rs, l, r, better) {
         var mx = Math.max(l || 0, r || 0) || 1, win = better == null || l == null || r == null || l === r ? "" : (better === "hi" ? (l > r ? "l" : "r") : (l < r ? "l" : "r"));
@@ -6553,11 +6559,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
           '<div class="bars"><span><i class="' + (win === "l" ? "w" : "") + '" style="width:' + Math.round((l || 0) / mx * 100) + '%"></i></span><span><i class="' + (win === "r" ? "w" : "") + '" style="width:' + Math.round((r || 0) / mx * 100) + '%"></i></span></div></div>';
       };
       var idx0 = function (m) { var x = m ? E.idx(T.normRank(m.oppRank0 || m.oppRank)) : null; return x == null ? null : x; };
-      var wLab = function (m) { return m ? (m.oppRank0 && m.oppRank0 !== m.oppRank ? esc(m.oppRank0) + '<small class="ff-up">→ ' + esc(m.oppRank) + " depuis</small>" : esc(m.oppRank)) : "–"; };
-      var bA = idx0(A.best), bB = idx0(B.best), wA = idx(A.worst), wB = idx(B.worst), pA = A.n ? A.v / A.n : 0, pB = B.n ? B.v / B.n : 0;
+      // 4.10.1 : « → 15/4 depuis » seulement si l'adversaire est VRAIMENT monté au classement (oppRose), jamais pour un niveau réel estimé.
+      // Tes matchs (effMs) mélangent les deux : on relit son classement actuel ; ses matchs à lui (hisEffRows) ne portent que des montées réelles.
+      var wLab = function (m, mine) {
+        if (!m) return "–";
+        var r0 = m.oppRank0 || m.oppRank, now = !m.oppRank0 ? null : mine ? (oppRose(m) ? lab(oppNowIdx(m).r) : null) : m.oppRank;
+        return esc(r0) + (now && now !== r0 ? '<small class="ff-up">→ ' + esc(now) + " depuis</small>" : "");
+      };
+      var bA = idx0(A.best), bB = idx0(B.best), wA = idx0(A.worst), wB = idx0(B.worst), pA = A.n ? A.v / A.n : 0, pB = B.n ? B.v / B.n : 0;
       s += '<div class="card ff-duo"><span class="eyebrow">Vos repères</span><div class="dh"><span class="me">Toi</span><span class="him">' + esc(first) + '</span></div><div class="duo">' +
         rowM("Meilleure victoire", A.best ? esc(A.best.oppRank0 || A.best.oppRank) : "–", sub(A.best), B.best ? esc(B.best.oppRank0 || B.best.oppRank) : "–", sub(B.best), bA != null ? bA + 2 : 0, bB != null ? bB + 2 : 0, "hi") +
-        rowM("Pire défaite", wLab(A.worst), sub(A.worst), wLab(B.worst), sub(B.worst), wA != null ? wA + 2 : 0, wB != null ? wB + 2 : 0, A.worst && B.worst ? "hi" : null) +
+        rowM("Pire défaite", wLab(A.worst, true), sub(A.worst), wLab(B.worst, false), sub(B.worst), wA != null ? wA + 2 : 0, wB != null ? wB + 2 : 0, A.worst && B.worst ? "hi" : null) +
         rowM("Victoires", Math.round(pA * 100) + " %", A.v + " V · " + (A.n - A.v) + " D", Math.round(pB * 100) + " %", B.v + " V · " + (B.n - B.v) + " D", pA, pB, A.n >= 3 && B.n >= 3 && Math.abs(pA - pB) >= 0.05 ? "hi" : null) +
         rowM("Matchs joués", String(A.n), "12 mois", String(B.n), "cette saison", A.n, B.n, null) + "</div>" +
         (function () { var dots = function (L) { return (L || []).slice(0, 5).reverse().map(function (m) { return '<span class="vd ' + m.result + '">' + m.result + "</span>"; }).join(""); }, a = dots(A.last), b = dots(B.last);
