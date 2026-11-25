@@ -205,3 +205,9 @@ test("4.11.1 : epMerge garde âges, sexe et dates d'inscription de l'épreuve", 
   const e = f.eps[0];
   assert.equal(e.aMin, 19); assert.equal(e.aMax, 44); assert.equal(e.sex, "H"); assert.equal(e.close, "2027-02-15"); assert.equal(e.open, "2026-11-15"); assert.equal(e.max, "15/1");
 });
+
+test("4.11.2 : relevé caché des dispos, aucune valeur perso ne passe", () => {
+  const r = T.dispoRaw({ idCrm: 123456, nom: "MOREAU", email: "a@b.fr", dateNaissance: "1990-01-01", disponibilites: [{ date: "2027-02-13", horaires: [], particuliere: false, statut: "GENERALE" }], h: "14:00:00", tel: "0601020304" });
+  assert.deepEqual(r, { idCrm: "#", nom: "…", email: "…", dateNaissance: "…", disponibilites: [{ date: "2027-02-13", horaires: [], particuliere: false, statut: "GENERALE" }], h: "…", tel: "…" });
+  assert.ok(/dispoRaw/.test(T.queryScript("dispos", { t: "MOJA_1" })));
+});

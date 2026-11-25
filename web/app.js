@@ -1518,7 +1518,7 @@
       (isStandalone() || NATIVE ? "" : ln("install", I.phone, "Installer l'application")) +
       ln("share", I.share, "Partager Montée") +
       (CONFIG.CONTACT_EMAIL ? ln("contact", I.mail, "Donner mon avis") : "") +
-      '</div><div class="menu-foot"><button class="linkbtn" data-a="goReglages">Réglages</button><i>·</i><button class="linkbtn" data-a="goApropos">À propos et calcul</button><i>·</i><span>v' + esc(CONFIG.VERSION) + "</span></div></div></div>";
+      '</div><div class="menu-foot"><button class="linkbtn" data-a="goReglages">Réglages</button><i>·</i><button class="linkbtn" data-a="goApropos">À propos et calcul</button><i>·</i><span data-a="verTap">v' + esc(CONFIG.VERSION) + "</span></div></div></div>";
   }
 
   var V = {};
@@ -2217,6 +2217,9 @@
   function dzHab(D, iso) { return D.map ? T.dzGenSlots(D.gen || [], iso, D.map) : []; }
   // 4.11.2 (Yann, samedi 13) : Ten'Up renvoie parfois un jour VIDE, sans « particuliere », alors que sa page l'affiche dispo. Vide = pas clair :
   // on ne l'affiche pas « Pas dispo » et on n'envoie rien tant que tu n'as pas dit ce que tu veux pour ce jour-là.
+  // 4.11.2 : relevé caché (demandé par Yann le 25/11 pour le samedi 13, À RETIRER une fois le bug compris) : ce que Ten'Up renvoie
+  // (sans valeur perso, voir T.dispoRaw), ce que Montée envoie, et ce que tu touches sur les écrans de dispos. 7 touches sur la version du menu = partager.
+  function dzLog(ev, o) { try { var L = S.dzLog = S.dzLog || []; L.push(Object.assign({ at: new Date().toISOString().slice(0, 19), ev: ev, v: CONFIG.VERSION }, o || {})); if (L.length > 40) L.splice(0, L.length - 40); } catch (e) {} }
   function dzAmb(g) { return !!g && !(g.slots || []).length; }
   function dzAmbDays(t, D, days) { var ed = dzEd(t); return days.filter(function (iso) { return !ed[iso] && dzAmb((D.days || []).filter(function (x) { return x.date === iso; })[0]); }); }
   function dzDayName(iso) { var dt = E.parseDate(iso); return JOURS[dt.getDay()].slice(0, 3) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]; }
@@ -2234,6 +2237,7 @@
     UI.dzBusy = true; UI.dzErr = null;
     tenupQuery("dispos", { t: t.tuid, from: t.from, to: t.to || t.from }).then(function (r) {
       UI.dzBusy = false; if (!r || r.error) { UI.dzErr = r && r.error || "Ten'Up n'a pas répondu"; UI.dzErrAt = Date.now(); render(); return; } UI.dzErrAt = 0;
+      dzLog("lecture", { t: t.tuid, du: t.from, au: t.to, gen: r.gen, pgen: r.pgen, days: r.days, raw: r.raw, praw: r.praw });
       m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; save(); render(); // 4.11.1 : pgen (ton profil) était perdu ici, donc l'écart avec le tournoi ne se voyait jamais
     });
   }
@@ -2283,12 +2287,12 @@
     if (Date.now() - D.at > 10 * 6e4) { toast("Je relis d'abord tes dispos sur Ten'Up, réessaie dans un instant."); dzLoad(t, true); return; }
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from), ex = {}, want = {};
     for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
-    var amb = dzAmbDays(t, D, days); if (amb.length) { toast("Ten'Up ne dit pas clairement si tu es dispo le " + amb.map(dzDayName).join(", le ") + ". Touche ce jour et choisis, puis enregistre : rien n'est envoyé avant."); return; }
+    var amb = dzAmbDays(t, D, days); if (amb.length) { dzLog("refus", { t: t.tuid, amb: amb }); toast("Ten'Up ne dit pas clairement si tu es dispo le " + amb.map(dzDayName).join(", le ") + ". Touche ce jour et choisis, puis enregistre : rien n'est envoyé avant."); return; }
     days.forEach(function (iso) { var x = dzDay(t, D, iso); want[iso] = x.slots; if (x.ex) ex[iso] = x.slots; });
     var uuid = function () { try { return crypto.randomUUID(); } catch (e) { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); }); } };
-    var body = T.dzBody(D.gen, ex, D.map, uuid); UI.dzSaving = true; render();
+    var body = T.dzBody(D.gen, ex, D.map, uuid); UI.dzSaving = true; render(); dzLog("envoi", { t: t.tuid, ed: JSON.parse(JSON.stringify(ed)), body: body });
     tenupQuery("dispoSave", { t: t.tuid, body: body, from: t.from, to: t.to || t.from }).then(function (r) {
-      UI.dzSaving = false;
+      UI.dzSaving = false; dzLog("relu", { t: t.tuid, err: r && r.error || null, days: r && r.days, raw: r && r.raw });
       if (!r || r.error) { toast("Ten'Up a refusé : " + (r && r.error || "pas de réponse") + ". Rien n'a changé dans Montée."); render(); return; }
       var bad = days.filter(function (iso) { var g = (r.days || []).filter(function (x) { return x.date === iso; })[0]; return !T.dzSame(g ? g.slots : [], want[iso]); });
       D.days = r.days; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
@@ -2364,12 +2368,15 @@
   function hbTourRun(t, gen) { // un tournoi : relire, garder ses jours particuliers, envoyer, relire
     var m = t.ins.more = t.ins.more || {}, from = t.from, to = t.to || t.from;
     return tenupQuery("dispos", { t: t.tuid, from: from, to: to }).then(function (r) {
+      dzLog("lecture-maj", { t: t.tuid, err: r && r.error || null, gen: r && r.gen, pgen: r && r.pgen, newGen: gen, days: r && r.days, raw: r && r.raw, praw: r && r.praw });
       if (!r || r.error) return false; var ex = {}, want = {};
       var amb = (r.days || []).filter(dzAmb).map(function (g) { return g.date; }); if (amb.length) { m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; return { amb: amb }; } // 4.11.2 : un jour pas clair, on n'envoie rien
       (r.days || []).forEach(function (g) { var sl = g.slots.map(function (z) { return { from: z.from, to: z.to }; }); if (!T.dzSame(sl, T.dzGenSlots(r.gen, g.date, "iso"))) ex[g.date] = sl; });
       var days = [], d0 = E.parseDate(from), d1 = E.parseDate(to); for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
       days.forEach(function (iso) { want[iso] = ex[iso] || T.dzGenSlots(gen, iso, "iso"); });
-      return tenupQuery("dispoSave", { t: t.tuid, body: T.dzBody(gen, ex, "iso", hbUuid), from: from, to: to }).then(function (s) {
+      var hbBody = T.dzBody(gen, ex, "iso", hbUuid); dzLog("envoi-maj", { t: t.tuid, body: hbBody });
+      return tenupQuery("dispoSave", { t: t.tuid, body: hbBody, from: from, to: to }).then(function (s) {
+        dzLog("relu-maj", { t: t.tuid, err: s && s.error || null, days: s && s.days, raw: s && s.raw });
         if (!s || s.error) return false; m.dz = { gen: gen, pgen: gen, days: s.days, map: "iso", at: Date.now() };
         return days.every(function (iso) { var g = (s.days || []).filter(function (x) { return x.date === iso; })[0]; return T.dzSame(g ? g.slots : [], want[iso]); });
       });
@@ -20796,6 +20803,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       L.reduce(function (p, t) { return p.then(function () { return hbTourRun(t, gen).then(function (ok) { if (!ok || ok.amb) bad++; }, function () { bad++; }); }); }, Promise.resolve()).then(function () {
         UI.hbRun = false; UI.sheet = null; save(); render();
         toast(bad ? plural(bad, "tournoi") + " pas mis à jour : ouvre ses indispos pour vérifier." : (L.length > 1 ? "Tes " + L.length + " tournois sont à jour." : "Ton tournoi est à jour."), !bad); }); },
+    verTap: function () { // 4.11.2 : relevé caché des dispos (7 touches), à retirer une fois le bug du samedi 13 compris
+      UI.verN = (UI.verAt && Date.now() - UI.verAt < 2500 ? UI.verN || 0 : 0) + 1; UI.verAt = Date.now(); if (UI.verN < 7) return; UI.verN = 0;
+      var L = S.dzLog || []; if (!L.length) { toast("Rien de relevé pour l'instant : ouvre les indispos d'un tournoi d'abord."); return; }
+      sharePlain("Relevé dispos Montée " + CONFIG.VERSION + " (" + L.length + " lignes)\n" + JSON.stringify(L)); },
     dzAdd: function (el) { UI.dza = null; UI.sheet = { k: "dza", v: el.dataset.v }; render(); },
     dzaDay: function (el) { if (UI.dza) { UI.dza.iso = el.dataset.v; UI.dza.from = ""; UI.dza.to = ""; } render(); },
     dzaAll: function (el) { if (UI.dza) UI.dza.all = el.dataset.v === "1"; render(); },
@@ -20903,6 +20914,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (A[a]) { if (el.tagName !== "A" || a === "bmHelp") ev.preventDefault(); CUR_ACT = { a: a, el: el, ev: ev };
       // 4.9.2 (Yann : « ça fait escalier ») : un onglet changé dans une feuille ne la fait plus sauter, elle garde sa plus grande hauteur
       var shE = el.closest(".sheet"), shK = shE && UI.sheet ? JSON.stringify(UI.sheet) : "", shH = shE ? shE.getBoundingClientRect().height : 0;
+      if (/^(dz|hb)/.test(a)) dzLog("touche", { a: a, d: el.dataset.v || "", h: location.hash, f: (document.getElementById("dz-f") || {}).value || undefined, to: (document.getElementById("dz-t") || {}).value || undefined });
       A[a](el, ev);
       if (shK && UI.sheet && JSON.stringify(UI.sheet) === shK) { var shN = document.querySelectorAll(".sheet"); shN = shN[shN.length - 1]; if (shN && shN.getBoundingClientRect().height < shH) shN.style.minHeight = Math.round(shH) + "px"; }
     }
