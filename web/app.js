@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.11.4",
+    VERSION: "4.11.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2223,7 +2223,7 @@
   // 4.11.2 : relevé caché (demandé par Yann le 25/11 pour le samedi 13, À RETIRER une fois le bug compris) : ce que Ten'Up renvoie
   // (sans valeur perso, voir T.dispoRaw), ce que Montée envoie, et ce que tu touches sur les écrans de dispos. 7 touches sur la version du menu = partager.
   function dzLog(ev, o) { try { var L = S.dzLog = S.dzLog || []; L.push(Object.assign({ at: new Date().toISOString().slice(0, 19), ev: ev, v: CONFIG.VERSION }, o || {})); if (L.length > 40) L.splice(0, L.length - 40); } catch (e) {} }
-  // 4.11.4 : un jour que TU as mis « pas dispo » depuis Montée (envoi au bon format, relu vide) n'est plus « pas clair »
+  // 4.11.5 : un jour que TU as mis « pas dispo » depuis Montée (envoi au bon format, relu vide) n'est plus « pas clair »
   function dzAmb(g, t) { return !!g && !(g.slots || []).length && !(t && ((t.ins.more || {}).dzOff || {})[g.date]); }
   function dzOffNote(t, days, want, got) { var m = t.ins.more = t.ins.more || {}, o = m.dzOff = m.dzOff || {};
     days.forEach(function (iso) { var g = (got || []).filter(function (x) { return x.date === iso; })[0]; if (!g) return; if (!g.slots.length && want[iso] && !want[iso].length) o[iso] = 1; else if (g.slots.length) delete o[iso]; }); }
