@@ -81,6 +81,9 @@ struct WCtx: Codable {
     var ace: WAce? = nil
     var day: WDay? = nil
     var lastM: WLastM? = nil
+    // 4.7 : Ace sur la montre : les questions du moment avec leur réponse (calculées par l'iPhone), ce que rapporte le prochain match
+    var aceQs: [WAceQ]? = nil
+    var winPts: WWinPts? = nil
 }
 
 /// 3.92.1 : lecture tolérante. Avant, un seul champ illisible faisait rejeter tout l'envoi de l'iPhone, et la montre gardait les anciennes données (ex. celles d'un autre compte).
@@ -128,6 +131,8 @@ extension WCtx {
         ace = try? c.decodeIfPresent(WAce.self, forKey: .ace)
         day = try? c.decodeIfPresent(WDay.self, forKey: .day)
         lastM = try? c.decodeIfPresent(WLastM.self, forKey: .lastM)
+        aceQs = try? c.decodeIfPresent([WAceQ].self, forKey: .aceQs)
+        winPts = try? c.decodeIfPresent(WWinPts.self, forKey: .winPts)
     }
 }
 
@@ -144,6 +149,16 @@ struct WCal: Codable, Hashable { var d: String; var w: String; var m: String? = 
     var e: String? = nil; var k: String? = nil }
 /// 3.81 : ce que dit Ace (la Balle) en ce moment : texte, humeur (joie, decu, repos, pense, encourage…), sens (up, win, loss…)
 struct WAce: Codable, Hashable { var t: String; var m: String? = nil; var v: String? = nil }
+
+/// 4.7 : une question d'Ace (tuile : titre, chiffre clé, picto ; lk = Montée+ fermé) et sa réponse (phrases + cartes), telles que sur l'iPhone
+struct WAceQ: Codable, Hashable, Identifiable {
+    var id: String; var q: String; var t: String; var v: String? = nil; var ic: String? = nil
+    var pl: Bool? = nil; var lk: Bool? = nil; var m: String? = nil; var a: [String]? = nil; var k: [WAceCard]? = nil
+}
+struct WAceCard: Codable, Hashable { var h: String? = nil; var b: String? = nil; var bc: String? = nil; var l: String? = nil; var r: [WAceRow]? = nil }
+struct WAceRow: Codable, Hashable { var l: String? = nil; var rk: String? = nil; var s: String? = nil; var v: String? = nil; var c: String? = nil }
+/// 4.7 : ce que rapporte une victoire contre le prochain adversaire (n = son nom)
+struct WWinPts: Codable, Hashable { var n: String; var g: Int }
 /// 3.81 : ton match du jour (match prévu, tour de tournoi, rencontre par équipes)
 struct WDay: Codable, Hashable { var k: String? = nil; var t: String; var r: String? = nil; var s: String? = nil; var time: String? = nil; var st: String? = nil; var oid: String? = nil }
 /// 3.81 : ton dernier match (moins de 3 jours) pour l'après-match
@@ -186,6 +201,7 @@ final class PhoneLink: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = PhoneLink()
     @Published var ctx = WCtx()
     @Published var ownsPlus = false
+    @Published var openAce = false // 4.7 : la complication Ace ouvre la conversation
     @Published var openPlay = false // 3.61.2 : la complication Entraînement ouvre le choix séance / libre
     /// Mois du dernier match offert (« 2026-11 ») : sans Montée+, 1 match compté par mois
     @Published var freeMonth = UserDefaults.standard.string(forKey: "montee.freeMonth") ?? ""

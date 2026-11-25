@@ -230,31 +230,6 @@
       }); };
       return pageT(1).then(function () { var seen = {}; return ok({ list: allT.filter(function (c) { if (seen[c.id]) return false; seen[c.id] = 1; return true; }), total: totT, at: Date.now() }); }).catch(err);
     }
-    if (KIND === "explore") {
-      // 4.6.0 (essai avec Yann, 25/11) : relevé des NOMS de champs Ten'Up utiles aux tournois (inscription, fiche, inscrits,
-      // recherche). Aucune valeur personnelle : seulement les clés, le type, et les dates ; les textes sont remplacés par leur longueur.
-      var sk = function (o, d) { if (d > 5) return "…"; if (Array.isArray(o)) return o.length ? [sk(o[0], d + 1), "×" + o.length] : []; if (o && typeof o === "object") { var r = {}; Object.keys(o).slice(0, 60).forEach(function (k) { r[k] = sk(o[k], d + 1); }); return r; }
-        if (typeof o === "string") return /^\d{4}-\d{2}-\d{2}/.test(o) ? o.slice(0, 16) : "txt" + o.length; if (typeof o === "number") return "num"; return o; };
-      var Bx = location.origin, rep = { v: 1, at: new Date().toISOString() };
-      var jx = function (u, opt) { return fetch(Bx + u, Object.assign({ credentials: "include", headers: { "Accept": "application/json", "Content-Type": "application/json" } }, opt || {})).then(function (r) { return r.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {} return { st: r.status, j: j, len: t.length }; }); }, function (e) { return { st: "err " + e }; }); };
-      return jx("/api/back/v2/profil/inscriptions-tournois?passe=true").then(function (r) {
-        rep.ins = { st: r.st, sk: r.j ? sk(r.j, 0) : null };
-        var T0 = r.j && (r.j.tournois || [])[0], tid = T0 && String(T0.id || ""), num = tid.replace(/^\D+_?/, ""), ep = T0 && (T0.epreuves || [])[0], eid = ep && (ep.idEpreuve || ep.id);
-        rep.ids = { tid: !!tid, num: !!num, eid: !!eid };
-        var ch = Promise.resolve();
-        if (num) ["/api/back/public/v1/tournois/" + num, "/api/back/v1/tournois/" + num, "/api/back/public/v1/tournois/" + num + "/fiche-tournoi", "/api/public/v1/tournois/" + num + "/fiche-tournoi"].forEach(function (u) {
-          ch = ch.then(function () { return jx(u).then(function (x) { (rep.fiche = rep.fiche || []).push({ u: u.replace(num, "{num}"), st: x.st, sk: x.j ? sk(x.j, 0) : null }); }); }); });
-        if (num) ch = ch.then(function () { return fetch(Bx + "/tournoi/" + num, { credentials: "include" }).then(function (x) { return x.text().then(function (h) {
-          var f = "", re = /self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)/g, m; while ((m = re.exec(h))) { try { f += JSON.parse(m[1]); } catch (e) {} }
-          var keys = {}, rk = /"([a-zA-Z]{3,40})":/g, mk; while ((mk = rk.exec(f))) keys[mk[1]] = 1;
-          rep.page = { st: x.status, len: h.length, flen: f.length, keys: Object.keys(keys).filter(function (k) { return /juge|arbitre|ja|tel|mail|adresse|ville|lat|long|dispo|limite|inscri|epreuve|classement/i.test(k); }).slice(0, 80) };
-        }); }).catch(function (e) { rep.page = { err: String(e) }; }); });
-        if (tid && eid) ch = ch.then(function () { return jx("/api/back/v1/tournois/" + encodeURIComponent(tid) + "/epreuves/" + encodeURIComponent(eid) + "/joueurs-inscrits").then(function (x) { rep.inscrits = { st: x.st, sk: x.j ? sk(x.j, 0) : null }; }); });
-        if (tid) ch = ch.then(function () { return fetch(Bx + "/user/mes-inscriptions/" + encodeURIComponent(tid) + "/disponibilites", { credentials: "include" }).then(function (x) { return x.text().then(function (h) { rep.dispoPage = { st: x.status, url: (x.url || "").replace(Bx, "").replace(/\d{4,}/g, "{n}"), dispo: /disponibilit/i.test(h), limite: (h.match(/[^<>"]{0,60}(jusqu|limite)[^<>"]{0,60}/i) || [""])[0].replace(/\d/g, "#") }; }); }).catch(function () {}); });
-        ch = ch.then(function () { return Promise.resolve(tenupQuery("tournois", { from: new Date().toISOString().slice(0, 10), to: new Date(Date.now() + 56 * 864e5).toISOString().slice(0, 10), km: 40 })).then(function (t) { try { var o = JSON.parse(String(t).slice(7)); rep.search = { n: o.list ? o.list.length : null, cfg: o.cfg || null, tried: o.tried, hints: (o.hints || []).slice(0, 40) }; } catch (e) { rep.search = { raw: String(t).slice(0, 300) }; } }); });
-        return Promise.race([ch, new Promise(function (r) { setTimeout(function () { rep.cut = 1; r(); }, 25000); })]).then(function () { return ok(rep); }); // le téléphone coupe à 30 s
-      }).catch(err);
-    }
     if (KIND === "dispos") {
       // 4.6.0 (relevés de Yann, 25/11/2026) : tes créneaux habituels (profil) et tes dispos jour par jour sur les dates du tournoi
       var numD = String(A.t || "").replace(/^\D+_?/, ""), jD = function (u) { return fetch(location.origin + u, { credentials: "include", headers: { "Accept": "application/json" } }).then(function (r) {

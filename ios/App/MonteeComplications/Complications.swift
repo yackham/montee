@@ -34,6 +34,12 @@ struct CCtx: Codable {
     // 3.49 : face-à-face et chances de monter
     var faf: CFaf? = nil
     var chances: CChances? = nil
+    // 4.7 : Ace sur le cadran (la phrase du moment, le jour de match, l'après-match, ce que rapporte le prochain match)
+    var ace: CAce? = nil
+    var day: CDay? = nil
+    var lastM: CLastM? = nil
+    var winPts: CWin? = nil
+    var nextOpp: CNext? = nil
 }
 
 /// 3.92.1 : lecture tolérante (un champ illisible ne bloque plus toutes les complications sur d'anciennes données)
@@ -62,8 +68,18 @@ extension CCtx {
         opps = (try? c.decodeIfPresent([COpp].self, forKey: .opps)) ?? []
         faf = try? c.decodeIfPresent(CFaf.self, forKey: .faf)
         chances = try? c.decodeIfPresent(CChances.self, forKey: .chances)
+        ace = try? c.decodeIfPresent(CAce.self, forKey: .ace)
+        day = try? c.decodeIfPresent(CDay.self, forKey: .day)
+        lastM = try? c.decodeIfPresent(CLastM.self, forKey: .lastM)
+        winPts = try? c.decodeIfPresent(CWin.self, forKey: .winPts)
+        nextOpp = try? c.decodeIfPresent(CNext.self, forKey: .nextOpp)
     }
 }
+struct CAce: Codable { var t: String; var m: String? = nil; var v: String? = nil }
+struct CDay: Codable { var k: String? = nil; var t: String; var r: String? = nil; var time: String? = nil; var st: String? = nil }
+struct CLastM: Codable { var r: String; var opp: String; var rank: String? = nil; var score: String? = nil; var pts: String? = nil; var when: String? = nil }
+struct CWin: Codable { var n: String; var g: Int }
+struct CNext: Codable { var name: String; var rank: String; var when: String; var p: Int? = nil }
 struct CFaf: Codable { var n: String; var when: String; var v: Int; var d: Int; var seq: String }
 struct CChances: Codable { var p: Int; var t: String; var down: Bool? = nil; var rel: String; var delta: Int? = nil }
 struct CRings: Codable { var win: Int; var form: Int; var lvlPct: Int }
@@ -847,6 +863,152 @@ struct LastWidget: Widget {
     }
 }
 
+// MARK: - 4.7 · Ace sur le cadran (maquettes validées par Yann le 25/11)
+
+/// Ace dessiné comme dans l'app (même dessin, pose finale de son humeur)
+struct AceStill: View {
+    var mood: String = "repos"
+    var body: some View {
+        let p = AceMoves.pose(mood, AceMoves.end(mood))
+        Canvas { g, sz in AceDraw.draw(g, sz, p) }.aspectRatio(200 / 220, contentMode: .fit)
+    }
+}
+
+/// Ce qu'Ace a à dire maintenant, par ordre de priorité : match du jour, match de demain, après-match (3 jours), sortie du classement, sa phrase
+struct AceMoment {
+    var eyebrow: String; var title: String; var sub: String; var mood: String; var score: Float?
+    static func of(_ c: CCtx) -> AceMoment {
+        let win = c.winPts
+        if let d = c.day {
+            let w = win.flatMap { $0.n.lowercased() == d.t.lowercased() ? $0.g : nil }
+            return AceMoment(eyebrow: "Aujourd'hui" + ((d.time ?? "").isEmpty ? "" : " · " + d.time!), title: d.t + ((d.r ?? "").isEmpty ? "" : " · " + d.r!),
+                             sub: [d.st ?? "", w.map { "+\($0) pts si tu gagnes" } ?? ""].filter { !$0.isEmpty }.joined(separator: " · "), mood: "concentree", score: 1)
+        }
+        if let n = c.nextOpp, n.when.lowercased().hasPrefix("demain") {
+            let w = win.flatMap { $0.n.lowercased() == n.name.lowercased() ? $0.g : nil }
+            return AceMoment(eyebrow: "Ton match · " + n.when, title: n.name + (n.rank.isEmpty ? "" : " · " + n.rank),
+                             sub: [n.p.map { "tes chances \($0) %" } ?? "", w.map { "+\($0) pts si tu gagnes" } ?? ""].filter { !$0.isEmpty }.joined(separator: " · "), mood: "concentree", score: 0.8)
+        }
+        if let m = c.lastM {
+            let won = m.r == "V"
+            return AceMoment(eyebrow: "Ace · après ton match", title: (won ? "Victoire" : "Défaite") + ((m.score ?? "").isEmpty ? "" : " " + m.score!),
+                             sub: "contre " + m.opp + ((m.pts ?? "").isEmpty ? "" : " · " + m.pts!), mood: won ? "joie" : "rebond", score: 0.7)
+        }
+        if let r = c.rel, r >= 0, r <= 1, !c.next.isEmpty {
+            return AceMoment(eyebrow: r == 0 ? "Classement · aujourd'hui" : "Classement · demain", title: c.rank.isEmpty ? "Nouveau classement" : c.rank + " → " + c.next,
+                             sub: c.short, mood: "surpris", score: 0.6)
+        }
+        let a = c.ace
+        return AceMoment(eyebrow: "Ace", title: a?.t ?? "Ouvre Montée sur ton iPhone", sub: "", mood: a?.m ?? "repos", score: nil)
+    }
+}
+
+struct AceEntry: TimelineEntry {
+    let date: Date
+    let ctx: CCtx
+    var moment: AceMoment { AceMoment.of(ctx) }
+    /// Pile intelligente : Ace remonte la veille et le jour du match, après un match et le jour de la sortie
+    var relevance: TimelineEntryRelevance? { moment.score.map { TimelineEntryRelevance(score: $0) } }
+}
+
+struct AceProvider: TimelineProvider {
+    func placeholder(in context: Context) -> AceEntry {
+        AceEntry(date: Date(), ctx: CCtx(rank: "15/2", next: "15/1", ace: CAce(t: "Il te manque 30 pts pour 15/1. On regarde qui jouer ?", m: "parle", v: "up"),
+                                         nextOpp: CNext(name: "Thomas M.", rank: "15/1", when: "Demain 14h", p: 48)))
+    }
+    func getSnapshot(in context: Context, completion: @escaping (AceEntry) -> Void) {
+        completion(context.isPreview ? placeholder(in: context) : AceEntry(date: Date(), ctx: loadEntry().ctx))
+    }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<AceEntry>) -> Void) {
+        completion(Timeline(entries: [AceEntry(date: Date(), ctx: loadEntry().ctx)], policy: .after(Date().addingTimeInterval(3600))))
+    }
+}
+
+/// La tête d'Ace : son humeur du moment ; toucher ouvre la conversation
+struct AceFaceView: View {
+    let e: AceEntry
+    @Environment(\.widgetFamily) var family
+    var body: some View {
+        switch family {
+        case .accessoryCorner:
+            AceStill(mood: e.moment.mood).padding(3)
+                .widgetLabel { Text(e.moment.score != nil ? e.moment.title : "Ace") }
+        default:
+            ZStack { AccessoryWidgetBackground(); AceStill(mood: e.moment.mood).padding(6) }
+        }
+    }
+}
+
+/// « Ace dit » : sa phrase du moment, la même que la bulle de l'iPhone
+struct AceSaysView: View {
+    let e: AceEntry
+    @Environment(\.widgetFamily) var family
+    var body: some View {
+        let a = e.ctx.ace
+        switch family {
+        case .accessoryInline:
+            Text(a?.t ?? "Ace · Montée")
+        default:
+            HStack(alignment: .top, spacing: 6) {
+                AceStill(mood: a?.m ?? "repos").frame(width: 26)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("ACE").font(.system(size: 11, weight: .heavy)).foregroundColor(mBalle).widgetAccentable()
+                    Text(a?.t ?? "Ouvre Montée sur ton iPhone").font(.system(size: 13, weight: .semibold)).lineLimit(3).minimumScaleFactor(0.85)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+}
+
+/// Le bon moment (pile intelligente) : match du jour ou de demain, après-match, sortie ; sinon la phrase d'Ace
+struct AceMomentView: View {
+    let e: AceEntry
+    var body: some View {
+        let m = e.moment
+        HStack(alignment: .center, spacing: 7) {
+            AceStill(mood: m.mood).frame(width: 30)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(m.eyebrow.uppercased()).font(.system(size: 10.5, weight: .heavy)).foregroundColor(mBalle).lineLimit(1).widgetAccentable()
+                Text(m.title).font(.system(size: 14, weight: .bold)).lineLimit(m.sub.isEmpty ? 3 : 2).minimumScaleFactor(0.8)
+                if !m.sub.isEmpty { Text(m.sub).font(.system(size: 11.5)).lineLimit(1).minimumScaleFactor(0.8) }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+struct AceFaceWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MonteeAceFace", provider: AceProvider()) { e in card(AceFaceView(e: e)).widgetURL(URL(string: "montee://ace")) }
+            .configurationDisplayName("Ace").description("La tête d'Ace, selon le moment. Touche-la pour lui parler.")
+            .supportedFamilies([.accessoryCircular, .accessoryCorner])
+    }
+}
+struct AceSaysWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MonteeAceSays", provider: AceProvider()) { e in card(AceSaysView(e: e)).widgetURL(URL(string: "montee://ace")) }
+            .configurationDisplayName("Ace dit").description("La phrase d'Ace du moment, la même que sur l'iPhone.")
+            .supportedFamilies([.accessoryRectangular, .accessoryInline])
+    }
+}
+struct AceMomentWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "MonteeAceMoment", provider: AceProvider()) { e in card(AceMomentView(e: e)).widgetURL(URL(string: "montee://ace")) }
+            .configurationDisplayName("Ace · le bon moment").description("Ton match du jour ou de demain, l'après-match, la sortie du classement. Remonte tout seul dans la pile.")
+            .supportedFamilies([.accessoryRectangular])
+    }
+}
+
+/// 4.7 : les complications d'Ace (un bloc à part : PlusComplications est plein)
+struct AceComplications: WidgetBundle {
+    var body: some Widget {
+        AceFaceWidget()
+        AceSaysWidget()
+        AceMomentWidget()
+    }
+}
+
 @main
 struct MonteeComplications: WidgetBundle {
     var body: some Widget {
@@ -859,6 +1021,7 @@ struct MonteeComplications: WidgetBundle {
         WeekWidget()
         RingComplications().body
         PlusComplications().body
+        AceComplications().body
     }
 }
 

@@ -173,11 +173,22 @@
     var par = BAREME.champ(calc).par;
     return /s[ée]niors?\s*\+|seniors?\s*plus|\+\s*\d{2}\s*ans/i.test(m.comp || "") ? Math.min(par, 15) : par;
   }
+  // Les bonus championnat de chaque victoire d'indivs (simple, hors WO), dans l'ordre chronologique : val = valeur du bonus
+  // (15 en seniors+), on = parmi les meilleurs retenus par le bilan (à valeur égale, les plus anciennes d'abord), pts = ce qui compte.
+  // Seule source pour le bilan ET les écrans (Tes bonus, tournois) : jamais de calcul en double.
+  function champBonuses(matches, calc) {
+    var L = matches.filter(function (m) { return m.kind === "champ" && m.result === "V" && !m.wo && !m.dbl; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; })
+      .map(function (m) { return { m: m, val: champBonusOf(m, calc), on: false, pts: 0 }; });
+    L.slice().sort(function (a, b) { return b.val - a.val || (a.m.date < b.m.date ? -1 : a.m.date > b.m.date ? 1 : 0); })
+      .slice(0, BAREME.champ(calc).max).forEach(function (x) { x.on = true; x.pts = x.val; });
+    return L;
+  }
 
   // ---------- Bilan à un échelon ----------
   function bilanAt(matches, calc, sex, playerIdx, extra) {
     sex = sex === "F" ? "F" : "H";
-    var wins = [], E = 0, I = 0, G = 0, V = 0, woLoss = 0, champVals = [], sigLoss = false, nSingles = 0, dbl = [];
+    var wins = [], E = 0, I = 0, G = 0, V = 0, woLoss = 0, sigLoss = false, nSingles = 0, dbl = [];
     var sorted = matches.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     sorted.forEach(function (m) {
       if (m.dbl) { if (m.result === "V" && !m.wo) dbl.push(m); return; }
@@ -188,7 +199,6 @@
         V += 1;
         var pts = BAREME.win(o - calc);
         wins.push({ m: m, pts: pts, opp: o });
-        if (m.kind === "champ") champVals.push(champBonusOf(m, calc));
       } else if (m.result === "D") {
         if (o <= calc) sigLoss = true;
         if (m.wo) {
@@ -209,7 +219,7 @@
     var sum = counted.reduce(function (s, w) { return s + w.pts; }, 0);
     var bonusSD = sigLoss ? 0 : BAREME.bonusSansDefaite(calc, nSingles);
     // les meilleures bonifications seulement (3, ou 5 à partir de -2/6)
-    var bonusCh = champVals.sort(function (a, b) { return b - a; }).slice(0, BAREME.champ(calc).max).reduce(function (a, v) { return a + v; }, 0);
+    var bonusCh = champBonuses(sorted, calc).reduce(function (a, x) { return a + x.pts; }, 0);
     var db = doublesBonus(dbl, calc, playerIdx);
     if (extra && typeof extra === "object") {
       // écart Ten'Up par échelon : celui de l'échelon, sinon le plus proche
@@ -359,7 +369,7 @@
     ECHELONS: ECHELONS, TOP: TOP, MAX_CALC: MAX_CALC, BAREME: BAREME,
     idx: idx, label: label, serie: serie, serieLabel: serieLabel, ajustement: ajustement,
     bilanAt: bilanAt, project: project, simulateWin: simulateWin, dropOuts: dropOuts,
-    history: history, nextRelease: nextRelease, windowMatches: windowMatches, doublesBonus: doublesBonus,
+    history: history, nextRelease: nextRelease, windowMatches: windowMatches, doublesBonus: doublesBonus, champBonuses: champBonuses,
     parseScore: parseScore, iso: iso, parseDate: d, plus12Months: plus12Months, leaveDate: leaveDate, lastDay: lastDay, releaseDiff: releaseDiff
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
