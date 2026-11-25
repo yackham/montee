@@ -1006,6 +1006,7 @@
     if (cl.length) out.cov = nc === cl.length ? "in" : nc ? "mix" : "out";
     if (+d.prixEspece > 0) out.cash = +d.prixEspece; if (+d.prixLots > 0) out.lots = +d.prixLots;
     out.tmc = /\bTMC\b/i.test(String(d.libelleCategorie || "")); // confirmé par le type des épreuves (epMerge)
+    if (d.motifCloture || d.commentaireCloture) out.closeWhy = String(d.motifCloture || d.commentaireCloture).slice(0, 80); // 4.11.1 : pourquoi c'est clos (ex. complet)
     if (d.type) out.kind = d.type === "C" ? "indiv" : "tournoi"; // relevé 25/11 : les indivs (« INDIVIDUELS 2027… ») sont de type C, les tournois de type T
     return out;
   }
