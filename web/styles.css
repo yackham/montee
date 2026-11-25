@@ -7649,3 +7649,10 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .itin-sh a.dz-o { text-decoration: none; color: var(--ink); min-height: 48px; }
 .itin-sh a.dz-o svg { color: var(--muted); flex: none; }
 .itin-sh .itin-n { display: block; margin-top: 10px; }
+/* 4.9.3 (Yann) : un jour sans dispo se voit sur sa date, hachurée comme la frise */
+.dz-days .dz-off .tz-d { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--terre) 26%, transparent) 0 5px, color-mix(in srgb, var(--terre) 12%, transparent) 5px 10px); }
+.dz-days .dz-off .tz-d small, .dz-days .dz-off .tz-d b { color: var(--terre); }
+/* 4.9.3 : un jour à horaire particulier (« Juste ce jour-là ») : une pastille sur sa date */
+.dz-days .dz-ex .tz-d { position: relative; }
+.dz-days .dz-ex .tz-d::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--terre); box-shadow: 0 0 0 2px var(--card); }
+.dz-days .dz-ex .s { color: var(--terre); font-weight: 600; }
