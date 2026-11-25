@@ -1021,6 +1021,8 @@
       if (x.ageMinAutorise != null) e.aMin = +x.ageMinAutorise; if (x.ageMaxAutorise != null) e.aMax = +x.ageMaxAutorise;
       if (!e.sex) e.sex = x.messieurs && !x.dames ? "H" : x.dames && !x.messieurs ? "F" : ""; if (x.double || x.mixte) e.dbl = true;
       if (x.dateHeureClotureInscription) e.close = String(x.dateHeureClotureInscription).slice(0, 10); if (x.dateHeureOuvertureInscription) e.open = String(x.dateHeureOuvertureInscription).slice(0, 10);
+      // places publiques : quotaInscrit / quotaAttente par échelon de classement (le nombre d'inscrits, lui, n'est pas public)
+      var qs = function (L) { var n = 0; (L || []).forEach(function (q) { n += +(q && q.nombre) || 0; }); return n; }; if (qs(x.quotaInscrit)) e.quota = qs(x.quotaInscrit); if (qs(x.quotaAttente)) e.qWait = qs(x.quotaAttente);
       if (+x.tarifAdulte > 0 && !e.fee) e.fee = +x.tarifAdulte; if (+x.prixEspece > 0) { e.cash = +x.prixEspece; cash += e.cash; } if (+x.prixLots > 0) { e.lots = +x.prixLots; lots += e.lots; } });
     if (tmc) f.tmc = true; if (!f.cash && cash) f.cash = cash; if (!f.lots && lots) f.lots = lots;
     return f;
@@ -1196,6 +1198,7 @@
     var arr = function (v) { return Array.isArray(v) ? v : []; };
     var main = arr(j.tableau).concat(arr(j.qualifications)).concat(arr(j.inscrits)).concat(arr(j.joueurs)).concat(Array.isArray(j) ? j : []);
     var wait = arr(j.listeAttente);
+    if (!Array.isArray(j) && !["tableau", "qualifications", "inscrits", "joueurs", "listeAttente"].some(function (k) { return Array.isArray(j[k]); })) return null; // 4.11.1 : forme inconnue → on ne compte pas (sinon « 0 inscrit » à tort)
     var flat = function (L) { var out = []; L.forEach(function (x) { if (!x) return; var pl = x.joueur1 || x.joueur || x.personne || x; out.push({ r: rk(pl), id: String(pl.idCrm || pl.id || "") }); }); return out; };
     return { list: flat(main).filter(function (x) { return x.r; }), wait: flat(wait).length };
   }
