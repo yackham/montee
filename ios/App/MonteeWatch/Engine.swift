@@ -153,7 +153,8 @@ func replay(srv0: Int, fmt: String, ev: [Ev]) -> MatchState {
                 if (max(g[0], g[1]) >= 6 && abs(g[0] - g[1]) >= 2) || max(g[0], g[1]) == 7 {
                     M.sets.append(SetScore(a: g[0], b: g[1]))
                     M.games = [0, 0]
-                    if tot % 2 == 1 { M.change = true; M.setBreak = true; M.rest = 120 }
+                    // 4.7 : pause de fin de set à chaque set (120 s, règle ITF), même sans changement de côté : c'est là qu'Ace parle du set
+                    M.change = true; M.setBreak = true; M.rest = 120
                 } else if g[0] == 6 && g[1] == 6 {
                     M.inTB = true; M.superTB = false; M.tbFirst = serverFor(M.gi, srv0)
                 } else if tot % 2 == 1 {
@@ -278,6 +279,20 @@ func coachCues(_ M: MatchState, plan: [WStep], streak: Int = 0) -> [Cue] {
     func pct(_ a: Int, _ b: Int) -> Int { b == 0 ? 0 : Int((Double(a) * 100 / Double(b)).rounded()) }
     var out: [Cue] = []
     let a = M.games[0], b = M.games[1], setNo = M.sets.count + 1
+    // --- 4.7 : la fin d'un set (Yann : « animer Ace pour le retour au combat après un set perdu »)
+    if M.setBreak, let last = M.sets.last, a == 0, b == 0 {
+        let lost = last.b > last.a
+        if lost {
+            let s: String
+            if me.games >= 2 && me.held * 10 >= me.games * 6 { s = "Tu as tenu \(me.held) jeux de service sur \(me.games) : ton service tient, garde ton plan." }
+            else if him.df >= 2 { s = "Sa 2e balle craque (\(him.df) doubles fautes) : avance d'un pas en retour." }
+            else { s = "Nouveau set, 0-0. Un point à la fois, 1re balle au centre." }
+            out.append(Cue(id: "set-lost", fromWatch: true, t: "On repart !", s: s, prio: 20))
+        } else {
+            out.append(Cue(id: "set-won", fromWatch: true, t: M.setsWon[0] == 1 && M.setsWon[1] == 0 ? "Un set à zéro !" : "Set gagné !",
+                           s: me.pts >= 12 && pct(me.firstIn, me.pts) >= 60 ? "\(pct(me.firstIn, me.pts)) % de 1res balles : continue comme ça." : "Même plan, même rythme. Il va réagir.", prio: 20))
+        }
+    }
     // --- Le moment du match
     if streak <= -3 {
         out.append(Cue(id: "m-lost", fromWatch: true, t: "Casse son rythme", s: "Il enchaîne \(-streak) jeux. Prends ton temps, 1re balle au centre.", prio: 11))

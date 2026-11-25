@@ -849,6 +849,14 @@ struct TrainEndView: View {
                     Spacer()
                     if l.sent { Image(systemName: "checkmark.circle.fill").font(.system(size: 22)).foregroundColor(.gazon) }
                 }
+                // 4.7 (maquette validée) : Ace fait le bilan en une phrase (objectifs atteints, ou l'intensité en séance libre)
+                let ae = aceTrainEnd(l, hard: hard, label: label)
+                HStack(alignment: .top, spacing: 7) {
+                    AceBall(mood: ae.1, size: 36, replay: true)
+                    Text(ae.0).font(.system(size: 12, weight: .bold)).fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 6).padding(.leading, 5).padding(.trailing, 9).frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.card))
                 if l.samples.count > 1 {
                     HRCurve(pts: downsample(l.samples, 60), thr: l.thr ?? thresholds(l.maxHR), lineWidth: 2.5).frame(height: 52)
                     ZoneMinutes(sec: l.zoneSec)
@@ -901,6 +909,28 @@ struct TrainEndView: View {
     }
 }
 
+/// 4.7 : la phrase d'Ace en fin de séance et son humeur. Séance du jour : objectifs chiffrés atteints ; libre : l'intensité.
+func aceTrainEnd(_ l: TLive, hard: Int, label: String) -> (String, String) {
+    let vm = TrainVM.shared
+    if let p = l.plan {
+        let goals = p.steps.enumerated().filter { $0.element.cnt != nil && ($0.element.n ?? 0) > 0 }
+        if !goals.isEmpty {
+            let ok = goals.filter { vm.count(at: $0.offset) >= ($0.element.n ?? 0) }.count
+            let txt = ok == goals.count ? "Belle séance ! Tous tes objectifs sont atteints." :
+                ok == 0 ? "Séance faite, c'est l'essentiel. Les objectifs, ce sera pour la prochaine." :
+                "Belle séance ! \(ok) objectif\(ok > 1 ? "s" : "") sur \(goals.count)."
+            return (txt, ok * 2 >= goals.count ? "fier" : "parle")
+        }
+        return ("Séance du jour bouclée. Bien joué !", "fier")
+    }
+    if l.samples.count > 1 {
+        if hard >= 50 { return ("Intensité soutenue : ça a tapé fort. Récupère bien.", "fier") }
+        if hard >= 25 { return ("Intensité modérée : bon rythme, de quoi progresser.", "parle") }
+        return ("Intensité légère : parfait pour travailler la technique.", "parle")
+    }
+    return ("Séance notée. Chaque séance compte.", "parle")
+}
+
 /// 3.59 : l'étape de la séance du jour : le temps qui reste, 3 mots, et le compteur si l'étape compte quelque chose
 struct SeanceStepView: View {
     @ObservedObject var vm = TrainVM.shared
@@ -909,6 +939,7 @@ struct SeanceStepView: View {
             if let p = vm.live?.plan, let st = vm.step(ctx.date) {
                 if st.i >= p.steps.count {
                     VStack(alignment: .leading, spacing: 6) {
+                        AceBall(mood: "fier", size: 40, replay: true)
                         Text("Séance terminée").font(.system(size: 13, weight: .heavy)).foregroundColor(.gazon)
                         Text(p.t).font(.system(size: 16, weight: .heavy)).fixedSize(horizontal: false, vertical: true)
                         Text("Glisse à droite pour terminer et l'enregistrer.").font(.system(size: 12, weight: .semibold))
@@ -957,8 +988,12 @@ struct SeanceStepView: View {
                 .lineLimit(1).minimumScaleFactor(0.7)
             Text(mmss(left)).font(.system(size: 34, weight: .heavy)).monospacedDigit()
                 .foregroundColor(vm.paused ? .secondary : .white)
-            Text(s.cue).font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
-                .lineLimit(s.df != nil ? 2 : 3).fixedSize(horizontal: false, vertical: true)
+            // 4.7 (maquette validée) : la consigne passe dans la bulle d'Ace, qui se rejoue à chaque nouveau bloc
+            HStack(alignment: .top, spacing: 6) {
+                AceBall(mood: "concentree", size: 28, replay: true).id(i)
+                Text(s.cue).font(.system(size: 12, weight: .semibold)).foregroundColor(Color(white: 0.82))
+                    .lineLimit(s.df != nil ? 2 : 3).fixedSize(horizontal: false, vertical: true)
+            }
             if let x = s.x, !x.isEmpty {
                 StepHowText(x: x)
             }
@@ -1315,6 +1350,12 @@ struct SeancePreview: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 5) {
+                // 4.7 (maquette validée) : Ace lance la séance
+                HStack(alignment: .top, spacing: 7) {
+                    AceBall(mood: "parle", size: 36, replay: true)
+                    Text("Aujourd'hui : " + plan.t.prefix(1).lowercased() + String(plan.t.dropFirst()) + ", \(plan.minutes) min. On y va ?")
+                        .font(.system(size: 12.5, weight: .bold)).fixedSize(horizontal: false, vertical: true)
+                }
                 if let tg = plan.tg, !tg.isEmpty {
                     TirageRows(lines: tg)
                 }

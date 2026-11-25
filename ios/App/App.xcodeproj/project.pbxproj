@@ -20,6 +20,8 @@
 		C0D1E2F3A4B5000000000002 /* Link.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D1E2F3A4B5000000000022 /* Link.swift */; };
 		C0D1E2F3A4B5000000000003 /* Workout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D1E2F3A4B5000000000023 /* Workout.swift */; };
 		C0D1E2F3A4B5000000000070 /* Train.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D1E2F3A4B5000000000071 /* Train.swift */; };
+		C0D1E2F3A4B5000000000091 /* AceShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D1E2F3A4B5000000000090 /* AceShared.swift */; };
+		D0E1F2A3B4C5000000000091 /* AceShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D1E2F3A4B5000000000090 /* AceShared.swift */; };
 		C0D1E2F3A4B5000000000004 /* MatchVM.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D1E2F3A4B5000000000024 /* MatchVM.swift */; };
 		C0D1E2F3A4B5000000000005 /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D1E2F3A4B5000000000025 /* Views.swift */; };
 		C0D1E2F3A4B5000000000006 /* MonteeWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D1E2F3A4B5000000000026 /* MonteeWatchApp.swift */; };
@@ -110,6 +112,7 @@
 		C0D1E2F3A4B5000000000022 /* Link.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Link.swift; sourceTree = "<group>"; };
 		C0D1E2F3A4B5000000000023 /* Workout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Workout.swift; sourceTree = "<group>"; };
 		C0D1E2F3A4B5000000000071 /* Train.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Train.swift; sourceTree = "<group>"; };
+		C0D1E2F3A4B5000000000090 /* AceShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AceShared.swift; sourceTree = "<group>"; };
 		C0D1E2F3A4B5000000000024 /* MatchVM.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchVM.swift; sourceTree = "<group>"; };
 		C0D1E2F3A4B5000000000025 /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
 		C0D1E2F3A4B5000000000026 /* MonteeWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonteeWatchApp.swift; sourceTree = "<group>"; };
@@ -209,6 +212,7 @@
 				C0D1E2F3A4B5000000000022 /* Link.swift */,
 				C0D1E2F3A4B5000000000023 /* Workout.swift */,
 				C0D1E2F3A4B5000000000071 /* Train.swift */,
+				C0D1E2F3A4B5000000000090 /* AceShared.swift */,
 				C0D1E2F3A4B5000000000024 /* MatchVM.swift */,
 				C0D1E2F3A4B5000000000025 /* Views.swift */,
 				C0D1E2F3A4B5000000000026 /* MonteeWatchApp.swift */,
@@ -433,6 +437,7 @@
 				C0D1E2F3A4B5000000000002 /* Link.swift in Sources */,
 				C0D1E2F3A4B5000000000003 /* Workout.swift in Sources */,
 				C0D1E2F3A4B5000000000070 /* Train.swift in Sources */,
+				C0D1E2F3A4B5000000000091 /* AceShared.swift in Sources */,
 				C0D1E2F3A4B5000000000004 /* MatchVM.swift in Sources */,
 				C0D1E2F3A4B5000000000005 /* Views.swift in Sources */,
 				C0D1E2F3A4B5000000000006 /* MonteeWatchApp.swift in Sources */,
@@ -452,6 +457,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D0E1F2A3B4C5000000000001 /* Complications.swift in Sources */,
+				D0E1F2A3B4C5000000000091 /* AceShared.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -618,7 +624,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.5.4;
+				MARKETING_VERSION = 4.7.1;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -641,7 +647,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.5.4;
+				MARKETING_VERSION = 4.7.1;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
@@ -665,7 +671,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.5.4;
+				MARKETING_VERSION = 4.7.1;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -693,7 +699,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.5.4;
+				MARKETING_VERSION = 4.7.1;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -720,7 +726,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.5.4;
+				MARKETING_VERSION = 4.7.1;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -744,7 +750,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.5.4;
+				MARKETING_VERSION = 4.7.1;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -768,7 +774,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.5.4;
+				MARKETING_VERSION = 4.7.1;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.watchkitapp.complications;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -795,7 +801,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.5.4;
+				MARKETING_VERSION = 4.7.1;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.watchkitapp.complications;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
