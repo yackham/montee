@@ -188,3 +188,13 @@ test("4.10 : une indispo « juste un moment » retire ce moment des créneaux", 
   assert.deepEqual(T.slotsMinus([{ from: "14:00", to: "22:00" }], "16:00", "20:00"), [{ from: "14:00", to: "16:00" }, { from: "20:00", to: "22:00" }]);
   assert.deepEqual(T.slotsMinus([{ from: "18:00", to: "22:00" }], "08:00", "12:00"), [{ from: "18:00", to: "22:00" }]);
 });
+
+test("4.11.1 : le nom d'un tournoi dit son sexe et sa fourchette de classement", () => {
+  assert.equal(T.nameSex("TMC Femmes TC Kingersheim"), "F");
+  assert.equal(T.nameSex("TMC Hommes 15/4 à 15/1"), "H");
+  assert.equal(T.nameSex("Open Messieurs & Dames"), "");
+  assert.deepEqual(T.nameRange("TMC 30/3-30/1 MANDEURE"), ["30/3", "30/1"]);
+  assert.deepEqual(T.nameRange("TMC NC-30/2 TC CERNAY"), ["NC", "30/2"]);
+  assert.deepEqual(T.nameRange("TMC Hommes 15/4 à 15/1 ASM Belfort"), ["15/4", "15/1"]);
+  assert.equal(T.nameRange("Tournoi 19-20 décembre"), null);
+});

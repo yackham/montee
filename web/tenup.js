@@ -1027,6 +1027,17 @@
     return ((j && j.tournoisFavoris) || []).map(function (f) { return { id: String(f.id || ""), fid: String(f.idFavori || ""), name: String(f.libelle || "Tournoi"), from: String(f.dateDebut || "").slice(0, 10),
       to: String(f.dateFin || f.dateDebut || "").slice(0, 10), club: String(f.nomClub || ""), online: !!f.inscriptionEnLigne, payOnline: !!f.paiementEnLigne }; }).filter(function (f) { return f.id; });
   }
+  // 4.11.1 (Yann, build 4.11 : « TMC Femmes » et « TMC 30/3-30/1 » conseillés à un 15/3) : ce que dit le NOM d'un tournoi
+  // ou d'une épreuve, tant que sa fiche n'est pas lue. Le sexe (H, F, ou "" si mixte ou non dit)…
+  function nameSex(txt) {
+    txt = String(txt || ""); var f = /\b(femmes?|dames?|f[ée]minin(e|es|s)?|filles?)\b/i.test(txt), h = /\b(hommes?|messieurs|masculin(e|es|s)?|gar[çc]ons?)\b/i.test(txt);
+    return f && !h ? "F" : h && !f ? "H" : "";
+  }
+  // … et la fourchette de classement (« 30/3-30/1 », « NC-30/2 », « 15/4 à 15/1 ») : [a, b] tels qu'écrits, ou null
+  function nameRange(txt) {
+    var R = "(NC|-?\\d{1,2}\\/\\d|40|30|15|0)", m = String(txt || "").match(new RegExp("(?:^|[\\s(])" + R + "\\s*(?:-|–|à|a|au)\\s*" + R + "(?=$|[\\s)])", "i"));
+    if (!m || !/\/|NC/i.test(m[1] + m[2])) return null; return [normRank(m[1]), normRank(m[2])];
+  }
   var SURF = { TB: "Terre battue", RES: "Résine", BP: "Béton poreux", TA: "Terre artificielle", GS: "Gazon synthétique", GAZ: "Gazon synthétique", MOQ: "Moquette" };
   function lieuMap(l) { // /installations/{idLieu}
     if (!l || typeof l !== "object") return {}; var o = {};
@@ -1413,7 +1424,7 @@
   // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
   function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { slotsMinus: slotsMinus, profMap: profMap, slotsMerge: slotsMerge, profBody: profBody, weekGen: weekGen, weekSame: weekSame, tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, epMerge: epMerge, favsMap: favsMap, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { slotsMinus: slotsMinus, profMap: profMap, slotsMerge: slotsMerge, profBody: profBody, weekGen: weekGen, weekSame: weekSame, tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, epMerge: epMerge, favsMap: favsMap, nameSex: nameSex, nameRange: nameRange, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);

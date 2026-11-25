@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.11.0",
+    VERSION: "4.11.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1978,26 +1978,38 @@
   }
   function tzSearch(force) {
     var P = tzPrefs(); if (!NATIVE || !S.tenup.linked || S.tenup.expired || offline() || UI.tzBusy || !P.lat) return;
-    if (!force && S.tzr && S.tzr.q === P.cp + "/" + P.km + "/" + P.wk && Date.now() - (S.tzr.at || 0) < 12 * 3600e3) return;
+    // 4.11.1 : « v411 » dans la clé : une liste gardée d'avant la 4.11 (tous les tournois, même interdits) est relue ; sinon, on complète ses fiches
+    if (!force && S.tzr && S.tzr.q === P.cp + "/" + P.km + "/" + P.wk + "/v411" && Date.now() - (S.tzr.at || 0) < 12 * 3600e3) { tzFicheAuto(); return; }
     UI.tzBusy = true; var td = today(), to = new Date(td.getTime() + P.wk * 7 * 864e5);
     tenupQuery("tournois", { from: E.iso(td), to: E.iso(to), ville: P.city || "", lat: P.lat, lng: P.lng, km: P.km }).then(function (r) {
       UI.tzBusy = false;
       if (!r || r.error) { UI.tzErr = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
       UI.tzErr = null; if (r.cfg) S.tzCfg = r.cfg;
-      S.tzr = { at: Date.now(), q: P.cp + "/" + P.km + "/" + P.wk, list: r.list, hints: r.list ? null : { tried: r.tried, hints: r.hints } };
+      S.tzr = { at: Date.now(), q: P.cp + "/" + P.km + "/" + P.wk + "/v411", list: r.list, hints: r.list ? null : { tried: r.tried, hints: r.hints } };
       save(); render(); tzFicheAuto();
     });
   }
+  // 4.11.1 : ton sexe, celui de ton profil, sinon celui de ton compte Ten'Up (un seul endroit pour tout l'écran des tournois)
+  function mySex() { var x = S.profile.sex || String(tuMe().sexe || "").charAt(0).toUpperCase(); return x === "F" ? "F" : x === "H" || x === "M" ? "H" : ""; }
+  function tzRgOk(a, b, cur) { // ton classement dans la fourchette [a, b] (dans un sens ou dans l'autre)
+    var lo = a ? E.idx(T.normRank(a)) : null, hi = b ? E.idx(T.normRank(b)) : null; if (lo != null && hi != null && lo > hi) { var z = lo; lo = hi; hi = z; }
+    return !(cur >= 0 && ((lo != null && cur < lo) || (hi != null && cur > hi)));
+  }
   function tzEp(t) { // l'épreuve faite pour toi : simple, ton sexe, ton classement dans la fourchette
-    if (t.eps == null) return { id: null, wait: true }; // 4.6.0 : la recherche ne donne pas les épreuves, la fiche les lira
+    var cur = curIdx(), sx = mySex(), ns = T.nameSex(t.name);
+    if (ns && sx && ns !== sx) return null; // 4.11.1 (Yann) : « TMC Femmes » n'est pas pour un homme, fiche lue ou pas
+    if (t.eps == null) { // 4.6.0 : la recherche ne donne pas les épreuves, la fiche les lira ; d'ici là, le nom suffit à écarter (4.11.1)
+      if (tzYouth(t)) return null; var rg = T.nameRange(t.name);
+      if (rg && !tzRgOk(rg[0], rg[1], cur)) return null;
+      return rg ? { id: null, wait: true, min: rg[0], max: rg[1] } : { id: null, wait: true };
+    }
     if (tzYouth(t)) return null;
-    var cur = curIdx(), sx = S.profile.sex, best = null, old = null;
+    var best = null, old = null;
     (t.eps || []).forEach(function (e) {
-      if (e.dbl || (e.sex && sx && e.sex !== sx)) return;
+      var es = e.sex || T.nameSex(e.name); if (e.dbl || (es && sx && es !== sx)) return;
       var et = (e.name || "") + " · " + (e.aud || ""); if (T.youthOnly(et)) return; // 4.9.2 : pas les épreuves jeunes (balle orange, U12…)
       if (T.seniorsPlus(et)) { if (!old) old = e; return; } // seniors+ : seulement s'il n'y a rien d'ouvert à tous (l'âge n'est pas connu)
-      var lo = e.min ? E.idx(T.normRank(e.min)) : null, hi = e.max ? E.idx(T.normRank(e.max)) : null;
-      if (cur >= 0 && ((lo != null && cur < lo) || (hi != null && cur > hi))) return;
+      if (!tzRgOk(e.min, e.max, cur)) return;
       if (!best) best = e;
     });
     return best || old;
