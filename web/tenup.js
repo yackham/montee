@@ -1076,8 +1076,8 @@
     var out = []; (slots || []).forEach(function (x) { if (b <= x.from || a >= x.to) { out.push({ from: x.from, to: x.to }); return; } if (a > x.from) out.push({ from: x.from, to: a }); if (b < x.to) out.push({ from: b, to: x.to }); });
     return out;
   }
-  function profBody(prof, week) { // les 7 jours, toujours : un jour sans créneau part vide
-    var dis = []; for (var wd = 1; wd <= 7; wd++) dis.push({ jour: wd, horaires: slotsMerge(week[wd] || []).slots.map(function (x) { var o = { heureDebut: "1970-01-01T" + x.from + ":00", heureFin: "1970-01-01T" + x.to + ":00" }; if (x.id != null) o.idDisponibilite = x.id; return o; }) });
+  function profBody(prof, week) { // 4.10.1 : comme la page Ten'Up (relevé du 25/11) : seulement les jours où tu joues ; un jour absent = pas dispo
+    var dis = []; for (var wd = 1; wd <= 7; wd++) if ((week[wd] || []).length) dis.push({ jour: wd, horaires: slotsMerge(week[wd] || []).slots.map(function (x) { var o = { heureDebut: "1970-01-01T" + x.from + ":00", heureFin: "1970-01-01T" + x.to + ":00" }; if (x.id != null) o.idDisponibilite = x.id; return o; }) });
     return { utilisateurs: [{ idCrm: prof.idCrm, codeClub: prof.codeClub == null ? null : prof.codeClub, disponibilites: dis }] };
   }
   function weekGen(week) { // la semaine du profil → les « generales » d'un tournoi
