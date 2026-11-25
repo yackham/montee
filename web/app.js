@@ -5126,9 +5126,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function oppNowIdx(m) {
     var p = (S.anPal || {})[m.id];
     if (!p || !p.rows) p = oppPal(m.oid, m.opp) || p; // 4.2.3 : son palmarès lu pour un autre de vos matchs compte aussi
-    var r = p && p.rank ? E.idx(T.normRank(p.rank)) : null;
+    // 4.10.1 (retour testeur) : son classement officiel LE PLUS RÉCENT connu, pas le plus haut de toutes les sources
+    // (une fiche ou un suivi ancien pouvait le faire paraître « monté » alors qu'il est redescendu ou resté au même classement)
     var sc = m.oid && S.scout && S.scout[m.oid], fo = m.oid && S.follow && S.follow[m.oid];
-    [sc && sc.profil && sc.profil.classement, fo && fo.rank].forEach(function (x) { var k = x ? E.idx(T.normRank(x)) : null; if (k != null && (r == null || k > r)) r = k; });
+    var tOf = function (x) { var t = typeof x === "number" ? x : x ? new Date(x).getTime() : 0; return isNaN(t) ? 0 : t; };
+    var r = null, rt = -1;
+    [[p && p.rank, p && (p.ts || p.at)], [sc && sc.profil && sc.profil.classement, sc && (sc.ts || sc.at)], [fo && fo.rank, fo && fo.at]].forEach(function (x) {
+      var k = x[0] ? E.idx(T.normRank(x[0])) : null, t = tOf(x[1]); if (k == null) return;
+      if (t > rt || (t === rt && k > r)) { r = k; rt = t; }
+    });
     return { r: r, p: p };
   }
   // vraiment monté au classement depuis le match (pas seulement « joue au-dessus » d'après son niveau réel)
