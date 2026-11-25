@@ -239,6 +239,15 @@
           var pg = genMap(pf), days = dispoDays(d); return ok({ gen: tourGen(pg, days), pgen: pg, days: days, map: "iso", at: Date.now() }); });
       }).catch(err);
     }
+    if (KIND === "profDispo" || KIND === "profDispoSave") {
+      // 4.10 : tes créneaux habituels (profil Ten'Up) ; l'enregistrement est relu aussitôt pour vérifier
+      var jP = function (u, o) { return fetch(location.origin + u, Object.assign({ credentials: "include", headers: { "Accept": "application/json", "Content-Type": "application/json" } }, o || {})).then(function (r) {
+        if (r.status === 401 || r.status === 403) throw new Error("auth"); if (!r.ok) return r.text().then(function (t) { throw new Error("http " + r.status + " " + t.slice(0, 160)); }); return r.status === 204 ? null : r.json(); }); };
+      var idP = function () { return A.idCrm ? Promise.resolve(A.idCrm) : jP("/api/back/v2/profil/disponibilites").then(function (pf) { var p = ((pf && (pf.personnes || pf.utilisateurs)) || [])[0] || {}; var id = p.idCrm || (p.personne && p.personne.idCrm); if (!id) throw new Error("profil introuvable"); return id; }); };
+      var readP = function (id) { return jP("/api/back/v1/profil/disponibilites?idCrms=" + encodeURIComponent(id)).then(function (j) { var m = profMap(j); if (!m) throw new Error("profil vide"); return m; }); };
+      if (KIND === "profDispo") return idP().then(readP).then(function (m) { m.at = Date.now(); return ok(m); }).catch(err);
+      return jP("/api/back/v1/profil/disponibilites", { method: "PUT", body: JSON.stringify(A.body) }).then(function () { return readP(A.idCrm); }).then(function (m) { m.at = Date.now(); return ok(m); }).catch(err);
+    }
     if (KIND === "dispoSave") {
       // 4.6.0 : le même envoi que la page Ten'Up (PUT, relevé le 25/11/2026), puis relecture des mêmes dates pour vérifier
       var numS = String(A.t || "").replace(/^\D+_?/, "");
@@ -1043,6 +1052,39 @@
       .sort(function (a, b) { return a.from < b.from ? -1 : 1; });
   }
   function dzSame(a, b) { var k = function (l) { return l.map(function (x) { return x.from + "-" + x.to; }).sort().join(","); }; return k(a) === k(b); }
+  // ---- 4.10 : créneaux habituels du profil (relevés de Yann, 25/11/2026) : GET/PUT /api/back/v1/profil/disponibilites ----
+  // {utilisateurs:[{idCrm, codeClub, disponibilites:[{jour: 1..7 (1 = lundi), horaires:[{heureDebut:"1970-01-01THH:MM:SS", heureFin, idDisponibilite}]}]}]}
+  function profMap(j) {
+    var u = ((j && j.utilisateurs) || [])[0]; if (!u) return null; var week = {};
+    for (var wd = 1; wd <= 7; wd++) week[wd] = [];
+    (u.disponibilites || []).forEach(function (d) { var wd = +d.jour; if (!week[wd]) return;
+      (d.horaires || []).forEach(function (h) { var a = String(h.heureDebut || "").slice(11, 16), b = String(h.heureFin || "").slice(11, 16); if (a && b) week[wd].push({ from: a, to: b, id: h.idDisponibilite != null ? h.idDisponibilite : null }); }); });
+    for (wd = 1; wd <= 7; wd++) week[wd] = slotsMerge(week[wd]).slots;
+    return { idCrm: u.idCrm, codeClub: u.codeClub == null ? null : u.codeClub, week: week };
+  }
+  // Créneaux d'une journée : triés, ceux qui se touchent ou se chevauchent n'en font qu'un ; merged dit lesquels ont été regroupés
+  function slotsMerge(list) {
+    var l = (list || []).filter(function (x) { return x && x.from && x.to && x.to > x.from; }).map(function (x) { return { from: x.from, to: x.to, id: x.id != null ? x.id : null }; })
+      .sort(function (a, b) { return a.from < b.from ? -1 : a.from > b.from ? 1 : 0; }), out = [], merged = [];
+    l.forEach(function (x) { var p = out[out.length - 1];
+      if (p && x.from <= p.to) { merged.push({ a: { from: p.from, to: p.to }, b: { from: x.from, to: x.to } }); if (x.to > p.to) p.to = x.to; p.id = null; }
+      else out.push(x); });
+    merged.forEach(function (m) { var r = out.filter(function (o) { return o.from <= m.a.from && o.to >= m.b.to; })[0]; if (r) m.r = { from: r.from, to: r.to }; });
+    return { slots: out, merged: merged };
+  }
+  function slotsMinus(slots, a, b) { // retire [a, b] des créneaux (une indispo « juste un moment »)
+    var out = []; (slots || []).forEach(function (x) { if (b <= x.from || a >= x.to) { out.push({ from: x.from, to: x.to }); return; } if (a > x.from) out.push({ from: x.from, to: a }); if (b < x.to) out.push({ from: b, to: x.to }); });
+    return out;
+  }
+  function profBody(prof, week) { // les 7 jours, toujours : un jour sans créneau part vide
+    var dis = []; for (var wd = 1; wd <= 7; wd++) dis.push({ jour: wd, horaires: slotsMerge(week[wd] || []).slots.map(function (x) { var o = { heureDebut: "1970-01-01T" + x.from + ":00", heureFin: "1970-01-01T" + x.to + ":00" }; if (x.id != null) o.idDisponibilite = x.id; return o; }) });
+    return { utilisateurs: [{ idCrm: prof.idCrm, codeClub: prof.codeClub == null ? null : prof.codeClub, disponibilites: dis }] };
+  }
+  function weekGen(week) { // la semaine du profil → les « generales » d'un tournoi
+    var out = []; for (var wd = 1; wd <= 7; wd++) (week[wd] || []).forEach(function (x) { var k = x.from + "-" + x.to, g = out.filter(function (o) { return o.k === k; })[0]; if (g) g.jours.push(wd); else out.push({ k: k, jours: [wd], hd: x.from + ":00", hf: x.to + ":00" }); });
+    return out.map(function (o) { return { jours: o.jours, hd: o.hd, hf: o.hf }; });
+  }
+  function weekSame(a, b) { for (var wd = 1; wd <= 7; wd++) if (!dzSame(a[wd] || [], b[wd] || [])) return false; return true; }
   // 4.9.3 (relevés de Yann, 25/11) : un tournoi garde SA copie des créneaux habituels, prise à l'inscription (le profil peut avoir changé depuis).
   // On la retrouve dans les jours « comme d'habitude » du tournoi (ni vides, ni « particuliere ») ; à défaut, le profil. Jours ISO (1 = lundi), vérifié.
   function tourGen(gen, days) {
@@ -1108,7 +1150,7 @@
   var VERSION = "2.4";
   // Version pour l'app iPhone : corps d'une fonction async (WKWebView callAsyncJavaScript)
   // Le script embarque la recherche v2, utilisée en repli par tenupFetch
-  function src(fn) { return "var jaNameFrom = " + jaNameFrom.toString() + ";\nvar ageTxt = " + ageTxt.toString() + ";\nvar cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar genMap = " + genMap.toString() + ";\nvar DZ_MAPS = { iso: function (d) { return (d.getDay() + 6) % 7 + 1; }, sun0: function (d) { return d.getDay(); }, sun1: function (d) { return d.getDay() + 1; } };\nvar dzGenSlots = " + dzGenSlots.toString() + ";\nvar dzSame = " + dzSame.toString() + ";\nvar dzMapping = " + dzMapping.toString() + ";\nvar tourGen = " + tourGen.toString() + ";\nvar dispoDays = " + dispoDays.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
+  function src(fn) { return "var jaNameFrom = " + jaNameFrom.toString() + ";\nvar ageTxt = " + ageTxt.toString() + ";\nvar cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar genMap = " + genMap.toString() + ";\nvar DZ_MAPS = { iso: function (d) { return (d.getDay() + 6) % 7 + 1; }, sun0: function (d) { return d.getDay(); }, sun1: function (d) { return d.getDay() + 1; } };\nvar dzGenSlots = " + dzGenSlots.toString() + ";\nvar dzSame = " + dzSame.toString() + ";\nvar dzMapping = " + dzMapping.toString() + ";\nvar profMap = " + profMap.toString() + ";\nvar slotsMerge = " + slotsMerge.toString() + ";\nvar tourGen = " + tourGen.toString() + ";\nvar dispoDays = " + dispoDays.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
   // 3.47 : page de maintenance / file d'attente Ten'Up : on le dit au lieu de « Ten'Up n'a pas répondu »
   var MAINT = "var __mt = (document.title || \"\") + \" \" + Array.prototype.map.call(document.querySelectorAll(\"h1,h2\"), function (e) { return e.innerText; }).slice(0, 3).join(\" \");\n" +
     "if (/maintenance|mise à jour du site|file d'attente|queue-it|service (momentanément )?indisponible/i.test(__mt) || /maintenance/i.test(location.pathname)) return \"MONTEE-ERR maintenance\";\n";
@@ -1333,7 +1375,7 @@
   // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
   function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { slotsMinus: slotsMinus, profMap: profMap, slotsMerge: slotsMerge, profBody: profBody, weekGen: weekGen, weekSame: weekSame, tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);

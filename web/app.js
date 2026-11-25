@@ -2083,8 +2083,15 @@
   // Données : m.dz = { gen (créneaux habituels du profil), days (Ten'Up, jour par jour sur les dates du tournoi), map (numérotation des jours), at }.
   // Tes changements restent en brouillon (UI.dzEd) jusqu'à « Enregistrer » ; Montée renvoie alors le même contenu que la page Ten'Up, puis relit pour vérifier.
   var DZ_N = { iso: ["", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."], sun0: ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."], sun1: ["", "dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."] };
-  function dzH(h) { var m = String(h || "").match(/^(\d\d):(\d\d)/); return m ? (+m[1]) + " h" + (m[2] !== "00" ? m[2] : "") : ""; }
-  function dzSl(z) { return dzH(z.from) + " – " + dzH(z.to); }
+  function dzH(h) { var m = String(h || "").match(/^(\d\d):(\d\d)/); return m ? (+m[1]) + "\u00a0h" + (m[2] !== "00" ? m[2] : "") : ""; } // 4.10 : « 22 h » ne se coupe jamais
+  // 4.10 (Yann) : les heures se choisissent de 15 en 15 min partout (la roue iOS d'un champ « time » ignore le pas) ; .value reste « HH:MM »
+  function hSel(attrs, v, empty) { v = String(v || "").slice(0, 5); var o = empty ? '<option value=""' + (v ? "" : " selected") + ">" + esc(empty) + "</option>" : "", seen = false;
+    for (var m = 0; m < 24 * 60; m += 15) { var hm = ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + (m % 60)).slice(-2);
+      if (!seen && v && v < hm && /^\d\d:\d\d$/.test(v)) { o += '<option value="' + v + '" selected>' + dzH(v) + "</option>"; seen = true; }
+      o += '<option value="' + hm + '"' + (hm === v ? " selected" : "") + ">" + dzH(hm) + "</option>"; if (hm === v) seen = true; }
+    if (!empty && !v) o = o.replace('value="18:00"', 'value="18:00" selected');
+    return '<select class="tsel" ' + attrs + ">" + o + "</select>"; }
+  function dzSl(z) { return dzH(z.from) + "\u00a0– " + dzH(z.to); }
   function dzJours(js, map) { var N = DZ_N[map] || DZ_N.iso, o = map === "sun0" ? [1, 2, 3, 4, 5, 6, 0] : map === "sun1" ? [2, 3, 4, 5, 6, 7, 1] : [1, 2, 3, 4, 5, 6, 7];
     var pos = (js || []).map(function (j) { return o.indexOf(j); }).filter(function (k) { return k >= 0; }).sort(), run = [], out = [];
     pos.forEach(function (k, i) { if (i && k === pos[i - 1] + 1) run.push(k); else { if (run.length) out.push(run); run = [k]; } }); if (run.length) out.push(run);
@@ -2115,10 +2122,15 @@
     if (!D) return s + '<div class="card"><span class="small">' + esc(UI.dzErr ? UI.dzErr : NATIVE && S.tenup.linked ? "Lecture de tes dispos sur Ten'Up…" : "Relie Ten'Up pour voir tes dispos.") + "</span></div></div>";
     var can = Dl.ok && !!D.map, E1 = dzEd(t), n = Object.keys(E1).length;
     var pDiff = D.pgen && [1, 2, 3, 4, 5, 6, 7].some(function (wd) { var iso = "2026-11-" + (22 + wd); return !T.dzSame(T.dzGenSlots(D.gen || [], iso, "iso"), T.dzGenSlots(D.pgen, iso, "iso")); }); // 4.9.3 : le tournoi garde la copie prise à l'inscription
-    s += '<h2>Tu es dispo, d\'habitude</h2><div class="blk tz-blk tz-c">' + ((D.gen || []).length ? D.gen.map(function (g) {
-      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>" + (pDiff ? '<p class="small dz-pd">Pour ce tournoi, Ten\'Up garde tes créneaux du moment de ton inscription : ils ont changé depuis sur ton profil.</p>' : "");
+    var hbOk = NATIVE && S.tenup.linked; // 4.10 : les créneaux habituels se changent depuis Montée, pour tous les tournois
+    s += '<h2>Tu es dispo, d\'habitude</h2>' + (hbOk ? '<p class="small" style="margin-top:-6px">Touche une ligne pour changer tes créneaux, pour tous tes tournois.</p>' : "") + '<div class="blk tz-blk tz-c' + (hbOk ? ' hb-open" role="button" tabindex="0" data-a="hbOpen' : "") + '">' + ((D.gen || []).length ? D.gen.map(function (g) {
+      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), hbOk ? I.next : ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>" + (pDiff ? '<p class="small dz-pd">Pour ce tournoi, Ten\'Up garde tes créneaux du moment de ton inscription : ils ont changé depuis sur ton profil.</p>' : "");
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from);
     for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
+    var exs = days.filter(function (iso) { return dzDay(t, D, iso).ex; }); // 4.10 (Yann) : voir et ajouter les indispos propres à ce tournoi
+    if (exs.length || can) s += '<h2>Juste pour ce tournoi</h2><div class="blk tz-blk tz-c hb-just">' + exs.map(function (iso) { var x = dzDay(t, D, iso), hab = dzHab(D, iso), dt = E.parseDate(iso);
+      return '<button class="dz-o hb-jr" data-a="dzDay" data-v="' + iso + '"' + (can ? "" : " disabled") + '><span class="grow"><span class="t">' + esc(cap1(JOURS[dt.getDay()].slice(0, 3)) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]) + '</span><span class="s">' + (x.slots.length ? esc("Dispo " + x.slots.map(dzSl).join(" · ") + (hab.length ? " seulement (au lieu de " + hab.map(dzSl).join(" · ") + ")" : "")) : '<span class="hb-offt">Pas dispo</span>') + (x.ed ? " · pas encore enregistré" : "") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") +
+      (!exs.length ? '<p class="small hb-none">Aucune pour l\'instant : tes créneaux habituels s\'appliquent tous les jours.</p>' : "") + (can ? '<button class="dz-add hb-addx" data-a="dzAdd" data-v="' + esc(t.id) + '">+ Ajouter une indispo</button>' : "") + "</div>";
     s += '<h2>Pendant le tournoi</h2>' + (can ? '<p class="small" style="margin-top:-6px">Touche un jour pour dire que tu n\'es pas dispo, ou changer l\'horaire.</p>' : "") + '<div class="blk dz-days">' + days.map(function (iso) {
       var x = dzDay(t, D, iso), off = !x.slots.length;
       return '<button class="row dz-d' + (off ? " dz-off" : x.ex ? " dz-ex" : "") + '" data-a="dzDay" data-v="' + iso + '"' + (can ? "" : " disabled") + ">" + tzBillet(iso) + '<span class="grow"><span class="t">' + esc(off ? "Pas dispo" : x.slots.map(dzSl).join(" · ")) + '</span>' +
@@ -2135,7 +2147,7 @@
     var opt = function (k, lbl, sub) { return '<button class="dz-o' + (cur === k ? " on" : "") + '" data-a="dzPick" data-v="' + k + '"><span class="grow"><span class="t">' + lbl + '</span><span class="s">' + sub + '</span></span>' + (cur === k ? '<span class="dz-ck">✓</span>' : "") + "</button>"; };
     var b = opt("hab", "Comme d'habitude", hab.length ? esc(hab.map(dzSl).join(" · ")) : "Pas de créneau ce jour-là") + opt("off", "Pas dispo ce jour-là", "Toute la journée") +
       opt("autre", "Un autre horaire", "Dispo seulement sur ce créneau");
-    if (cur === "autre") b += '<div class="dz-hh"><label>De<input id="dz-f" type="time" step="900" value="' + esc(z.from) + '"></label><label>À<input id="dz-t" type="time" step="900" value="' + esc(z.to) + '"></label></div>';
+    if (cur === "autre") b += '<div class="dz-hh"><label>De' + hSel('id="dz-f"', z.from) + '</label><label>À' + hSel('id="dz-t"', z.to) + '</label></div>';
     return { title: cap1(JOURS[d.getDay()]) + " " + dN(d) + " " + MOIS[d.getMonth()], sub: t.name, body: '<div class="tz-sh dz-sh">' + b + '</div><button class="btn primary" data-a="dzOk" data-v="' + esc(cur) + '">OK</button>' };
   };
   function dzSaveRun(t) {
@@ -2153,6 +2165,118 @@
       D.days = r.days; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
       toast(bad.length ? "Ten'Up n'a pas tout pris (" + plural(bad.length, "jour") + ") : vérifie tes dispos." : "Tes dispos sont enregistrées sur Ten'Up.", !bad.length);
     });
+  }
+  // ---- 4.10 (maquettes validées par Yann, 25/11) : créneaux habituels du profil, « Et tes tournois ? », ajouter une indispo ----
+  // Un seul calcul : T.slotsMerge (fusion), T.slotsMinus (indispo), T.profBody / T.weekGen (envois), T.dzBody (tournois). Jours ISO, 1 = lundi.
+  var HB_A = 8, HB_B = 23; // la frise va de 8 h à 23 h
+  function hbMin(h) { var m = String(h).split(":"); return (+m[0]) * 60 + (+m[1] || 0); }
+  function hbHM(n) { n = Math.max(0, Math.min(24 * 60, Math.round(n))); return ("0" + Math.floor(n / 60)).slice(-2) + ":" + ("0" + (n % 60)).slice(-2); }
+  function hbPc(h) { return Math.max(0, Math.min(100, (hbMin(h) / 60 - HB_A) / (HB_B - HB_A) * 100)).toFixed(2) + "%"; }
+  function hbDayName(wd) { return cap1(JOURS[wd % 7]); }
+  function hbLoad(force) {
+    if (!NATIVE || !S.tenup.linked || (UI.hb && UI.hb.busy)) return; UI.hb = UI.hb || {};
+    if (!force && UI.hb.prof && Date.now() - UI.hb.prof.at < 10 * 6e4) return;
+    UI.hb.busy = true; UI.hb.err = null;
+    tenupQuery("profDispo", {}).then(function (r) { UI.hb.busy = false; if (!r || r.error) { UI.hb.err = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
+      UI.hb.prof = r; UI.hb.week = JSON.parse(JSON.stringify(r.week)); render(); });
+  }
+  function hbOffCount(w) { var n = 0; for (var wd = 1; wd <= 7; wd++) if (!(w[wd] || []).length) n++; return n; }
+  // La frise : créneaux en vert sur fond hachuré ; drag : des ronds à glisser ; off : un moment retiré, en orange
+  function hbFrise(slots, drag, off) {
+    var t = ""; for (var h = HB_A; h <= HB_B; h++) t += '<i class="hb-tk' + (h % 4 === 0 ? " hb-tk4" : "") + '" style="left:' + hbPc(h + ":00") + '"></i>';
+    var seg = function (x, i, k) { return '<span class="hb-seg' + (k ? " " + k : "") + '" data-i="' + i + '" style="left:' + hbPc(x.from) + ";width:calc(" + hbPc(x.to) + " - " + hbPc(x.from) + ')">' + (drag ? '<b class="hb-h" data-hbh="' + i + '|s"></b><b class="hb-h hb-he" data-hbh="' + i + '|e"></b>' : "") + "</span>"; };
+    var lab = [HB_A, 12, 16, 20, HB_B].map(function (h) { return '<span style="left:' + hbPc(h + ":00") + '"' + (h === HB_A ? ' class="hb-l0"' : h === HB_B ? ' class="hb-l1"' : "") + ">" + h + " h</span>"; }).join("");
+    return '<div class="hb-fr"><div class="hb-bar' + (drag ? ' hb-drag" data-a="hbBar' : "") + '">' + t + (off ? seg(off, -1, "hb-off") : "") + slots.map(function (x, i) { return seg(x, i); }).join("") + '</div><div class="hb-lab">' + lab + "</div>" +
+      (drag ? '<p class="small hb-hint">Glisse les ronds pour changer les heures · touche un vide pour ajouter un créneau.</p>' : "") + "</div>";
+  }
+  // La journée lue dans l'ordre des heures : avant…, créneaux, trous, après…
+  function hbChrono(slots, del, off) {
+    var it = slots.map(function (x, i) { return { from: x.from, to: x.to, k: "on", i: i }; }); if (off) it.push({ from: off.from, to: off.to, k: "new" });
+    it.sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+    var rows = [], cur = null; it.forEach(function (x, n) { if (cur == null) { if (x.from > "00:00") rows.push({ lab: "avant " + dzH(x.from), k: "off" }); } else if (x.from > cur) rows.push({ lab: dzH(cur) + " – " + dzH(x.from), k: "off" });
+      rows.push({ lab: dzH(x.from) + " – " + dzH(x.to), k: x.k, i: x.i }); cur = x.to; });
+    if (!it.length) rows.push({ lab: "Toute la journée", k: "off" }); else if (cur < "24:00") rows.push({ lab: "après " + dzH(cur), k: "off" });
+    return '<div class="hb-ch">' + rows.map(function (r) { return '<div class="hb-r hb-' + r.k + '"><i></i><span class="hb-rt">' + esc(r.lab) + '</span><span class="hb-rk">' + (r.k === "on" ? "Dispo" : r.k === "new" ? "Ton indispo" : "Pas dispo") + "</span>" +
+      (del && r.k === "on" ? '<button class="tz-ic hb-x" data-a="hbDel" data-v="' + r.i + '" aria-label="Retirer ce créneau"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>' : "") + "</div>"; }).join("") + "</div>";
+  }
+  function DET_HB() { // la semaine
+    var H = UI.hb || {}; hbLoad();
+    if (!H.week) return { title: "Tes créneaux habituels", body: '<p class="small">' + esc(H.err ? "Ten'Up : " + H.err : "Lecture de tes créneaux sur Ten'Up…") + "</p>" };
+    var ch = !T.weekSame(H.week, H.prof.week), rows = "";
+    for (var wd = 1; wd <= 7; wd++) { var sl = H.week[wd] || [], c = !T.dzSame(sl, H.prof.week[wd] || []);
+      rows += '<button class="dz-o" data-a="hbDay" data-v="' + wd + '"><span class="grow"><span class="t">' + hbDayName(wd) + '</span><span class="s">' + (sl.length ? esc(sl.map(dzSl).join(" · ")) : '<span class="hb-offt">Pas dispo</span>') + (c ? ' · <span class="hb-ch1">changé</span>' : "") + "</span></span>" + I.next + "</button>"; }
+    return { title: "Tes créneaux habituels", sub: "Pour tous tes tournois, sauf les jours que tu as changés pour un tournoi.", body: '<div class="tz-sh dz-sh">' + rows + '</div><button class="btn primary" data-a="hbSave"' + (ch && !H.saving ? "" : " disabled") + ">" + (H.saving ? "Envoi à Ten'Up…" : ch ? "Enregistrer sur Ten'Up" : "Rien à enregistrer") + '</button><p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion, puis relu pour vérifier. Les juges-arbitres les voient comme d\'habitude.</p>' };
+  }
+  function DET_HBD(v) { // un jour de la semaine
+    var H = UI.hb || {}, wd = +v, d = UI.hbd; if (!H.week) return null;
+    if (!d || d.wd !== wd) d = UI.hbd = { wd: wd, play: !!(H.week[wd] || []).length, slots: JSON.parse(JSON.stringify(H.week[wd] || [])), also: {} };
+    var hab = H.prof.week[wd] || [], proj = JSON.parse(JSON.stringify(H.week)); [wd].concat(Object.keys(d.also).filter(function (k) { return d.also[k]; }).map(Number)).forEach(function (k) { proj[k] = d.play ? d.slots : []; });
+    var b = '<div class="seg hb-seg2"><button data-a="hbPlay" data-v="1" class="' + (d.play ? "on" : "") + '">Je joue</button><button data-a="hbPlay" data-v="0" class="' + (d.play ? "" : "on") + '">Je ne joue pas</button></div>';
+    b += d.play ? hbFrise(d.slots, true) + hbChrono(d.slots, true) + '<button class="dz-add" data-a="hbAdd">+ Ajouter un créneau</button>' : hbFrise([], false) + hbChrono([], false);
+    b += '<div class="hb-also"><div class="small hb-alt">Pareil pour' + (d.play ? "" : ' <span class="hb-offt">(pas dispo)</span>') + '</div><div class="hb-days">' + [1, 2, 3, 4, 5, 6, 7].map(function (k) { var on = k === wd || d.also[k];
+      return '<button class="chip hb-dc' + (on ? (d.play ? " on" : " hb-dcoff") : "") + '" data-a="hbAlso" data-v="' + k + '"' + (k === wd ? " disabled" : "") + ' aria-label="' + hbDayName(k) + '">' + "LMMJVSD"[k - 1] + "</button>"; }).join("") + "</div></div>";
+    var n = hbOffCount(proj), warn = n >= 2 && n > hbOffCount(H.prof.week);
+    if (warn) b += '<div class="hb-warn"><span class="hb-wi">' + I.warn + '</span><span class="grow"><b>' + n + ' jours sans tennis par semaine</b><span>Le juge-arbitre doit pouvoir te programmer. S\'il n\'y arrive pas, il peut refuser ton inscription.</span></span></div>'; // 4.10 (Yann) : titre seul sur sa ligne, explication dessous
+    return { title: "Le " + JOURS[wd % 7], sub: "D'habitude : " + (hab.length ? hab.map(dzSl).join(" · ") : "pas dispo"), body: '<div class="tz-sh dz-sh hb-day">' + b + '</div><button class="btn primary" data-a="hbOk">' + (warn ? "Oui, je ne joue pas ces jours-là" : "OK") + "</button>" };
+  }
+  function hbTours() { // tes tournois à venir dont les indispos se changent encore
+    var td = E.iso(today()); return (S.tours || []).filter(function (t) { return t.ins && t.tuid && (t.to || t.from) >= td && tzDispo((t.ins.more || {}).dispoLim).ok; });
+  }
+  function hbKept(t) { var D = (t.ins.more || {}).dz; if (!D) return ""; var a = []; (D.days || []).forEach(function (g) { var x = dzDay(t, D, g.date); if (x.ex) a.push(fdate(g.date) + (x.slots.length ? ", " + x.slots.map(dzSl).join(" · ") : ", pas dispo")); }); return a.join(" ; "); }
+  function DET_HBT() {
+    var L = hbTours(), sel = UI.hbSel || {}, n = L.filter(function (t) { return sel[t.id] !== false; }).length;
+    if (!L.length) return null;
+    var rows = L.map(function (t) { var on = sel[t.id] !== false, k = hbKept(t), Dl = tzDispo((t.ins.more || {}).dispoLim);
+      return '<button class="dz-o' + (on ? " on" : "") + '" data-a="hbTourTog" data-v="' + esc(t.id) + '"><span class="grow"><span class="t">' + esc(t.name) + '</span><span class="s">' + esc(fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : "") + " · " + Dl.txt.toLowerCase()) + "</span>" + (k ? '<span class="s hb-kept">Gardé : ' + esc(k) + "</span>" : "") + "</span>" + (on ? '<span class="dz-ck">✓</span>' : "") + "</button>"; }).join("");
+    return { title: "Et tes tournois ?", sub: "Tes créneaux habituels ont changé sur Ten'Up.", body: '<p class="small">' + (L.length > 1 ? "Tes " + L.length + " tournois à venir gardent" : "Ton tournoi à venir garde") + " les anciens. On les met à jour ? Ce que tu as changé pour un tournoi précis est gardé.</p><div class=\"tz-sh dz-sh\">" + rows + '</div><button class="btn primary" data-a="hbToursGo"' + (n && !UI.hbRun ? "" : " disabled") + ">" + (UI.hbRun ? "Mise à jour…" : n > 1 ? "Mettre à jour mes " + n + " tournois" : "Mettre à jour mon tournoi") + '</button><button class="btn hb-later" data-a="sheetClose">Pas maintenant</button>' };
+  }
+  function hbUuid() { try { return crypto.randomUUID(); } catch (e) { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); }); } }
+  function hbTourRun(t, gen) { // un tournoi : relire, garder ses jours particuliers, envoyer, relire
+    var m = t.ins.more = t.ins.more || {}, from = t.from, to = t.to || t.from;
+    return tenupQuery("dispos", { t: t.tuid, from: from, to: to }).then(function (r) {
+      if (!r || r.error) return false; var ex = {}, want = {};
+      (r.days || []).forEach(function (g) { var sl = g.slots.map(function (z) { return { from: z.from, to: z.to }; }); if (!T.dzSame(sl, T.dzGenSlots(r.gen, g.date, "iso"))) ex[g.date] = sl; });
+      var days = [], d0 = E.parseDate(from), d1 = E.parseDate(to); for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
+      days.forEach(function (iso) { want[iso] = ex[iso] || T.dzGenSlots(gen, iso, "iso"); });
+      return tenupQuery("dispoSave", { t: t.tuid, body: T.dzBody(gen, ex, "iso", hbUuid), from: from, to: to }).then(function (s) {
+        if (!s || s.error) return false; m.dz = { gen: gen, pgen: gen, days: s.days, map: "iso", at: Date.now() };
+        return days.every(function (iso) { var g = (s.days || []).filter(function (x) { return x.date === iso; })[0]; return T.dzSame(g ? g.slots : [], want[iso]); });
+      });
+    });
+  }
+  function hbMergeToast(mg, prev) { // 4.10 (Yann) : on ne parle du regroupement que quand il arrive, avec « Annuler »
+    if (!mg.length) return; var a = mg[0]; UI.hbUndo = prev;
+    toast(dzSl(a.a) + " et " + dzSl(a.b) + " regroupés en " + dzSl(a.r || { from: a.a.from, to: a.b.to }));
+    var tk = document.querySelector(".toast"); if (tk) { clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000); tk.insertAdjacentHTML("beforeend", ' <button class="tk-undo" data-a="hbUndo">Annuler</button>'); }
+  }
+  function hbSet(slots) { var d = UI.hbd, prev = JSON.parse(JSON.stringify(d.slots)), r = T.slotsMerge(slots); d.slots = r.slots.map(function (x) { return { from: x.from, to: x.to }; }); hbMergeToast(r.merged, prev); }
+  function DET_DZA(v) { // ajouter une indispo pour ce tournoi
+    var t = (S.tours || []).filter(function (x) { return x.id === v; })[0]; if (!t || !(t.ins.more || {}).dz) return null;
+    var D = t.ins.more.dz, days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from); for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
+    var a = UI.dza = UI.dza && UI.dza.t === v ? UI.dza : { t: v, iso: days[0], all: false, from: "", to: "" }, cur = dzDay(t, D, a.iso).slots, dt = E.parseDate(a.iso);
+    if (!a.from && cur.length) { a.from = cur[0].from; a.to = hbHM(Math.min(hbMin(cur[0].to), hbMin(cur[0].from) + 120)); } if (!a.from) { a.from = "18:00"; a.to = "20:00"; }
+    var off = a.all ? null : { from: a.from, to: a.to }, res = a.all ? [] : T.slotsMinus(cur, a.from, a.to);
+    var b = '<div class="small hb-alt">Quel jour ?</div><div class="hb-dates">' + days.map(function (iso) { var x = E.parseDate(iso); return '<button class="chip hb-dt' + (iso === a.iso ? " hb-dcoff" : "") + '" data-a="dzaDay" data-v="' + iso + '"><small>' + esc(JOURS[x.getDay()].slice(0, 3)) + ".</small><b>" + dN(x) + "</b></button>"; }).join("") + "</div>";
+    b += '<p class="small">D\'habitude le ' + JOURS[dt.getDay()] + " : " + esc(cur.length ? cur.map(dzSl).join(" · ") : "pas dispo") + "</p>";
+    b += '<div class="seg hb-seg2"><button data-a="dzaAll" data-v="1" class="' + (a.all ? "on" : "") + '">Toute la journée</button><button data-a="dzaAll" data-v="0" class="' + (a.all ? "" : "on") + '">Juste un moment</button></div>';
+    if (!a.all) b += '<div class="dz-hh"><label>Pas dispo de' + hSel('id="dza-f"', a.from) + '</label><label>À' + hSel('id="dza-t"', a.to) + '</label></div>';
+    b += hbFrise(res, false, off) + hbChrono(res, false, off);
+    if (!a.all && res.length) b += '<p class="small">Ce ' + JOURS[dt.getDay()] + ", tu joues " + esc(res.map(function (x) { return "de " + dzH(x.from) + " à " + dzH(x.to); }).join(" et ")) + (cur.length ? " au lieu de " + esc(cur.map(dzSl).join(" · ")) : "") + ".</p>";
+    return { title: "Ajouter une indispo", sub: t.name + " · " + fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), body: '<div class="tz-sh dz-sh hb-day">' + b + '</div><button class="btn primary" data-a="dzaOk">Ajouter l\'indispo du ' + esc(JOURS[dt.getDay()].slice(0, 3) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]) + "</button>" };
+  }
+  // Glisser les ronds de la frise : l'heure suit le doigt par quarts d'heure, dans une bulle
+  function hbDragInit() {
+    if (hbDragInit.ok) return; hbDragInit.ok = true; var g = null;
+    document.addEventListener("pointerdown", function (ev) { var h = ev.target.closest && ev.target.closest("[data-hbh]"); if (!h || !UI.hbd) return;
+      var bar = h.closest(".hb-bar"), p = h.dataset.hbh.split("|"), i = +p[0], sl = UI.hbd.slots; ev.preventDefault();
+      g = { bar: bar, i: i, e: p[1] === "e", h: h, seg: h.parentNode, lo: p[1] === "e" ? hbMin(sl[i].from) + 15 : (i ? hbMin(sl[i - 1].to) : 0), hi: p[1] === "e" ? (i < sl.length - 1 ? hbMin(sl[i + 1].from) : 24 * 60) : hbMin(sl[i].to) - 15, v: null };
+      h.classList.add("hb-on"); try { h.setPointerCapture(ev.pointerId); } catch (e) {} });
+    document.addEventListener("pointermove", function (ev) { if (!g) return; var r = g.bar.getBoundingClientRect(), x = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)), m = Math.round(((HB_A + x * (HB_B - HB_A)) * 60) / 15) * 15;
+      m = Math.max(g.lo, Math.min(g.hi, m)); if (m === g.v) return; g.v = m; haptic("light"); var s = UI.hbd.slots[g.i], a = g.e ? s.from : hbHM(m), b = g.e ? hbHM(m) : s.to;
+      g.seg.style.left = hbPc(a); g.seg.style.width = "calc(" + hbPc(b) + " - " + hbPc(a) + ")"; g.h.setAttribute("data-t", dzH(hbHM(m))); });
+    document.addEventListener("pointerup", function () { if (!g) return; var gg = g; g = null; hbDragInit.t = Date.now(); gg.h.classList.remove("hb-on"); if (gg.v == null) return;
+      var nx = JSON.parse(JSON.stringify(UI.hbd.slots)); nx[gg.i][gg.e ? "to" : "from"] = hbHM(gg.v); hbSet(nx); render(); });
+    document.addEventListener("pointercancel", function () { if (g) { g.h.classList.remove("hb-on"); g = null; render(); } });
   }
   var DET_TZF = function () { // 4.6.0 (Yann) : où et quand chercher ; les mêmes réglages que la recherche Ten'Up (ville, rayon, dates)
     var P = tzPrefs(), b = "", seg = function (k, vals, cur, f) { return '<div class="seg tz-fs">' + vals.map(function (v) { return '<button data-a="tzSet" data-k="' + k + '" data-v="' + v + '" class="' + (v === cur ? "on" : "") + '">' + f(v) + "</button>"; }).join("") + "</div>"; };
@@ -3927,7 +4051,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var x = t.pool[UI.plSched];
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="plSchedClose"></div><div class="sheet tq-sheet" role="dialog" aria-modal="true" aria-label="Programmer le match"><span class="sheet-grab"></span>' +
       '<div class="tq-hd"><b>Programmer le match</b><span>' + esc(trNm(x.name)) + "</span></div>" +
-      '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (x.day ? " v" : "") + '"><input type="date" id="ps-day" data-tn="psday" value="' + esc(x.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v"><input type="time" id="ps-time" value="' + esc(x.time || "") + '"><em></em></span></div>' +
+      '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (x.day ? " v" : "") + '"><input type="date" id="ps-day" data-tn="psday" value="' + esc(x.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('id="ps-time"', x.time, "Heure") + '<em></em></span></div>' +
       hostSeg(UI.plHost != null ? UI.plHost : x.host || "", "plHost") +
       '<span class="small">Montée te le rappelle la veille au soir' + (x.tid ? ", avec ton plan de jeu" : "") + ".</span>" +
       '<button class="btn primary" data-a="plSchedSave">Enregistrer</button>' +
@@ -3961,8 +4085,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     if (pool) s += '<span class="tq-lab">Son numéro · facultatif</span><div class="tq-sb"><span class="tq-mag">' + CALL_IC + '</span><input type="tel" inputmode="tel" data-tr="tel" value="' + esc(telFmt(R.tel || "")) + '" placeholder="06 12 34 56 78" autocomplete="off"></div>';
     // 3.45 (Yann) : en poule (ou épreuve longue), la date se saisit directement, pas de pastilles qui défilent
     var longEv = pool || (t.to && t.from && (E.parseDate(t.to) - E.parseDate(t.from)) / 864e5 > 7);
-    s += '<span class="tq-lab">Quand ?</span>' + (longEv ? '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v"><input type="time" data-tr="time" value="' + esc(R.time || "") + '"><em></em></span></div>' :
-      trDays(t, R) + '<label class="tq-h"><span>Heure · si tu la connais</span><input type="time" data-tr="time" value="' + esc(R.time || "") + '"></label>') +
+    s += '<span class="tq-lab">Quand ?</span>' + (longEv ? '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('data-tr="time"', R.time, "—") + '<em></em></span></div>' :
+      trDays(t, R) + '<label class="tq-h"><span>Heure · si tu la connais</span>' + hSel('data-tr="time"', R.time, "—") + '</label>') +
       '<button class="btn primary" data-a="trSave">' + (pool ? "Enregistrer ce match" : "Enregistrer le " + esc(lab.toLowerCase())) + "</button>" +
       (pool && R.i !== "new" && (t.pool[+R.i] || {}).res ? '<button class="linkbtn" data-a="trUndo" data-k="pool" data-i="' + R.i + '" style="align-self:center">Retirer le résultat (' + t.pool[+R.i].res + ")</button>" : "") +
       (R.i !== "new" && !pool ? '<button class="linkbtn" data-a="trRoundDel" style="align-self:center;color:var(--terre)">Supprimer ce tour</button>' : "") +
@@ -9329,7 +9453,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var s = '<div class="screen">' + topbar(isNew ? "Nouveau créneau" : "Créneau", "Ta semaine type", isNew ? "" : '<button class="iconbtn" data-a="delSlot" aria-label="Supprimer ce créneau">' + I.trash + "</button>");
     s += '<div class="form">' +
       '<div class="field"><span class="lbl">Jour</span><div class="chips">' + DAYS_L.map(function (d, i) { return '<button class="chip' + (sl.dow === i ? " on" : "") + '" data-a="slset" data-k="dow" data-v="' + i + '">' + d.slice(0, 3) + ".</button>"; }).join("") + "</div></div>" +
-      '<div class="field inline"><label for="sl-time">Heure</label><input id="sl-time" type="time" data-sl="time" value="' + esc(sl.time) + '"></div>' +
+      '<div class="field inline"><label for="sl-time">Heure</label>' + hSel('id="sl-time" data-sl="time"', sl.time) + '</div>' +
       '<div class="field"><span class="lbl">Durée</span><div class="chips">' + [60, 90, 120].map(function (n) { return '<button class="chip' + (sl.minutes === n ? " on" : "") + '" data-a="slset" data-k="minutes" data-v="' + n + '">' + fmtDur(n) + "</button>"; }).join("") + "</div></div>" +
       '<div class="field"><span class="lbl">Type</span><div class="chips">' + TLABELS.map(function (l) { return '<button class="chip' + (sl.label === l ? " on" : "") + '" data-a="slset" data-k="label" data-v="' + l + '">' + l + "</button>"; }).join("") + "</div></div>" +
       "</div>";
@@ -9813,7 +9937,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     return a.href ? '<a class="cbl-go" href="' + a.href + '">' + esc(a.l) + " ›</a>" : '<button class="cbl-go" data-a="' + a.a + '"' + (a.k ? ' data-k="' + esc(a.k) + '"' : "") + (a.v != null ? ' data-v="' + esc(a.v) + '"' : "") + ">" + esc(a.l) + " ›</button>";
   }
   // 4.9 (Yann, 25/11/2026) : Ace posé sur une carte se touche et ouvre sa conversation sur cette carte (q = le sujet, "" = l'accueil d'Ace)
-  function acePeek(q, ask) { return '<span class="ace-peek" role="button" tabindex="0" data-a="ace" data-v="' + esc(q || "") + '" aria-label="Demander à Ace">' + (ask && !S.aceTap ? '<span class="ace-bub ace-ask">Je t\'explique ?</span>' : ""); }
+  function acePeek(q, ask) { return '<span class="ace-peek" role="button" tabindex="0" data-a="ace" data-v="' + esc(q || "") + '" aria-label="Demander à Ace">' + (ask ? '<span class="ace-bub ace-ask">Je t\'explique ?</span>' : "") /* 4.9.2 (Yann) : la bulle reste, c'est elle qui dit qu'Ace se touche (le ⓘ est parti) */; }
   function coBall(id, mood, sz) { return '<span class="cbl-b' + (sz ? " " + sz : "") + '" data-k="' + esc(id) + '" data-id="' + esc(id) + '" data-m="' + (mood || "repos") + '" aria-hidden="true"></span>'; }
   function coachBubble(scr, tips) {
     var t = coPick(scr, tips); if (!t) return "";
@@ -10282,7 +10406,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       if (cB.length) XH += acCard("Ce qui fait tes " + bB.total, cB.slice(0, 3).map(rowW).join("") +
         (restB.length ? acRow({ l: restB.length > 1 ? "Tes " + restB.length + " autres victoires" : "Ton autre victoire", s: restB.length > 1 ? "de +" + restB[0].pts + " à +" + restB[restB.length - 1].pts : "", v: "+" + sumR, sheet: ["mmBilan", "up"] }) : acRow({ l: "Les matchs qui comptent", s: "ce que rapporte chacun", sheet: ["mmBilan", "up"] })) +
         bonB.map(function (x) { return acRow({ l: x[1], s: x[2], v: (bB[x[0]] > 0 ? "+" : "") + bB[x[0]], cl: bB[x[0]] > 0 ? "g" : "r" }); }).join("") +
-        '<span class="acd-f">La courbe, c\'est ce total à chaque sortie.' + (relB ? " Le dernier point, c'est le " + esc(relB) + "." : "") + "</span>");
+        '<span class="acd-f">La courbe, c\'est ce total à chaque sortie, sur les 12 mois avant elle. Les pointillés, c\'est la norme (' + bB.norme + ")." + (relB ? " Le dernier point, c'est le " + esc(relB) + "." : "") + " Touche un point pour voir une autre sortie.</span>");
       F.push([p.status === "descente" ? "Comment je reste " + lab(cur) + " ?" : "Comment je monte " + bB.label + " ?", "up"]); F.push(["Qu'est-ce qui sort de mon bilan ?", "when"]); F.push(["Je progresse ou pas ?", "prog"]);
     } else if (k[0] === "piste" && p.next) {
       // 4.9 : « C'est quoi, une piste ? », depuis Ace posé sur « Tes pistes » (mêmes pistes que la carte)
@@ -13317,8 +13441,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         else if (k === "service") html = watchStatsHtml() + serveTrendHtml();
         else { var box = document.createElement("div"), keep = UI.sheet; UI.sheet = null; UI.cbRaw = 1; try { box.innerHTML = V.courbes(); } finally { UI.cbRaw = 0; } UI.sheet = keep; var el = box.querySelector("#cb-" + k); html = el ? el.innerHTML : ""; }
       } catch (e) { html = ""; }
-      var T0 = { plafond: "Face à chaque classement", gagner: "Ce qui fait la différence", train: "Tes entraînements", service: "Ton service", chiffres: "Tes chiffres" };
-      return { title: T0[k] || cbName(k) || "Le détail", body: html ? '<div class="cb-sh">' + html + "</div>" : '<span class="small">Pas encore assez de données.</span>' };
+      var T0 = { plafond: "Face à chaque classement", gagner: "Ce qui fait la différence", train: "Tes entraînements", service: "Ton service", chiffres: "Tes chiffres" }, ttl = T0[k] || cbName(k) || "Le détail";
+      // 4.9.2 (Yann : « y'a redite ») : le titre de la carte répète celui de la feuille → on le cache, on garde ce qu'il ajoute (« · 12 mois », « · 15/2 »)
+      if (html) try { var bx = document.createElement("div"), nk = function (t) { return String(t || "").replace(/[’']/g, "'").replace(/\s+/g, " ").trim().toLowerCase(); }; bx.innerHTML = html;
+        Array.prototype.forEach.call(bx.querySelectorAll(".eyebrow, .chead .ct > b, .fm3-h .ct > b"), function (e) {
+          var tn = null; Array.prototype.forEach.call(e.childNodes, function (n) { if (!tn && n.nodeType === 3 && n.textContent.trim()) tn = n; });
+          var T = nk(ttl); if (!tn) return; var t = nk(tn.textContent);
+          if (t === T) { if (nk(e.textContent) === T) e.classList.add("cb-dup"); else tn.textContent = ""; } // titre seul : caché ; titre + pastille (Montée+) : la pastille reste
+          else if (t.indexOf(T) === 0 && /^\s*·/.test(t.slice(T.length))) tn.textContent = tn.textContent.replace(/^[^·]*·\s*/, ""); // « Mental · 12 mois » → « 12 mois »
+        });
+        html = bx.innerHTML; } catch (e) {}
+      return { title: ttl, body: html ? '<div class="cb-sh">' + html + "</div>" : '<span class="small">Pas encore assez de données.</span>' };
     },
     // 3.48.4 (Yann) : chercher un joueur sans quitter l'écran : une feuille par le bas, puis sa fiche face-à-face (retour possible)
     pSearch: function () {
@@ -15052,7 +15185,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var head = '<span class="ob-eb"><span class="eyebrow">Entre deux matchs' + (tour ? " · " + esc(tour) : "") + '</span><span class="ob-tag ok">Aujourd\'hui</span></span>';
     var hm = obHm(B.time);
     if (!hm) return '<div class="card ob-c">' + head + '<b class="ob-t">À quelle heure est ton prochain match ?</b><span class="ob-s">' + esc(what) + " contre " + esc(who) + " " + obRk(rk) + ". Avec l'heure, Montée te dit quand manger, récupérer et t'échauffer.</span>" +
-      '<div class="ob-time"><input type="time" data-btw="t" aria-label="Heure du prochain match" value=""><button class="btn primary small" data-a="btwSet">Valider</button></div></div>';
+      '<div class="ob-time">' + hSel('data-btw="t" aria-label="Heure du prochain match"', "", "Heure") + '<button class="btn primary small" data-a="btwSet">Valider</button></div></div>';
     var now = new Date(), at = new Date(today().getTime()); at.setHours(hm.h, hm.m, 0, 0);
     var left = Math.round((at - now) / 60000);
     if (left < -15) return "";
@@ -15304,7 +15437,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<span class="ob-foot">Un recordage compte environ ' + OB_RS_EUR + " € (≈) : 12 € le cordage et 10 € la pose. Les inscriptions sont celles que Ten'Up indique. " + (D.approx ? "Un tournoi déjà joué n'y figure plus, avec son prix : Montée le compte environ " + OB_INS_EUR + " € (≈). " : "") + "Rien ne sort de ton téléphone.</span>" };
   };
   function sheetHtml() {
-    DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.dz = DET_DZ; DET.itin = DET_ITIN; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
+    DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.dz = DET_DZ; DET.hb = DET_HB; DET.hbd = DET_HBD; DET.hbt = DET_HBT; DET.dza = DET_DZA; hbDragInit(); DET.itin = DET_ITIN; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
     var d = DET[UI.sheet.k] && DET[UI.sheet.k](UI.sheet.v);
     if (!d) { UI.sheet = null; return ""; }
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + '</b><button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
@@ -20447,6 +20580,45 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
           if (!f || !to || to <= f) { toast("L'heure de fin doit être après l'heure de début."); return; } ed[a[1]] = [{ from: f.slice(0, 5), to: to.slice(0, 5) }]; }
         var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
       UI.dzPk = null; UI.sheet = null; render(); },
+    // 4.10 : créneaux habituels (profil Ten'Up) et indispo d'un tournoi
+    hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(); render(); },
+    hbDay: function (el) { UI.hbd = null; UI.sheet = { k: "hbd", v: el.dataset.v, back: "hb" }; render(); },
+    hbPlay: function (el) { var d = UI.hbd; if (!d) return; d.play = el.dataset.v === "1";
+      if (d.play && !d.slots.length) { var h = (UI.hb.prof.week[d.wd] || []); d.slots = h.length ? JSON.parse(JSON.stringify(h)) : [{ from: "18:00", to: "22:00" }]; } render(); },
+    hbDel: function (el) { var d = UI.hbd; if (!d) return; d.slots.splice(+el.dataset.v, 1); if (!d.slots.length) d.play = false; render(); },
+    hbAdd: function () { var d = UI.hbd; if (!d) return; var A0 = HB_A * 60, B0 = HB_B * 60, cur = A0, best = null;
+      d.slots.concat([{ from: hbHM(B0), to: hbHM(B0) }]).forEach(function (x) { var a = Math.max(cur, A0), b = Math.min(hbMin(x.from), B0); if (b - a >= 30 && (!best || b - a > best.b - best.a)) best = { a: a, b: b }; cur = Math.max(cur, hbMin(x.to)); });
+      if (!best) { toast("Ta journée est déjà pleine."); return; } var m = (best.a + best.b) / 2, a = Math.max(best.a, Math.round((m - 60) / 15) * 15), b = Math.min(best.b, a + 120);
+      d.slots = d.slots.concat([{ from: hbHM(a), to: hbHM(b) }]).sort(function (x, y) { return x.from < y.from ? -1 : 1; }); render(); },
+    hbBar: function (el, ev) { var d = UI.hbd; if (!d || !ev || (ev.target.closest && ev.target.closest(".hb-seg")) || Date.now() - (hbDragInit.t || 0) < 400) return;
+      var r = el.getBoundingClientRect(), m = Math.round(((HB_A + Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)) * (HB_B - HB_A)) * 60) / 15) * 15;
+      if (d.slots.some(function (x) { return m >= hbMin(x.from) && m <= hbMin(x.to); })) return;
+      var lo = HB_A * 60, hi = HB_B * 60; d.slots.forEach(function (x) { if (hbMin(x.to) <= m) lo = Math.max(lo, hbMin(x.to)); if (hbMin(x.from) >= m) hi = Math.min(hi, hbMin(x.from)); });
+      var a = Math.max(lo, m - 60), b = Math.min(hi, a + 120); if (b - a < 30) return; haptic("light");
+      d.slots = d.slots.concat([{ from: hbHM(a), to: hbHM(b) }]).sort(function (x, y) { return x.from < y.from ? -1 : 1; }); render(); },
+    hbAlso: function (el) { var d = UI.hbd, k = +el.dataset.v; if (!d || k === d.wd) return; d.also[k] = !d.also[k]; render(); },
+    hbUndo: function () { if (UI.hbd && UI.hbUndo) { UI.hbd.slots = UI.hbUndo; UI.hbUndo = null; } var tk = document.querySelector(".toast"); if (tk) tk.remove(); render(); },
+    hbOk: function () { var d = UI.hbd, H = UI.hb; if (!d || !H || !H.week) return;
+      [d.wd].concat(Object.keys(d.also).filter(function (k) { return d.also[k]; }).map(Number)).forEach(function (k) { H.week[k] = d.play ? T.slotsMerge(d.slots).slots.map(function (x) { return { from: x.from, to: x.to }; }) : []; });
+      UI.hbd = null; UI.sheet = { k: "hb" }; render(); },
+    hbSave: function () { var H = UI.hb; if (!H || !H.week || H.saving) return; var want = JSON.parse(JSON.stringify(H.week)); H.saving = true; render();
+      tenupQuery("profDispoSave", { idCrm: H.prof.idCrm, body: T.profBody(H.prof, H.week) }).then(function (r) { H.saving = false;
+        if (!r || r.error) { toast("Ten'Up a refusé : " + (r && r.error || "pas de réponse") + ". Rien n'a changé."); render(); return; }
+        var ok = T.weekSame(r.week, want); H.prof = r; H.week = JSON.parse(JSON.stringify(r.week));
+        toast(ok ? "Tes créneaux habituels sont enregistrés sur Ten'Up." : "Ten'Up n'a pas tout pris : vérifie tes créneaux.", ok);
+        UI.hbSel = {}; UI.sheet = ok && hbTours().length ? { k: "hbt" } : UI.sheet; render(); }); },
+    hbTourTog: function (el) { UI.hbSel = UI.hbSel || {}; UI.hbSel[el.dataset.v] = UI.hbSel[el.dataset.v] === false; render(); },
+    hbToursGo: function () { var H = UI.hb, sel = UI.hbSel || {}, L = hbTours().filter(function (t) { return sel[t.id] !== false; }); if (!H || !H.prof || UI.hbRun || !L.length) return;
+      var gen = T.weekGen(H.prof.week), bad = 0; UI.hbRun = true; render();
+      L.reduce(function (p, t) { return p.then(function () { return hbTourRun(t, gen).then(function (ok) { if (!ok) bad++; }, function () { bad++; }); }); }, Promise.resolve()).then(function () {
+        UI.hbRun = false; UI.sheet = null; save(); render();
+        toast(bad ? plural(bad, "tournoi") + " pas mis à jour : ouvre ses indispos pour vérifier." : (L.length > 1 ? "Tes " + L.length + " tournois sont à jour." : "Ton tournoi est à jour."), !bad); }); },
+    dzAdd: function (el) { UI.dza = null; UI.sheet = { k: "dza", v: el.dataset.v }; render(); },
+    dzaDay: function (el) { if (UI.dza) { UI.dza.iso = el.dataset.v; UI.dza.from = ""; UI.dza.to = ""; } render(); },
+    dzaAll: function (el) { if (UI.dza) UI.dza.all = el.dataset.v === "1"; render(); },
+    dzaOk: function () { var a = UI.dza, t = a && (S.tours || []).filter(function (x) { return x.id === a.t; })[0]; if (!t || !(t.ins.more || {}).dz) return;
+      if (!a.all && (!a.from || !a.to || a.to <= a.from)) { toast("L'heure de fin doit être après l'heure de début."); return; }
+      var cur = dzDay(t, t.ins.more.dz, a.iso).slots; dzEd(t)[a.iso] = a.all ? [] : T.slotsMinus(cur, a.from, a.to); UI.dza = null; UI.sheet = null; render(); },
     dzSave: function (el) { var t = (S.tours || []).filter(function (x) { return x.id === el.dataset.v; })[0]; if (t) dzSaveRun(t); },
     tzWhere: function () { UI.sheet = { k: "tzf" }; render(); },
     tzSet: function (el) { var P = tzPrefs(); P[el.dataset.k] = +el.dataset.v; save(); render(); },
@@ -20545,7 +20717,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var el = ev.target.closest("[data-a]");
     if (!el || el.tagName === "INPUT") return;
     var a = el.dataset.a;
-    if (A[a]) { if (el.tagName !== "A" || a === "bmHelp") ev.preventDefault(); CUR_ACT = { a: a, el: el, ev: ev }; A[a](el, ev); }
+    if (A[a]) { if (el.tagName !== "A" || a === "bmHelp") ev.preventDefault(); CUR_ACT = { a: a, el: el, ev: ev };
+      // 4.9.2 (Yann : « ça fait escalier ») : un onglet changé dans une feuille ne la fait plus sauter, elle garde sa plus grande hauteur
+      var shE = el.closest(".sheet"), shK = shE && UI.sheet ? JSON.stringify(UI.sheet) : "", shH = shE ? shE.getBoundingClientRect().height : 0;
+      A[a](el, ev);
+      if (shK && UI.sheet && JSON.stringify(UI.sheet) === shK) { var shN = document.querySelectorAll(".sheet"); shN = shN[shN.length - 1]; if (shN && shN.getBoundingClientRect().height < shH) shN.style.minHeight = Math.round(shH) + "px"; }
+    }
   });
   // Pages qui défilent à l'horizontale (mode match) : les points suivent ; sommaire des courbes : la pastille suit
   document.addEventListener("scroll", function (ev) {
@@ -20600,7 +20777,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   });
   app.addEventListener("change", function (ev) {
     var el = ev.target;
-
+    if ((el.id === "dza-f" || el.id === "dza-t") && UI.dza) { UI.dza[el.id === "dza-f" ? "from" : "to"] = String(el.value || "").slice(0, 5); render(); return; } // 4.10
     if (el.dataset.f === "profile.rank") { S.profile.rank = el.value; save(); render(); }
     else if (el.dataset.d === "wo") UI.draft.wo = el.checked;
     else if (el.dataset.d === "newString") UI.draft.newString = el.checked;
