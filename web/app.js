@@ -3153,11 +3153,14 @@
   function tmDiv(x) { x = String(x || "").toLowerCase().replace(/\b([a-z])\b/g, function (l) { return l.toUpperCase(); }); return x.charAt(0).toUpperCase() + x.slice(1); }
   function tmOrd(n) { return n === 1 ? "1er" : n + "e"; }
   function tmOf(c, id) { return (c.teams || []).filter(function (t) { return t.id === id; })[0]; }
-  function tmLive(r) { return r.d === E.iso(today()) && r.st !== "T"; }
-  function tmNext(c) { var me = c.me.mine, td = E.iso(today()); return (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.d >= td && r.st !== "T"; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; })[0] || null; }
+  // 4.11.4 (Davy) : une rencontre est jouée si sa feuille de match est terminée OU si elle est gagnée par forfait (Ten'Up : pas de feuille,
+  // statut vide, score 4–0 donné au vainqueur, mais comptée dans le classement). Un seul test pour tous les écrans.
+  function tmDone(r) { return r.st === "T" || !!r.f; }
+  function tmLive(r) { return r.d === E.iso(today()) && !tmDone(r); }
+  function tmNext(c) { var me = c.me.mine, td = E.iso(today()); return (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.d >= td && !tmDone(r); }).sort(function (a, b) { return a.d < b.d ? -1 : 1; })[0] || null; }
   // 3.51.1 : « En cours » : l'équipe qui joue aujourd'hui d'abord, puis la prochaine rencontre la plus proche
   function tmOrdOn(a, b) { var x = tmNext(a), y = tmNext(b), lx = x && tmLive(x) ? 0 : 1, ly = y && tmLive(y) ? 0 : 1; if (lx !== ly) return lx - ly; var dx = x ? x.d : "9", dy = y ? y.d : "9"; return dx < dy ? -1 : dx > dy ? 1 : (a.last < b.last ? 1 : -1); }
-  function tmScore(r) { var lv = tmLive(r) && (r.c1 || r.c2); return r.st === "T" || lv ? (lv ? r.c1 : r.s1) + " – " + (lv ? r.c2 : r.s2) : null; }
+  function tmScore(r) { var lv = tmLive(r) && (r.c1 || r.c2); return tmDone(r) || lv ? (lv ? r.c1 : r.s1) + " – " + (lv ? r.c2 : r.s2) : null; }
   // 3.74.2 (audit) : ces relectures sont lancées à chaque affichage de l'écran ; quand Ten'Up ne répond pas (hors ligne, déconnecté),
   // l'échec relançait aussitôt l'affichage, donc une nouvelle relecture : boucle sans fin (écran figé, batterie). Une tentative
   // non forcée attend maintenant 10 min après la précédente.
@@ -3168,7 +3171,7 @@
     if (!force && t && t.qv === 9 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; if (!retryOk("teams", force)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe ; 5 = 3.58.1, le club d'en face ; 6 = 3.62, ton nom sur la feuille de match ; 7 = 3.68, recherche découpée en plusieurs lectures ; 8 = 3.74.2, feuilles de match enfin lues)
     UI.tmBusy = true;
     // 3.68 : les poules où tes équipes ont déjà été trouvées sont relues en premier (une lecture courte suffit le plus souvent)
-    var known = {}; ((t && t.champs) || []).forEach(function (c) { if (!c.none && !c.err && c.path && c.path.q && c.me && c.me.mine) { var k = String(c.cid || c.id); (known[k] = known[k] || []).push(c.path); } });
+    var known = {}; ((t && t.champs) || []).forEach(function (c) { if (!c.none && !c.err && c.path && c.path.q && c.me && c.me.mine) { var k = String(c.cid || c.id); (known[k] = known[k] || []).push(Object.assign({ dn: c.div || "" }, c.path)); } });
     var args = { club: (t && t.club && t.club.code) || S.tenup.clubCode || "", pid: (t && t.pid) || "", nomClub: (t && t.club && t.club.nom) || "", lic: S.profile.licence || "", nm: S.profile.name || "", known: known };
     var calls = 0, done = function () { UI.tmBusy = false; var rt = route(); if (rt === "" || rt.indexOf("tournoi") === 0 || rt.indexOf("equipe") === 0 || rt.indexOf("rencontre") === 0 || rt.indexOf("reglages") === 0) render(); };
     var go = function (job) {
@@ -3239,7 +3242,7 @@
   function teamSeasonHtml() {
     var td = E.iso(today()), y0 = today().getMonth() >= 8 ? today().getFullYear() : today().getFullYear() - 1, from = y0 + "-09-01";
     // les rencontres de tes équipes cette saison, jouées
-    var R = []; myTeams(true).forEach(function (c) { var me = c.me.mine; (c.renc || []).forEach(function (r) { if ((r.a === me || r.b === me) && r.d >= from && r.d <= td && r.st === "T") R.push({ c: c, r: r, my: r.a === me ? 1 : 2 }); }); });
+    var R = []; myTeams(true).forEach(function (c) { var me = c.me.mine; (c.renc || []).forEach(function (r) { if ((r.a === me || r.b === me) && r.d >= from && r.d <= td && tmDone(r)) R.push({ c: c, r: r, my: r.a === me ? 1 : 2 }); }); });
     if (!R.length) return "";
     R.sort(function (a, b) { return a.r.d < b.r.d ? -1 : 1; });
     // tes matchs de ces rencontres (ton palmarès : simples et doubles), 3.58.1 : rencontre par rencontre, pas seulement le jour
@@ -3257,7 +3260,7 @@
     CH.sort(function (a, b) { return !!a.c.cloture !== !!b.c.cloture ? (a.c.cloture ? 1 : -1) : tmOrdOn(a.c, b.c); });
     var chHtml = function (g) {
       var c = g.c, me = c.me.mine, t = tmOf(c, me) || {}, n = (c.teams || []).length, w = g.R.filter(function (x) { return x.ms.s.length + x.ms.d.length > 0; }).length;
-      var up = c.cloture ? [] : (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.d > td && r.st !== "T"; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+      var up = c.cloture ? [] : (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.d > td && !tmDone(r); }).sort(function (a, b) { return a.d < b.d ? -1 : 1; });
       var cells = g.R.map(col).concat(up.map(function (r) { return fut(c, r); })).slice(0, 6);
       return '<div class="tsx-ch"><div class="tsx-chh"><b>' + esc(champNm(c)) + "</b><span>" + w + " / " + g.R.length + " avec toi" + (t.cl ? ' · <span class="tsx-rk ' + tmRkC(t.cl, n) + '">' + t.cl + "<sup>" + (t.cl === 1 ? "er" : "e") + "</sup> sur " + n + "</span>" : "") + '</span></div><div class="tsx-tl">' + cells.join("") + "</div></div>";
     };
@@ -3294,7 +3297,7 @@
   function clubCat(c) { var n = String(c.nom || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); return /\+\s?\d\d|veteran|senior\s*\+/.test(n) ? "plus" : /jeune|\d+\s*-\s*\d+\s*ans|\bu\d\d|\d+\s*ans|garcon|fille|enfant|poussin|benjamin|minime|cadet|junior/.test(n) ? "jeu" : /dame|femme|feminin/.test(n) ? "dam" : "mes"; }
   var CLUB_CAT = { mes: "Messieurs", dam: "Dames", jeu: "Jeunes", plus: "+35 et plus" };
   // la dernière rencontre jouée d'une équipe : { r, res, a, b } (score côté équipe)
-  function clubLast(c, from) { var me = c.me.mine, r = (c.renc || []).filter(function (x) { return (x.a === me || x.b === me) && x.st === "T" && (!from || String(x.d).slice(0, 10) >= from); }).sort(function (a, b) { return a.d < b.d ? 1 : -1; })[0]; if (!r) return null; var a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1; return { r: r, a: a, b: b, res: a > b ? "v" : a < b ? "d" : "n" }; }
+  function clubLast(c, from) { var me = c.me.mine, r = (c.renc || []).filter(function (x) { return (x.a === me || x.b === me) && tmDone(x) && (!from || String(x.d).slice(0, 10) >= from); }).sort(function (a, b) { return a.d < b.d ? 1 : -1; })[0]; if (!r) return null; var a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1; return { r: r, a: a, b: b, res: a > b ? "v" : a < b ? "d" : "n" }; }
   function clubRow(c, top) {
     var me = tmOf(c, c.me.mine) || {}, n = (c.teams || []).length, L = clubLast(c), nx = !c.cloture && tmNext(c), f = clubFol(c.id);
     var sub = [top ? CLUB_CAT[clubCat(c)] : "", tmDiv(c.div), top ? "" : tmDiv(c.poule)].filter(Boolean).join(" · ") + (top ? (nx ? " · " + dayLab(String(nx.d).slice(0, 10)) + " contre " + tmNm(nx.a === me.id ? nx.bn : nx.an) : " · pas de rencontre prévue") : "");
@@ -3312,7 +3315,7 @@
   // Une équipe du club (la tienne comprise) : sa ligne au classement, ses résultats dans l'ordre, son numéro
   function lcT(c) {
     var me = c.me.mine, t = tmOf(c, me) || {}, n = (c.teams || []).length;
-    var R = (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.st === "T" && r.s1 != null && r.s2 != null; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+    var R = (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && tmDone(r) && r.s1 != null && r.s2 != null; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; });
     var res = R.map(function (r) { var a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1; return a > b ? "v" : a < b ? "d" : "n"; });
     return { c: c, t: t, n: n, pos: t.cl || 0, R: R, res: res, num: (/(\d+)\s*$/.exec(t.nom || "") || [])[1] || "", mine: !c.cl, fem: /dame|femin|fille/i.test(String(c.nom || "")) };
   }
@@ -3379,7 +3382,7 @@
     var last = all.reduce(function (m, o) { var d = String(o.r.d).slice(0, 10); return d > m ? d : m; }, ""), td = today();
     if (last && dGap(last) >= -21) {
       var from = E.iso(new Date(E.parseDate(last).getTime() - 2 * 864e5)), WE = all.filter(function (o) { return String(o.r.d).slice(0, 10) >= from; }).sort(function (a, b) { return a.r.d < b.r.d ? 1 : -1; });
-      var nx7 = E.iso(new Date(td.getTime() + 7 * 864e5)), nxt = 0; L.forEach(function (x) { nxt += (x.c.renc || []).filter(function (r) { var d = String(r.d).slice(0, 10); return (r.a === x.c.me.mine || r.b === x.c.me.mine) && r.st !== "T" && d >= E.iso(td) && d <= nx7; }).length; });
+      var nx7 = E.iso(new Date(td.getTime() + 7 * 864e5)), nxt = 0; L.forEach(function (x) { nxt += (x.c.renc || []).filter(function (r) { var d = String(r.d).slice(0, 10); return (r.a === x.c.me.mine || r.b === x.c.me.mine) && !tmDone(r) && d >= E.iso(td) && d <= nx7; }).length; });
       s += '<h2 class="tm-gh lc-h"><span>Dernier week-end<svg class="lc-wb" viewBox="0 0 50 14" aria-hidden="true"><circle cx="3" cy="11" r="3" fill="var(--balle)"/></svg></span><small>' + lcDay(last) + "</small></h2>" +
         '<div class="blk lc-list">' + WE.map(function (o, i) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
           return '<a class="lc-r lc-w" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '" style="--i:' + i + '"><span class="grow"><b>' + esc(champNm(o.x.c) + (o.x.num ? " · éq. " + o.x.num : "")) + (o.x.mine ? ' <span class="lc-me">toi</span>' : "") + "</b><small>" + (r.dom === me ? "contre " : "chez ") + esc(tmNm(r.a === me ? r.bn : r.an)) + '</small></span><span class="lc-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span></a>"; }).join("") +
@@ -3513,7 +3516,7 @@
   }
   function clubListSheet(v, past) {
     var td = E.iso(today()), all = myTeams(true).concat(clubOn() ? clubTeams() : []), L = [];
-    all.forEach(function (c) { var me = c.me.mine; (c.renc || []).forEach(function (r) { var d = String(r.d).slice(0, 10); if (!(r.a === me || r.b === me)) return; if (past ? r.st === "T" && d >= v && d <= td : r.st !== "T" && d >= td && d <= v) L.push({ c: c, r: r, d: d, me: me }); }); });
+    all.forEach(function (c) { var me = c.me.mine; (c.renc || []).forEach(function (r) { var d = String(r.d).slice(0, 10); if (!(r.a === me || r.b === me)) return; if (past ? tmDone(r) && d >= v && d <= td : !tmDone(r) && d >= td && d <= v) L.push({ c: c, r: r, d: d, me: me }); }); });
     L.sort(function (a, b) { return a.d === b.d ? 0 : (a.d < b.d) === past ? 1 : -1; });
     var rows = L.map(function (x) {
       var r = x.r, t = tmOf(x.c, x.me) || {}, vs = tmNm(r.a === x.me ? r.bn : r.an), a = r.a === x.me ? r.s1 : r.s2, b = r.a === x.me ? r.s2 : r.s1, res = a > b ? "v" : a < b ? "d" : "n", home = r.dom === x.me;
@@ -3536,7 +3539,7 @@
     var c0 = S.club; if (!force && !J && c0 && c0.qv === 1 && Date.now() - c0.at < 12 * 3600e3) return;
     if (!retryOk("club", force)) return;
     var full = J && !force ? !!J.full : force || !c0 || !c0.full || Date.now() - c0.full > 7 * 864e5;
-    var known = {}; ((c0 && c0.champs) || []).forEach(function (c) { if (c.path && c.path.q) { var k = String(c.cid); (known[k] = known[k] || []).some(function (p) { return p.q === c.path.q; }) || known[k].push(c.path); } });
+    var known = {}; ((c0 && c0.champs) || []).forEach(function (c) { if (c.path && c.path.q) { var k = String(c.cid); (known[k] = known[k] || []).some(function (p) { return p.q === c.path.q; }) || known[k].push(Object.assign({ dn: c.div || "" }, c.path)); } });
     var cids = myTeams(true).map(function (c) { return { id: String(c.cid || c.id), nom: c.nom }; }).concat(((c0 && c0.champs) || []).map(function (c) { return { id: String(c.cid), nom: c.nom }; }));
     var t = S.teams || {}, args = { all: 1, full: full ? 1 : 0, club: (t.club && t.club.code) || S.tenup.clubCode || "", nomClub: (t.club && t.club.nom) || "", pid: t.pid || "", cids: cids, known: full ? {} : known, tn: clubTn() };
     UI.clubBusy = true; var calls = 0;
@@ -3566,7 +3569,7 @@
   });
   // 3.50.4 (Yann) : ton impact dans un championnat : l'équipe avec toi / sans toi, tes matchs, ta part des matchs gagnés
   function teamImpactHtml(c) {
-    var me = c.me.mine, R = (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.st === "T"; });
+    var me = c.me.mine, R = (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && tmDone(r); });
     if (!R.length) return "";
     var mS = S.matches.filter(function (m) { return !m.dbl && (m.result === "V" || m.result === "D"); }), mD = (S.doubles || []).filter(function (m) { return m.result === "V" || m.result === "D"; });
     var W = { v: 0, n: 0, d: 0, k: 0 }, Wo = { v: 0, n: 0, d: 0, k: 0 }, myV = 0, myN = 0, sV = 0, sN = 0, dV = 0, dblN = 0, teamWon = 0;
@@ -3634,17 +3637,17 @@
     var jOf = function (r) { var k = r.dt || r.d, j = cal.filter(function (x) { return x.d === k; })[0]; return j ? j.j : null; };
     var tm = function (r) {
       var sc1 = tmScore(r) ? (tmLive(r) && (r.c1 || r.c2) ? r.c1 : r.s1) : null, sc2 = sc1 != null ? (tmLive(r) && (r.c1 || r.c2) ? r.c2 : r.s2) : null, lv = tmLive(r) && (r.c1 || r.c2), mine = r.a === me || r.b === me;
-      var ln = function (id, nm, x, y) { var win = x != null && y != null && x > y; return '<span class="ln' + (id === me ? " me" : "") + (win ? " w" : "") + '"><span class="nm">' + esc(tmNm(nm)) + (r.dom === id ? '<small class="tm-dom-t"> · à domicile</small>' : "") + '</span><b class="sc">' + (x != null ? x : "") + "</b></span>"; };
+      var ln = function (id, nm, x, y) { var win = x != null && y != null && x > y; return '<span class="ln' + (id === me ? " me" : "") + (win ? " w" : "") + '"><span class="nm">' + esc(tmNm(nm)) + (r.dom === id ? '<small class="tm-dom-t"> · à domicile</small>' : "") + (r.f && r.f === id ? ' <span class="tm-ff">forfait</span>' : "") + '</span><b class="sc">' + (x != null ? x : "") + "</b></span>"; };
       var moved = r.dt && r.d && r.dt !== r.d, lk = r.st === "T" || lv, tg = lk ? "a" : "div";
       return "<" + tg + ' class="tm-m' + (mine ? " mine" : "") + (lv ? " lv" : "") + '"' + (lk ? ' href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"' : "") + ">" + ln(r.a, r.an, sc1, sc2) + ln(r.b, r.bn, sc2, sc1) +
-        (moved || r.rep || lv ? '<small class="mv">' + (lv ? "en cours" : r.rep && !moved ? "reportée" : "jouée " + dayLab(r.d)) + "</small>" : "") + "</" + tg + ">";
+        (!r.f && (moved || r.rep || lv) ? '<small class="mv">' + (lv ? "en cours" : r.rep && !moved ? "reportée" : "jouée " + dayLab(r.d)) + "</small>" : "") + "</" + tg + ">";
     };
     var groups = function (L, desc) {
       var by = {}; L.forEach(function (r) { var j = jOf(r), k = j != null ? "j" + (100 + j) : "d" + r.d; (by[k] = by[k] || { j: j, d: r.dt || r.d, L: [] }).L.push(r); });
       return Object.keys(by).sort(function (a, b) { var x = by[a].d, y = by[b].d; return desc ? (x < y ? 1 : -1) : (x < y ? -1 : 1); }).map(function (k) { var g = by[k];
         return '<div class="card tm-j"><span class="eyebrow">' + esc([g.j != null ? "Journée " + g.j : "", g.d === td ? "aujourd'hui" : dayLab(g.d)].filter(Boolean).join(" · ")) + "</span>" + g.L.sort(function (a, b) { return (b.a === me || b.b === me ? 1 : 0) - (a.a === me || a.b === me ? 1 : 0); }).map(tm).join("") + "</div>"; }).join("");
     };
-    var R = c.renc || [], up = R.filter(function (r) { return r.st !== "T" && r.d >= td; }), done = R.filter(function (r) { return r.st === "T" || r.d < td; });
+    var R = c.renc || [], up = R.filter(function (r) { return !tmDone(r) && r.d >= td; }), done = R.filter(function (r) { return tmDone(r) || r.d < td; });
     if (up.length) s += '<h2 class="tm-gh">À venir</h2>' + groups(up, false);
     // 3.55 (Yann : « une timeline, plus visuel ») : les rencontres de TON équipe en frise, journée par journée (résultat, adversaire, domicile,
     // tes matchs, la place de l'équipe après la journée) ; les rencontres des autres équipes de la poule repliées en dessous
@@ -3657,12 +3660,12 @@
   function tmPlaces(c) {
     var P = c.pts || {}, ids = (c.teams || []).map(function (t) { return t.id; }), pts = {}, md = {}, out = {};
     ids.forEach(function (i) { pts[i] = 0; md[i] = 0; });
-    var R = (c.renc || []).filter(function (r) { return r.st === "T" && r.s1 != null && r.s2 != null; }).sort(function (a, b) { return (a.dt || a.d) < (b.dt || b.d) ? -1 : 1; });
+    var R = (c.renc || []).filter(function (r) { return tmDone(r) && r.s1 != null && r.s2 != null; }).sort(function (a, b) { return (a.dt || a.d) < (b.dt || b.d) ? -1 : 1; });
     var keys = []; R.forEach(function (r) { var k = r.dt || r.d; if (keys.indexOf(k) < 0) keys.push(k); });
     keys.forEach(function (k) {
       R.filter(function (r) { return (r.dt || r.d) === k; }).forEach(function (r) {
         var a = +r.s1, b = +r.s2, add = function (id, x) { if (pts[id] != null) pts[id] += x || 0; };
-        if (r.f) { add(r.f === r.a ? r.b : r.a, P.v); } else if (a > b) { add(r.a, P.v); add(r.b, P.d); } else if (b > a) { add(r.b, P.v); add(r.a, P.d); } else { add(r.a, P.n); add(r.b, P.n); }
+        if (r.f) { add(r.f === r.a ? r.b : r.a, P.v); add(r.f, P.f); } else if (a > b) { add(r.a, P.v); add(r.b, P.d); } else if (b > a) { add(r.b, P.v); add(r.a, P.d); } else { add(r.a, P.n); add(r.b, P.n); }
         if (md[r.a] != null) md[r.a] += a - b; if (md[r.b] != null) md[r.b] += b - a;
       });
       var ord = ids.slice().sort(function (x, y) { return (pts[y] - pts[x]) || (md[y] - md[x]); }), pl = {};
@@ -3760,6 +3763,8 @@
     var short = function (n) { return tmNm(n).replace(/\s+\d+$/, function (x) { return x; }); };
     s += '<div class="tm-vs"><b class="' + (r.a === me ? "me" : "") + '">' + esc(short(r.an)) + '</b><span class="sc' + (lv ? " lv" : "") + '">' + (sc ? esc(sc) : "–") + '</span><b class="' + (r.b === me ? "me" : "") + '">' + esc(short(r.bn)) + '</b></div><p class="tm-sub" style="text-align:center;margin:0">' + esc([jn ? "Journée " + jn.j : "", (r.dom === me ? "à domicile" : "à l'extérieur"), dayLab(r.d)].filter(Boolean).join(" · ")) + (lv ? ' <span class="tm-live">En direct</span>' : "") + "</p>";
     if (r.st === "T" && !lv && r.w === me) s += jkLine("e-win", "Victoire de l'équipe. La buvette est au courant.");
+    // 4.11.4 (Davy) : rencontre gagnée par forfait : pas de feuille de match sur Ten'Up, le score (4–0) est celui donné par le barème
+    if (r.f) return s + '<div class="card"><b>Forfait de ' + esc(tmNm(r.f === r.a ? r.an : r.bn)) + '</b><span class="small">Pas de feuille de match : la rencontre n\'a pas été jouée. Ten\'Up donne le score ' + esc(sc || "") + " au vainqueur et la compte dans le classement.</span></div></div>";
     UI.fdm = UI.fdm || {}; var F = UI.fdm[rid] || (S.fdmCache3 || {})[rid];
     if (!F || (lv && Date.now() - (F.at || 0) > 120e3)) {
       if (!c.path || c.path.d == null || c.path.p == null) { if (!UI.tmForced) { UI.tmForced = 1; teamsRefresh(true); } return s + '<div class="card"><span class="small">Montée relit ton championnat sur Ten\'Up… reviens dans un instant.</span></div></div>'; }
@@ -15388,7 +15393,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (out.length === n0 && t.from && t.from >= td && t.from <= lim) out.push({ k: "t" + t.id, d: t.from, to: t.to && t.to > t.from ? t.to : "", time: "", title: short, sub: (t.kind === "champ" ? "Indivs" : "Tournoi") + (t.to && t.to > t.from ? " · jusqu'au " + fdate(t.to) : ""), loc: loc, href: "#/tournoi/" + t.id, ty: t.kind === "champ" ? "po" : "to", match: 1 });
     });
     if (teamsOn()) myTeams().forEach(function (c) { var me = c.me.mine; (c.renc || []).forEach(function (r) {
-      if (!(r.a === me || r.b === me) || !r.d || r.d < td || r.d > lim || r.st === "T") return;
+      if (!(r.a === me || r.b === me) || !r.d || r.d < td || r.d > lim || tmDone(r)) return;
       var hm = /T(\d{2}):(\d{2})/.exec(r.dt || ""), tm = hm && hm[1] + ":" + hm[2] !== "00:00" ? hm[1] + ":" + hm[2] : "";
       out.push({ k: "e" + c.id + "-" + r.id, d: r.d, time: tm, title: tmNm(r.an) + " – " + tmNm(r.bn), sub: (r.dom === me ? "À domicile" : "À l'extérieur") + " · " + tmDiv(c.div), loc: "", href: "#/rencontre/" + c.id + "/" + r.id, ty: "eq", match: 1 });
     }); });

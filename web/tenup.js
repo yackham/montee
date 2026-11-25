@@ -331,7 +331,7 @@
       var slim = function (det, id, me) {
         var po = det.poule || {}, ph = det.phase || {}, ch = det.championnat || {};
         return { id: String(id), nom: ch.nom || "", cloture: !!ch.cloture, div: (det.division || {}).nom || "", phase: ph.nom || "", poule: po.nom || "",
-          path: { d: (det.division || {}).id, p: ph.id, q: po.id }, pts: { v: ch.pointsVictoire, n: ch.pointsNul, d: ch.pointsDefaite }, ns: ch.nombreSimples, nd: ch.nombreDoubles,
+          path: { d: (det.division || {}).id, p: ph.id, q: po.id }, pts: { v: ch.pointsVictoire, n: ch.pointsNul, d: ch.pointsDefaite, f: ch.pointsForfait }, ns: ch.nombreSimples, nd: ch.nombreDoubles,
           cal: (ph.calendrier || []).map(function (c) { return { j: c.numeroJournee, d: c.dateJournee }; }), me: me,
           teams: (po.equipes || []).map(function (e) { return { id: e.id, nom: e.nom, cl: e.classement, pts: e.points, j: e.rencontres, v: e.rencontresGagnees, n: e.rencontresNulles, d: e.rencontresPerdues, mg: e.matchsGagnes, mp: e.matchsPerdus, pen: e.pointsPenalites || 0, ex: !!e.exclus }; }),
           renc: (po.rencontres || []).map(function (r) { return { id: r.id, d: r.dateReelle || r.dateTheorique || "", dt: String(r.dateTheorique || "").slice(0, 10), a: r.idEquipe1, b: r.idEquipe2, an: r.nomEquipe1, bn: r.nomEquipe2, dom: r.idEquipeDomicileReelle || r.idEquipeDomicileTheorique, w: r.idEquipeGagnante, f: r.idEquipeForfait, s1: r.scoreEquipe1, s2: r.scoreEquipe2, c1: r.scoreEnCoursEquipe1, c2: r.scoreEnCoursEquipe2, st: r.statutFdm || "", rep: !!r.reportee }; }) };
@@ -359,8 +359,13 @@
       var fitC = function (cl, team) { var a = nrm(cl), b = nrm(String(team || "").replace(/\s+\d+\s*$/, "")); if (!a || !b) return false; if (a.indexOf(b) === 0 || b.indexOf(a) === 0) return true; var k = 0; while (k < a.length && a.charAt(k) === b.charAt(k)) k++; return k >= 8; };
       var rDay = function (r) { return dayN(r.dateReelle || r.dateTheorique); };
       // Un championnat en cours de recherche : tout ce qu'il faut pour reprendre à la lecture suivante (sérialisable).
+      // le nom de la division d'une équipe trouvée : racine du championnat ou division lue à part (voir mkCs)
+      var divOf = function (cs, o) { if (o && !o.div && o.path) { var dv = ((cs.d0 || {}).divs || []).filter(function (x) { return x.id === o.path.d; })[0]; o.div = (cs.dnm || {})[o.path.d] || (dv ? dv.nom : "") || ""; } return o; };
       var mkCs = function (c, known) {
-        var q = (known || []).filter(function (k) { return k && k.d && k.p && k.q; }).map(function (k) { return { k: "poule", d: k.d, p: k.p, q: k.q }; });
+        var q = (known || []).filter(function (k) { return k && k.d && k.p && k.q; }).map(function (k) { return { k: "poule", d: k.d, p: k.p, q: k.q, dn: k.dn || "" }; });
+        // 4.11.4 (Davy : « on ne voit pas dans quelle division sont les équipes ») : la page d'une poule ne donne pas le nom de sa division
+        // (vérifié sur l'API publique) ; à la relecture courte (sans la racine du championnat), on lit la division elle-même, une fois.
+        q.filter(function (t) { return !t.dn; }).forEach(function (t) { if (!q.some(function (x) { return x.k === "dn" && x.d === t.d; })) q.push({ k: "dn", d: t.d }); });
         q.push({ k: "root" });
         return { id: String(c.id), nom: c.nom || "", dates: c.dates, last: c.last, opp: (c.opp || []).filter(function (o) { return o && o.c && dayN(o.d) != null; }),
           ent: (known || []).some(function (k) { return k && k.e; }) ? 1 : 0, q: q, seen: {}, conf: {}, ck: [], done: {}, alt: {}, ak: [], cov: {}, fb: null, fw: null, best: null, d0: null, n: 0, nF: 0, fin: false, ms: 0 };
@@ -469,11 +474,12 @@
         var run = function (tk) {
           if (tk.k === "root") return jg("v1/" + base).then(function (det0) {
             var ch = det0.championnat || {};
-            cs.d0 = { nom: ch.nom || cs.nom, cloture: !!ch.cloture, pts: { v: ch.pointsVictoire, n: ch.pointsNul, d: ch.pointsDefaite }, divs: (ch.divisions || []).map(function (d) { return { id: d.id, nom: d.nom }; }) };
+            cs.d0 = { nom: ch.nom || cs.nom, cloture: !!ch.cloture, pts: { v: ch.pointsVictoire, n: ch.pointsNul, d: ch.pointsDefaite, f: ch.pointsForfait }, divs: (ch.divisions || []).map(function (d) { return { id: d.id, nom: d.nom }; }) };
             var p = grow(det0, {});
             (ch.divisions || []).forEach(function (d) { if (d.id !== (det0.division || {}).id) cs.q.push({ k: "div", d: d.id, dn: d.nom }); });
             return p;
           });
+          if (tk.k === "dn") return get(tk.d, null, null).then(function (det) { var n = (det.division || {}).nom || ""; if (n) { cs.dnm = cs.dnm || {}; cs.dnm[tk.d] = n; } });
           if (tk.k === "poule" && cs.seen[tk.d + "/" + tk.p + "/" + tk.q]) return Promise.resolve();
           return get(tk.d, tk.k === "div" ? null : tk.p, tk.k === "poule" ? tk.q : null).then(function (det) { return grow(det, tk); });
         };
@@ -501,7 +507,7 @@
         if (left.length && alt && (K.length || alt)) add(String(alt.me.mine), alt, K.length ? left : [], !!E[String(alt.me.mine)]);
         if (K.length) { out = K.map(function (k) { var o = E[k]; o.me.days.sort(); if (!o.me.days.length) delete o.me.days; return o; }); if (out.length > 1) out.forEach(function (o) { o.cid = cs.id; o.id = cs.id + "~" + o.me.mine; }); }
         else out = [cs.best || { id: cs.id, nom: (cs.d0 || {}).nom || cs.nom, none: true }];
-        return out.map(function (x) { var dd = x.me && x.me.days && x.me.days.length ? x.me.days : cs.dates; x.dates = dd; x.last = dd.slice().sort().pop() || cs.last; return x; });
+        return out.map(function (x) { divOf(cs, x); var dd = x.me && x.me.days && x.me.days.length ? x.me.days : cs.dates; x.dates = dd; x.last = dd.slice().sort().pop() || cs.last; return x; });
       };
       var trace = function (job) { return job.cs.map(function (cs) { return { id: cs.id, nom: cs.nom, pages: cs.n, feuilles: cs.nF, poules: Object.keys(cs.seen).length, reste: cs.q.length, fini: cs.fin, trouve: cs.ck.length ? "feuille" : cs.ak.length ? "club" : cs.fw || cs.fb || cs.best ? "jour" : "rien", ms: cs.ms, err: cs.err || 0, dates: cs.dates.slice(0, 8), sh: cs.sh ? { n: cs.sh.n, p: cs.sh.p, k: Object.keys(cs.sh.k).slice(0, 14) } : null, ex: cs.ex || null }; }); };
       var start = function () {
@@ -556,7 +562,7 @@
         job.calls = (job.calls || 0) + 1;
         return Promise.all(job.cs.filter(function (cs) { return !cs.fin; }).slice(0, 8).map(function (cs) { return scan(cs, job.u.nom, job.u.code); })).then(function () {
           var done = job.cs.every(function (cs) { return cs.fin; });
-          var champs = [].concat.apply([], job.cs.filter(function (cs) { return done || cs.fin; }).map(function (cs) { return cs.clk.map(function (k) { var o = cs.cl[k]; o.id = k; o.cid = cs.id; o.cl = 1; o.me.sure = false; return o; }); }));
+          var champs = [].concat.apply([], job.cs.filter(function (cs) { return done || cs.fin; }).map(function (cs) { return cs.clk.map(function (k) { var o = divOf(cs, cs.cl[k]); o.id = k; o.cid = cs.id; o.cl = 1; o.me.sure = false; return o; }); }));
           return ok({ at: Date.now(), club: { code: job.u.code, nom: job.u.nom }, champs: champs, job: done ? null : job, partial: !done,
             trace: { calls: job.calls, src: job.src, champs: job.cs.map(function (cs) { return { id: cs.id, nom: (cs.d0 || {}).nom || cs.nom, pages: cs.n, poules: Object.keys(cs.seen).length, equipes: cs.clk.length, reste: cs.q.length, fini: cs.fin, err: cs.err || 0 }; }) } });
         });

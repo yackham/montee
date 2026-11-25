@@ -226,3 +226,20 @@ test("4.11.3 : deux morceaux qui se touchent n'en font qu'un à la lecture", () 
   const d = T.dispoDays({ disponibilites: [{ date: "2027-02-10", horaires: [{ heureDebut: "2027-02-10T20:00:00", heureFin: "2027-02-10T22:00:00", particuliere: false }, { heureDebut: "2027-02-10T19:45:00", heureFin: "2027-02-10T20:00:00", particuliere: true }] }] });
   assert.deepStrictEqual(d, [{ date: "2027-02-10", slots: [{ from: "19:45", to: "22:00", ex: true }] }]);
 });
+test("4.11.4 : relecture courte du club, la division d'une équipe est lue à part (la page d'une poule ne la donne pas)", async () => {
+  global.location = { origin: "https://exemple.invalid", hostname: "tenup.fft.fr", pathname: "/" };
+  global.document = { title: "", querySelectorAll: () => [] };
+  const poule = { phase: { id: 3, poules: [{ id: 4, nom: "POULE A" }] }, poule: { id: 4, nom: "POULE A", equipes: [{ id: 10, nom: "TC EXEMPLE 1", classement: 1 }, { id: 11, nom: "AS VALLON 1", classement: 2 }], rencontres: [] } };
+  global.fetch = async (u) => {
+    const ok = (j) => ({ ok: true, status: 200, json: async () => j, text: async () => JSON.stringify(j) });
+    if (/\/v1\/championnats-equipes\/900\/divisions\/7\/phases\/3\/poules\/4$/.test(u)) return ok(poule);
+    if (/\/v1\/championnats-equipes\/900\/divisions\/7$/.test(u)) return ok({ division: { id: 7, nom: "DIVISION 1" }, phase: poule.phase });
+    return { ok: false, status: 404, json: async () => ({}), text: async () => "" };
+  };
+  const AF = Object.getPrototypeOf(async function () {}).constructor;
+  const out = String(await new AF(T.queryScript("equipes", { all: 1, club: "51900071", nomClub: "TC EXEMPLE", pid: "1", cids: [], known: { 900: [{ d: 7, p: 3, q: 4 }] } }))());
+  assert.ok(out.indexOf("MONTEE1") === 0, out.slice(0, 200));
+  const champs = JSON.parse(out.slice(7)).champs;
+  assert.ok(champs.length >= 1);
+  champs.forEach((c) => assert.strictEqual(c.div, "DIVISION 1"));
+});

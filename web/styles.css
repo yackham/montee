@@ -7780,3 +7780,5 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .met-t .cbl-b { position: absolute; right: 10px; top: -14px; width: 44px; height: 48px; }
 .met-go { font-size: 14px; font-weight: 800; color: var(--gazon); }
 .met-d b.met-b0 { font-size: 26px; }
+/* 4.11.4 (Yann) : l'équipe forfait, étiquette teintée sans contour à côté de son nom dans les rencontres de la poule */
+.tm-m .tm-ff { display: inline-block; vertical-align: 1px; margin-left: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--terre); background: color-mix(in srgb, var(--terre) 16%, transparent); border-radius: 99px; padding: 2px 8px; white-space: nowrap; }
