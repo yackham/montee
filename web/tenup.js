@@ -1156,18 +1156,22 @@
     var c = ["iso", "sun0", "sun1"].filter(function (m) { return plain.every(function (d) { return dzSame(dzGenSlots(gen, d.date, m), d.slots); }); });
     return c[0] || null;
   }
+  // 4.11.3 (relevé de Yann, 25/11 21 h 57) : Ten'Up fait « habituel + dispos en plus − indispos », et l'indispo l'emporte quand les deux se chevauchent.
+  // Mercredi habituel 20 h – 22 h, voulu 19 h 45 – 22 h : l'ancien envoi (indispo 20 – 22 + dispo 19 h 45 – 22) a donné 19 h 45 – 20 h.
+  // On n'envoie donc que la différence : les morceaux d'habituel retirés (indispo) et les morceaux ajoutés hors habituel (dispo), jamais de chevauchement.
   function dzBody(gen, ex, map, uuid) { // ex : {date: [{from, to}] créneaux où tu es dispo ce jour-là ([] = pas dispo)} → le contenu envoyé par la page Ten'Up
     var ids = gen.map(function () { return uuid(); }), par = [];
     Object.keys(ex).sort().forEach(function (iso) {
-      var on = ex[iso] || [], d = new Date(iso + "T12:00:00"), wd = DZ_MAPS[map](d), gi = -1;
-      gen.forEach(function (g, i) { if (gi < 0 && g.jours.indexOf(wd) >= 0) gi = i; });
-      gen.forEach(function (g, i) { if (g.jours.indexOf(wd) < 0) return; var s0 = { from: g.hd.slice(0, 5), to: g.hf.slice(0, 5) };
-        if (!on.some(function (x) { return x.from === s0.from && x.to === s0.to; })) par.push({ disponible: false, dateDebut: iso + "T" + g.hd, dateFin: iso + "T" + g.hf, generaleId: ids[i] }); });
-      on.forEach(function (x) { if (gi >= 0 && gen[gi].hd.slice(0, 5) === x.from && gen[gi].hf.slice(0, 5) === x.to) return;
-        par.push({ disponible: true, dateDebut: iso + "T" + x.from + ":00", dateFin: iso + "T" + x.to + ":00", generaleId: ids[gi >= 0 ? gi : 0] || uuid() }); });
+      var on = slotsMerge(ex[iso] || []).slots, d = new Date(iso + "T12:00:00"), wd = DZ_MAPS[map](d), gi = -1, gs = [];
+      gen.forEach(function (g, i) { if (g.jours.indexOf(wd) < 0) return; if (gi < 0) gi = i; gs.push({ from: g.hd.slice(0, 5), to: g.hf.slice(0, 5), i: i }); });
+      gs.forEach(function (g) { var rest = [{ from: g.from, to: g.to }]; on.forEach(function (x) { rest = slotsMinus(rest, x.from, x.to); });
+        rest.forEach(function (r) { par.push({ disponible: false, dateDebut: iso + "T" + r.from + ":00", dateFin: iso + "T" + r.to + ":00", generaleId: ids[g.i] }); }); });
+      on.forEach(function (x) { var add = [{ from: x.from, to: x.to }]; gs.forEach(function (g) { add = slotsMinus(add, g.from, g.to); });
+        add.forEach(function (a) { par.push({ disponible: true, dateDebut: iso + "T" + a.from + ":00", dateFin: iso + "T" + a.to + ":00", generaleId: ids[gi >= 0 ? gi : 0] || uuid() }); }); });
     });
     return { generales: gen.map(function (g) { return { jours: g.jours, heureDebut: g.hd, heureFin: g.hf }; }), particulieres: par };
   }
+
   // 4.11.2 (diagnostic temporaire demandé par Yann, samedi 13) : la réponse Ten'Up telle quelle, sans AUCUNE valeur perso.
   // On garde les clés, les booléens, et seulement sous une clé de date, d'heure, de type ou de statut : dates, heures, petits codes ; un nombre devient « # », un autre texte « … ».
   function dispoRaw(o, k) {
@@ -1180,8 +1184,12 @@
     return "?";
   }
   function dispoDays(d) { // GET …/disponibilites → [{date, slots:[{from:"HH:MM", to:"HH:MM", ex:bool}]}]
-    return ((d && d.disponibilites) || []).map(function (j) { return { date: String(j.date || "").slice(0, 10), slots: (j.horaires || []).map(function (h) {
-      return { from: String(h.heureDebut || "").slice(11, 16), to: String(h.heureFin || "").slice(11, 16), ex: !!h.particuliere }; }) }; });
+    // 4.11.3 : Ten'Up peut rendre 19 h 45 – 20 h (en plus) et 20 h – 22 h (habituel) en deux morceaux : on les recolle, « particulier » si l'un l'est
+    return ((d && d.disponibilites) || []).map(function (j) { var out = [];
+      (j.horaires || []).map(function (h) { return { from: String(h.heureDebut || "").slice(11, 16), to: String(h.heureFin || "").slice(11, 16), ex: !!h.particuliere }; })
+        .sort(function (a, b) { return a.from < b.from ? -1 : a.from > b.from ? 1 : 0; })
+        .forEach(function (x) { var p = out[out.length - 1]; if (p && x.from <= p.to) { if (x.to > p.to) p.to = x.to; p.ex = p.ex || x.ex; } else out.push(x); });
+      return { date: String(j.date || "").slice(0, 10), slots: out }; });
   }
   // Un tournoi trouvé par la recherche Ten'Up, en forme Montée
   function tsMap(o) {
