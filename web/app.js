@@ -2302,7 +2302,7 @@
       if (!r || r.error) { toast("Ten'Up a refusé : " + (r && r.error || "pas de réponse") + ". Rien n'a changé dans Montée."); render(); return; }
       var bad = days.filter(function (iso) { var g = (r.days || []).filter(function (x) { return x.date === iso; })[0]; return !T.dzSame(g ? g.slots : [], want[iso]); });
       dzOffNote(t, days, want, r.days); D.days = r.days; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
-      toast(bad.length ? "Ten'Up n'a pas tout pris (" + plural(bad.length, "jour") + ") : vérifie tes dispos." : "Tes dispos sont enregistrées sur Ten'Up.", !bad.length);
+      toast(bad.length ? "Ten'Up n'a pas pris tes horaires du " + bad.map(dzDayName).join(", du ") + " : règle ce jour directement sur Ten'Up." : "Tes dispos sont enregistrées sur Ten'Up.", !bad.length);
     });
   }
   // ---- 4.10 (maquettes validées par Yann, 25/11) : créneaux habituels du profil, « Et tes tournois ? », ajouter une indispo ----
