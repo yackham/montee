@@ -18702,11 +18702,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     v: "4.11",
     pages: [
       // 4.11 (Yann, 25/11/2026) : trouver un tournoi (filtre, surface, dotation, favoris Ten'Up, « Pourquoi lui ? ») ; 4.10 : tes dispos dans Montée
-      { hero: true, title: "Montée 4.11", text: "Trouve ton tournoi sans passer par Ten'Up : seulement ceux où tu as le droit de jouer, tes favoris, et Ace qui t'explique son choix." },
-      { tag: "Nouveau", tone: "rose", title: "Trouve ton tournoi", vis: "tz411", text: "Seulement ceux où tu as le droit de jouer, avec le classement, la surface, la dotation et le paiement en ligne. Choisis Tous, Tournois, TMC ou Indivs." },
-      { tag: "Nouveau", tone: "rose", title: "Tes favoris, ceux de Ten'Up", vis: "fav411", text: "Un cœur sur un tournoi : il est aussi dans tes favoris Ten'Up, et il t'attend dans Mes épreuves sans lancer de recherche." },
-      { tag: "Nouveau", tone: "rose", title: "Pourquoi ce tournoi ?", vis: "why411", text: "Touche Ace sur son conseil : ce qu'il a regardé (ta saison, la distance, la sortie du classement) et ce qui manque aux autres." },
-      { tag: "Amélioré", tone: "bleu", title: "Tes dispos, dans Montée", vis: "hb410", text: "Tes créneaux habituels et tes indispos de tournoi se règlent dans Montée, et partent sur Ten'Up. Les heures se choisissent de 15 en 15 min." },
+      { hero: true, title: "Montée 4.11", text: "Trouve ton tournoi sans passer par Ten'Up : seulement ceux où tu as le droit de jouer, tes favoris, et Ace qui t'explique son choix. Tout ça, dans la version gratuite." },
+      { tag: "Gratuit", tone: "vert", title: "Trouve ton tournoi", vis: "tz411", text: "Seulement ceux où tu as le droit de jouer, avec le classement, la surface, la dotation et le paiement en ligne. Choisis Tous, Tournois, TMC ou Indivs." },
+      { tag: "Gratuit", tone: "vert", title: "Tes favoris, ceux de Ten'Up", vis: "fav411", text: "Un cœur sur un tournoi : il est aussi dans tes favoris Ten'Up, et il t'attend dans Mes épreuves sans lancer de recherche." },
+      { tag: "Gratuit", tone: "vert", title: "Pourquoi ce tournoi ?", vis: "why411", text: "Touche Ace sur son conseil : ce qu'il a regardé (ta saison, la distance, la sortie du classement) et ce qui manque aux autres." },
+      { tag: "Gratuit", tone: "vert", title: "Tes dispos, dans Montée", vis: "hb410", text: "Tes créneaux habituels et tes indispos de tournoi se règlent dans Montée, et partent sur Ten'Up. Les heures se choisissent de 15 en 15 min." },
       // 4.9 (Yann, 25/11/2026) : Ace posé sur une carte se touche et ouvre sa conversation sur cette carte
       { hero: true, title: "Montée 4.9", text: IOS ? "Ace t'explique chaque carte où il est posé, et il t'accompagne aussi sur ta montre." : "Ace t'explique chaque carte où il est posé, et tes prochains adversaires restent à l'œil." },
       { tag: "Nouveau", tone: "rose", title: "Ace t'explique la carte", vis: "ace49", text: "Ace est posé sur une carte ? Touche-le : il t'explique ce qu'elle montre avec tes chiffres, et tu continues à lui poser tes questions à partir de là." },

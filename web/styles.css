@@ -593,6 +593,7 @@ body.kb-open .tabbar { display: none; }
 .nv-tag { align-self: flex-start; font-size: 14px; font-weight: 700; border-radius: 99px; padding: 6px 14px; }
 .nv-tag.rose { background: #3B1E2B; color: #F28CB6; }
 .nv-tag.bleu { background: #172B3B; color: #6CB8F0; }
+.nv-tag.vert { background: #173B26; color: #6FC28F; }
 .nv-title { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
 .nv-text { font-size: 17px; line-height: 1.45; color: #B8B0A6; }
 .nv-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; }
