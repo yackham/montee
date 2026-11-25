@@ -65,16 +65,38 @@ test("4.6.0 : les nouvelles lectures (tournois, inscrits) tournent dans le scrip
     assert.ok(!/is not defined|ReferenceError/.test(out), k + " : " + out.slice(0, 200));
   }
 });
+test("4.11 : fiche (surface, épreuves) et favoris tournent dans le script injecté", async () => {
+  global.location = { origin: "https://exemple.invalid", hostname: "tenup.fft.fr", pathname: "/" };
+  global.document = { title: "", querySelectorAll: () => [] };
+  const J = (u) => /\/epreuves$/.test(u) ? [{ eprId: 9, classementMin: "30", classementMax: "15/1", type: "MULTICHANCE" }]
+    : /profil\/favoris$/.test(u) ? { tournoisFavoris: [{ id: 1001, idFavori: 77, libelle: "T" }] }
+    : { codeSurfaces: ["TB"], courtList: [{ couvert: true }], prixEspece: 50, type: "T", paiementEnLigneObligatoire: true, epreuveList: [{ id: 9, typeEpreuve: "SM", nomEpreuve: "Simple" }] };
+  global.fetch = async (u) => ({ ok: true, status: 200, json: async () => J(String(u)), text: async () => JSON.stringify(J(String(u))) });
+  const AF = Object.getPrototypeOf(async function () {}).constructor;
+  for (const [k, a] of [["fiche", { t: "FFT_1001" }], ["favs", {}], ["favSet", { t: "1001" }], ["favDel", { fid: "77" }]]) {
+    const out = String(await new AF(T.queryScript(k, a))());
+    assert.ok(!/is not defined|ReferenceError|"error"/.test(out), k + " : " + out.slice(0, 300));
+    if (k === "fiche") assert.ok(/Terre battue/.test(out) && /tmc/.test(out) && /"min":"30"/.test(out), out.slice(0, 400));
+    if (k !== "fiche") assert.ok(/"fid":"77"/.test(out), out.slice(0, 300));
+  }
+});
 test("tournois 4.6.0 : formats Ten'Up relevés le 25/11/2026", () => {
   assert.strictEqual(T.dispoLimFrom("Vous aviez jusqu&#x27;au 04/11/2026 pour modifier vos disponibilités"), "2026-11-04");
   assert.strictEqual(T.dispoLimFrom("Vous avez jusqu’au 1/12/2026 pour modifier vos disponibilités"), "2026-12-01");
   assert.strictEqual(T.dispoLimFrom("<p>Rien</p>"), "");
   const c = T.cardMap({ idHomologation: "MOJA_321545", libelleTournoi: "Open d'hiver", dateDebut: "2026-12-05", dateFin: "2026-12-20", club: { libelle: "TC Exemple" }, ville: "VILLE", distance: 12400, inscriptionEnLigne: true, naturesEpreuves: [] });
-  assert.strictEqual(c.id, "321545"); assert.strictEqual(c.km, 12); assert.strictEqual(c.eps, null);
+  assert.strictEqual(c.id, "321545"); assert.strictEqual(c.fav, false); assert.strictEqual(c.payOnline, false); assert.strictEqual(T.ficheMap({ paiementEnLigneObligatoire: true }).payReq, true); assert.strictEqual(c.km, 12); assert.strictEqual(c.eps, null);
   assert.strictEqual(T.cardsFrom('x{"nbResultats":1,"cards":[{"idHomologation":"A_1","libelleTournoi":"T"}]}y').cards.length, 1);
   const f = T.ficheMap({ mailJa: " ja@exemple.fr ", telephoneJa: "06 00 00 00 00", dateCloture: "2026-12-01T00:00", inscriptionEnLigne: true, epreuveList: [{ id: 7, typeEpreuve: "SM", nomEpreuve: "Simple messieurs" }, { id: 8, typeEpreuve: "DD", nomEpreuve: "Double dames" }] });
   assert.strictEqual(f.ja.tel, "0600000000"); assert.strictEqual(f.ja.mail, "ja@exemple.fr"); assert.strictEqual(f.closing, "2026-12-01");
   assert.strictEqual(f.eps[0].sex, "H"); assert.strictEqual(f.eps[1].sex, "F"); assert.strictEqual(f.eps[1].dbl, true);
+  const g = T.ficheMap({ codeSurfaces: ["TB", "RES", "XX"], courtList: [{ couvert: true }, { couvert: false }], prixEspece: 100, prixLots: 0, libelleCategorie: "TMC Messieurs", type: "T", epreuveList: [{ id: 9, typeEpreuve: "SM", nomEpreuve: "Simple messieurs" }] });
+  assert.deepStrictEqual(g.surf, ["Terre battue", "Résine"]); assert.strictEqual(g.cov, "mix"); assert.strictEqual(g.cash, 100); assert.strictEqual(g.lots, undefined); assert.strictEqual(g.tmc, true); assert.strictEqual(g.kind, "tournoi"); assert.strictEqual(T.ficheMap({ type: "C" }).kind, "indiv");
+  T.epMerge(g, [{ eprId: 9, classementMin: "15/4 ", classementMax: "15/1 ", type: "MULTICHANCE", prixEspece: 100, prixLots: 50, mailConvocation: "x@exemple.fr" }]);
+  assert.strictEqual(g.eps[0].min, "15/4"); assert.strictEqual(g.eps[0].max, "15/1"); assert.strictEqual(g.eps[0].fmt, "tmc"); assert.strictEqual(g.lots, 50);
+  assert.ok(!JSON.stringify(g).includes("x@exemple.fr"));
+  const fv = T.favsMap({ tournoisFavoris: [{ id: 328001, idFavori: 1234567, libelle: "Open d'hiver", dateDebut: "2027-01-09T00:00:00", dateFin: "2027-01-24", nomClub: "TC Exemple", inscriptionEnLigne: true, paiementEnLigne: false }] });
+  assert.deepStrictEqual([fv[0].id, fv[0].fid, fv[0].from, fv[0].online], ["328001", "1234567", "2027-01-09", true]);
   const l = T.lieuMap({ nomClub: "TC Exemple", adresse1: "1 rue du Court", codePostal: "75001", ville: "PARIS", lat: 48.86, lng: 2.34 });
   assert.ok(/1 rue du Court/.test(l.addr)); assert.strictEqual(l.lat, 48.86);
   const i = T.tuInfos({ jugeArbitre: { idCrm: 1, nom: "MARTIN", prenom: "Julien" }, installation: { adresse1: null, codePostal: "75001", nom: "Salle", ville: "PARIS" } });

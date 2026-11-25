@@ -593,6 +593,7 @@ body.kb-open .tabbar { display: none; }
 .nv-tag { align-self: flex-start; font-size: 14px; font-weight: 700; border-radius: 99px; padding: 6px 14px; }
 .nv-tag.rose { background: #3B1E2B; color: #F28CB6; }
 .nv-tag.bleu { background: #172B3B; color: #6CB8F0; }
+.nv-tag.vert { background: #173B26; color: #6FC28F; }
 .nv-title { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
 .nv-text { font-size: 17px; line-height: 1.45; color: #B8B0A6; }
 .nv-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; }
@@ -7722,3 +7723,25 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 /* 4.10 : sélecteur d'heure par quarts d'heure */
 select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; cursor: pointer; }
 .dz-hh select.tsel, .ob-time select.tsel, .tn-dd select.tsel { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238A8F98' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+
+/* 4.11 (Yann, 25/11/2026) : Trouver un tournoi : filtre, tuile sur 3 lignes, cœur (favoris Ten'Up) */
+.tz-k { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 2px; }
+.tz-k .chip { min-height: 36px; font-size: 14px; background: var(--card); box-shadow: none; }
+.tz-k .chip.on { background: var(--gazon); color: var(--on-gazon); font-weight: 700; }
+.tz-t .tz-ln { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; font-size: 13.5px; }
+.tz-t .tz-ln .rk-tag { font-size: 13.5px; }
+.tz-tag { font-size: 11.5px; font-weight: 800; letter-spacing: .04em; color: var(--gazon); background: color-mix(in srgb, var(--gazon) 16%, transparent); padding: 2px 7px; border-radius: 6px; }
+.tz-sf { display: inline-flex; gap: 4px; }
+.tz-sf .an-sp, .tz-sh .an-sp { margin-right: 0; }
+.tz-sh .tz-r .an-sp { margin-right: 6px; }
+.tz-cup { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.tz-fav { flex: none; display: flex; padding: 8px; margin: -8px -4px -8px 4px; color: var(--muted); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tz-fav svg { fill: none; }
+.tz-fav.on { color: var(--gazon); }
+.tz-fav.on svg { fill: currentColor; }
+.tz-fav:active { transform: scale(.9); }
+.sh-head .tz-fav { margin: 0 6px 0 auto; padding: 10px; }
+.tz-sub { color: var(--muted); }
+.tz-favs { margin-top: 12px; }
+.tz-favs .blk-h { padding: 14px 16px 2px; }
+.tz-sh .tz-r .rk-tag { font-size: inherit; font-weight: 700; }

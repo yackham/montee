@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.10.2",
+    VERSION: "4.11.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2032,33 +2032,99 @@
     if (v.km != null) a.push(v.km <= 15 ? "à côté de chez toi" : "à " + v.km + " km");
     return cap1(a.join(", ")) + ".";
   }
+  // 4.11 (Yann : « Ace explique pourquoi celui-là plutôt qu'un autre ? ») : la même évaluation (tzEval), comparée aux autres tournois affichés
+  function tzNearest(v, L) { return v.km != null && !v.clash.length && L.every(function (x) { return x === v || x.clash.length || x.km == null || x.km >= v.km; }); }
+  function tzWhyCmp(v, L) {
+    if (!v.ep || v.clash.length) return tzWhy(v);
+    var a = [tzNearest(v, L) ? "le plus proche sans rien d'autre ces jours-là" : "rien d'autre ces jours-là" + (v.km != null ? ", à " + v.km + " km" : "")];
+    if (v.thr) a.push("et il finit avant que des points sortent (" + fdate(E.iso(v.thr.rel)) + ")"); else if (v.rel) a.push("et il compte pour la sortie du " + fdate(E.iso(v.rel)));
+    return cap1(a.join(", ")) + ".";
+  }
+  function tzVs(x, v) { // ce qui manque à un autre tournoi, face au conseil d'Ace
+    if (!x.ep) return "pas d'épreuve de simple pour toi";
+    if (x.clash.length) return (x.km != null ? x.km + " km, mais en" : "En") + " même temps que " + x.clash[0].t.replace(/^Indispo : /, "ton indispo : ");
+    if (x.t.closing && x.close == null) return "inscriptions closes";
+    if ((v.thr && !x.thr) || (v.rel && !x.rel && !x.thr)) return (x.km != null ? x.km + " km, " : "") + "finit après la sortie du " + fdate(E.iso(v.thr ? v.thr.rel : v.rel));
+    if (x.km != null && v.km != null && x.km > v.km) return x.km + " km, " + (x.km - v.km) + " de plus";
+    return x.km != null ? x.km + " km" : "";
+  }
+  function tzWhyAns(c, id) {
+    var L = tzShown(), v = L.filter(function (x) { return tuNum(x.t.id) === tuNum(id); })[0], A = [], XH = "";
+    if (!v) return { a: ["Ce tournoi n'est plus dans ta recherche : relance-la depuis « Trouver un tournoi »."], f: [], facts: [], x: "", mood: "repos" };
+    var t = v.t, near = tzNearest(v, L);
+    A.push("<b>" + (v.clash.length ? esc(tzWhy(v)) : near ? "C'est le plus proche qui ne tombe sur rien d'autre dans ta saison." : "Il ne tombe sur rien d'autre dans ta saison.") + "</b>");
+    var b = [];
+    if (v.km != null) b.push("À " + v.km + " km" + (t.from ? ", du " + fdate(t.from).replace(/ \d{4}$/, "") + (t.to && t.to !== t.from ? " au " + fdate(t.to).replace(/ \d{4}$/, "") : "") : "") + ".");
+    if (v.thr) b.push("Il finit avant la sortie du " + fdate(E.iso(v.thr.rel)) + ", où des points sortent de ton bilan : une victoire là-bas peut les remplacer.");
+    else if (v.rel) b.push("Il finit avant la sortie du " + fdate(E.iso(v.rel)) + " : tes victoires là-bas compteront tout de suite.");
+    if (b.length) A.push(esc(b.join(" ")));
+    var ok = function (l, sm) { return acRow({ sq: "✓", l: esc(l), s: esc(sm) }); }, rows = "";
+    if (!v.clash.length) rows += ok("Rien d'autre ces jours-là", "ni tournoi, ni match d'équipe, ni indispo");
+    if (v.km != null) rows += ok(v.km + " km", near ? "le plus proche de ceux qui restent" : "");
+    if (v.thr) rows += ok("Avant que des points sortent", "sortie du " + fdate(E.iso(v.thr.rel))); else if (v.rel) rows += ok("Compte pour la sortie du " + fdate(E.iso(v.rel)), t.to ? "il finit le " + fdate(t.to) : "");
+    if (v.close != null) rows += ok("Inscriptions ouvertes", "jusqu'au " + fdate(t.closing));
+    XH += acCard("Ce que j'ai regardé", rows + '<span class="acd-f">Je ne fais pas de pronostic : le tableau n\'est pas publié avant le tournoi.</span>');
+    var oth = L.filter(function (x) { return x !== v; }).sort(function (a, b2) { return b2.score - a.score; }).slice(0, 3);
+    if (oth.length) XH += acCard("Et les autres ?", oth.map(function (x) { return acRow({ l: esc(x.t.name), s: esc(cap1(tzVs(x, v))), sheet: ["tz", x.t.id] }); }).join(""));
+    return { a: A, f: [], facts: [], x: XH, mood: "concentree" };
+  }
   function tzAll() {
     var P = tzPrefs(), L = (S.tzr && S.tzr.list) || [], td = E.iso(today());
     return L.filter(function (t) { return t.from >= td && !tzYouth(t) && !(toursAll().some(function (x) { return x.tuid && tuNum(x.tuid) === tuNum(t.id); })); })
       .map(tzEval).filter(function (v) { return v.ep && (v.km == null || v.km <= P.km * 1.25); });
   }
-  function tzFicheAuto() { // les fiches (épreuves, clôture) des 6 premiers, lues au rythme d'un humain
+  // 4.11 (Yann) : le filtre Tous / Tournois / TMC / Indivs ; la liste, le conseil d'Ace et sa conversation suivent le même filtre
+  function tzShown() { var K = tzPrefs().kind || "all"; return tzAll().filter(function (v) { return K === "all" || tzKindOf(v) === K; }); }
+  function tzBest(L) { return (L || tzShown()).slice().sort(function (a, b) { return b.score - a.score; }).filter(function (x) { return !x.clash.length; })[0] || null; }
+  function tzFicheAuto() { // 4.11 : les fiches (épreuves, classements, surface, dotation) de toute la liste, en lecture légère, au rythme d'un humain
     if (UI.tzFiBusy) return; UI.tzFi = UI.tzFi || {};
-    var todo = tzAll().sort(function (a, b) { return b.score - a.score; }).slice(0, 6).filter(function (v) { return v.t.eps == null && !UI.tzFi[v.t.id]; });
+    var todo = tzAll().sort(function (a, b) { return b.score - a.score; }).slice(0, 30).filter(function (v) { return v.t.eps == null && !UI.tzFi[v.t.id]; });
     if (!todo.length) return; UI.tzFiBusy = true; var ch = Promise.resolve();
-    todo.forEach(function (v) { UI.tzFi[v.t.id] = 1; ch = ch.then(function () { return tzFiche(v.t, true); }); });
+    todo.forEach(function (v) { UI.tzFi[v.t.id] = 1; ch = ch.then(function () { return tzFiche(v.t, true); }).then(function () { return new Promise(function (r) { setTimeout(r, 400); }); }); });
     ch.then(function () { UI.tzFiBusy = false; save(); if (route() === "trouver") render(); });
+  }
+  // 4.11 : tes favoris, ceux de Ten'Up (le même cœur des deux côtés) ; relus toutes les 30 min, et après chaque cœur touché
+  function tzFavs(force) {
+    if (!NATIVE || !S.tenup.linked || S.tenup.expired || offline() || UI.tzFavBusy) return;
+    if (!force && S.tzFav && Date.now() - (S.tzFav.at || 0) < 30 * 6e4) return;
+    UI.tzFavBusy = true; tenupQuery("favs", {}).then(function (r) { UI.tzFavBusy = false; if (!r || r.error || !r.list) return; S.tzFav = { at: Date.now(), list: r.list }; save(); render(); });
+  }
+  function tzFavOf(id) { var n = tuNum(id); return ((S.tzFav && S.tzFav.list) || []).filter(function (f) { return tuNum(f.id) === n; })[0] || null; }
+  function tzFind(id) { var n = tuNum(id); return ((S.tzr && S.tzr.list) || []).filter(function (x) { return tuNum(x.id) === n; })[0] || null; }
+  function tzFavT(f) { // un favori hors de ta recherche : un tournoi en forme Montée, complété par sa fiche à l'ouverture
+    UI.tzFavT = UI.tzFavT || {}; return UI.tzFavT[f.id] || (UI.tzFavT[f.id] = { id: f.id, name: f.name, from: f.from, to: f.to, club: f.club, city: "", online: f.online, payOnline: f.payOnline, eps: null }); }
+  function tzFavHtml() { // Mes épreuves : tes favoris à venir, sans lancer de recherche
+    var td = E.iso(today()), L = ((S.tzFav && S.tzFav.list) || []).filter(function (f) { return (f.to || f.from) >= td; }).sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+    if (!L.length) return "";
+    return '<div class="blk tz-list tz-favs"><div class="blk-h"><span class="eyebrow">Tes favoris</span><span class="small">' + L.length + "</span></div>" + L.map(function (f) { return tzLine(tzEval(tzFind(f.id) || tzFavT(f)), true); }).join("") + "</div>";
   }
   function tzFiche(t, quiet) { // épreuves, clôture, juge-arbitre et lieu lus sur la fiche Ten'Up du tournoi, gardés avec le tournoi trouvé
     if (!NATIVE || !S.tenup.linked) return Promise.resolve();
-    return tenupQuery("fiche", { t: t.id }).then(function (r) {
-      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
+    return tenupQuery("fiche", { t: t.id, light: quiet ? 1 : 0 }).then(function (r) {
+      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat", "surf", "cov", "cash", "lots", "tmc", "kind", "payReq", "insReq"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
       if (quiet) return; save(); if (UI.sheet && UI.sheet.k === "tz") render();
     });
   }
   function tzBillet(d) { var x = E.parseDate(d); return '<span class="tz-d"><small>' + esc(JOURS[x.getDay()].slice(0, 3)) + ".</small><b>" + dN(x) + "</b><small>" + esc(MOIS[x.getMonth()]) + "</small></span>"; }
+  // 4.11 (Yann, 25/11/2026) : la tuile tient sur 3 lignes : lieu et prix (« en ligne » si Ten'Up le fait payer en ligne) ;
+  // classement de l'épreuve (balle jaune), TMC ou Indivs, surface (pictos habituels), dotation ; le cœur remplace la flèche
+  var TZ_CUP = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7"/></svg>';
+  var TZ_HEART = '<svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
+  function tzKindOf(v) { var t = v.t, e = v.ep || {}; if (t.kind === "indiv" || /individuel/i.test(t.name || "")) return "indiv";
+    return e.fmt ? (e.fmt === "tmc" ? "tmc" : "tournoi") : t.tmc || /\bTMC\b/i.test(t.name || "") ? "tmc" : "tournoi"; }
+  function tzRange(e) { return e && (e.min || e.max) ? (e.min || "NC") + " à " + (e.max || "…") : ""; }
+  function tzHeart(id) { var on = !!tzFavOf(id); return '<span class="tz-fav' + (on ? " on" : "") + '" role="button" tabindex="0" data-a="tzFav" data-v="' + esc(id) + '" aria-pressed="' + on + '" aria-label="' + (on ? "Retirer de tes favoris" : "Mettre en favori") + '">' + TZ_HEART + "</span>"; }
   function tzLine(v, open) {
-    var t = v.t, e = v.ep, sub = [t.city ? insCase(t.city) : "", v.km != null ? v.km + " km" : "", tzSen(e), e.min || e.max ? (e.min || "NC") + " à " + (e.max || "…") : "", e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ");
+    var t = v.t, e = v.ep || {}, k = tzKindOf(v), tot = (t.cash || 0) + (t.lots || 0), rg = tzRange(e);
+    var sub = [t.city ? insCase(t.city) : "", v.km != null ? v.km + " km" : "", tzSen(e), e.fee ? e.fee + " €" + (t.payOnline ? " en ligne" : "") : ""].filter(Boolean).join(" · ");
+    var ln = (rg ? '<b class="rk-tag">' + esc(rg) + "</b>" : "") + (k !== "tournoi" ? '<span class="tz-tag">' + (k === "tmc" ? "TMC" : "Indivs") + "</span>" : "") +
+      ((t.surf || []).length ? '<span class="tz-sf" aria-label="' + esc(t.surf.join(", ")) + '">' + t.surf.map(surfPic).join("") + "</span>" : "") + (tot ? '<span class="tz-cup">' + TZ_CUP + tot + " €</span>" : "");
     var hot = v.clash.length ? '<span class="tz-w">' + esc("En même temps : " + v.clash[0].t) + "</span>"
       : v.close != null && v.close <= 7 ? '<span class="tz-w">' + esc(v.close === 0 ? "Inscriptions closes ce soir" : "Inscriptions closes dans " + plural(v.close, "jour")) + "</span>"
       : v.thr || v.rel ? '<span class="tz-v">' + (open ? esc(v.thr ? "Avant que des points sortent (" + fdate(E.iso(v.thr.rel)) + ")" : "Compte pour la sortie du " + fdate(E.iso(v.rel))) : pwX("Avant que des points sortent")) + "</span>" : "";
-    return '<button class="row tz-t" data-a="tzOpen" data-v="' + esc(t.id) + '">' + tzBillet(t.from) + '<span class="grow"><span class="t">' + esc(t.name) + '</span><span class="s">' + esc(sub) + "</span>" + hot + "</span>" + I.next + "</button>";
+    return '<button class="row tz-t" data-a="tzOpen" data-v="' + esc(t.id) + '">' + tzBillet(t.from) + '<span class="grow"><span class="t">' + esc(t.name) + '</span><span class="s">' + esc(sub) + "</span>" + (ln ? '<span class="tz-ln">' + ln + "</span>" : "") + hot + "</span>" + tzHeart(t.id) + "</button>";
   }
+
   V.trouver = function () {
     var P = tzPrefs(), plus = isSup(), s = '<div class="screen tz-scr">' + topbar("", backLab("Mes épreuves"));
     s += '<h1>Trouver un tournoi</h1><p class="lead" style="margin-top:-8px">Les tournois près de chez toi, sans collision avec ta saison.</p>';
@@ -2068,9 +2134,12 @@
     tzSearch(false);
     if (UI.tzBusy && !(S.tzr && S.tzr.list)) return s + '<div class="card"><span class="small">Recherche sur Ten\'Up…</span></div></div>';
     if (UI.tzErr || (S.tzr && !S.tzr.list)) return s + '<div class="card tz-off"><b>La recherche Ten\'Up n\'a pas répondu</b><span class="small">' + esc(UI.tzErr || "Montée n'a pas encore trouvé la liste des tournois.") + ' En attendant, la recherche de Ten\'Up s\'ouvre ici, avec ta connexion.</span>' + '<button class="btn primary" data-a="tzTu" data-v="/recherche/tournois" data-t="Rechercher un tournoi">Chercher sur Ten\'Up</button></div></div>';
-    var all = tzAll(); if (!all.length) return s + viduel("tz", "Rien d'ouvert pour toi", "Aucun tournoi pour toi dans ce rayon et ces dates. Élargis la distance ou les semaines.", "") + "</div>";
-    var rec = all.slice().sort(function (a, b) { return b.score - a.score; }), best = rec.filter(function (v) { return !v.clash.length; })[0];
-    if (best) s += '<button class="card tz-ace" data-a="tzOpen" data-v="' + esc(best.t.id) + '"><span class="eyebrow">Le conseil d\'Ace</span><b>' + esc(best.t.name) + "</b><span>" + esc(fdate(best.t.from)) + " · " + esc(tzWhy(best)) + "</span></button>";
+    tzFavs(false);
+    var K = P.kind || "all", KL = { all: "Tous", tournoi: "Tournois", tmc: "TMC", indiv: "Indivs" };
+    if (tzAll().length) s += '<div class="tz-k" role="group" aria-label="Type de compétition">' + ["all", "tournoi", "tmc", "indiv"].map(function (k) { return '<button class="chip' + (K === k ? " on" : "") + '" data-a="tzKind" data-v="' + k + '" aria-pressed="' + (K === k) + '">' + KL[k] + "</button>"; }).join("") + "</div>";
+    var all = tzShown(); if (!all.length) return s + (tzAll().length ? viduel("tz", K === "tmc" ? "Pas de TMC pour toi" : K === "indiv" ? "Pas d'indivs pour toi" : "Pas de tournoi classique pour toi", "Rien de ce genre dans ce rayon et ces dates. Essaie « Tous », ou élargis la distance.", "") : viduel("tz", "Rien d'ouvert pour toi", "Aucun tournoi pour toi dans ce rayon et ces dates. Élargis la distance ou les semaines.", "")) + "</div>";
+    var rec = all.slice().sort(function (a, b) { return b.score - a.score; }), best = tzBest(all);
+    if (best) s += '<button class="card tz-ace id-dock" data-a="tzOpen" data-v="' + esc(best.t.id) + '">' + acePeek("tz:" + best.t.id, true).replace("Je t'explique ?", "Pourquoi lui ?") + coBall("tz:" + best.t.id, "joie") + '</span><span class="eyebrow">Le conseil d\'Ace</span><b>' + esc(best.t.name) + "</b><span>" + esc(fdate(best.t.from)) + " · " + esc(tzWhyCmp(best, all)) + "</span></button>";
     var tab = plus && (UI.tzTab || "rec") === "rec" ? "rec" : "date";
     s += '<div class="seg tz-tabs"><button data-a="tzTab" data-v="rec" class="' + (tab === "rec" ? "on" : "") + '">Conseillés' + (plus ? "" : ' <span class="ch-plus">+</span>') + '</button><button data-a="tzTab" data-v="date" class="' + (tab === "date" ? "on" : "") + '">Par date</button></div>';
     var L = tab === "rec" ? rec : all.slice().sort(function (a, b) { return a.t.from < b.t.from ? -1 : 1; });
@@ -2288,18 +2357,22 @@
     return { title: "Où et quand", sub: "La recherche passe par Ten'Up, avec ton compte.", body: '<div class="tz-sh">' + b + '</div><button class="btn primary" data-a="tzGo">Voir les tournois</button>' };
   };
   var DET_TZ = function (id) {
-    var t = ((S.tzr && S.tzr.list) || []).filter(function (x) { return x.id === id; })[0]; if (!t) return null;
-    var v = tzEval(t), e = v.ep, plus = isSup(), best = tzAll().sort(function (a, b) { return b.score - a.score; }).filter(function (x) { return !x.clash.length; })[0], open = plus || (best && best.t.id === id), num = tuNum(t.id), b = "";
+    var fv = tzFavOf(id), t = tzFind(id) || (fv && tzFavT(fv)); if (!t) return null;
+    var v = tzEval(t), e = v.ep, plus = isSup(), best = tzBest(), open = plus || (best && best.t.id === id), num = tuNum(t.id), b = "";
     b += tzLieu(t, [t.club, t.city].filter(Boolean).map(insCase).join(", "));
     b += tzJa(t, num);
-    b += tzRow("Ton épreuve", e && !e.wait ? esc([e.name, e.min || e.max ? (e.min || "NC") + " à " + (e.max || "…") : "", e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ")) : "Lue sur la fiche Ten'Up…", "");
+    b += tzRow("Ton épreuve", e && !e.wait ? [esc(e.name), tzRange(e) ? '<b class="rk-tag">' + esc(tzRange(e)) + "</b>" : "", e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ") +
+      (e.fmt === "tmc" ? '<br><span class="tz-sub">TMC : plusieurs matchs, même si tu perds le premier</span>' : t.kind === "indiv" ? '<br><span class="tz-sub">Indivs : une poule, puis un tableau</span>' : "") : e === null ? "Pas d'épreuve de simple pour toi" : "Lue sur la fiche Ten'Up…", "");
+    if ((t.surf || []).length) b += tzRow("Courts", t.surf.map(surfPic).join("") + esc(t.surf.join(", ") + (t.cov === "in" ? ", couverts" : t.cov === "out" ? ", extérieurs" : t.cov === "mix" ? ", couverts et extérieurs" : "")), "");
+    if (t.cash || t.lots) b += tzRow("Dotation", esc(((t.cash || 0) + (t.lots || 0)) + " €" + (t.cash && t.lots ? " : " + t.cash + " € en espèces, " + t.lots + " € en lots" : t.cash ? " en espèces" : " en lots")), "");
+    if (t.payReq) b += tzRow("Paiement", "En ligne, obligatoire pour être inscrit", ""); else if (t.payOnline) b += tzRow("Paiement", "En ligne ou sur place", "");
     if (t.closing) b += tzRow("Inscriptions", (v.close == null ? "Closes depuis le " : "Jusqu'au ") + esc(fdate(t.closing)), "", v.close != null && v.close <= 7 ? "tz-due" : "");
     b += tzRow("Ta saison", v.clash.length ? esc(v.clash.map(function (x) { return obDayLab(x.d) + " : " + x.t; }).join(" · ")) : "Rien d'autre ces jours-là.", "", v.clash.length ? "tz-due" : "");
     var when = v.thr ? "Fini avant la sortie du " + fdate(E.iso(v.thr.rel)) + ", où des points sortent" + (v.thr.need != null ? " : une victoire contre un " + lab(v.thr.need) + " les remplace." : ".")
       : "Tes victoires compteront à la sortie du " + fdate(E.iso(E.nextRelease(E.parseDate(t.to || t.from)))) + ".";
     b += tzRow("Le bon moment", open ? esc(when) : pwX("Fini avant la sortie du 2 déc., où des points sortent."), "");
     if ((!t.ja || !t.ja.name || t.eps == null) && !(UI.tzFi || {})[t.id] && NATIVE && S.tenup.linked) { UI.tzFi = UI.tzFi || {}; UI.tzFi[t.id] = 1; setTimeout(function () { tzFiche(t); }, 600); } // 4.6.0 : épreuves et juge-arbitre en direct (Yann)
-    return { title: t.name, sub: [fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), t.club ? insCase(t.club) : ""].filter(Boolean).join(" · "),
+    return { title: t.name, hd: tzHeart(t.id), sub: [fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), t.club ? insCase(t.club) : ""].filter(Boolean).join(" · "),
       body: '<div class="tz-sh">' + b + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
         '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>' };
   };
@@ -3664,7 +3737,7 @@
       viduel("eq", "Pas encore de rencontre par équipes", "Montée suit ton palmarès Ten'Up : dès ta première rencontre avec ton club, ton équipe s'affiche ici avec son classement et ses résultats.", [S.teams && S.teams.club && S.teams.club.nom ? tmNm(S.teams.club.nom) : "", seas].filter(Boolean).join(" · ")) +
       // 3.74.0 : un responsable sportif qui ne joue dans aucune équipe voit quand même celles du club (3.81 : dans l'onglet « Le club »)
       clubFolHtml()) + "</div>";
-    return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs + saisonRowHtml() + tzEntryHtml() +
+    return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs + saisonRowHtml() + tzEntryHtml() + (tzFavs(false), tzFavHtml()) +
       (!all.length ? viduel("toi", "Aucun tournoi ni indivs cette saison", "Dès que tu t'inscris sur Ten'Up, ton tournoi ou ta poule d'indivs arrive ici tout seul : tableau, adversaires, tes chances.", "Ta " + seas) : "") +
 sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       (off.length ? '<button class="row tl-off" data-a="tlOff"><span class="grow"><span class="t">Terminées</span><span class="s">' + plural(off.length, "épreuve") + "</span></span>" + '<span class="tl-ch' + (UI.tlOff ? " on" : "") + '">' + I.next + "</span></button>" + (UI.tlOff ? '<div class="blk">' + off.map(row).join("") + "</div>" : "") : "") + "</div>";
@@ -10295,6 +10368,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       Q.push(["card", "bilan", "C'est quoi, mon bilan ?", "Ton bilan pour " + p.next.label, p.next.total + " / " + p.next.norme, "spark"]);
       Q.push(["card", "piste", "C'est quoi, une piste ?", "Tes pistes", p.status === "montee" ? "Tu montes " + lab(p.projected) : "Il manque " + plural(Math.max(0, p.next.norme - p.next.total), "pt"), "spark"]);
     }
+    if (/^tz:/.test(aq)) { var tzq = tzFind(aq.slice(3)); if (tzq) Q.push(["card", aq, "Pourquoi celui-là ?", "Le conseil d'Ace", tzq.name, "spark"]); } // 4.11 : Ace posé sur son conseil de tournoi
     if (/^win:/.test(aq)) { var wq = knownMatches(false).filter(function (m) { return m.id === aq.slice(4) && m.result === "V"; })[0]; if (wq) Q.push(["match", aq, "Ma victoire contre " + nameCase(wq.opp || "") + ", ça m'a rapporté quoi ?", "Ta victoire", "contre " + nameCase(wq.opp || ""), "check"]); }
     // 4.0.1 (capture de Yann) : deux poules en cours donnaient deux fois « Je joue qui en premier dans ma poule ? ». Avec plusieurs épreuves du même genre, la question nomme l'épreuve.
     var opT = toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }), poLeft = function (t) { return t.fmt === "poule" ? (t.pool || []).filter(function (x) { return !x.res && x.name; }) : []; };
@@ -10350,7 +10424,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   function acRow(o) {
     if (o.lk) { o = Object.assign({}, o, { sheet: null, href: null, tog: null }); } // Montée+ : le titre se lit, le chiffre est flouté (rien à toucher)
     var tag = o.lk ? 'div class="acr lk"' : o.tog ? 'button class="acr' + (o.tog[2] ? " on" : "") + '" data-a="' + o.tog[0] + '" data-v="' + esc(o.tog[1]) + '" aria-expanded="' + (o.tog[2] ? "true" : "false") + '"' : o.sheet ? 'button class="acr" data-a="sheet" data-k="' + esc(o.sheet[0]) + '" data-v="' + esc(o.sheet[1] || "") + '"' : o.href ? 'a class="acr" href="' + esc(o.href) + '"' : 'div class="acr"';
-    return "<" + tag + ">" + (o.sq ? '<span class="acr-sq ' + (o.sq === "V" ? "g" : "r") + '">' + o.sq + "</span>" : "") + '<span class="acr-l"><b>' + (o.ic ? acIc(o.ic) : "") + o.l + "</b>" + (o.s ? "<small" + (o.scl ? ' class="' + o.scl + '"' : "") + (o.lk ? ' aria-hidden="true"' : "") + ">" + o.s + "</small>" : "") + "</span>" +
+    return "<" + tag + ">" + (o.sq ? '<span class="acr-sq ' + (o.sq === "V" || o.sq === "✓" ? "g" : "r") + '">' + o.sq + "</span>" : "") + '<span class="acr-l"><b>' + (o.ic ? acIc(o.ic) : "") + o.l + "</b>" + (o.s ? "<small" + (o.scl ? ' class="' + o.scl + '"' : "") + (o.lk ? ' aria-hidden="true"' : "") + ">" + o.s + "</small>" : "") + "</span>" +
       (o.bar != null ? '<span aria-hidden="true" class="acr-bar ' + (o.cl || "") + '"><i style="width:' + Math.max(0, Math.min(100, o.bar)) + '%"></i>' + (o.tick != null ? '<em style="left:' + Math.max(0, Math.min(100, o.tick)) + '%"></em>' : "") + "</span>" : "") +
       '<span class="acr-v ' + (o.cl || "") + '"' + (o.lk ? ' aria-hidden="true"' : "") + ">" + (o.v || "") + "</span>" + (o.sheet || o.href || o.tog ? '<span class="acr-go' + (o.tog ? " tg" : "") + '">' + I.next + "</span>" : "") + "</" + tag.split(" ")[0] + ">";
   }
@@ -10381,6 +10455,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], XH = "", mood = "repos", pl = null, k = q.split(":");
     try { pl = pistes(c); } catch (e) {}
     if (k[0] === "next" || k[0] === "vs") return coMatchAns(c, q);
+    if (k[0] === "tz") return tzWhyAns(c, k[1] || "");
     if (k[0] === "news") return coNewsAns(c);
     var ez = pl && pl.list && pl.list[0], rel = p.release ? fdate(p.release).replace(/^1 /, "1er ") : "";
     var routeLine = function () { return ez ? esc(pisteLabel(ez)) + (pl.goal === "keep" ? " et tu restes " : " et tu montes ") + esc(lab(pl.target)) + "." : ""; }; // dit une seule fois, dans « Comment je monte ? » (4.4)
@@ -15440,7 +15515,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.dz = DET_DZ; DET.hb = DET_HB; DET.hbd = DET_HBD; DET.hbt = DET_HBT; DET.dza = DET_DZA; hbDragInit(); DET.itin = DET_ITIN; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
     var d = DET[UI.sheet.k] && DET[UI.sheet.k](UI.sheet.v);
     if (!d) { UI.sheet = null; return ""; }
-    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + '</b><button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
+    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + "</b>" + (d.hd || "") + '<button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
       (d.sub ? '<span class="small">' + esc(d.sub) + "</span>" : "") + '<div class="sh-body">' + d.body + "</div></div>";
   }
   // Plafond : jusqu'où tu bats régulièrement
@@ -18624,8 +18699,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.9",
+    v: "4.11",
     pages: [
+      // 4.11 (Yann, 25/11/2026) : trouver un tournoi (filtre, surface, dotation, favoris Ten'Up, « Pourquoi lui ? ») ; 4.10 : tes dispos dans Montée
+      { hero: true, title: "Montée 4.11", text: "Trouve ton tournoi sans passer par Ten'Up : seulement ceux où tu as le droit de jouer, tes favoris, et Ace qui t'explique son choix." },
+      { tag: "Nouveau", tone: "rose", title: "Trouve ton tournoi", vis: "tz411", text: "Seulement ceux où tu as le droit de jouer, avec le classement, la surface, la dotation et le paiement en ligne. Choisis Tous, Tournois, TMC ou Indivs." },
+      { tag: "Nouveau", tone: "rose", title: "Tes favoris, ceux de Ten'Up", vis: "fav411", text: "Un cœur sur un tournoi : il est aussi dans tes favoris Ten'Up, et il t'attend dans Mes épreuves sans lancer de recherche." },
+      { tag: "Nouveau", tone: "rose", title: "Pourquoi ce tournoi ?", vis: "why411", text: "Touche Ace sur son conseil : ce qu'il a regardé (ta saison, la distance, la sortie du classement) et ce qui manque aux autres." },
+      { tag: "Amélioré", tone: "bleu", title: "Tes dispos, dans Montée", vis: "hb410", text: "Tes créneaux habituels et tes indispos de tournoi se règlent dans Montée, et partent sur Ten'Up. Les heures se choisissent de 15 en 15 min." },
+      { tag: "Gratuit", tone: "vert", title: "Tout ça, c'est gratuit", vis: "free411", text: "Trouver ton tournoi, tes favoris, le conseil d'Ace et tes dispos : tout est dans la version gratuite de Montée, sans abonnement." },
       // 4.9 (Yann, 25/11/2026) : Ace posé sur une carte se touche et ouvre sa conversation sur cette carte
       { hero: true, title: "Montée 4.9", text: IOS ? "Ace t'explique chaque carte où il est posé, et il t'accompagne aussi sur ta montre." : "Ace t'explique chaque carte où il est posé, et tes prochains adversaires restent à l'œil." },
       { tag: "Nouveau", tone: "rose", title: "Ace t'explique la carte", vis: "ace49", text: "Ace est posé sur une carte ? Touche-le : il t'explique ce qu'elle montre avec tes chiffres, et tu continues à lui poser tes questions à partir de là." },
@@ -18760,10 +18842,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-    var PHARES = IOS ? ["ace49", "aw47", "pa45", "ace45"] : ["ace49", "pa45", "ace45", "sy45"]; // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
+    var PHARES = ["tz411", "fav411", "why411", "hb410", "free411"]; // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
-    var plus = ANDROID && !isSup() ? [{ cta: 1, tag: "Montée+", tone: "rose", title: "Joue avec ton profil", vis: "cp43", text: "Ton profil de compétiteur, le bon moment pour jouer chaque adversaire de tes indivs, tes stats de tournois et 6 thèmes. 1 mois d'essai gratuit." }] : IOS && PLUS && !isSup() ? [{ cta: 1, tag: "Montée+", tone: "rose", title: "Montée+", vis: "plus25", text: "Le bon moment pour jouer chaque adversaire, ton profil de compétiteur, tes stats de tournois et le coach au poignet. 1 mois d'essai gratuit. Sans abonnement, un match à la montre reste offert chaque mois." }] : [];
+    // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
+    var plus = (ANDROID || (IOS && PLUS)) && !isSup() ? [{ cta: 1, tag: "Montée+", tone: "rose", title: "Et avec Montée+", vis: "plus411", text: "Tes tournois classés pour toi, le bon moment pour chacun avant que tes points sortent, tes chances de monter" + (IOS ? " et le coach au poignet" : " et ton profil de compétiteur") + ". 1\u00a0mois d'essai gratuit." }] : [];
     NOTES.pages = (hero ? [hero] : []).concat(top, plus);
   })();
   if (!NATIVE) NOTES.pages = NOTES.pages.map(function (x) { return x.title === "Match libre ou entraînement" ? Object.assign({}, x, { text: "Un match libre homologué compte pour le classement, un match d'entraînement non." }) : x; });
@@ -18783,6 +18866,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     var nvPill = '<em style="font-style:normal;font-size:11.5px;font-weight:800;border-radius:99px;padding:2px 8px;background:#D4E64A;color:#121212;margin-right:6px">Nouveau</em>';
     if (k === "pa45") return nvc('<span class="nv-k" style="color:#D4E64A">TES PROCHAINS ADVERSAIRES</span>' + [["MC", "M. Caron · 15/2", nvPill + "a perdu lundi", "47 % → 57 %", 1], ["TD", "T. Durand · 15/3", "Rien de neuf", "61 %", 0], ["JM", "J. Moreau · 15/1", "a gagné samedi", "38 % → 34 %", 0]].map(function (r) { return '<span style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)">' + nvAv(r[0]) + '<span style="flex:1;display:flex;flex-direction:column;min-width:0"><b style="font-size:14px">' + r[1] + '</b><span style="font-size:12.5px;opacity:' + (r[4] ? 1 : 0.7) + '">' + r[2] + '</span></span><b style="font-size:13px;color:' + (r[4] ? "#6FC28F" : "#F2F3F5") + ';white-space:nowrap">' + r[3] + "</b></span>"; }).join(""));
     if (k === "aw47") return nvc(watchBox('<span style="display:flex;gap:7px;align-items:flex-start"><span style="flex:none">' + coBall("nv47", "joie", "xs") + '</span><b style="font-size:12px;line-height:1.25">Il te manque <span style="color:#D4E64A">30 pts</span> pour 15/1. Tu veux savoir quoi ?</b></span>' + '<span style="display:flex;align-items:center;gap:7px;background:#22252B;border-radius:13px;padding:6px 8px"><i style="width:20px;height:20px;border-radius:10px;flex:none;background:#8FA8FF33;display:block"></i><span style="display:flex;flex-direction:column;line-height:1.2"><b style="font-size:11.5px">Ton match de demain</b><span style="font-size:10px;font-weight:700;color:#8FA8FF">Thomas M. · 53 %</span></span></span>' + '<span style="display:flex;align-items:center;gap:7px;background:#22252B;border-radius:13px;padding:6px 8px"><i style="width:20px;height:20px;border-radius:10px;flex:none;background:#D4E64A33;display:block"></i><span style="display:flex;flex-direction:column;line-height:1.2"><b style="font-size:11.5px">Monter 15/1</b><span style="font-size:10px;font-weight:700;color:#D4E64A">30 pts à prendre</span></span></span>' + '<span style="display:flex;align-items:center;gap:7px;background:#22252B;border-radius:13px;padding:6px 8px"><i style="width:20px;height:20px;border-radius:10px;flex:none;background:#E88A5E33;display:block"></i><span style="display:flex;flex-direction:column;line-height:1.2"><b style="font-size:11.5px">Ce qui sort</b><span style="font-size:10px;font-weight:700;color:#E88A5E">Rien d\'ici 3 mois</span></span></span>'));
+    var nvAce = function (id, mood, txt) { return '<span style="display:flex;gap:10px;align-items:center;margin-bottom:12px"><span style="flex:none">' + coBall(id, mood, "sm") + '</span><span style="background:#353944;border-radius:18px 18px 18px 6px;padding:10px 13px;font-size:14px;font-weight:700;line-height:1.35">' + txt + "</span></span>"; };
+    if (k === "free411") return nvc(nvAce("nv411f", "joie", "Tout ça, c'est gratuit. Promis !") + '<span class="nv-k" style="color:#6FC28F">DANS LA VERSION GRATUITE</span>' + [["Trouver ton tournoi", "classement, surface, dotation, TMC, indivs"], ["Tes favoris", "les mêmes que sur Ten'Up"], ["Le conseil d'Ace", "et pourquoi ce tournoi"], ["Tes dispos", "créneaux habituels et indispos"]].map(function (r) { return '<span style="display:flex;gap:10px;align-items:center;padding:9px 2px;border-bottom:1px solid rgba(255,255,255,.08)"><span style="flex:none;width:24px;height:24px;border-radius:12px;background:rgba(111,194,143,.18);color:#6FC28F;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px">✓</span><span style="flex:1"><b style="display:block;font-size:14px">' + r[0] + '</b><span style="font-size:12px;color:#A3A89B">' + r[1] + "</span></span></span>"; }).join("") + '<span style="display:block;margin-top:12px;font-size:13px;font-weight:700;color:#6FC28F">0 € · sans abonnement</span>');
+    if (k === "plus411") return nvc(nvAce("nv411p", "concentree", "Et avec Montée+, je vais plus loin pour tes tournois.") + [["Tes tournois classés pour toi", "l'onglet Conseillés"], ["Le bon moment", "avant que tes points sortent, pour chaque tournoi"], ["Tes chances de monter", "et les points qu'il te faut"], [IOS ? "Le coach au poignet" : "Ton profil de compétiteur", IOS ? "la consigne du moment, à chaque changement de côté" : "ce qui te fait gagner ou perdre"]].map(function (r) { return '<span style="display:flex;gap:10px;align-items:center;padding:8px 2px;border-bottom:1px solid rgba(255,255,255,.08)"><span style="flex:none;width:24px;height:24px;border-radius:12px;background:rgba(242,140,182,.18);color:#F28CB6;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px">+</span><span style="flex:1"><b style="display:block;font-size:14px">' + r[0] + '</b><span style="font-size:12px;color:#A3A89B">' + r[1] + "</span></span></span>"; }).join(""));
+    if (k === "tz411") return nvc('<span style="display:flex;gap:6px;margin-bottom:2px">' + ["Tous", "Tournois", "TMC", "Indivs"].map(function (x, i) { return '<span style="font-size:12px;font-weight:700;padding:6px 10px;border-radius:12px;background:' + (i === 2 ? "#6FC28F;color:#10140F" : "#2E323B") + '">' + x + "</span>"; }).join("") + "</span>" + '<span style="display:flex;gap:12px;align-items:center;background:#2E323B;border-radius:14px;padding:10px 12px;margin-top:8px"><span style="flex:none;width:44px;text-align:center;background:#383C46;border-radius:10px;padding:4px 0;font-size:10px;font-weight:700;color:#A3A89B">SAM.<b style="display:block;font-size:18px;color:#F2F3F5">2</b>JANV.</span><span style="flex:1;min-width:0"><b style="display:block;font-size:14px">Tournoi des Rois de Fontaine</b><span style="display:block;font-size:12px;color:#A3A89B">Fontaine · 22 km · 20 €</span><span style="display:flex;gap:8px;align-items:center;margin-top:4px;font-size:12.5px;font-weight:700;white-space:nowrap"><span style="color:#D4E64A">●</span> 30/2 à 15/1 <span style="color:#6FC28F;background:rgba(111,194,143,.16);padding:1px 6px;border-radius:5px;font-size:10.5px">TMC</span> <svg width="22" height="14" viewBox="0 0 22 14"><rect x=".5" y=".5" width="21" height="13" rx="2.5" fill="#3C6E9E"/><path d="M3 3h16v8H3zM11 3v8M3 7h16" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1"/></svg></span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="#6FC28F" stroke="#6FC28F" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></span>' + '<span style="display:flex;gap:12px;align-items:center;background:#2E323B;border-radius:14px;padding:10px 12px;margin-top:8px"><span style="flex:none;width:44px;text-align:center;background:#383C46;border-radius:10px;padding:4px 0;font-size:10px;font-weight:700;color:#A3A89B">SAM.<b style="display:block;font-size:18px;color:#F2F3F5">9</b>JANV.</span><span style="flex:1;min-width:0"><b style="display:block;font-size:14px">Open du Tennis Club du Lac</b><span style="display:block;font-size:12px;color:#A3A89B">Saint-Martin · 35 km · 25 €</span><span style="display:flex;gap:8px;align-items:center;margin-top:4px;font-size:12.5px;font-weight:700;white-space:nowrap"><span style="color:#D4E64A">●</span> 15/4 à 5/6 <svg width="22" height="14" viewBox="0 0 22 14"><rect x=".5" y=".5" width="21" height="13" rx="2.5" fill="#C8643B"/><path d="M3 3h16v8H3zM11 3v8M3 7h16" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1"/></svg> <span style="color:#F2F3F5;white-space:nowrap">800 €</span></span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A3A89B" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></span>');
+    if (k === "fav411") return nvc('<span class="nv-k" style="color:#6FC28F">TES FAVORIS · 2</span>' + '<span style="display:flex;gap:12px;align-items:center;background:#2E323B;border-radius:14px;padding:10px 12px;margin-top:8px"><span style="flex:none;width:44px;text-align:center;background:#383C46;border-radius:10px;padding:4px 0;font-size:10px;font-weight:700;color:#A3A89B">SAM.<b style="display:block;font-size:18px;color:#F2F3F5">12</b>DÉC.</span><span style="flex:1;min-width:0"><b style="display:block;font-size:14px">Open de Noël du TC Beaulieu</b><span style="display:block;font-size:12px;color:#A3A89B">Beaulieu · 14 km · 20 €</span><span style="display:flex;gap:8px;align-items:center;margin-top:4px;font-size:12.5px;font-weight:700;white-space:nowrap"><span style="color:#D4E64A">●</span> 15/4 à 15/1 <svg width="22" height="14" viewBox="0 0 22 14"><rect x=".5" y=".5" width="21" height="13" rx="2.5" fill="#C8643B"/><path d="M3 3h16v8H3zM11 3v8M3 7h16" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1"/></svg></span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="#6FC28F" stroke="#6FC28F" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></span>' + '<span style="display:flex;gap:12px;align-items:center;background:#2E323B;border-radius:14px;padding:10px 12px;margin-top:8px"><span style="flex:none;width:44px;text-align:center;background:#383C46;border-radius:10px;padding:4px 0;font-size:10px;font-weight:700;color:#A3A89B">SAM.<b style="display:block;font-size:18px;color:#F2F3F5">2</b>JANV.</span><span style="flex:1;min-width:0"><b style="display:block;font-size:14px">Tournoi des Rois de Fontaine</b><span style="display:block;font-size:12px;color:#A3A89B">Fontaine · 22 km · 20 €</span><span style="display:flex;gap:8px;align-items:center;margin-top:4px;font-size:12.5px;font-weight:700;white-space:nowrap"><span style="color:#D4E64A">●</span> 30/2 à 15/1 <span style="color:#6FC28F;background:rgba(111,194,143,.16);padding:1px 6px;border-radius:5px;font-size:10.5px">TMC</span></span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="#6FC28F" stroke="#6FC28F" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></span>' + '<span style="display:block;margin-top:10px;font-size:12.5px;color:#A3A89B">Aussi dans tes favoris Ten\'Up.</span>');
+    if (k === "why411") return nvc('<span style="display:block;position:relative;background:#2E323B;border-radius:16px;padding:14px 14px 12px;margin-top:22px"><span style="position:absolute;right:10px;top:-30px">' + coBall("nv411", "joie", "sm") + '</span><span style="display:block;font-size:11px;font-weight:800;letter-spacing:.08em;color:#6FC28F">LE CONSEIL D\'ACE</span><b style="display:block;font-size:16px;margin-top:4px">Tournoi des Rois de Fontaine</b><span style="display:block;font-size:12.5px;color:#A3A89B;margin-top:2px">Le plus proche sans rien d\'autre ces jours-là.</span></span>' +
+      '<span style="display:flex;justify-content:flex-end;margin-top:12px"><span style="background:#D4E64A;color:#15170F;border-radius:18px 18px 6px 18px;padding:9px 13px;font-size:14px;font-weight:700">Pourquoi celui-là ?</span></span>' +
+      '<span style="display:block;background:#353944;border-radius:18px 18px 18px 6px;padding:10px 13px;margin-top:8px;font-size:13.5px;font-weight:600;line-height:1.4"><span style="color:#6FC28F">✓</span> Rien d\'autre ces jours-là<br><span style="color:#6FC28F">✓</span> 22 km, le plus proche<br><span style="color:#A3A89B;font-weight:500">L\'Open de Noël tombe en même temps que ton tournoi d\'hiver.</span></span>');
+    if (k === "hb410") return nvc('<span class="nv-k" style="color:#6CB8F0">TES CRÉNEAUX HABITUELS</span>' + [["Lun.", "18 h 30 – 22 h"], ["Mer.", "18 h 30 – 22 h"], ["Sam.", "8 h – 20 h"], ["Dim.", "8 h – 13 h"]].map(function (r) { return '<span style="display:flex;justify-content:space-between;padding:8px 2px;border-bottom:1px solid rgba(255,255,255,.08);font-size:13.5px"><b>' + r[0] + '</b><span style="color:#C9CCD2">' + r[1] + "</span></span>"; }).join("") +
+      '<span style="display:block;margin-top:10px;font-size:12.5px;color:#A3A89B">Envoyés à Ten\'Up, sans écraser les jours déjà réglés pour un tournoi.</span>');
     if (k === "ace49") return nvc('<span style="display:block;position:relative;background:#2E323B;border-radius:16px;padding:14px 14px 12px;margin-top:22px"><span style="position:absolute;right:10px;top:-30px">' + coBall("nv49", "joie", "sm") + '</span><span style="display:block;font-size:11px;font-weight:800;letter-spacing:.08em;color:#6FC28F">TON BILAN POUR 15/2</span><span style="display:block;font-size:26px;font-weight:800;margin-top:4px">216 <small style="font-size:13px;color:#A3A89B;font-weight:600">/ 335 pts</small></span></span>' +
       '<span style="display:flex;justify-content:flex-end;margin-top:12px"><span style="background:#D4E64A;color:#15170F;border-radius:18px 18px 6px 18px;padding:9px 13px;font-size:14px;font-weight:700">C\'est quoi, mon bilan ?</span></span>' +
       '<span style="display:block;background:#353944;border-radius:18px 18px 18px 6px;padding:10px 13px;margin-top:8px;font-size:14px;font-weight:600;line-height:1.35">La somme de tes 8 meilleures victoires des 12 derniers mois. Il t\'en manque <b style="color:#D4E64A">119</b> pour 15/2.</span>');
@@ -20567,6 +20660,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     tzTu: function (el) { tuPage(el.dataset.v, el.dataset.t); },
     itin: function (el) { var ll = (el.dataset.ll || "").split(","); UI.sheet = { k: "itin", v: { q: el.dataset.q || "", lat: ll[0] || "", lng: ll[1] || "" }, back: UI.sheet && UI.sheet.k !== "itin" ? UI.sheet : null }; render(); },
     itinGo: function () { var b = UI.sheet && UI.sheet.back; setTimeout(function () { UI.sheet = b || null; render(); }, 300); return true; },
+    tzKind: function (el) { tzPrefs().kind = el.dataset.v || "all"; save(); render(); haptic("light"); },
+    tzFav: function (el) { // 4.11 : le cœur, le même que sur Ten'Up ; affiché tout de suite, puis vérifié en relisant tes favoris
+      var id = el.dataset.v, f = tzFavOf(id), t = tzFind(id) || (UI.tzFavT || {})[tuNum(id)] || {}; haptic("light");
+      if (!NATIVE || !S.tenup.linked) { toast("Relie Ten'Up pour garder tes favoris"); return; }
+      if (f && !f.fid) { tzFavs(true); toast("Un instant, Ten'Up enregistre ton favori"); return; }
+      var L = (S.tzFav && S.tzFav.list) || [], before = L.slice();
+      S.tzFav = { at: (S.tzFav || {}).at || 0, list: f ? L.filter(function (x) { return x !== f; }) : L.concat([{ id: tuNum(id), fid: "", name: t.name || "Tournoi", from: t.from || "", to: t.to || "", club: t.club || "", online: !!t.online, payOnline: !!t.payOnline }]) }; render();
+      tenupQuery(f ? "favDel" : "favSet", f ? { fid: f.fid } : { t: tuNum(id) }).then(function (r) {
+        if (r && r.list) { S.tzFav = { at: Date.now(), list: r.list }; save(); render(); toast(f ? "Retiré de tes favoris" : "Dans tes favoris, sur Ten'Up aussi", true); }
+        else { S.tzFav = { at: (S.tzFav || {}).at || 0, list: before }; render(); toast("Ten'Up n'a pas répondu, réessaie"); }
+      });
+    },
     tzOpen: function (el) { UI.sheet = { k: "tz", v: el.dataset.v }; render(); },
     tzTab: function (el) { if (el.dataset.v === "rec" && !isSup()) { UI.supFrom = "trouver"; UI.sheet = { k: "plusPrev", v: "cap" }; render(); return; } UI.tzTab = el.dataset.v; render(); },
     tzCp: function () { var v = (document.getElementById("tz-cp") || {}).value; tzHome(v).then(function (P) { if (!P) { toast("Code postal introuvable."); return; } if (!UI.sheet) tzSearch(true); render(); }); },
