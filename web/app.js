@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.8.0",
+    VERSION: "4.8.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -19669,7 +19669,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     coachNo: function (el) {
       var m = coMem(), id = el.dataset.id, sc = el.dataset.s; m.no[id] = Date.now(); m.scr[sc] = (m.scr[sc] || 0) + 1; coPurge(m); save();
       // 4.8.0 (Yann : touché sans faire exprès) : « Annuler » dans le message pour le faire revenir tout de suite
-      UI.coUndo = { id: id, s: sc }; toast("Ce conseil ne reviendra pas avant 3 semaines.");
+      UI.coUndo = { id: id, s: sc }; toast("Conseil masqué pour 3 semaines.");
       var tk = document.querySelector(".toast"); if (tk) { clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000); tk.insertAdjacentHTML("beforeend", ' <button class="tk-undo" data-a="coachUndo">Annuler</button>'); }
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },

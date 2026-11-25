@@ -182,7 +182,7 @@ button.row, a.row { border: none; background: none; width: 100%; text-align: lef
 .menu-item.don { background: var(--balle); }
 .menu-item.don .ic { background: rgba(255,255,255,.55); color: var(--ink); }
 
-.toast { position: fixed; left: 50%; bottom: calc(110px + var(--sab)); transform: translateX(-50%); background: var(--solid); color: var(--on-solid); padding: 12px 18px; border-radius: 22px; font-size: 15px; z-index: 30; animation: in .2s ease-out; max-width: calc(100% - 40px); text-align: center; }
+.toast { position: fixed; left: 50%; bottom: calc(110px + var(--sab)); transform: translateX(-50%); background: var(--solid); color: var(--on-solid); padding: 12px 18px; border-radius: 22px; font-size: 15px; z-index: 30; animation: in .2s ease-out; width: max-content; max-width: calc(100% - 40px); box-sizing: border-box; text-align: center; }
 
 /* Graphiques */
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -7628,6 +7628,7 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .dz-o .t { font-weight: 600; font-size: 16px; }
 .dz-o .s { font-size: 13.5px; color: var(--muted); }
 .dz-o .grow { flex: 1; }
-.toast .tk-undo { appearance: none; border: 0; background: none; font: inherit; font-weight: 800; color: inherit; text-decoration: underline; padding: 0 0 0 8px; pointer-events: auto; cursor: pointer; }
+.toast:has(.tk-undo) { display: flex; align-items: center; gap: 12px; text-align: left; }
+.toast .tk-undo { flex: none; appearance: none; border: 0; background: none; font: inherit; font-weight: 800; color: inherit; text-decoration: none; color: var(--on-solid); background: color-mix(in srgb, var(--on-solid) 16%, transparent); border-radius: 99px; padding: 6px 14px; pointer-events: auto; cursor: pointer; }
 /* 4.8.0 : bloc ajouté par une mise à jour en arrière-plan : il apparaît sans rejouer l'arrivée (sinon il clignote) */
 .screen > .mv-no, .mv-no :is(.list > .row, .h3h-r, .lgc, .df-r, .fr-c, .h2s-l > .row), :is(.list > .row, .h3h-r, .lgc, .df-r, .fr-c, .h2s-l > .row).mv-no, .mv-no :is(.ft-bar, .df-bar, .h3h-b) i { animation: none !important; }
