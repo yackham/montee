@@ -236,7 +236,7 @@
         if (r.status === 401 || r.status === 403) throw new Error("auth"); if (!r.ok) throw new Error("http " + r.status); return r.json(); }); };
       return jD("/api/back/v2/profil/disponibilites").then(function (pf) {
         return jD("/api/back/v1/tournois/" + numD + "/disponibilites?dateDebut=" + A.from + "&dateFin=" + A.to).then(function (d) {
-          var gen = genMap(pf), days = dispoDays(d); return ok({ gen: gen, days: days, map: dzMapping(gen, days), at: Date.now() }); });
+          var pg = genMap(pf), days = dispoDays(d); return ok({ gen: tourGen(pg, days), pgen: pg, days: days, map: "iso", at: Date.now() }); });
       }).catch(err);
     }
     if (KIND === "dispoSave") {
@@ -1043,6 +1043,14 @@
       .sort(function (a, b) { return a.from < b.from ? -1 : 1; });
   }
   function dzSame(a, b) { var k = function (l) { return l.map(function (x) { return x.from + "-" + x.to; }).sort().join(","); }; return k(a) === k(b); }
+  // 4.9.3 (relevés de Yann, 25/11) : un tournoi garde SA copie des créneaux habituels, prise à l'inscription (le profil peut avoir changé depuis).
+  // On la retrouve dans les jours « comme d'habitude » du tournoi (ni vides, ni « particuliere ») ; à défaut, le profil. Jours ISO (1 = lundi), vérifié.
+  function tourGen(gen, days) {
+    var by = {}, out = [];
+    days.forEach(function (d) { if (!d.slots.length || d.slots.some(function (x) { return x.ex; })) return; var wd = DZ_MAPS.iso(new Date(d.date + "T12:00:00")); if (!by[wd]) by[wd] = d.slots.map(function (x) { return { from: x.from, to: x.to }; }); });
+    for (var wd = 1; wd <= 7; wd++) { var sl = by[wd] || dzGenSlots(gen, "2026-11-" + (22 + wd), "iso"); sl.forEach(function (x) { var k = x.from + "-" + x.to, g = out.filter(function (o) { return o.k === k; })[0]; if (g) g.jours.push(wd); else out.push({ k: k, jours: [wd], hd: x.from + ":00", hf: x.to + ":00" }); }); }
+    return out.map(function (o) { return { jours: o.jours, hd: o.hd, hf: o.hf }; });
+  }
   function dzMapping(gen, days) { // la numérotation des jours de Ten'Up, déduite des jours sans exception ; null si rien ne colle (on n'écrit pas)
     // 4.9.3 (relevé de Yann, 25/11) : un jour retiré pour ce tournoi revient VIDE et sans « particuliere » : ce n'est pas un jour « comme d'habitude », on ne s'en sert pas pour deviner
     var plain = days.filter(function (d) { return d.slots.length && !d.slots.some(function (x) { return x.ex; }); });
@@ -1100,7 +1108,7 @@
   var VERSION = "2.4";
   // Version pour l'app iPhone : corps d'une fonction async (WKWebView callAsyncJavaScript)
   // Le script embarque la recherche v2, utilisée en repli par tenupFetch
-  function src(fn) { return "var jaNameFrom = " + jaNameFrom.toString() + ";\nvar ageTxt = " + ageTxt.toString() + ";\nvar cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar genMap = " + genMap.toString() + ";\nvar DZ_MAPS = { iso: function (d) { return (d.getDay() + 6) % 7 + 1; }, sun0: function (d) { return d.getDay(); }, sun1: function (d) { return d.getDay() + 1; } };\nvar dzGenSlots = " + dzGenSlots.toString() + ";\nvar dzSame = " + dzSame.toString() + ";\nvar dzMapping = " + dzMapping.toString() + ";\nvar dispoDays = " + dispoDays.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
+  function src(fn) { return "var jaNameFrom = " + jaNameFrom.toString() + ";\nvar ageTxt = " + ageTxt.toString() + ";\nvar cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar genMap = " + genMap.toString() + ";\nvar DZ_MAPS = { iso: function (d) { return (d.getDay() + 6) % 7 + 1; }, sun0: function (d) { return d.getDay(); }, sun1: function (d) { return d.getDay() + 1; } };\nvar dzGenSlots = " + dzGenSlots.toString() + ";\nvar dzSame = " + dzSame.toString() + ";\nvar dzMapping = " + dzMapping.toString() + ";\nvar tourGen = " + tourGen.toString() + ";\nvar dispoDays = " + dispoDays.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
   // 3.47 : page de maintenance / file d'attente Ten'Up : on le dit au lieu de « Ten'Up n'a pas répondu »
   var MAINT = "var __mt = (document.title || \"\") + \" \" + Array.prototype.map.call(document.querySelectorAll(\"h1,h2\"), function (e) { return e.innerText; }).slice(0, 3).join(\" \");\n" +
     "if (/maintenance|mise à jour du site|file d'attente|queue-it|service (momentanément )?indisponible/i.test(__mt) || /maintenance/i.test(location.pathname)) return \"MONTEE-ERR maintenance\";\n";
@@ -1325,7 +1333,7 @@
   // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
   function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);

@@ -129,3 +129,16 @@ test("4.9.3 : un jour retiré pour le tournoi (vide, sans particuliere) ne bloqu
   const b = T.dzBody(gen, { "2027-02-13": [] }, "iso", () => "u");
   assert.deepEqual(b.particulieres.map((x) => [x.disponible, x.dateDebut, x.dateFin]), [[false, "2027-02-13T14:00:00", "2027-02-13T22:00:00"]]);
 });
+
+test("4.9.3 : un tournoi garde sa copie des créneaux habituels (relevé de Yann : profil passé à 18 h, tournoi resté à 18 h 30)", () => {
+  const pg = T.genMap({ personnes: [{ disponibilites: { generales: [{ heureDebut: "14:00:00", heureFin: "22:00:00", jours: [6, 7] }, { heureDebut: "18:00:00", heureFin: "22:00:00", jours: [1, 2, 4, 5] }, { heureDebut: "20:00:00", heureFin: "22:00:00", jours: [3] }] } }] });
+  const days = T.dispoDays({ disponibilites: [
+    { date: "2027-02-12", horaires: [{ heureDebut: "2027-02-12T18:30:00", heureFin: "2027-02-12T22:00:00", particuliere: false }] },
+    { date: "2027-02-13", horaires: [] },
+    { date: "2027-02-14", horaires: [{ heureDebut: "2027-02-14T14:00:00", heureFin: "2027-02-14T22:00:00", particuliere: false }] }] });
+  const g = T.tourGen(pg, days);
+  assert.deepEqual(T.dzGenSlots(g, "2027-02-12", "iso"), [{ from: "18:30", to: "22:00" }]); // vendredi : la copie du tournoi
+  assert.deepEqual(T.dzGenSlots(g, "2027-02-13", "iso"), [{ from: "14:00", to: "22:00" }]); // samedi retiré : le profil
+  assert.deepEqual(T.dzGenSlots(g, "2027-02-08", "iso"), [{ from: "18:00", to: "22:00" }]); // lundi pas vu : le profil
+  assert.ok(/tourGen/.test(T.queryScript("dispos", { t: "MOJA_1", from: "2027-02-12", to: "2027-02-14" })));
+});

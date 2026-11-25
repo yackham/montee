@@ -2114,8 +2114,9 @@
     dzLoad(t);
     if (!D) return s + '<div class="card"><span class="small">' + esc(UI.dzErr ? UI.dzErr : NATIVE && S.tenup.linked ? "Lecture de tes dispos sur Ten'Up…" : "Relie Ten'Up pour voir tes dispos.") + "</span></div></div>";
     var can = Dl.ok && !!D.map, E1 = dzEd(t), n = Object.keys(E1).length;
+    var pDiff = D.pgen && [1, 2, 3, 4, 5, 6, 7].some(function (wd) { var iso = "2026-11-" + (22 + wd); return !T.dzSame(T.dzGenSlots(D.gen || [], iso, "iso"), T.dzGenSlots(D.pgen, iso, "iso")); }); // 4.9.3 : le tournoi garde la copie prise à l'inscription
     s += '<h2>Tu es dispo, d\'habitude</h2><div class="blk tz-blk tz-c">' + ((D.gen || []).length ? D.gen.map(function (g) {
-      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>";
+      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>" + (pDiff ? '<p class="small dz-pd">Pour ce tournoi, Ten\'Up garde tes créneaux du moment de ton inscription : ils ont changé depuis sur ton profil.</p>' : "");
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from);
     for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
     s += '<h2>Pendant le tournoi</h2>' + (can ? '<p class="small" style="margin-top:-6px">Touche un jour pour dire que tu n\'es pas dispo, ou changer l\'horaire.</p>' : "") + '<div class="blk dz-days">' + days.map(function (iso) {
