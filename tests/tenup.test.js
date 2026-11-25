@@ -92,7 +92,7 @@ test("indispos 4.6.0 : créneaux habituels, numérotation des jours, contenu env
   const days = ["2027-02-08", "2027-02-09", "2027-02-10", "2027-02-11", "2027-02-12"].map(d => ({ date: d, slots: [{ from: "18:30", to: "22:00", ex: false }] }))
     .concat([{ date: "2027-02-13", slots: [{ from: "14:00", to: "18:00", ex: true }] }, { date: "2027-02-14", slots: [{ from: "09:00", to: "20:00", ex: false }] }]);
   assert.strictEqual(T.dzMapping(gen, days), "iso");
-  assert.strictEqual(T.dzMapping(gen, days.map(d => d.date === "2027-02-08" ? { date: d.date, slots: [] } : d)), null); // rien ne colle : on n'écrit pas
+  assert.strictEqual(T.dzMapping(gen, days.map(d => d.date === "2027-02-08" ? { date: d.date, slots: [{ from: "07:00", to: "08:00", ex: false }] } : d)), null); // rien ne colle : on n'écrit pas
   let n = 0; const b = T.dzBody(gen, { "2027-02-13": [{ from: "14:00", to: "18:00" }], "2027-02-10": [] }, "iso", () => "id" + (n++));
   assert.deepStrictEqual(b.generales[0], { jours: [1, 2, 3, 4, 5], heureDebut: "18:30:00", heureFin: "22:00:00" });
   assert.deepStrictEqual(b.particulieres, [
@@ -101,4 +101,44 @@ test("indispos 4.6.0 : créneaux habituels, numérotation des jours, contenu env
     { disponible: true, dateDebut: "2027-02-13T14:00:00", dateFin: "2027-02-13T18:00:00", generaleId: "id1" }]);
   assert.ok(/dzMapping/.test(T.queryScript("dispos", { t: "MOJA_1", from: "2027-02-08", to: "2027-02-14" })));
   assert.ok(/PUT/.test(T.queryScript("dispoSave", { t: "MOJA_1", body: {} })));
+});
+
+test("4.9.2 : épreuves jeunes et seniors+ reconnues dans les libellés", () => {
+  for (const x of ["Tmc orange", "Open Jeunes", "11/12 ans", "U14 garçons", "Galaxie vert", "Plateau balle verte", "17/18 ans"]) assert.equal(T.youthOnly(x), true, x);
+  for (const x of ["TMC Seniors", "Tournoi du Moulin Rouge", "Tournoi de Rougemont", "SM 4e série", "35 ans et +", "Simple Messieurs Seniors"]) assert.equal(T.youthOnly(x), false, x);
+  assert.equal(T.seniorsPlus("35 ans et +"), 35); assert.equal(T.seniorsPlus("Senior +45"), 45); assert.equal(T.seniorsPlus("SM 4e série"), 0);
+  assert.match(T.ageTxt({ libelleTournoi: "Tmc orange", club: { libelle: "TC Exemple" }, ville: "X" }), /Tmc orange/);
+});
+
+test("4.9.2 : nom du juge-arbitre lu sur la page du tournoi", () => {
+  assert.equal(T.jaNameFrom('<div><span>Juge-arbitre</span><span><a href="/x">Jean DUPONT</a></span></div>'), "Jean Dupont");
+  assert.equal(T.jaNameFrom('<p>Juge-arbitre</p><a href=x><span>Jean-Paul</span> <span>MARTIN-DURAND</span></a>'), "Jean-Paul Martin-Durand");
+  assert.equal(T.jaNameFrom('<p>Juge-arbitre</p><a href=x>Voir le site</a>'), "");
+  assert.equal(T.jaNameFrom("<p>rien</p>"), "");
+});
+
+test("4.9.3 : un jour retiré pour le tournoi (vide, sans particuliere) ne bloque pas la numérotation des jours", () => {
+  const gen = T.genMap({ personnes: [{ disponibilites: { generales: [{ heureDebut: "14:00:00", heureFin: "22:00:00", jours: [6, 7] }, { heureDebut: "18:30:00", heureFin: "22:00:00", jours: [1, 2, 4, 5] }, { heureDebut: "20:00:00", heureFin: "22:00:00", jours: [3] }] } }] });
+  const days = T.dispoDays({ disponibilites: [
+    { date: "2027-02-12", horaires: [{ heureDebut: "2027-02-12T18:30:00", heureFin: "2027-02-12T22:00:00", particuliere: false }] },
+    { date: "2027-02-13", horaires: [] },
+    { date: "2027-02-14", horaires: [{ heureDebut: "2027-02-14T14:00:00", heureFin: "2027-02-14T22:00:00", particuliere: false }] }] });
+  assert.equal(T.dzMapping(gen, days), "iso");
+  assert.deepEqual(T.dzGenSlots(gen, "2027-02-13", "iso"), [{ from: "14:00", to: "22:00" }]);
+  // le samedi retiré est renvoyé tel quel à l'enregistrement : pas dispo de 14 h à 22 h
+  const b = T.dzBody(gen, { "2027-02-13": [] }, "iso", () => "u");
+  assert.deepEqual(b.particulieres.map((x) => [x.disponible, x.dateDebut, x.dateFin]), [[false, "2027-02-13T14:00:00", "2027-02-13T22:00:00"]]);
+});
+
+test("4.9.3 : un tournoi garde sa copie des créneaux habituels (relevé de Yann : profil passé à 18 h, tournoi resté à 18 h 30)", () => {
+  const pg = T.genMap({ personnes: [{ disponibilites: { generales: [{ heureDebut: "14:00:00", heureFin: "22:00:00", jours: [6, 7] }, { heureDebut: "18:00:00", heureFin: "22:00:00", jours: [1, 2, 4, 5] }, { heureDebut: "20:00:00", heureFin: "22:00:00", jours: [3] }] } }] });
+  const days = T.dispoDays({ disponibilites: [
+    { date: "2027-02-12", horaires: [{ heureDebut: "2027-02-12T18:30:00", heureFin: "2027-02-12T22:00:00", particuliere: false }] },
+    { date: "2027-02-13", horaires: [] },
+    { date: "2027-02-14", horaires: [{ heureDebut: "2027-02-14T14:00:00", heureFin: "2027-02-14T22:00:00", particuliere: false }] }] });
+  const g = T.tourGen(pg, days);
+  assert.deepEqual(T.dzGenSlots(g, "2027-02-12", "iso"), [{ from: "18:30", to: "22:00" }]); // vendredi : la copie du tournoi
+  assert.deepEqual(T.dzGenSlots(g, "2027-02-13", "iso"), [{ from: "14:00", to: "22:00" }]); // samedi retiré : le profil
+  assert.deepEqual(T.dzGenSlots(g, "2027-02-08", "iso"), [{ from: "18:00", to: "22:00" }]); // lundi pas vu : le profil
+  assert.ok(/tourGen/.test(T.queryScript("dispos", { t: "MOJA_1", from: "2027-02-12", to: "2027-02-14" })));
 });
