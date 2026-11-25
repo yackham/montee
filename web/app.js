@@ -2394,22 +2394,28 @@
   var DET_TZ = function (id) {
     var fv = tzFavOf(id), t = tzFind(id) || (fv && tzFavT(fv)); if (!t) return null;
     var v = tzEval(t), e = v.ep, plus = isSup(), best = tzBest(), open = plus || (best && best.t.id === id), num = tuNum(t.id), b = "";
-    b += tzLieu(t, [t.club, t.city].filter(Boolean).map(insCase).join(", "));
-    b += tzJa(t, num);
-    b += tzRow("Ton épreuve", e && !e.wait ? [esc(e.name), tzRange(e) ? '<b class="rk-tag">' + esc(tzRange(e)) + "</b>" : "", e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ") +
-      (e.fmt === "tmc" ? '<br><span class="tz-sub">TMC : plusieurs matchs, même si tu perds le premier</span>' : t.kind === "indiv" ? '<br><span class="tz-sub">Indivs : une poule, puis un tableau</span>' : "") : e === null ? "Pas d'épreuve de simple pour toi" : "Lue sur la fiche Ten'Up…", "");
-    if ((t.surf || []).length) b += tzRow("Courts", t.surf.map(surfPic).join("") + esc(t.surf.join(", ") + (t.cov === "in" ? ", couverts" : t.cov === "out" ? ", extérieurs" : t.cov === "mix" ? ", couverts et extérieurs" : "")), "");
-    if (t.cash || t.lots) b += tzRow("Dotation", esc(((t.cash || 0) + (t.lots || 0)) + " €" + (t.cash && t.lots ? " : " + t.cash + " € en espèces, " + t.lots + " € en lots" : t.cash ? " en espèces" : " en lots")), "");
-    if (t.payReq) b += tzRow("Paiement", "En ligne, obligatoire pour être inscrit", ""); else if (t.payOnline) b += tzRow("Paiement", "En ligne ou sur place", "");
-    if (v.ins && v.ins.k === "soon") b += tzRow("Inscriptions", esc(v.ins.txt), "", "tz-due");
-    else if (v.cl) b += tzRow("Inscriptions", esc((v.close == null ? (/complet/i.test(t.closeWhy || "") ? "Complet, closes depuis le " : "Closes depuis le ") : "Ouvertes jusqu'au ") + fdate(v.cl)), "", v.close == null || v.close <= 7 ? "tz-due" : "");
-    b += tzRow("Ta saison", v.clash.length ? esc(v.clash.map(function (x) { return obDayLab(x.d) + " : " + x.t; }).join(" · ")) : "Rien d'autre ces jours-là.", "", v.clash.length ? "tz-due" : "");
-    var when = v.thr ? "Fini avant la sortie du " + fdate(E.iso(v.thr.rel)) + ", où des points sortent" + (v.thr.need != null ? " : une victoire contre un " + lab(v.thr.need) + " les remplace." : ".")
-      : "Tes victoires compteront à la sortie du " + fdate(E.iso(E.nextRelease(E.parseDate(t.to || t.from)))) + ".";
-    b += tzRow("Le bon moment", open ? esc(when) : pwX("Fini avant la sortie du 2 déc., où des points sortent."), "");
+    // 4.11.1 (maquette « fiche v2 » validée par Yann le 25/11) : l'essentiel en 4 cases, la phrase d'Ace, puis le pratique
+    var cell = function (l, v1, s1, cls) { return '<div class="tzv-c"><span class="tzv-l">' + l + '</span><span class="tzv-v' + (cls ? " " + cls : "") + '">' + v1 + '</span><span class="tzv-s">' + s1 + "</span></div>"; };
+    var rg = e && !e.wait ? tzRange(e) : "", g = "", tot = (t.cash || 0) + (t.lots || 0), sf = t.surf || [];
+    g += cell("Ton épreuve", e === null ? "Aucune" : rg ? '<b class="rk-tag">' + esc(rg) + "</b>" : e && e.wait && e.min ? '<b class="rk-tag">' + esc(tzRange(e)) + "</b>" : "…",
+      esc(e === null ? "Pas de simple pour toi" : e && !e.wait ? [e.fmt === "tmc" ? "TMC" : t.kind === "indiv" ? "Indivs" : cap1(e.name.replace(/\s*\(.*\)$/, "").replace(/\s+senior\b/i, "").toLowerCase()), e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ") : "Lue sur Ten'Up…"));
+    g += cell("Courts", sf.length ? surfPic(sf[0]) + esc(sf[0]) : "—", esc(sf.length > 1 ? "et " + sf.slice(1).join(", ").toLowerCase() : t.cov === "in" ? "Couverts" : t.cov === "out" ? "Extérieurs" : t.cov === "mix" ? "Couverts et extérieurs" : sf.length ? "" : "Pas indiqué"));
+    g += cell("Dotation", tot ? TZ_CUP + esc(tot.toLocaleString("fr-FR") + " €") : "—", esc(tot ? (t.cash && t.lots ? t.cash + " € en espèces, " + t.lots + " € en lots" : t.cash ? "En espèces" : "En lots") : "Pas indiquée"));
+    var iv = v.ins && v.ins.k === "soon" ? ["Bientôt", v.ins.txt.replace(/^Inscriptions /, ""), "tzv-w"] : v.cl && v.close == null ? ["Closes", (/complet/i.test(t.closeWhy || "") ? "Complet, depuis le " : "Depuis le ") + fdate(v.cl).replace(/ \d{4}$/, ""), "tzv-w"]
+      : v.cl ? ["Ouvertes", "Jusqu'au " + fdate(v.cl).replace(/ \d{4}$/, ""), v.close <= 7 ? "tzv-w" : "tzv-ok"] : ["Ouvertes", "Sur Ten'Up", "tzv-ok"];
+    g += cell("Inscriptions", esc(iv[0]), esc(iv[1]), iv[2]);
+    b += '<div class="tzv-g">' + g + "</div>";
+    var dS = function (d) { return fdate(E.iso(d)).replace(/ \d{4}$/, ""); }, when = v.thr ? "fini avant la sortie du " + dS(v.thr.rel) + ", où des points sortent" + (v.thr.need != null ? " : une victoire contre un " + lab(v.thr.need) + " les remplace" : "")
+      : "tes victoires compteront à la sortie du " + dS(E.nextRelease(E.parseDate(t.to || t.from)));
+    var say = v.clash.length ? "Attention, ça tombe en même temps que " + v.clash.map(function (x) { return x.t.replace(/^Indispo : /, "ton indispo : "); }).join(" et ") + "."
+      : "Rien d'autre ces jours-là, et " + (open ? esc(when) : pwX("tes victoires compteront à la sortie du 2 déc.")) + ".";
+    b += '<div class="tzv-ace" role="button" tabindex="0" data-a="ace" data-v="tz:' + esc(t.id) + '">' + coBall("tzv" + t.id, v.clash.length ? "concentree" : "repos", "sm") + '<span class="tzv-bub">' + (v.clash.length ? esc(say) : say) + "</span></div>";
+    var pr = tzLieu(t, [t.club, t.city].filter(Boolean).map(insCase).join(", ")) + tzJa(t, num);
+    if (t.payReq) pr += tzRow("Paiement", "En ligne, obligatoire pour être inscrit", ""); else if (t.payOnline) pr += tzRow("Paiement", "En ligne ou sur place", "");
+    if (e && !e.wait && e.fmt === "tmc") pr += tzRow("Format", "TMC : plusieurs matchs, même si tu perds le premier", ""); else if (t.kind === "indiv") pr += tzRow("Format", "Indivs : une poule, puis un tableau", "");
     if ((!t.ja || !t.ja.name || t.eps == null) && !(UI.tzFi || {})[t.id] && NATIVE && S.tenup.linked) { UI.tzFi = UI.tzFi || {}; UI.tzFi[t.id] = 1; setTimeout(function () { tzFiche(t); }, 600); } // 4.6.0 : épreuves et juge-arbitre en direct (Yann)
     return { title: t.name, hd: tzHeart(t.id), sub: [fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), t.club ? insCase(t.club) : ""].filter(Boolean).join(" · "),
-      body: '<div class="tz-sh">' + b + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
+      body: b + '<div class="tzv-h">Pratique</div><div class="tz-sh">' + pr + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
         '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>' };
   };
   var REFRESH_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>';
