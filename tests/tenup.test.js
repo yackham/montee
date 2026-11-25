@@ -154,10 +154,9 @@ test("4.10 : créneaux habituels du profil (lecture, fusion, envoi des 7 jours)"
   assert.equal(T.slotsMerge([{ from: "14:00", to: "16:00" }, { from: "20:00", to: "22:00" }]).merged.length, 0);
   const w = Object.assign({}, p.week, { 6: [{ from: "14:00", to: "16:00" }, { from: "20:00", to: "22:00" }] });
   const b = T.profBody(p, w).utilisateurs[0];
-  assert.equal(b.idCrm, 1); assert.equal(b.codeClub, null); assert.equal(b.disponibilites.length, 7);
+  assert.equal(b.idCrm, 1); assert.equal(b.codeClub, null); assert.deepEqual(b.disponibilites.map((d) => d.jour), [1, 6]);
   assert.deepEqual(b.disponibilites[0].horaires, [{ heureDebut: "1970-01-01T18:00:00", heureFin: "1970-01-01T22:00:00", idDisponibilite: 9 }]);
-  assert.deepEqual(b.disponibilites[5].horaires.map((h) => h.heureDebut.slice(11, 16)), ["14:00", "20:00"]);
-  assert.deepEqual(b.disponibilites[2].horaires, []);
+  assert.deepEqual(b.disponibilites[1].horaires.map((h) => h.heureDebut.slice(11, 16)), ["14:00", "20:00"]);
   assert.deepEqual(T.weekGen(w), [{ jours: [1], hd: "18:00:00", hf: "22:00:00" }, { jours: [6], hd: "14:00:00", hf: "16:00:00" }, { jours: [6], hd: "20:00:00", hf: "22:00:00" }]);
   assert.ok(T.weekSame(p.week, p.week)); assert.ok(!T.weekSame(p.week, w));
 });
