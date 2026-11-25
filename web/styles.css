@@ -7612,3 +7612,19 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .tz-sh .tz-cpf input { flex: 1 1 auto; width: auto; }
 .tz-sh .tz-cpf .btn { background: var(--seg); color: var(--ink); font-weight: 600; }
 .tz-sub { display: block; font-size: 13px; color: var(--muted); margin-top: 1px; }
+/* 4.6.0 : tes indispos d'un tournoi, dans Montée */
+.dz-lim { margin: -4px 0 4px; font-weight: 600; color: var(--gazon); }
+.dz-add { appearance: none; border: 0; background: none; font: inherit; font-weight: 700; color: var(--gazon); padding: 12px 0 4px; text-align: left; border-top: 1px solid var(--line); width: 100%; }
+.dz-days .row.dz-d { width: 100%; text-align: left; }
+.dz-days .dz-off .t { color: var(--terre); font-weight: 700; }
+.dz-sh .row.dz-o { width: 100%; text-align: left; }
+.dz-ck { color: var(--gazon); font-weight: 800; font-size: 18px; }
+.dz-hh { display: flex; gap: 10px; padding: 10px 0; }
+.dz-hh label { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.dz-hh input { font: inherit; font-size: 17px; padding: 10px 12px; border-radius: 14px; border: 0; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); }
+.dz-o { appearance: none; border: 0; background: none; font: inherit; color: inherit; width: 100%; text-align: left; display: flex; align-items: center; gap: 10px; padding: 12px 0; }
+.dz-o + .dz-o { border-top: 1px solid var(--line); }
+.dz-o .grow { display: flex; flex-direction: column; gap: 2px; }
+.dz-o .t { font-weight: 600; font-size: 16px; }
+.dz-o .s { font-size: 13.5px; color: var(--muted); }
+.dz-o .grow { flex: 1; }

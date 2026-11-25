@@ -806,6 +806,7 @@
       case "rencontre": html = V.rencontre(parts[1], parts[2]); break;
       case "tournois": html = V.tournois(); break;
       case "trouver": html = V.trouver(); break;
+      case "dispos": html = V.dispos(parts[1]); break;
       case "objectif": html = V.objectif(); break;
       case "saison": html = V.saison(); break; // 3.94
       case "faf": html = V.faf(); break;
@@ -833,7 +834,7 @@
     if (TOPS[parts[0]] != null) UI.lastTab = TOPS[parts[0]];
     // Pages en profondeur (fiche joueur, fiche de match, adversaire…) : la barre d'onglets reste là,
     // un seul tap pour revenir à l'accueil ou au palmarès. Pas sur les formulaires de saisie.
-    var DEEP = ["badges", "saison", "chantier", "jeu", "double", "simu", "carte", "soutenir", "joueur", "moi", "adversaire", "niveau", "service", "victoires", "gagner", "competiteur", "tournoi", "tournois", "trouver", "objectif", "projection", "materiel", "semaine", "tenup", "profil", "reglages", "notifs", "equipe", "rencontre", "donnees", "methode", "apropos"];
+    var DEEP = ["badges", "saison", "chantier", "jeu", "double", "simu", "carte", "soutenir", "joueur", "moi", "adversaire", "niveau", "service", "victoires", "gagner", "competiteur", "tournoi", "tournois", "trouver", "dispos", "objectif", "projection", "materiel", "semaine", "tenup", "profil", "reglages", "notifs", "equipe", "rencontre", "donnees", "methode", "apropos"];
     var deepOk = DEEP.indexOf(parts[0]) >= 0 || (parts[0] === "match" && parts[1] && parts[1] !== "new");
     if (deepOk && html.indexOf('class="tabbar"') < 0 && S.onboarded && !(parts[0] === "profil" && UI.profEdit)) {
       var sec = { badges: "courbes", chantier: "palmares", joueur: "faf", moi: "faf", coach: "courbes", competiteur: "courbes", adversaire: "palmares", match: "palmares", niveau: "courbes", service: "courbes", victoires: "home", gagner: "courbes", competiteur: "courbes", tournoi: "home", saison: "home", tournois: "palmares", projection: "home", simu: "home", carte: "home", objectif: "home", soutenir: "home" }[parts[0]] || UI.lastTab || "home";
@@ -2047,6 +2048,47 @@
     s += '<div class="blk tz-list">' + L.map(function (v) { return tzLine(v, plus || v === best); }).join("") + "</div>";
     if (!plus) s += '<div class="pa-cta tz-cta"><span><b>Avec Montée+</b> : les tournois classés pour toi : distance, agenda, et le bon moment avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>';
     return s + '<p class="small tz-foot">Lu sur Ten\'Up ' + (S.tzr && S.tzr.at ? agoLab(S.tzr.at) : "") + ". Tu t'inscris et tu paies sur Ten'Up, ouvert dans Montée.</p></div>";
+  };
+  // 4.6.0 (Yann, 25/11) : tes indispos d'un tournoi, dans Montée. Ten'Up les range en créneaux habituels (jours + heures)
+  // et en exceptions datées (dispo ou pas) ; Montée envoie le même contenu que la page Ten'Up (relevé du 25/11/2026).
+  var DZ_J = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]; // jours Ten'Up 1 à 7 (hypothèse : 1 = lundi, à confirmer par la lecture)
+  function dzH(h) { var m = String(h || "").match(/^(\d\d):(\d\d)/); return m ? (+m[1]) + " h" + (m[2] !== "00" ? m[2] : "") : ""; }
+  function dzJours(js) { js = (js || []).slice().sort(); var run = [], out = [];
+    js.forEach(function (j, i) { if (i && j === js[i - 1] + 1) run.push(j); else { if (run.length) out.push(run); run = [j]; } }); if (run.length) out.push(run);
+    return out.map(function (r) { return r.length > 2 ? DZ_J[r[0] - 1] + " au " + DZ_J[r[r.length - 1] - 1] : r.map(function (j) { return DZ_J[j - 1]; }).join(", "); }).join(", "); }
+  function dzDay(D, d) { // ce jour-là : les exceptions datées d'abord, sinon les créneaux habituels du jour
+    var iso = E.iso(d), wd = (d.getDay() + 6) % 7 + 1;
+    var ex = (D.par || []).filter(function (p) { return String(p.from).slice(0, 10) === iso; });
+    if (ex.length) return ex.map(function (p) { return { on: !!p.dispo, txt: dzH(String(p.from).slice(11)) + " – " + dzH(String(p.to).slice(11)), ex: true }; });
+    return (D.gen || []).filter(function (g) { return (g.jours || []).indexOf(wd) >= 0; }).map(function (g) { return { on: true, txt: dzH(g.hd) + " – " + dzH(g.hf), ex: false }; });
+  }
+  V.dispos = function (id) {
+    var t = (S.tours || []).filter(function (x) { return x.id === id; })[0]; if (!t || !t.ins) return '<div class="screen">' + topbar("", backLab("Mes épreuves")) + "</div>";
+    var m = t.ins.more || {}, D = m.dz || { gen: [], par: [] }, Dl = tzDispo(m.dispoLim), s = '<div class="screen dz-scr">' + topbar("", backLab("Le tournoi"));
+    s += '<h1>Tes indispos</h1><p class="lead" style="margin-top:-8px">' + esc(t.name) + " · " + esc(fdate(t.from)) + (t.to && t.to !== t.from ? " – " + esc(fdate(t.to)) : "") + "</p>";
+    s += '<p class="small dz-lim' + (Dl.ok ? "" : " tz-mute") + '">' + esc(Dl.txt) + "</p>";
+    s += '<h2>Tu es dispo, d\'habitude</h2><div class="blk tz-blk tz-c">' + (D.gen || []).map(function (g, i) {
+      return tzLine1(esc(cap1(dzJours(g.jours))), esc(dzH(g.hd) + " – " + dzH(g.hf)), Dl.ok ? tzIc("edit", "Modifier ce créneau", 'data-a="dzGen" data-v="' + i + '"') : ""); }).join("") +
+      (Dl.ok ? '<button class="dz-add" data-a="dzGen" data-v="new">+ Ajouter un créneau</button>' : "") + "</div>";
+    var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from);
+    for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(new Date(d));
+    s += '<h2>Pendant le tournoi</h2><p class="small" style="margin-top:-6px">Touche un jour pour dire que tu n\'es pas dispo, ou changer l\'horaire.</p><div class="blk dz-days">' + days.map(function (x) {
+      var sl = dzDay(D, x), off = sl.length && sl.every(function (z) { return !z.on; });
+      var txt = !sl.length ? "Pas de créneau" : sl.map(function (z) { return (z.on ? (sl.length > 1 && sl.some(function (y) { return !y.on; }) ? "Dispo " : "") : "Pas dispo ") + z.txt; }).join(" · ");
+      return '<button class="row dz-d' + (off || !sl.length ? " dz-off" : "") + '" data-a="dzDay" data-v="' + E.iso(x) + '"' + (Dl.ok ? "" : " disabled") + ">" + tzBillet(E.iso(x)) + '<span class="grow"><span class="t">' + esc(txt) + '</span>' +
+        (sl.some(function (z) { return z.ex; }) ? '<span class="s">Juste ce jour-là</span>' : sl.length ? '<span class="s">Comme d\'habitude</span>' : "") + "</span>" + (Dl.ok ? I.next : "") + "</button>"; }).join("") + "</div>";
+    if (Dl.ok) s += '<button class="btn primary" data-a="dzSave" data-v="' + esc(t.id) + '">Enregistrer sur Ten\'Up</button><p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion. Le juge-arbitre les voit comme d\'habitude.</p>';
+    return s + "</div>";
+  };
+  var DET_DZ = function (v) { // un jour du tournoi : comme d'habitude, pas dispo, ou un autre horaire
+    var a = String(v || "").split("|"), t = (S.tours || []).filter(function (x) { return x.id === a[0]; })[0]; if (!t) return null;
+    var D = (t.ins.more || {}).dz || { gen: [], par: [] }, d = E.parseDate(a[1]), sl = dzDay(D, d), hab = dzDay({ gen: D.gen, par: [] }, d);
+    var cur = sl.some(function (z) { return z.ex; }) ? (sl.every(function (z) { return !z.on; }) ? "off" : "autre") : "hab";
+    var opt = function (k, lbl, sub) { return '<button class="dz-o' + (cur === k ? " on" : "") + '" data-a="dzPick" data-v="' + k + '"><span class="grow"><span class="t">' + lbl + '</span><span class="s">' + sub + '</span></span>' + (cur === k ? '<span class="dz-ck">✓</span>' : "") + "</button>"; };
+    var b = opt("hab", "Comme d'habitude", hab.length ? esc(hab.map(function (z) { return z.txt; }).join(" · ")) : "Pas de créneau ce jour-là") + opt("off", "Pas dispo ce jour-là", "Toute la journée") +
+      opt("autre", "Un autre horaire", cur === "autre" ? esc(sl.map(function (z) { return (z.on ? "Dispo " : "Pas dispo ") + z.txt; }).join(" · ")) : "Par exemple : dispo seulement de 14 h à 18 h");
+    if (cur === "autre") b += '<div class="dz-hh"><label>De<input type="time" value="14:00"></label><label>À<input type="time" value="18:00"></label></div>';
+    return { title: cap1(JOURS[d.getDay()]) + " " + dN(d) + " " + MOIS[d.getMonth()], sub: t.name, body: '<div class="tz-sh dz-sh">' + b + '</div><button class="btn primary" data-a="dzOk">OK</button>' };
   };
   var DET_TZF = function () { // 4.6.0 (Yann) : où et quand chercher ; les mêmes réglages que la recherche Ten'Up (ville, rayon, dates)
     var P = tzPrefs(), b = "", seg = function (k, vals, cur, f) { return '<div class="seg tz-fs">' + vals.map(function (v) { return '<button data-a="tzSet" data-k="' + k + '" data-v="' + v + '" class="' + (v === cur ? "on" : "") + '">' + f(v) + "</button>"; }).join("") + "</div>"; };
@@ -15131,7 +15173,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
       '<span class="ob-foot">Un recordage compte environ ' + OB_RS_EUR + " € (≈) : 12 € le cordage et 10 € la pose. Les inscriptions sont celles que Ten'Up indique. " + (D.approx ? "Un tournoi déjà joué n'y figure plus, avec son prix : Montée le compte environ " + OB_INS_EUR + " € (≈). " : "") + "Rien ne sort de ton téléphone.</span>" };
   };
   function sheetHtml() {
-    DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
+    DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.dz = DET_DZ; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
     var d = DET[UI.sheet.k] && DET[UI.sheet.k](UI.sheet.v);
     if (!d) { UI.sheet = null; return ""; }
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + '</b><button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
@@ -20227,6 +20269,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     tzOpen: function (el) { UI.sheet = { k: "tz", v: el.dataset.v }; render(); },
     tzTab: function (el) { if (el.dataset.v === "rec" && !isSup()) { UI.supFrom = "trouver"; UI.sheet = { k: "plusPrev", v: "cap" }; render(); return; } UI.tzTab = el.dataset.v; render(); },
     tzCp: function () { var v = (document.getElementById("tz-cp") || {}).value; tzHome(v).then(function (P) { if (!P) { toast("Code postal introuvable."); return; } if (!UI.sheet) tzSearch(true); render(); }); },
+    dzDay: function (el) { UI.sheet = { k: "dz", v: location.hash.split("/")[2] + "|" + el.dataset.v }; render(); },
+    dzPick: function () { toast("Maquette : choix pas encore branché."); },
+    dzOk: function () { UI.sheet = null; render(); },
+    dzGen: function () { toast("Maquette : pas encore branché."); },
+    dzSave: function () { toast("Maquette : l'envoi à Ten'Up n'est pas encore branché."); },
     tzWhere: function () { UI.sheet = { k: "tzf" }; render(); },
     tzSet: function (el) { var P = tzPrefs(); P[el.dataset.k] = +el.dataset.v; save(); render(); },
     tzGo: function () { UI.sheet = null; tzSearch(true); render(); },
