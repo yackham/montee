@@ -2121,7 +2121,7 @@
   function tzFavT(f) { // un favori hors de ta recherche : un tournoi en forme Montée, complété par sa fiche à l'ouverture
     UI.tzFavT = UI.tzFavT || {}; return UI.tzFavT[f.id] || (UI.tzFavT[f.id] = { id: f.id, name: f.name, from: f.from, to: f.to, club: f.club, city: "", online: f.online, payOnline: f.payOnline, eps: null }); }
   function tzFavHtml() { // Mes épreuves : tes favoris à venir, sans lancer de recherche
-    var td = E.iso(today()), L = ((S.tzFav && S.tzFav.list) || []).filter(function (f) { return (f.to || f.from) >= td && !tzMine(f.id); }); // 4.11.2 : déjà inscrit ou en liste d'attente = il est plus haut, une seule fois
+    var td = E.iso(today()), L = ((S.tzFav && S.tzFav.list) || []).filter(function (f) { return (f.to || f.from) >= td; });
     if (!L.length) return "";
     // 4.11.1 (Yann : « pas rater la date d'inscription ») : la fiche de chaque favori est lue (clôture) ; ceux qui ferment dans 14 jours passent devant
     var V = L.map(function (f) { return tzEval(tzFind(f.id) || tzFavT(f)); }), soon = function (v) { return v.close != null && v.close <= 14 ? v.close : 999; };
@@ -2168,7 +2168,8 @@
     var sub = [t.city ? insCase(t.city) : "", v.km != null ? v.km + " km" : "", tzSen(e), e.fee ? e.fee + " €" + (t.payOnline ? " en ligne" : "") : ""].filter(Boolean).join(" · ");
     var ln = (rg ? '<b class="rk-tag">' + esc(rg) + "</b>" : "") + (k !== "tournoi" ? '<span class="tz-tag">' + (k === "tmc" ? "TMC" : "Indivs") + "</span>" : "") +
       ((t.surf || []).length ? '<span class="tz-sf" aria-label="' + esc(t.surf.join(", ")) + '">' + t.surf.map(surfPic).join("") + "</span>" : "") + (tot ? '<span class="tz-cup">' + TZ_CUP + tot + " €</span>" : "");
-    var hot = v.clash.length ? '<span class="tz-w">' + esc("En même temps : " + v.clash[0].t) + "</span>"
+    var mine = tzMine(t.id); // 4.11.2 (Yann) : un favori où tu es déjà : on le dit, au lieu de pousser à l'inscription
+    var hot = mine ? '<span class="tz-v">' + (mine.wait ? "Tu es en liste d'attente" : "Tu es inscrit") + "</span>" : v.clash.length ? '<span class="tz-w">' + esc("En même temps : " + v.clash[0].t) + "</span>"
       : v.ins ? '<span class="tz-w">' + esc(v.ins.txt) + "</span>"
       : v.close != null && v.close <= 7 ? '<span class="tz-w">' + esc(v.close === 0 ? "Inscriptions closes ce soir" : "Inscriptions closes dans " + plural(v.close, "jour")) + "</span>"
       : v.thr || v.rel ? '<span class="tz-v">' + (open ? esc(v.thr ? "Avant que des points sortent (" + fdate(E.iso(v.thr.rel)) + ")" : "Compte pour la sortie du " + fdate(E.iso(v.rel))) : pwX("Avant que des points sortent")) + "</span>" : "";
