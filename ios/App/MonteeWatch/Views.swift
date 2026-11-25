@@ -208,6 +208,7 @@ struct RootView: View {
             NavigationStack { HomeView() }
                 .onOpenURL { u in
                     if u.host == "start" { Draft.shared.openSetup = true }
+                    if u.host == "ace" { PhoneLink.shared.openAce = true } // 4.7 : complications d'Ace
                     if u.host == "train" { if PhoneLink.shared.todayPlan != nil { PhoneLink.shared.openPlay = true } else { startTraining() } } // 3.61.2 : la complication passe aussi par le choix
                 }
         }
@@ -332,6 +333,7 @@ struct HomeView: View {
         .navigationDestination(isPresented: $draft.openSetup) {
             if link.canPlay { SetupView() } else { PlusView() }
         }
+        .navigationDestination(isPresented: $link.openAce) { AceDetail() }
         .sheet(isPresented: $forme) { FormeSheet() }
         .sheet(isPresented: $play) {
             PlaySheet { kind in
@@ -1039,7 +1041,8 @@ struct ServerView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                Text(opp.name + (opp.rank.isEmpty ? "" : " · " + opp.rank)).font(.system(size: 14, weight: .bold)).lineLimit(1)
+                // 4.7 (maquette validée) : Ace résume ce que l'iPhone sait déjà de l'adversaire
+                PreMatchAce(opp: opp)
                 Button { warm() } label: {
                     Label("Échauffement d'abord", systemImage: "figure.tennis").font(.system(size: 14, weight: .heavy))
                         .foregroundColor(.white).frame(maxWidth: .infinity, minHeight: 40)
@@ -1053,7 +1056,7 @@ struct ServerView: View {
                 .buttonStyle(PrimaryStyle())
                 .disabled(srv == nil)
                 .opacity(srv == nil ? 0.35 : 1)
-                if let t = opp.tip, !t.isEmpty { Quote(t: t) }
+                if (opp.plan ?? []).isEmpty, let t = opp.tip, !t.isEmpty { Quote(t: t) }
             }
         }
         .navigationTitle("C'est parti")
@@ -1068,6 +1071,51 @@ struct ServerView: View {
     func warm() {
         let o = opp, h = d.hom
         Workout.shared.authorize { MatchVM.shared.beginWarmup(opp: o, hom: h, fmt: "?") }
+    }
+}
+
+/// 4.7 : ce que rapporte une victoire contre cet adversaire (calculé par l'iPhone), s'il s'agit bien du prochain match
+func winPtsFor(_ name: String?) -> Int? {
+    guard let w = PhoneLink.shared.ctx.winPts, let n = name else { return nil }
+    let a = w.n.lowercased().trimmingCharacters(in: .whitespaces), b = n.lowercased().trimmingCharacters(in: .whitespaces)
+    return !a.isEmpty && a == b ? w.g : nil
+}
+
+/// 4.7 : avant le match, Ace en 3 lignes : chances et face-à-face, la 1re consigne du plan, ce qu'une victoire rapporte
+struct PreMatchAce: View {
+    let opp: WOpp
+    var body: some View {
+        let step = (opp.plan ?? []).first { ($0.th ?? "") != "obj" && ($0.th ?? "") != "planb" }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 7) {
+                AceBall(mood: "concentree", size: 40, replay: true)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(opp.name).font(.system(size: 14, weight: .heavy)).lineLimit(1)
+                        if !opp.rank.isEmpty { RankTag(r: opp.rank, size: 12) }
+                    }
+                    if let p = opp.p { Text("Tes chances \(p) %").font(.system(size: 12, weight: .bold)).foregroundColor(.balle) }
+                    if let v = opp.fv, let d = opp.fd, v + d > 0 { Text("Face-à-face \(v)-\(d)").font(.system(size: 11.5, weight: .semibold)).foregroundColor(.secondary) }
+                }
+            }
+            if let st = step {
+                VStack(alignment: .leading, spacing: 2) {
+                    Eyebrow(t: "Ton plan")
+                    Text(st.t).font(.system(size: 13.5, weight: .heavy)).fixedSize(horizontal: false, vertical: true)
+                    if let sub = st.s, !sub.isEmpty { Text(sub).font(.system(size: 11, weight: .semibold)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true) }
+                }
+                .padding(.horizontal, 10).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.card))
+            }
+            if opp.hom != false, let g = winPtsFor(opp.name) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Eyebrow(t: "Si tu gagnes", color: .secondary)
+                    Text("+\(g) pts au bilan").font(.system(size: 14, weight: .heavy)).foregroundColor(.gazon)
+                }
+                .padding(.horizontal, 10).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.card))
+            }
+        }
     }
 }
 
@@ -1772,15 +1820,18 @@ struct ChangeView: View {
                 }
                 if let c = vm.cue(M) {
                     // 3.42 : une seule carte, choisie selon le score ou les chiffres du match
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(c.fromWatch ? "CE QUE DIT TA MONTRE" : "MAINTENANT").font(.system(size: 10, weight: .heavy)).kerning(0.8)
-                            .foregroundColor(c.fromWatch ? .gazon : .balle)
-                        Text(c.t).font(.system(size: 18, weight: .heavy)).fixedSize(horizontal: false, vertical: true)
-                        if !c.s.isEmpty { Text(c.s).font(.system(size: 11.5, weight: .semibold)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true) }
+                    // 4.7 (maquette validée) : c'est Ace qui la dit, avec sa tête du moment ; carte neutre, la couleur en accent
+                    HStack(alignment: .top, spacing: 7) {
+                        AceBall(mood: cueMood(c), size: 38, replay: true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(c.fromWatch ? "CE QUE DIT TA MONTRE" : "MAINTENANT").font(.system(size: 9.5, weight: .heavy)).kerning(0.6)
+                                .foregroundColor(c.fromWatch ? .gazon : .balle)
+                            Text(c.t).font(.system(size: 16, weight: .heavy)).fixedSize(horizontal: false, vertical: true)
+                            if !c.s.isEmpty { Text(c.s).font(.system(size: 11.5, weight: .semibold)).foregroundColor(Color(white: 0.8)).fixedSize(horizontal: false, vertical: true) }
+                        }
                     }
-                    .padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                    .background((c.fromWatch ? Color.gazon : Color.balle).opacity(0.16))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .padding(.vertical, 9).padding(.leading, 6).padding(.trailing, 10).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.card))
                 }
                 // 3.47 (retour testeur) : les 3 consignes de ton plan, toujours sous les yeux au changement de côté
                 if let plan = vm.live?.plan, !plan.isEmpty {
@@ -1875,6 +1926,13 @@ struct EndView: View {
                 }
                 Text(scoreLine).font(.system(size: 24, weight: .heavy)).minimumScaleFactor(0.6).lineLimit(1)
                 Text("contre " + (vm.live?.name ?? "")).font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary).lineLimit(1)
+                // 4.7 (maquette validée) : Ace réagit (rire ou rebond) et dit ce que le résultat change
+                HStack(alignment: .top, spacing: 7) {
+                    AceBall(mood: won ? "rire" : "rebond", size: 36, replay: true)
+                    Text(aceEnd).font(.system(size: 12, weight: .bold)).fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 6).padding(.leading, 5).padding(.trailing, 9).frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.card))
                 kv("Durée" + (w.avg > 0 ? " · cardio" : ""), vm.elapsed() + (w.avg > 0 ? " · \(Int(w.avg))" : ""))
                 let me = M.stats[0], him = M.stats[1]
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
@@ -1900,6 +1958,19 @@ struct EndView: View {
                 }
             }
         }
+    }
+    /// La phrase d'Ace en fin de match : les points (calcul de l'iPhone) si c'est le match prévu, sinon le chiffre qui a compté
+    var aceEnd: String {
+        let me = M.stats[0], him = M.stats[1]
+        let free = vm.live?.hom == false
+        if won {
+            if !free, let g = winPtsFor(vm.live?.name) { return "Bien joué ! +\(g) pts au bilan quand Ten'Up aura le résultat." }
+            if him.bpFaced > 0, him.bpFaced - him.bpSaved >= 2 { return "Bien joué ! \(him.bpFaced - him.bpSaved) breaks : ton retour a fait la différence." }
+            return "Bien joué ! Le résumé t'attend sur ton iPhone."
+        }
+        if me.games >= 3, me.held * 10 >= me.games * 6 { return "Dur. Ce qu'on garde : ton service a tenu (\(me.held) jeux sur \(me.games)). On repart." }
+        if me.pts >= 12, me.firstIn * 100 >= me.pts * 60 { return "Dur. Ce qu'on garde : \(me.firstIn * 100 / max(1, me.pts)) % de 1res balles. On repart." }
+        return "Dur. On regarde ça ensemble sur ton iPhone, et on repart."
     }
     var scoreLine: String {
         var s = M.scoreText
@@ -2005,316 +2076,68 @@ func goalColor(_ k: String?) -> Color {
     }
 }
 
-// MARK: - 3.81 : Ace (la Balle) au poignet : même dessin et mêmes mouvements que sur l'iPhone (web/balle.js)
-
-/// Une pose d'Ace (repère 200 × 220 du dessin de l'iPhone)
-struct AcePose {
-    var y: Double = 0
-    var sx: Double = 1
-    var sy: Double = 1
-    var fx: Double = 0
-    var fy: Double = 0
-    var open: Double = 1
-    var happy: Double = 0
-    var lx: Double = 0
-    var ly: Double = 0
-    var brow: Double = 0
-    var browA: Double = 0
-    var smile: Double = 22
-    var band: Double = 0
-    var dots: Double = 0
-    var spark: Double = 0
-    var tilt: Double = 0
-}
-
-/// Les humeurs d'Ace : pose à l'instant u (0 → 1)
-enum AceMoves {
-    static func cl(_ x: Double) -> Double { return max(0, min(1, x)) }
-    static func seg(_ u: Double, _ a: Double, _ b: Double) -> Double { return cl((u - a) / (b - a)) }
-    static func eo(_ t: Double) -> Double { return 1 - pow(1 - t, 3) }
-    static func eio(_ t: Double) -> Double {
-        if t < 0.5 { return 4 * t * t * t }
-        return 1 - pow(-2 * t + 2, 3) / 2
-    }
-    static func bump(_ t: Double) -> Double { return sin(Double.pi * cl(t)) }
-    static func blink(_ u: Double, _ at: Double) -> Double {
-        let k = abs(u - at) / 0.06
-        return k < 1 ? k : 1
-    }
-
-    /// Où s'arrête l'humeur (pose gardée ensuite)
-    static func end(_ m: String) -> Double {
-        if m == "joie" { return 1 }
-        if m == "repos" { return 0 }
-        if m == "reflexion" { return 0.5 }
-        return 0.55
-    }
-
-    static func pose(_ m: String, _ u: Double) -> AcePose {
-        switch m {
-        case "joie": return joie(u)
-        case "decue": return decue(u)
-        case "reflexion": return reflexion(u)
-        case "concentree": return concentree(u)
-        default: return repos(u)
-        }
-    }
-
-    static func repos(_ u: Double) -> AcePose {
-        var p = AcePose()
-        let br = sin(u * Double.pi * 4) * 0.012
-        var g: Double = 0
-        if u < 0.3 { g = 0 }
-        else if u < 0.5 { g = eio(seg(u, 0.3, 0.42)) * -5 }
-        else if u < 0.75 { g = -5 + eio(seg(u, 0.5, 0.62)) * 10 }
-        else { g = 5 - eio(seg(u, 0.75, 0.87)) * 5 }
-        p.sy = 1 + br
-        p.sx = 1 - br * 0.6
-        p.open = min(blink(u, 0.2), blink(u, 0.9))
-        p.lx = g
-        p.fx = g * 0.5
-        return p
-    }
-
-    static func joie(_ u: Double) -> AcePose {
-        var p = AcePose()
-        let happy = u > 0.9 ? 1 : eo(seg(u, 0.05, 0.2))
-        if u < 0.18 {
-            let t = eo(seg(u, 0, 0.18)); p.sy = 1 - 0.14 * t; p.sx = 1 + 0.1 * t
-        } else if u < 0.52 {
-            let t = seg(u, 0.18, 0.52); let b = (1 - t) * bump(t * 2)
-            p.y = -120 * 4 * t * (1 - t); p.sy = 1 + 0.14 * b; p.sx = 1 - 0.09 * b
-        } else if u < 0.6 {
-            let t = bump(seg(u, 0.52, 0.6)); p.sy = 1 - 0.18 * t; p.sx = 1 + 0.13 * t
-        } else if u < 0.78 {
-            let t = seg(u, 0.6, 0.78); p.y = -30 * 4 * t * (1 - t)
-        } else if u < 0.84 {
-            let t = bump(seg(u, 0.78, 0.84)); p.sy = 1 - 0.06 * t; p.sx = 1 + 0.04 * t
-        }
-        p.happy = happy
-        p.smile = 22 + 14 * happy
-        p.spark = (u > 0.3 && u < 0.9) ? bump(seg(u, 0.3, 0.9)) : 0
-        p.tilt = sin(u * Double.pi * 3) * 3 * (1 - u)
-        return p
-    }
-
-    static func decue(_ u: Double) -> AcePose {
-        var p = AcePose()
-        let down = eio(seg(u, 0.05, 0.35)) * (1 - eio(seg(u, 0.7, 0.95)))
-        p.sy = 1 - 0.07 * down
-        p.sx = 1 + 0.05 * down
-        p.fy = 9 * down
-        p.open = 1 - 0.45 * down
-        p.ly = 4 * down
-        p.brow = -1
-        p.browA = down
-        p.smile = 22 - 17 * down
-        p.tilt = -3 * down + sin(seg(u, 0.72, 0.95) * Double.pi) * 2
-        return p
-    }
-
-    static func reflexion(_ u: Double) -> AcePose {
-        var p = AcePose()
-        let t = eio(seg(u, 0.08, 0.3)) * (1 - eio(seg(u, 0.8, 0.98)))
-        p.fx = 16 * t
-        p.fy = -8 * t
-        p.lx = 5 * t
-        p.ly = -6 * t
-        p.tilt = 6 * t
-        if t > 0.9 { p.dots = cl((u - 0.3) / 0.12) * 3 } else if u > 0.8 { p.dots = 3 * t }
-        p.open = blink(u, 0.55)
-        return p
-    }
-
-    static func concentree(_ u: Double) -> AcePose {
-        var p = AcePose()
-        let b = eo(seg(u, 0.05, 0.4))
-        let lean = eio(seg(u, 0.45, 0.6)) * (1 - eio(seg(u, 0.85, 1)) * 0.5)
-        let nod = (u > 0.62 && u < 0.82) ? sin(seg(u, 0.62, 0.82) * Double.pi) : 0
-        let f = eo(seg(u, 0.35, 0.5))
-        p.band = b
-        p.brow = 1
-        p.browA = f
-        p.fy = 3 * lean + 5 * nod
-        p.sy = 1 - 0.03 * lean
-        p.sx = 1 + 0.02 * lean
-        p.smile = 22 - 8 * f
-        p.open = min(1 - 0.15 * f, blink(u, 0.9))
-        return p
-    }
-}
-
-/// Le dessin d'Ace dans un Canvas (formes du SVG de l'iPhone, sans le grain)
-enum AceDraw {
-    static func rgb(_ r: Double, _ g: Double, _ b: Double) -> Color { return Color(red: r / 255, green: g / 255, blue: b / 255) }
-
-    static func draw(_ ctx: GraphicsContext, _ size: CGSize, _ p: AcePose) {
-        var c = ctx
-        let k = min(size.width / 200, size.height / 220)
-        c.scaleBy(x: k, y: k)
-        // Ombre au sol : plus petite quand Ace saute
-        let hgt = max(0, -p.y)
-        let rx = 56 * p.sx * max(0.45, 1 - hgt / 160)
-        let shOp = 0.2 * max(0.3, 1 - hgt / 140)
-        c.fill(Path(ellipseIn: CGRect(x: 100 - rx, y: 199, width: rx * 2, height: 14)), with: .color(Color.black.opacity(shOp)))
-        dots(c, p)
-        sparks(c, p)
-        var b = c
-        b.translateBy(x: 100, y: 200 + p.y)
-        b.rotate(by: .degrees(p.tilt))
-        b.scaleBy(x: p.sx, y: p.sy)
-        b.translateBy(x: -100, y: -200)
-        ball(b, p)
-    }
-
-    static func dots(_ c: GraphicsContext, _ p: AcePose) {
-        if p.dots <= 0 { return }
-        let pts: [(Double, Double, Double)] = [(168, 44, 5), (182, 26, 6), (198, 6, 7)]
-        for i in 0..<3 {
-            let o = max(0, min(1, p.dots - Double(i)))
-            let d = pts[i]
-            c.fill(Path(ellipseIn: CGRect(x: d.0 - d.2, y: d.1 - d.2, width: d.2 * 2, height: d.2 * 2)), with: .color(Color.white.opacity(0.85 * o)))
-        }
-    }
-
-    static func sparks(_ c: GraphicsContext, _ p: AcePose) {
-        if p.spark <= 0.02 { return }
-        let r1 = 92 + p.spark * 8
-        let r2 = r1 + p.spark * 20
-        var path = Path()
-        for i in 0..<6 {
-            let a = (-160 + Double(i) * 28) * Double.pi / 180
-            path.move(to: CGPoint(x: 100 + cos(a) * r1, y: 120 + p.y + sin(a) * r1))
-            path.addLine(to: CGPoint(x: 100 + cos(a) * r2, y: 120 + p.y + sin(a) * r2))
-        }
-        let col = rgb(212, 230, 74).opacity(min(1, p.spark * 1.4))
-        c.stroke(path, with: .color(col), style: StrokeStyle(lineWidth: 5, lineCap: .round))
-    }
-
-    static func ball(_ ctx: GraphicsContext, _ p: AcePose) {
-        var c = ctx
-        let rect = CGRect(x: 20, y: 40, width: 160, height: 160)
-        let shape = Path(ellipseIn: rect)
-        let g1 = Gradient(stops: [
-            .init(color: rgb(244, 250, 184), location: 0),
-            .init(color: rgb(220, 236, 85), location: 0.45),
-            .init(color: rgb(191, 210, 58), location: 0.85),
-            .init(color: rgb(163, 182, 42), location: 1)
-        ])
-        c.fill(shape, with: .radialGradient(g1, center: CGPoint(x: 20 + 160 * 0.36, y: 40 + 160 * 0.3), startRadius: 0, endRadius: 160 * 0.78))
-        let g2 = Gradient(colors: [rgb(94, 112, 0).opacity(0.28), rgb(94, 112, 0).opacity(0)])
-        c.fill(shape, with: .radialGradient(g2, center: CGPoint(x: 20 + 160 * 0.72, y: 40 + 160 * 0.78), startRadius: 0, endRadius: 160 * 0.6))
-        c.clip(to: shape)
-        face(c, p)
-        band(c, p)
-        var h = c
-        h.translateBy(x: 72, y: 66)
-        h.rotate(by: .degrees(-25))
-        h.fill(Path(ellipseIn: CGRect(x: -26, y: -14, width: 52, height: 28)), with: .color(Color.white.opacity(0.22)))
-    }
-
-    static func face(_ ctx: GraphicsContext, _ p: AcePose) {
-        var c = ctx
-        c.translateBy(x: p.fx, y: p.fy)
-        // La couture de la balle, qui fait le sourire
-        let L: Double = 36
-        let R: Double = 164
-        let Y: Double = 136
-        let d = Y + p.smile
-        var seam = Path()
-        seam.move(to: CGPoint(x: L + 14, y: 52))
-        seam.addQuadCurve(to: CGPoint(x: L, y: Y), control: CGPoint(x: L - 16, y: Y - 36))
-        seam.addQuadCurve(to: CGPoint(x: R, y: Y), control: CGPoint(x: 100, y: d))
-        seam.addQuadCurve(to: CGPoint(x: R - 14, y: 52), control: CGPoint(x: R + 16, y: Y - 36))
-        var sc = c
-        sc.translateBy(x: 0, y: 2.5)
-        sc.stroke(seam, with: .color(rgb(111, 132, 16).opacity(0.35)), style: StrokeStyle(lineWidth: 10, lineCap: .round))
-        c.stroke(seam, with: .color(rgb(250, 252, 235)), style: StrokeStyle(lineWidth: 7, lineCap: .round))
-        eyes(c, p)
-        // Sourcils (concentrée : intérieur bas ; déçue : intérieur haut)
-        if p.browA > 0.01 {
-            var br = Path()
-            br.move(to: CGPoint(x: 64, y: 84)); br.addLine(to: CGPoint(x: 90, y: 84 + p.brow * 7))
-            br.move(to: CGPoint(x: 136, y: 84)); br.addLine(to: CGPoint(x: 110, y: 84 + p.brow * 7))
-            c.stroke(br, with: .color(rgb(69, 84, 14).opacity(p.browA)), style: StrokeStyle(lineWidth: 5.5, lineCap: .round))
-        }
-    }
-
-    static func eyes(_ c: GraphicsContext, _ p: AcePose) {
-        let ink = rgb(20, 24, 16)
-        let eo = 1 - p.happy
-        if eo > 0.01 {
-            let ry = 13 * max(0.08, p.open)
-            let cy = 105 + (13 - ry) * 0.6
-            let xs: [Double] = [78 + p.lx * 0.6, 122 + p.lx * 0.6]
-            for x in xs {
-                c.fill(Path(ellipseIn: CGRect(x: x - 9.5, y: cy - ry, width: 19, height: ry * 2)), with: .color(ink.opacity(eo)))
-            }
-            if p.open > 0.5 {
-                let hx: [Double] = [81 + p.lx, 125 + p.lx]
-                for x in hx {
-                    c.fill(Path(ellipseIn: CGRect(x: x - 3.4, y: 100 + p.ly - 3.4, width: 6.8, height: 6.8)), with: .color(Color.white.opacity(eo)))
-                }
-            }
-        }
-        if p.happy > 0.01 {
-            var hp = Path()
-            hp.move(to: CGPoint(x: 66, y: 108)); hp.addQuadCurve(to: CGPoint(x: 90, y: 108), control: CGPoint(x: 78, y: 94))
-            hp.move(to: CGPoint(x: 110, y: 108)); hp.addQuadCurve(to: CGPoint(x: 134, y: 108), control: CGPoint(x: 122, y: 94))
-            c.stroke(hp, with: .color(ink.opacity(p.happy)), style: StrokeStyle(lineWidth: 6.5, lineCap: .round))
-        }
-    }
-
-    /// Le bandeau (concentrée) descend du haut
-    static func band(_ ctx: GraphicsContext, _ p: AcePose) {
-        if p.band <= 0.01 { return }
-        var c = ctx
-        c.translateBy(x: 0, y: (1 - p.band) * -110)
-        var bd = Path()
-        bd.move(to: CGPoint(x: 10, y: 70))
-        bd.addQuadCurve(to: CGPoint(x: 190, y: 70), control: CGPoint(x: 100, y: 46))
-        bd.addLine(to: CGPoint(x: 190, y: 88))
-        bd.addQuadCurve(to: CGPoint(x: 10, y: 88), control: CGPoint(x: 100, y: 64))
-        bd.closeSubpath()
-        c.fill(bd, with: .color(rgb(31, 92, 63)))
-        var ln = Path()
-        ln.move(to: CGPoint(x: 10, y: 79))
-        ln.addQuadCurve(to: CGPoint(x: 190, y: 79), control: CGPoint(x: 100, y: 55))
-        c.stroke(ln, with: .color(rgb(46, 122, 85)), style: StrokeStyle(lineWidth: 2))
-    }
-}
-
-/// Ace : joue son humeur une fois par lancement (pas en boucle), pose finale directe si « Réduire les animations » ou poignet baissé
+/// Ace : joue son humeur une fois par lancement (pas en boucle), pose finale directe si « Réduire les animations » ou poignet baissé.
+/// 4.7 (Yann : « bien animé ») : ensuite il vit un peu tant que l'écran est allumé (respiration, clignement, regard), tout s'arrête poignet baissé.
+/// `replay` : le moment se rejoue à chaque apparition (moments du match, fin de séance), pas une seule fois par lancement.
 struct AceBall: View {
     var mood: String = "repos"
     var size: CGFloat = 40
+    var replay: Bool = false
+    var live: Bool = true
     static var played = Set<String>()
     @Environment(\.accessibilityReduceMotion) private var reduce
     @Environment(\.isLuminanceReduced) private var dim
     @State private var t0: Date? = nil
-    let dur: Double = 1.6
+    var dur: Double { mood == "rebond" || mood == "fier" ? 1.9 : mood == "parle" ? 2.2 : 1.6 }
+    var alive: Bool { live && !reduce && !dim }
 
     func pose(at d: Date) -> AcePose {
         let end = AceMoves.end(mood)
-        guard let s = t0 else { return AceMoves.pose(mood, end) }
-        let u = min(1, d.timeIntervalSince(s) / dur)
-        let full = mood == "repos" || mood == "joie"
-        return AceMoves.pose(mood, full ? u : u * end)
+        if let s = t0 {
+            let u = min(1, d.timeIntervalSince(s) / dur)
+            let full = mood == "repos" || mood == "joie"
+            return AceMoves.pose(mood, full ? u : u * end)
+        }
+        var p = AceMoves.pose(mood == "parle" ? "repos" : mood, mood == "parle" ? 0 : end)
+        guard alive else { return p }
+        // la petite vie : respiration lente, un clignement toutes les 4 s environ, le regard qui bouge doucement
+        let t = d.timeIntervalSinceReferenceDate
+        let br = sin(t / 0.65) * 0.014
+        p.sy *= 1 + br; p.sx *= 1 - br * 0.6; p.y -= max(0, br) * 60
+        let ph = t.truncatingRemainder(dividingBy: 4.3)
+        if ph < 0.14 { p.open = min(p.open, max(0.08, abs(1 - ph / 0.07))) }
+        let g = sin(t / 2.7) * 3
+        p.lx += g; p.fx += g * 0.4
+        return p
+    }
+
+    func start() {
+        guard !reduce, !dim else { return }
+        if !replay { guard !AceBall.played.contains(mood) else { return }; AceBall.played.insert(mood) }
+        let s = Date(); t0 = s
+        DispatchQueue.main.asyncAfter(deadline: .now() + dur + 0.1) { if t0 == s { t0 = nil } }
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: t0 == nil)) { tl in
+        TimelineView(.animation(minimumInterval: 1.0 / (t0 == nil ? 20 : 30), paused: t0 == nil && !alive)) { tl in
             let p = pose(at: tl.date)
             Canvas { g, sz in AceDraw.draw(g, sz, p) }
         }
         .frame(width: size, height: size * 1.1)
         .accessibilityHidden(true)
-        .onAppear {
-            guard !reduce, !dim, !AceBall.played.contains(mood) else { return }
-            AceBall.played.insert(mood)
-            t0 = Date()
-            DispatchQueue.main.asyncAfter(deadline: .now() + dur + 0.1) { t0 = nil }
-        }
+        .onAppear { start() }
+        .onChange(of: mood) { _, _ in start() }
+    }
+}
+
+/// 4.7 : la tête d'Ace selon la consigne du changement de côté (set perdu : il s'écrase puis rebondit)
+func cueMood(_ c: Cue) -> String {
+    switch c.id {
+    case "set-lost": return "rebond"
+    case "set-won": return "joie"
+    case "m-won", "s-strong": return "fier"
+    case "m-lost", "m-sfs", "m-rfs": return "concentree"
+    default: return c.fromWatch ? "parle" : "concentree"
     }
 }
 
@@ -2354,17 +2177,170 @@ struct RankTag: View {
     }
 }
 
-/// Ace, une carte, pas un chat : les mêmes chiffres que l'iPhone
+/// 4.7 (maquettes validées par Yann le 25/11) : la conversation avec Ace. Ses questions du moment en tuiles,
+/// comme sur l'iPhone, et ses réponses toutes prêtes (calculées par l'iPhone : mêmes chiffres). Pas de micro.
 struct AceDetail: View {
     @ObservedObject var link = PhoneLink.shared
     var body: some View {
         let c = link.ctx
+        let qs = c.aceQs ?? []
+        ScrollView {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .top, spacing: 8) {
+                    AceBall(mood: c.ace?.m ?? "joie", size: 44)
+                    Text(c.ace?.t.isEmpty == false ? c.ace!.t : "Salut ! Tu veux savoir quoi ?")
+                        .font(.system(size: 13, weight: .bold)).fixedSize(horizontal: false, vertical: true)
+                }
+                if qs.isEmpty {
+                    AceLegacyCards()
+                } else {
+                    ForEach(qs) { q in AceTileLink(q: q) }
+                }
+                Text("Le détail complet est dans Montée, sur ton iPhone.").font(.system(size: 10.5, weight: .semibold)).foregroundColor(.secondary)
+            }
+        }.containerBackground(appGradient, for: .navigation)
+    }
+}
+
+/// Picto et couleur d'une tuile (mêmes repères que les tuiles d'Ace sur l'iPhone)
+func aceTileLook(_ q: WAceQ) -> (String, Color) {
+    switch q.ic ?? "" {
+    case "versus", "li": return ("calendar", Color(red: 0.56, green: 0.66, blue: 1))
+    case "po", "to": return ("trophy.fill", Color(red: 0.56, green: 0.66, blue: 1))
+    case "chart": return ("arrow.up", .balle)
+    case "so": return ("rectangle.portrait.and.arrow.right", .terre)
+    case "check": return ("checkmark", .gazon)
+    case "back": return ("arrow.uturn.backward", .terre)
+    case "spark": return ("chart.line.uptrend.xyaxis", .gazon)
+    case "user": return ("person.fill", Color(red: 0.79, green: 0.65, blue: 1))
+    case "warn": return ("exclamationmark.triangle.fill", .terre)
+    case "edit": return ("pencil", .gazon)
+    case "book": return ("book.fill", Color(red: 0.56, green: 0.66, blue: 1))
+    case "heart": return ("heart.fill", .balle)
+    case "info": return ("eye.fill", Color(red: 0.79, green: 0.65, blue: 1))
+    default: return ("target", Color(red: 0.79, green: 0.65, blue: 1))
+    }
+}
+
+func aceTone(_ k: String?) -> Color {
+    switch k ?? "" { case "g": return .gazon; case "y": return .balle; case "r": return .terre; default: return .white }
+}
+
+/// Une tuile : picto teinté, titre, chiffre clé (flouté si Montée+ fermé, avec le « + » jaune)
+struct AceTile: View {
+    let q: WAceQ
+    var body: some View {
+        let lk = aceTileLook(q)
+        HStack(spacing: 8) {
+            Image(systemName: lk.0).font(.system(size: 12, weight: .heavy)).foregroundColor(lk.1)
+                .frame(width: 28, height: 28).background(Circle().fill(lk.1.opacity(0.16)))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(q.t).font(.system(size: 12.5, weight: .heavy)).lineLimit(2)
+                if let v = q.v, !v.isEmpty {
+                    Text(v).font(.system(size: 11, weight: .bold)).foregroundColor(lk.1).lineLimit(1)
+                        .blur(radius: q.lk == true ? 3.5 : 0)
+                }
+            }
+            Spacer(minLength: 0)
+            if q.pl == true { Text("+").font(.system(size: 12, weight: .black)).foregroundColor(.balle) }
+        }
+        .padding(.vertical, 7).padding(.leading, 7).padding(.trailing, 9)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.card))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(q.lk == true ? q.t + ", Montée+" : q.t + (q.v.map { ", " + $0 } ?? ""))
+    }
+}
+
+struct AceTileLink: View {
+    let q: WAceQ
+    var body: some View {
+        NavigationLink { if q.lk == true { AcePlusView() } else { AceAnswer(q: q) } } label: { AceTile(q: q) }.buttonStyle(.plain)
+    }
+}
+
+/// La réponse : ta question dans une bulle jaune, Ace et sa phrase, 2 ou 3 cartes, puis 2 autres questions
+struct AceAnswer: View {
+    let q: WAceQ
+    @ObservedObject var link = PhoneLink.shared
+    var body: some View {
+        let others = (link.ctx.aceQs ?? []).filter { $0.id != q.id && $0.lk != true }.prefix(2)
+        let a = q.a ?? []
+        ScrollView {
+            VStack(alignment: .leading, spacing: 7) {
+                HStack {
+                    Spacer(minLength: 24)
+                    Text(q.q).font(.system(size: 12, weight: .heavy)).foregroundColor(Color(red: 0.08, green: 0.09, blue: 0.06))
+                        .padding(.horizontal, 9).padding(.vertical, 6)
+                        .background(UnevenRoundedRectangle(topLeadingRadius: 14, bottomLeadingRadius: 14, bottomTrailingRadius: 4, topTrailingRadius: 14, style: .continuous).fill(Color.balle))
+                }
+                HStack(alignment: .top, spacing: 8) {
+                    AceBall(mood: q.m ?? "repos", size: 40, replay: true)
+                    Text(a.first ?? "Ouvre Montée sur ton iPhone : je te prépare la réponse.").font(.system(size: 13, weight: .bold)).fixedSize(horizontal: false, vertical: true)
+                }
+                if a.count > 1 { Text(a[1]).font(.system(size: 11.5, weight: .semibold)).foregroundColor(Color(white: 0.8)).fixedSize(horizontal: false, vertical: true) }
+                ForEach(Array((q.k ?? []).enumerated()), id: \.offset) { _, k in AceCardView(k: k) }
+                if !others.isEmpty {
+                    Text("Et ensuite ?").font(.system(size: 12.5, weight: .heavy)).foregroundColor(.secondary).padding(.leading, 4).padding(.top, 2)
+                    ForEach(Array(others)) { o in AceTileLink(q: o) }
+                }
+                Text("Le détail complet est dans Montée, sur ton iPhone.").font(.system(size: 10.5, weight: .semibold)).foregroundColor(.secondary)
+            }
+        }.containerBackground(appGradient, for: .navigation)
+    }
+}
+
+/// Une carte de réponse : en-tête, grand chiffre et sa ligne, puis les lignes (classement avec la balle jaune)
+struct AceCardView: View {
+    let k: WAceCard
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if let h = k.h, !h.isEmpty { Eyebrow(t: h) }
+            if let b = k.b, !b.isEmpty { Text(b).font(.system(size: 22, weight: .heavy)).foregroundColor(aceTone(k.bc)).lineLimit(1).minimumScaleFactor(0.6) }
+            if let l = k.l, !l.isEmpty { Text(l).font(.system(size: 11, weight: .semibold)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true) }
+            ForEach(Array((k.r ?? []).enumerated()), id: \.offset) { _, r in
+                HStack(alignment: .center, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 4) {
+                            Text(r.l ?? "").font(.system(size: 12, weight: .heavy)).lineLimit(2)
+                            if let rk = r.rk, !rk.isEmpty { RankTag(r: rk, size: 11) }
+                        }
+                        if let sv = r.s, !sv.isEmpty { Text(sv).font(.system(size: 10.5, weight: .semibold)).foregroundColor(.secondary).lineLimit(2) }
+                    }
+                    Spacer(minLength: 2)
+                    if let v = r.v, !v.isEmpty { Text(v).font(.system(size: 13, weight: .heavy)).foregroundColor(aceTone(r.c)) }
+                }.padding(.top, 2)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.card))
+    }
+}
+
+/// Une réponse Montée+ fermée : le titre se lit, la réponse s'ouvre avec l'abonnement (comme sur l'iPhone)
+struct AcePlusView: View {
+    @ObservedObject var link = PhoneLink.shared
+    var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .center, spacing: 8) {
-                    AceBall(mood: c.ace?.m ?? "repos", size: 44)
-                    Text(c.ace?.t ?? "").font(.system(size: 13, weight: .bold)).fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .top, spacing: 8) {
+                    AceBall(mood: "joie", size: 40)
+                    Text("Cette réponse est dans Montée+.").font(.system(size: 13, weight: .bold)).fixedSize(horizontal: false, vertical: true)
                 }
+                Text("Abonne-toi dans Montée sur ton iPhone : menu › Montée+. Un mois d'essai offert.")
+                    .font(.system(size: 12)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                Button("Déjà abonné ? Vérifier") { Task { await link.checkStore() } }.font(.system(size: 13, weight: .bold))
+            }
+        }.containerBackground(appGradient, for: .navigation)
+    }
+}
+
+/// Avant la 4.7 (iPhone pas encore à jour, pas de questions reçues) : les deux cartes fixes d'avant
+struct AceLegacyCards: View {
+    @ObservedObject var link = PhoneLink.shared
+    var body: some View {
+        let c = link.ctx
+            VStack(alignment: .leading, spacing: 8) {
                 if !c.next.isEmpty, let g = c.gap {
                     Glass {
                         VStack(alignment: .leading, spacing: 3) {
@@ -2397,9 +2373,7 @@ struct AceDetail: View {
                         }
                     }
                 }
-                Text("Le détail est dans Montée, sur ton iPhone.").font(.system(size: 10.5, weight: .semibold)).foregroundColor(.secondary)
             }
-        }.containerBackground(appGradient, for: .navigation)
     }
 }
 
