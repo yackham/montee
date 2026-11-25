@@ -2190,9 +2190,10 @@
   function dzLoad(t, force) {
     var m = t.ins.more = t.ins.more || {}; if (!NATIVE || !S.tenup.linked || UI.dzBusy) return;
     if (!force && m.dz && Date.now() - m.dz.at < 10 * 6e4) return;
+    if (!force && UI.dzErrAt && Date.now() - UI.dzErrAt < 6e4) return; // 4.11.1 : pas de relecture en boucle après un échec
     UI.dzBusy = true; UI.dzErr = null;
     tenupQuery("dispos", { t: t.tuid, from: t.from, to: t.to || t.from }).then(function (r) {
-      UI.dzBusy = false; if (!r || r.error) { UI.dzErr = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
+      UI.dzBusy = false; if (!r || r.error) { UI.dzErr = r && r.error || "Ten'Up n'a pas répondu"; UI.dzErrAt = Date.now(); render(); return; } UI.dzErrAt = 0;
       m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; save(); render(); // 4.11.1 : pgen (ton profil) était perdu ici, donc l'écart avec le tournoi ne se voyait jamais
     });
   }
@@ -2262,8 +2263,9 @@
   function hbLoad(force) {
     if (!NATIVE || !S.tenup.linked || (UI.hb && UI.hb.busy)) return; UI.hb = UI.hb || {};
     if (!force && UI.hb.prof && Date.now() - UI.hb.prof.at < 10 * 6e4) return;
+    if (!force && UI.hb.errAt && Date.now() - UI.hb.errAt < 6e4) return; // 4.11.1 : après un échec, pas de nouvel essai à chaque affichage
     UI.hb.busy = true; UI.hb.err = null;
-    tenupQuery("profDispo", {}).then(function (r) { UI.hb.busy = false; if (!r || r.error) { UI.hb.err = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
+    tenupQuery("profDispo", {}).then(function (r) { UI.hb.busy = false; if (!r || r.error) { UI.hb.err = r && r.error || "Ten'Up n'a pas répondu"; UI.hb.errAt = Date.now(); render(); return; } UI.hb.errAt = 0;
       UI.hb.prof = r; UI.hb.week = JSON.parse(JSON.stringify(r.week)); render(); });
   }
   function hbOffCount(w) { var n = 0; for (var wd = 1; wd <= 7; wd++) if (!(w[wd] || []).length) n++; return n; }
@@ -20705,7 +20707,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
       UI.dzPk = null; UI.sheet = null; render(); },
     // 4.10 : créneaux habituels (profil Ten'Up) et indispo d'un tournoi
-    hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(); render(); },
+    hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
     hbDay: function (el) { UI.hbd = null; UI.sheet = { k: "hbd", v: el.dataset.v, back: "hb" }; render(); },
     hbPlay: function (el) { var d = UI.hbd; if (!d) return; d.play = el.dataset.v === "1";
       if (d.play && !d.slots.length) { var h = (UI.hb.prof.week[d.wd] || []); d.slots = h.length ? JSON.parse(JSON.stringify(h)) : [{ from: "18:00", to: "22:00" }]; } render(); },
