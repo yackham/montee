@@ -1044,7 +1044,8 @@
   }
   function dzSame(a, b) { var k = function (l) { return l.map(function (x) { return x.from + "-" + x.to; }).sort().join(","); }; return k(a) === k(b); }
   function dzMapping(gen, days) { // la numérotation des jours de Ten'Up, déduite des jours sans exception ; null si rien ne colle (on n'écrit pas)
-    var plain = days.filter(function (d) { return !d.slots.some(function (x) { return x.ex; }); });
+    // 4.9.3 (relevé de Yann, 25/11) : un jour retiré pour ce tournoi revient VIDE et sans « particuliere » : ce n'est pas un jour « comme d'habitude », on ne s'en sert pas pour deviner
+    var plain = days.filter(function (d) { return d.slots.length && !d.slots.some(function (x) { return x.ex; }); });
     if (!gen.length || !plain.length) return null;
     var c = ["iso", "sun0", "sun1"].filter(function (m) { return plain.every(function (d) { return dzSame(dzGenSlots(gen, d.date, m), d.slots); }); });
     return c[0] || null;

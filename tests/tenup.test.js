@@ -92,7 +92,7 @@ test("indispos 4.6.0 : créneaux habituels, numérotation des jours, contenu env
   const days = ["2027-02-08", "2027-02-09", "2027-02-10", "2027-02-11", "2027-02-12"].map(d => ({ date: d, slots: [{ from: "18:30", to: "22:00", ex: false }] }))
     .concat([{ date: "2027-02-13", slots: [{ from: "14:00", to: "18:00", ex: true }] }, { date: "2027-02-14", slots: [{ from: "09:00", to: "20:00", ex: false }] }]);
   assert.strictEqual(T.dzMapping(gen, days), "iso");
-  assert.strictEqual(T.dzMapping(gen, days.map(d => d.date === "2027-02-08" ? { date: d.date, slots: [] } : d)), null); // rien ne colle : on n'écrit pas
+  assert.strictEqual(T.dzMapping(gen, days.map(d => d.date === "2027-02-08" ? { date: d.date, slots: [{ from: "07:00", to: "08:00", ex: false }] } : d)), null); // rien ne colle : on n'écrit pas
   let n = 0; const b = T.dzBody(gen, { "2027-02-13": [{ from: "14:00", to: "18:00" }], "2027-02-10": [] }, "iso", () => "id" + (n++));
   assert.deepStrictEqual(b.generales[0], { jours: [1, 2, 3, 4, 5], heureDebut: "18:30:00", heureFin: "22:00:00" });
   assert.deepStrictEqual(b.particulieres, [
@@ -115,4 +115,17 @@ test("4.9.2 : nom du juge-arbitre lu sur la page du tournoi", () => {
   assert.equal(T.jaNameFrom('<p>Juge-arbitre</p><a href=x><span>Jean-Paul</span> <span>MARTIN-DURAND</span></a>'), "Jean-Paul Martin-Durand");
   assert.equal(T.jaNameFrom('<p>Juge-arbitre</p><a href=x>Voir le site</a>'), "");
   assert.equal(T.jaNameFrom("<p>rien</p>"), "");
+});
+
+test("4.9.3 : un jour retiré pour le tournoi (vide, sans particuliere) ne bloque pas la numérotation des jours", () => {
+  const gen = T.genMap({ personnes: [{ disponibilites: { generales: [{ heureDebut: "14:00:00", heureFin: "22:00:00", jours: [6, 7] }, { heureDebut: "18:30:00", heureFin: "22:00:00", jours: [1, 2, 4, 5] }, { heureDebut: "20:00:00", heureFin: "22:00:00", jours: [3] }] } }] });
+  const days = T.dispoDays({ disponibilites: [
+    { date: "2027-02-12", horaires: [{ heureDebut: "2027-02-12T18:30:00", heureFin: "2027-02-12T22:00:00", particuliere: false }] },
+    { date: "2027-02-13", horaires: [] },
+    { date: "2027-02-14", horaires: [{ heureDebut: "2027-02-14T14:00:00", heureFin: "2027-02-14T22:00:00", particuliere: false }] }] });
+  assert.equal(T.dzMapping(gen, days), "iso");
+  assert.deepEqual(T.dzGenSlots(gen, "2027-02-13", "iso"), [{ from: "14:00", to: "22:00" }]);
+  // le samedi retiré est renvoyé tel quel à l'enregistrement : pas dispo de 14 h à 22 h
+  const b = T.dzBody(gen, { "2027-02-13": [] }, "iso", () => "u");
+  assert.deepEqual(b.particulieres.map((x) => [x.disponible, x.dateDebut, x.dateFin]), [[false, "2027-02-13T14:00:00", "2027-02-13T22:00:00"]]);
 });
