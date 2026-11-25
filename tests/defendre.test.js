@@ -109,6 +109,12 @@ test("cas réel : même bilan que la simulation Ten'Up en déc., janv., févr. e
   assert.deepStrictEqual([dec.ve, jan.ve, feb.ve], [1, 0, -2]); // 3 WO : aucune pénalité
   assert.deepStrictEqual([dec.bonusCh, jan.bonusCh, feb.bonusCh], [60, 55, 45]); // seniors+ : 15 pts
   assert.deepStrictEqual([at(2026, 11, 1, "15/3").total, at(2026, 11, 1, "15/2").total, at(2027, 2, 2, "15/5").total], [299, 204, 304]);
+  // 4.5.4 (Davy) : le détail des bonus (Tes bonus) vient du même calcul : 15 en seniors+, y compris en réserve
+  const cb = E.champBonuses(E.windowMatches(ms, new Date(2026, 11, 1), TODAY), E.idx("15/4"));
+  assert.deepStrictEqual(cb.map((x) => [x.m.date, x.val, x.on]), [
+    ["2025-12-27", 20, true], ["2025-12-31", 20, true], ["2026-01-05", 20, true], ["2026-01-29", 20, false],
+    ["2026-02-16", 15, false], ["2026-11-17", 15, false], ["2026-11-17", 15, false]]);
+  assert.strictEqual(cb.reduce((a, x) => a + x.pts, 0), dec.bonusCh);
 });
 
 test("import Ten'Up : dateFinPEC lue (simple et double), formats ISO ou jj/mm/aaaa", () => {
