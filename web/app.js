@@ -1911,7 +1911,7 @@
     pay: '<rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h4"/>'
   };
   function tzIc(k, lab, attrs) { return '<' + (/href=/.test(attrs) ? "a" : "button") + ' class="tz-ic" aria-label="' + esc(lab) + '" ' + attrs + '><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + TZ_IC[k] + "</svg></" + (/href=/.test(attrs) ? "a" : "button") + ">"; }
-  function tzLine1(lbl, val, act, cls) { return '<div class="tz-l1' + (cls ? " " + cls : "") + '"><span class="tz-lb">' + lbl + '</span><span class="tz-vl">' + val + '</span>' + (act ? '<span class="tz-acts">' + act + "</span>" : "") + "</div>"; }
+  function tzLine1(lbl, val, act, cls) { return '<div class="tz-l1' + (cls ? " " + cls : "") + '"><span class="tz-tx"><span class="tz-lb">' + lbl + '</span><span class="tz-vl">' + val + '</span></span>' + (act ? '<span class="tz-acts">' + act + "</span>" : "") + "</div>"; }
   function tzDispo(lim) { // 4.6.0 (Yann) : les indispos ne se modifient que jusqu'à une date avant le tournoi
     if (!lim) return { ok: true, txt: "Sur Ten'Up" };
     var g = dGap(lim); return g < 0 ? { ok: false, txt: "Plus modifiables depuis le " + fdate(lim) } : { ok: true, txt: g === 0 ? "Modifiables jusqu'à ce soir" : "Modifiables jusqu'au " + fdate(lim) };
@@ -1929,7 +1929,7 @@
   function tzPratique(t) {
     var i = t.ins || {}, m = i.more || {}, num = tuNum(t.tuid), r = "", j = m.ja;
     var where = m.addr || [insCase(i.club || ""), insCase(i.city || "")].filter(Boolean).join(", "), short = m.place ? insCase(m.place) + (i.city ? ", " + insCase(i.city) : "") : where;
-    if (where) r += tzLine1("Lieu", esc(short), tzIc("map", "Itinéraire", 'href="' + esc(mapsUrl(where, m.lat, m.lng)) + '" target="_blank" rel="noopener"'));
+    if (where) r += tzLine1("Lieu", m.place && m.addr ? esc(insCase(m.place)) + '<small class="tz-sub">' + esc(m.addr) + "</small>" : esc(short), tzIc("map", "Itinéraire", 'href="' + esc(mapsUrl(where, m.lat, m.lng)) + '" target="_blank" rel="noopener"'));
     r += j ? tzLine1("Juge-arbitre", esc(j.name ? nameCase(j.name) : "Juge-arbitre"), (j.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(j.tel) + '"') : "") + (j.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(j.mail) + '"') : ""))
       : tzLine1("Juge-arbitre", "Sur la page du tournoi", num ? '<button class="tz-act" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="Le tournoi">Voir</button>' : "");
     var D = tzDispo(m.dispoLim);
