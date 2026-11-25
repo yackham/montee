@@ -2121,7 +2121,7 @@
   function tzFavT(f) { // un favori hors de ta recherche : un tournoi en forme Montée, complété par sa fiche à l'ouverture
     UI.tzFavT = UI.tzFavT || {}; return UI.tzFavT[f.id] || (UI.tzFavT[f.id] = { id: f.id, name: f.name, from: f.from, to: f.to, club: f.club, city: "", online: f.online, payOnline: f.payOnline, eps: null }); }
   function tzFavHtml() { // Mes épreuves : tes favoris à venir, sans lancer de recherche
-    var td = E.iso(today()), L = ((S.tzFav && S.tzFav.list) || []).filter(function (f) { return (f.to || f.from) >= td; });
+    var td = E.iso(today()), L = ((S.tzFav && S.tzFav.list) || []).filter(function (f) { return (f.to || f.from) >= td && !tzMine(f.id); }); // 4.11.2 : déjà inscrit ou en liste d'attente = il est plus haut, une seule fois
     if (!L.length) return "";
     // 4.11.1 (Yann : « pas rater la date d'inscription ») : la fiche de chaque favori est lue (clôture) ; ceux qui ferment dans 14 jours passent devant
     var V = L.map(function (f) { return tzEval(tzFind(f.id) || tzFavT(f)); }), soon = function (v) { return v.close != null && v.close <= 14 ? v.close : 999; };
@@ -2159,6 +2159,8 @@
   var TZ_HEART = '<svg width="20" height="20" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
   function tzKindOf(v) { var t = v.t, e = v.ep || {}; if (t.kind === "indiv" || /individuel/i.test(t.name || "")) return "indiv";
     return e.fmt ? (e.fmt === "tmc" ? "tmc" : "tournoi") : t.tmc || /\bTMC\b/i.test(t.name || "") ? "tmc" : "tournoi"; }
+  // 4.11.2 (Yann : « tu me proposes de m'inscrire alors que je suis déjà en liste d'attente ») : ce tournoi est-il déjà dans Mes épreuves ?
+  function tzMine(id) { var n = tuNum(id); return toursAll().filter(function (x) { return x.tuid && tuNum(x.tuid) === n; })[0] || null; }
   function tzRange(e) { return e && (e.min || e.max) ? (e.min || "NC") + " à " + (e.max || "…") : ""; }
   function tzHeart(id) { var on = !!tzFavOf(id); return '<span class="tz-fav' + (on ? " on" : "") + '" role="button" tabindex="0" data-a="tzFav" data-v="' + esc(id) + '" aria-pressed="' + on + '" aria-label="' + (on ? "Retirer de tes favoris" : "Mettre en favori") + '">' + TZ_HEART + "</span>"; }
   function tzLine(v, open) {
@@ -2429,7 +2431,7 @@
   };
   var DET_TZ = function (id) {
     var fv = tzFavOf(id), t = tzFind(id) || (fv && tzFavT(fv)); if (!t) return null;
-    var v = tzEval(t), e = v.ep, plus = isSup(), best = tzBest(), open = plus || (best && best.t.id === id), num = tuNum(t.id), b = "";
+    var mine = tzMine(id), v = tzEval(t), e = v.ep, plus = isSup(), best = tzBest(), open = plus || (best && best.t.id === id), num = tuNum(t.id), b = "";
     // 4.11.1 (maquette « fiche v2 » validée par Yann le 25/11) : l'essentiel en 4 cases, la phrase d'Ace, puis le pratique
     var cell = function (l, v1, s1, cls) { return '<div class="tzv-c"><span class="tzv-l">' + l + '</span><span class="tzv-v' + (cls ? " " + cls : "") + '">' + v1 + '</span><span class="tzv-s">' + s1 + "</span></div>"; };
     var rg = e && !e.wait ? tzRange(e) : "", g = "", tot = (t.cash || 0) + (t.lots || 0), sf = t.surf || [];
@@ -2452,7 +2454,8 @@
     if ((!t.ja || !t.ja.name || t.eps == null) && !(UI.tzFi || {})[t.id] && NATIVE && S.tenup.linked) { UI.tzFi = UI.tzFi || {}; UI.tzFi[t.id] = 1; setTimeout(function () { tzFiche(t); }, 600); } // 4.6.0 : épreuves et juge-arbitre en direct (Yann)
     return { title: t.name, hd: tzHeart(t.id), sub: [fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), t.club ? insCase(t.club) : ""].filter(Boolean).join(" · "),
       body: b + '<div class="tzv-h">Pratique</div><div class="tz-sh">' + pr + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
-        '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>' };
+        (mine ? '<button class="btn primary" data-a="tzMineGo" data-v="' + esc(mine.id) + '">' + (mine.wait ? "Tu es en liste d'attente : voir" : "Tu es inscrit : voir") + '</button><p class="small tz-foot">' + (mine.wait ? "Montée te prévient dès que tu es pris." : "Ton inscription est dans Mes épreuves.") + "</p>"
+          : '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>') };
   };
   var REFRESH_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>';
   function agoLab(ts) { var m = Math.round((Date.now() - ts) / 6e4); return m < 2 ? "à l'instant" : m < 60 ? "il y a " + m + " min" : m < 1440 ? "il y a " + Math.round(m / 60) + " h" : "il y a " + plural(Math.round(m / 1440), "jour"); }
@@ -20745,6 +20748,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     itin: function (el) { var ll = (el.dataset.ll || "").split(","); UI.sheet = { k: "itin", v: { q: el.dataset.q || "", lat: ll[0] || "", lng: ll[1] || "" }, back: UI.sheet && UI.sheet.k !== "itin" ? UI.sheet : null }; render(); },
     itinGo: function () { var b = UI.sheet && UI.sheet.back; setTimeout(function () { UI.sheet = b || null; render(); }, 300); return true; },
     tzKind: function (el) { tzPrefs().kind = el.dataset.v || "all"; save(); render(); haptic("light"); },
+    tzMineGo: function (el) { UI.sheet = null; location.hash = "#/tournoi/" + el.dataset.v; render(); },
     tzFav: function (el) { // 4.11 : le cœur, le même que sur Ten'Up ; affiché tout de suite, puis vérifié en relisant tes favoris
       var id = el.dataset.v, f = tzFavOf(id), t = tzFind(id) || (UI.tzFavT || {})[tuNum(id)] || {}; haptic("light");
       if (!NATIVE || !S.tenup.linked) { toast("Relie Ten'Up pour garder tes favoris"); return; }
