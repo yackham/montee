@@ -1934,7 +1934,7 @@
     r += j ? tzLine1("Juge-arbitre", esc(j.name ? nameCase(j.name) : "Juge-arbitre"), (j.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(j.tel) + '"') : "") + (j.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(j.mail) + '"') : ""))
       : tzLine1("Juge-arbitre", "Sur la page du tournoi", num ? '<button class="tz-act" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="Le tournoi">Voir</button>' : "");
     var D = tzDispo(m.dispoLim);
-    r += tzLine1("Indispos", esc(D.txt), D.ok ? tzIc("edit", "Modifier tes indispos sur Ten'Up", 'data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos"') : "", D.ok ? "" : "tz-mute");
+    r += tzLine1("Indispos", esc(D.txt), D.ok ? (NATIVE && S.tenup.linked ? tzIc("edit", "Modifier tes indispos", 'href="#/dispos/' + esc(t.id) + '"') : tzIc("edit", "Modifier tes indispos sur Ten'Up", 'data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos"')) : "", D.ok ? "" : "tz-mute");
     if (i.due > 0) r += tzLine1("Paiement", esc(String(i.due)) + " € à régler", tzIc("pay", "Payer sur Ten'Up", 'data-a="tzTu" data-v="/user/mes-inscriptions" data-t="Paiement"'), "tz-due");
     return '<h2>Pratique</h2><div class="blk tz-blk tz-c">' + r + '</div>';
   }
@@ -2051,45 +2051,78 @@
   };
   // 4.6.0 (Yann, 25/11) : tes indispos d'un tournoi, dans Montée. Ten'Up les range en créneaux habituels (jours + heures)
   // et en exceptions datées (dispo ou pas) ; Montée envoie le même contenu que la page Ten'Up (relevé du 25/11/2026).
-  var DZ_J = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."]; // jours Ten'Up 1 à 7 (hypothèse : 1 = lundi, à confirmer par la lecture)
+  // Données : m.dz = { gen (créneaux habituels du profil), days (Ten'Up, jour par jour sur les dates du tournoi), map (numérotation des jours), at }.
+  // Tes changements restent en brouillon (UI.dzEd) jusqu'à « Enregistrer » ; Montée renvoie alors le même contenu que la page Ten'Up, puis relit pour vérifier.
+  var DZ_N = { iso: ["", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."], sun0: ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."], sun1: ["", "dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."] };
   function dzH(h) { var m = String(h || "").match(/^(\d\d):(\d\d)/); return m ? (+m[1]) + " h" + (m[2] !== "00" ? m[2] : "") : ""; }
-  function dzJours(js) { js = (js || []).slice().sort(); var run = [], out = [];
-    js.forEach(function (j, i) { if (i && j === js[i - 1] + 1) run.push(j); else { if (run.length) out.push(run); run = [j]; } }); if (run.length) out.push(run);
-    return out.map(function (r) { return r.length > 2 ? DZ_J[r[0] - 1] + " au " + DZ_J[r[r.length - 1] - 1] : r.map(function (j) { return DZ_J[j - 1]; }).join(", "); }).join(", "); }
-  function dzDay(D, d) { // ce jour-là : les exceptions datées d'abord, sinon les créneaux habituels du jour
-    var iso = E.iso(d), wd = (d.getDay() + 6) % 7 + 1;
-    var ex = (D.par || []).filter(function (p) { return String(p.from).slice(0, 10) === iso; });
-    if (ex.length) return ex.map(function (p) { return { on: !!p.dispo, txt: dzH(String(p.from).slice(11)) + " – " + dzH(String(p.to).slice(11)), ex: true }; });
-    return (D.gen || []).filter(function (g) { return (g.jours || []).indexOf(wd) >= 0; }).map(function (g) { return { on: true, txt: dzH(g.hd) + " – " + dzH(g.hf), ex: false }; });
+  function dzSl(z) { return dzH(z.from) + " – " + dzH(z.to); }
+  function dzJours(js, map) { var N = DZ_N[map] || DZ_N.iso, o = map === "sun0" ? [1, 2, 3, 4, 5, 6, 0] : map === "sun1" ? [2, 3, 4, 5, 6, 7, 1] : [1, 2, 3, 4, 5, 6, 7];
+    var pos = (js || []).map(function (j) { return o.indexOf(j); }).filter(function (k) { return k >= 0; }).sort(), run = [], out = [];
+    pos.forEach(function (k, i) { if (i && k === pos[i - 1] + 1) run.push(k); else { if (run.length) out.push(run); run = [k]; } }); if (run.length) out.push(run);
+    return out.map(function (r) { return r.length > 2 ? N[o[r[0]]] + " au " + N[o[r[r.length - 1]]] : r.map(function (k) { return N[o[k]]; }).join(", "); }).join(", "); }
+  function dzEd(t) { UI.dzEd = UI.dzEd || {}; return (UI.dzEd[t.id] = UI.dzEd[t.id] || {}); }
+  function dzHab(D, iso) { return D.map ? T.dzGenSlots(D.gen || [], iso, D.map) : []; }
+  function dzDay(t, D, iso) { // ce jour-là : { slots: [{from, to}] où tu es dispo, ex: exception, ed: changé dans Montée }
+    var ed = dzEd(t)[iso], hab = dzHab(D, iso);
+    if (ed) return { slots: ed, ex: !T.dzSame(ed, hab), ed: true };
+    var g = (D.days || []).filter(function (x) { return x.date === iso; })[0], sl = g ? g.slots.map(function (z) { return { from: z.from, to: z.to }; }) : hab;
+    return { slots: sl, ex: !T.dzSame(sl, hab), ed: false };
+  }
+  function dzLoad(t, force) {
+    var m = t.ins.more = t.ins.more || {}; if (!NATIVE || !S.tenup.linked || UI.dzBusy) return;
+    if (!force && m.dz && Date.now() - m.dz.at < 10 * 6e4) return;
+    UI.dzBusy = true; UI.dzErr = null;
+    tenupQuery("dispos", { t: t.tuid, from: t.from, to: t.to || t.from }).then(function (r) {
+      UI.dzBusy = false; if (!r || r.error) { UI.dzErr = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
+      m.dz = { gen: r.gen, days: r.days, map: r.map, at: Date.now() }; save(); render();
+    });
   }
   V.dispos = function (id) {
     var t = (S.tours || []).filter(function (x) { return x.id === id; })[0]; if (!t || !t.ins) return '<div class="screen">' + topbar("", backLab("Mes épreuves")) + "</div>";
-    var m = t.ins.more || {}, D = m.dz || { gen: [], par: [] }, Dl = tzDispo(m.dispoLim), s = '<div class="screen dz-scr">' + topbar("", backLab("Le tournoi"));
+    var m = t.ins.more || {}, D = m.dz, Dl = tzDispo(m.dispoLim), s = '<div class="screen dz-scr">' + topbar("", backLab("Le tournoi"));
     s += '<h1>Tes indispos</h1><p class="lead" style="margin-top:-8px">' + esc(t.name) + " · " + esc(fdate(t.from)) + (t.to && t.to !== t.from ? " – " + esc(fdate(t.to)) : "") + "</p>";
     s += '<p class="small dz-lim' + (Dl.ok ? "" : " tz-mute") + '">' + esc(Dl.txt) + "</p>";
-    s += '<h2>Tu es dispo, d\'habitude</h2><div class="blk tz-blk tz-c">' + (D.gen || []).map(function (g, i) {
-      return tzLine1(esc(cap1(dzJours(g.jours))), esc(dzH(g.hd) + " – " + dzH(g.hf)), Dl.ok ? tzIc("edit", "Modifier ce créneau", 'data-a="dzGen" data-v="' + i + '"') : ""); }).join("") +
-      (Dl.ok ? '<button class="dz-add" data-a="dzGen" data-v="new">+ Ajouter un créneau</button>' : "") + "</div>";
+    dzLoad(t);
+    if (!D) return s + '<div class="card"><span class="small">' + esc(UI.dzErr ? UI.dzErr : NATIVE && S.tenup.linked ? "Lecture de tes dispos sur Ten'Up…" : "Relie Ten'Up pour voir tes dispos.") + "</span></div></div>";
+    var can = Dl.ok && !!D.map, E1 = dzEd(t), n = Object.keys(E1).length;
+    s += '<h2>Tu es dispo, d\'habitude</h2><div class="blk tz-blk tz-c">' + ((D.gen || []).length ? D.gen.map(function (g) {
+      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>";
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from);
-    for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(new Date(d));
-    s += '<h2>Pendant le tournoi</h2><p class="small" style="margin-top:-6px">Touche un jour pour dire que tu n\'es pas dispo, ou changer l\'horaire.</p><div class="blk dz-days">' + days.map(function (x) {
-      var sl = dzDay(D, x), off = sl.length && sl.every(function (z) { return !z.on; });
-      var txt = !sl.length ? "Pas de créneau" : sl.map(function (z) { return (z.on ? (sl.length > 1 && sl.some(function (y) { return !y.on; }) ? "Dispo " : "") : "Pas dispo ") + z.txt; }).join(" · ");
-      return '<button class="row dz-d' + (off || !sl.length ? " dz-off" : "") + '" data-a="dzDay" data-v="' + E.iso(x) + '"' + (Dl.ok ? "" : " disabled") + ">" + tzBillet(E.iso(x)) + '<span class="grow"><span class="t">' + esc(txt) + '</span>' +
-        (sl.some(function (z) { return z.ex; }) ? '<span class="s">Juste ce jour-là</span>' : sl.length ? '<span class="s">Comme d\'habitude</span>' : "") + "</span>" + (Dl.ok ? I.next : "") + "</button>"; }).join("") + "</div>";
-    if (Dl.ok) s += '<button class="btn primary" data-a="dzSave" data-v="' + esc(t.id) + '">Enregistrer sur Ten\'Up</button><p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion. Le juge-arbitre les voit comme d\'habitude.</p>';
+    for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
+    s += '<h2>Pendant le tournoi</h2>' + (can ? '<p class="small" style="margin-top:-6px">Touche un jour pour dire que tu n\'es pas dispo, ou changer l\'horaire.</p>' : "") + '<div class="blk dz-days">' + days.map(function (iso) {
+      var x = dzDay(t, D, iso), off = !x.slots.length;
+      return '<button class="row dz-d' + (off ? " dz-off" : "") + '" data-a="dzDay" data-v="' + iso + '"' + (can ? "" : " disabled") + ">" + tzBillet(iso) + '<span class="grow"><span class="t">' + esc(off ? "Pas dispo" : x.slots.map(dzSl).join(" · ")) + '</span>' +
+        '<span class="s">' + (x.ed ? "Changé, pas encore enregistré" : x.ex ? "Juste ce jour-là" : "Comme d'habitude") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") + "</div>";
+    if (Dl.ok && !D.map) s += '<p class="small">Montée ne reconnaît pas encore tes créneaux habituels. Pour ne rien abîmer, change tes dispos sur Ten\'Up.</p><button class="btn" data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos">Ouvrir sur Ten\'Up</button>';
+    if (can) s += '<button class="btn primary" data-a="dzSave" data-v="' + esc(t.id) + '"' + (n && !UI.dzSaving ? "" : " disabled") + ">" + (UI.dzSaving ? "Envoi à Ten'Up…" : n ? "Enregistrer sur Ten'Up" : "Rien à enregistrer") + '</button><p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion, puis relu pour vérifier. Le juge-arbitre les voit comme d\'habitude.</p>';
     return s + "</div>";
   };
   var DET_DZ = function (v) { // un jour du tournoi : comme d'habitude, pas dispo, ou un autre horaire
-    var a = String(v || "").split("|"), t = (S.tours || []).filter(function (x) { return x.id === a[0]; })[0]; if (!t) return null;
-    var D = (t.ins.more || {}).dz || { gen: [], par: [] }, d = E.parseDate(a[1]), sl = dzDay(D, d), hab = dzDay({ gen: D.gen, par: [] }, d);
-    var cur = sl.some(function (z) { return z.ex; }) ? (sl.every(function (z) { return !z.on; }) ? "off" : "autre") : "hab";
+    var a = String(v || "").split("|"), t = (S.tours || []).filter(function (x) { return x.id === a[0]; })[0]; if (!t || !(t.ins.more || {}).dz) return null;
+    var D = t.ins.more.dz, iso = a[1], d = E.parseDate(iso), x = dzDay(t, D, iso), hab = dzHab(D, iso);
+    var cur = UI.dzPk || (!x.ex ? "hab" : !x.slots.length ? "off" : "autre"), z = x.slots[0] || hab[0] || { from: "14:00", to: "18:00" };
     var opt = function (k, lbl, sub) { return '<button class="dz-o' + (cur === k ? " on" : "") + '" data-a="dzPick" data-v="' + k + '"><span class="grow"><span class="t">' + lbl + '</span><span class="s">' + sub + '</span></span>' + (cur === k ? '<span class="dz-ck">✓</span>' : "") + "</button>"; };
-    var b = opt("hab", "Comme d'habitude", hab.length ? esc(hab.map(function (z) { return z.txt; }).join(" · ")) : "Pas de créneau ce jour-là") + opt("off", "Pas dispo ce jour-là", "Toute la journée") +
-      opt("autre", "Un autre horaire", cur === "autre" ? esc(sl.map(function (z) { return (z.on ? "Dispo " : "Pas dispo ") + z.txt; }).join(" · ")) : "Par exemple : dispo seulement de 14 h à 18 h");
-    if (cur === "autre") b += '<div class="dz-hh"><label>De<input type="time" value="14:00"></label><label>À<input type="time" value="18:00"></label></div>';
-    return { title: cap1(JOURS[d.getDay()]) + " " + dN(d) + " " + MOIS[d.getMonth()], sub: t.name, body: '<div class="tz-sh dz-sh">' + b + '</div><button class="btn primary" data-a="dzOk">OK</button>' };
+    var b = opt("hab", "Comme d'habitude", hab.length ? esc(hab.map(dzSl).join(" · ")) : "Pas de créneau ce jour-là") + opt("off", "Pas dispo ce jour-là", "Toute la journée") +
+      opt("autre", "Un autre horaire", "Dispo seulement sur ce créneau");
+    if (cur === "autre") b += '<div class="dz-hh"><label>De<input id="dz-f" type="time" step="900" value="' + esc(z.from) + '"></label><label>À<input id="dz-t" type="time" step="900" value="' + esc(z.to) + '"></label></div>';
+    return { title: cap1(JOURS[d.getDay()]) + " " + dN(d) + " " + MOIS[d.getMonth()], sub: t.name, body: '<div class="tz-sh dz-sh">' + b + '</div><button class="btn primary" data-a="dzOk" data-v="' + esc(cur) + '">OK</button>' };
   };
+  function dzSaveRun(t) {
+    var m = t.ins.more, D = m.dz, ed = dzEd(t); if (!D || !D.map || UI.dzSaving) return;
+    if (Date.now() - D.at > 10 * 6e4) { toast("Je relis d'abord tes dispos sur Ten'Up, réessaie dans un instant."); dzLoad(t, true); return; }
+    var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from), ex = {}, want = {};
+    for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
+    days.forEach(function (iso) { var x = dzDay(t, D, iso); want[iso] = x.slots; if (x.ex) ex[iso] = x.slots; });
+    var uuid = function () { try { return crypto.randomUUID(); } catch (e) { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); }); } };
+    var body = T.dzBody(D.gen, ex, D.map, uuid); UI.dzSaving = true; render();
+    tenupQuery("dispoSave", { t: t.tuid, body: body, from: t.from, to: t.to || t.from }).then(function (r) {
+      UI.dzSaving = false;
+      if (!r || r.error) { toast("Ten'Up a refusé : " + (r && r.error || "pas de réponse") + ". Rien n'a changé dans Montée."); render(); return; }
+      var bad = days.filter(function (iso) { var g = (r.days || []).filter(function (x) { return x.date === iso; })[0]; return !T.dzSame(g ? g.slots : [], want[iso]); });
+      D.days = r.days; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
+      toast(bad.length ? "Ten'Up n'a pas tout pris (" + plural(bad.length, "jour") + ") : vérifie tes dispos." : "Tes dispos sont enregistrées sur Ten'Up.", !bad.length);
+    });
+  }
   var DET_TZF = function () { // 4.6.0 (Yann) : où et quand chercher ; les mêmes réglages que la recherche Ten'Up (ville, rayon, dates)
     var P = tzPrefs(), b = "", seg = function (k, vals, cur, f) { return '<div class="seg tz-fs">' + vals.map(function (v) { return '<button data-a="tzSet" data-k="' + k + '" data-v="' + v + '" class="' + (v === cur ? "on" : "") + '">' + f(v) + "</button>"; }).join("") + "</div>"; };
     b += tzRow("D'où tu pars", '<span class="tz-fc">' + esc(P.city ? P.city + " · " + P.cp : "Pas encore choisi") + '</span><div class="tz-cpf"><input id="tz-cp" inputmode="numeric" maxlength="5" placeholder="Autre code postal" value=""><button class="btn small" data-a="tzCp">Changer</button></div>', "");
@@ -20269,11 +20302,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     tzOpen: function (el) { UI.sheet = { k: "tz", v: el.dataset.v }; render(); },
     tzTab: function (el) { if (el.dataset.v === "rec" && !isSup()) { UI.supFrom = "trouver"; UI.sheet = { k: "plusPrev", v: "cap" }; render(); return; } UI.tzTab = el.dataset.v; render(); },
     tzCp: function () { var v = (document.getElementById("tz-cp") || {}).value; tzHome(v).then(function (P) { if (!P) { toast("Code postal introuvable."); return; } if (!UI.sheet) tzSearch(true); render(); }); },
-    dzDay: function (el) { UI.sheet = { k: "dz", v: location.hash.split("/")[2] + "|" + el.dataset.v }; render(); },
-    dzPick: function () { toast("Maquette : choix pas encore branché."); },
-    dzOk: function () { UI.sheet = null; render(); },
-    dzGen: function () { toast("Maquette : pas encore branché."); },
-    dzSave: function () { toast("Maquette : l'envoi à Ten'Up n'est pas encore branché."); },
+    dzDay: function (el) { UI.dzPk = null; UI.sheet = { k: "dz", v: location.hash.split("/")[2] + "|" + el.dataset.v }; render(); },
+    dzPick: function (el) { UI.dzPk = el.dataset.v; render(); },
+    dzOk: function (el) {
+      var a = String(UI.sheet && UI.sheet.v || "").split("|"), t = (S.tours || []).filter(function (x) { return x.id === a[0]; })[0], k = el.dataset.v;
+      if (t && t.ins.more && t.ins.more.dz) { var ed = dzEd(t), hab = dzHab(t.ins.more.dz, a[1]);
+        if (k === "hab") ed[a[1]] = hab; else if (k === "off") ed[a[1]] = [];
+        else { var f = (document.getElementById("dz-f") || {}).value, to = (document.getElementById("dz-t") || {}).value;
+          if (!f || !to || to <= f) { toast("L'heure de fin doit être après l'heure de début."); return; } ed[a[1]] = [{ from: f.slice(0, 5), to: to.slice(0, 5) }]; }
+        var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
+      UI.dzPk = null; UI.sheet = null; render(); },
+    dzSave: function (el) { var t = (S.tours || []).filter(function (x) { return x.id === el.dataset.v; })[0]; if (t) dzSaveRun(t); },
     tzWhere: function () { UI.sheet = { k: "tzf" }; render(); },
     tzSet: function (el) { var P = tzPrefs(); P[el.dataset.k] = +el.dataset.v; save(); render(); },
     tzGo: function () { UI.sheet = null; tzSearch(true); render(); },

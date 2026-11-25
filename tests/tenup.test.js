@@ -85,3 +85,20 @@ test("indispos 4.6.0 : lecture jour par jour (relevé du 25/11/2026)", () => {
   assert.deepStrictEqual(d, [{ date: "2027-02-13", slots: [{ from: "18:30", to: "22:00", ex: true }] }]);
   assert.ok(/dispoDays/.test(T.queryScript("dispos", { t: "MOJA_1" })));
 });
+test("indispos 4.6.0 : créneaux habituels, numérotation des jours, contenu envoyé", () => {
+  const gen = T.genMap({ personnes: [{ idCrm: 1, disponibilites: { generales: [{ jours: [1, 2, 3, 4, 5], heureDebut: "18:30:00", heureFin: "22:00:00" }, { jours: [6, 7], heureDebut: "09:00", heureFin: "20:00" }] } }] });
+  assert.strictEqual(gen[1].hd, "09:00:00");
+  // semaine du lundi 8 février 2027 : du lundi au vendredi 18 h 30 – 22 h, le week-end 9 h – 20 h, samedi 13 : exception
+  const days = ["2027-02-08", "2027-02-09", "2027-02-10", "2027-02-11", "2027-02-12"].map(d => ({ date: d, slots: [{ from: "18:30", to: "22:00", ex: false }] }))
+    .concat([{ date: "2027-02-13", slots: [{ from: "14:00", to: "18:00", ex: true }] }, { date: "2027-02-14", slots: [{ from: "09:00", to: "20:00", ex: false }] }]);
+  assert.strictEqual(T.dzMapping(gen, days), "iso");
+  assert.strictEqual(T.dzMapping(gen, days.map(d => d.date === "2027-02-08" ? { date: d.date, slots: [] } : d)), null); // rien ne colle : on n'écrit pas
+  let n = 0; const b = T.dzBody(gen, { "2027-02-13": [{ from: "14:00", to: "18:00" }], "2027-02-10": [] }, "iso", () => "id" + (n++));
+  assert.deepStrictEqual(b.generales[0], { jours: [1, 2, 3, 4, 5], heureDebut: "18:30:00", heureFin: "22:00:00" });
+  assert.deepStrictEqual(b.particulieres, [
+    { disponible: false, dateDebut: "2027-02-10T18:30:00", dateFin: "2027-02-10T22:00:00", generaleId: "id0" },
+    { disponible: false, dateDebut: "2027-02-13T09:00:00", dateFin: "2027-02-13T20:00:00", generaleId: "id1" },
+    { disponible: true, dateDebut: "2027-02-13T14:00:00", dateFin: "2027-02-13T18:00:00", generaleId: "id1" }]);
+  assert.ok(/dzMapping/.test(T.queryScript("dispos", { t: "MOJA_1", from: "2027-02-08", to: "2027-02-14" })));
+  assert.ok(/PUT/.test(T.queryScript("dispoSave", { t: "MOJA_1", body: {} })));
+});
