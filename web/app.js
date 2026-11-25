@@ -1924,7 +1924,7 @@
   }
   // La fiche d'un tournoi où tu es inscrit : où, qui appeler, tes indispos, le paiement (Yann, 25/11/2026)
   // Version courte (Yann : « prenne moins d'espace ») : une ligne par info, actions en boutons ronds.
-  var TZ_IC = {
+  var TZ_IC = { eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     map: '<path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/>',
     tel: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
     mail: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/>',
@@ -1956,7 +1956,8 @@
     r += j ? tzLine1("Juge-arbitre", esc(j.name ? nameCase(j.name) : "Le juge-arbitre du tournoi"), (j.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(j.tel) + '"') : "") + (j.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(j.mail) + '"') : ""))
       : tzLine1("Juge-arbitre", "Sur la page du tournoi", num ? '<button class="tz-act" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="Le tournoi">Voir</button>' : "");
     var D = tzDispo(m.dispoLim);
-    r += tzLine1("Indispos", esc(D.txt), D.ok ? (NATIVE && S.tenup.linked ? tzIc("edit", "Modifier tes indispos", 'href="#/dispos/' + esc(t.id) + '"') : tzIc("edit", "Modifier tes indispos sur Ten'Up", 'data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos"')) : "", D.ok ? "" : "tz-mute");
+    // 4.9.3 (Yann) : plus modifiables, elles restent consultables (avec le juge-arbitre à portée en cas de souci)
+    r += tzLine1("Indispos", esc(D.txt), NATIVE && S.tenup.linked ? (D.ok ? tzIc("edit", "Modifier tes indispos", 'href="#/dispos/' + esc(t.id) + '"') : tzIc("eye", "Voir tes indispos", 'href="#/dispos/' + esc(t.id) + '"')) : D.ok ? tzIc("edit", "Modifier tes indispos sur Ten'Up", 'data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos"') : "", D.ok ? "" : "tz-mute");
     if (i.due > 0) r += tzLine1("Paiement", esc(String(i.due)) + " € à régler", tzIc("pay", "Payer sur Ten'Up", 'data-a="tzTu" data-v="' + esc(insPayUrl(m)) + '" data-t="Paiement"'), "tz-due");
     return '<h2>Pratique</h2><div class="blk tz-blk tz-c">' + r + '</div>';
   }
@@ -2121,6 +2122,7 @@
       var x = dzDay(t, D, iso), off = !x.slots.length;
       return '<button class="row dz-d' + (off ? " dz-off" : "") + '" data-a="dzDay" data-v="' + iso + '"' + (can ? "" : " disabled") + ">" + tzBillet(iso) + '<span class="grow"><span class="t">' + esc(off ? "Pas dispo" : x.slots.map(dzSl).join(" · ")) + '</span>' +
         '<span class="s">' + (x.ed ? "Changé, pas encore enregistré" : x.ex ? "Juste ce jour-là" : "Comme d'habitude") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") + "</div>";
+    if (!Dl.ok) { var J = m.ja; s += '<h2>Un souci ?</h2><div class="blk tz-blk tz-c">' + (J && (J.tel || J.mail) ? tzLine1("Juge-arbitre", esc(J.name ? nameCase(J.name) : "Le juge-arbitre du tournoi"), (J.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(J.tel) + '"') : "") + (J.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(J.mail) + '"') : "")) : tzLine1("Juge-arbitre", "Ses coordonnées sont sur la page du tournoi", "")) + '</div><p class="small">Les indispos ne se changent plus dans l\'app : le juge-arbitre peut encore en tenir compte si tu le préviens.</p>'; }
     if (Dl.ok && !D.map) s += '<p class="small">Montée ne reconnaît pas encore tes créneaux habituels. Pour ne rien abîmer, change tes dispos sur Ten\'Up.</p><button class="btn" data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos">Ouvrir sur Ten\'Up</button>';
     if (can) s += '<button class="btn primary" data-a="dzSave" data-v="' + esc(t.id) + '"' + (n && !UI.dzSaving ? "" : " disabled") + ">" + (UI.dzSaving ? "Envoi à Ten'Up…" : n ? "Enregistrer sur Ten'Up" : "Rien à enregistrer") + '</button><p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion, puis relu pour vérifier. Le juge-arbitre les voit comme d\'habitude.</p>';
     return s + "</div>";
