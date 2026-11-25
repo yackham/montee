@@ -983,7 +983,7 @@
   function cardMap(c) { // une carte de la recherche
     if (!c) return null; var m = String(c.idHomologation || "").match(/(\d+)$/); if (!m) return null;
     return { id: m[1], name: String(c.libelleTournoi || "Tournoi"), from: String(c.dateDebut || "").slice(0, 10), to: String(c.dateFin || c.dateDebut || "").slice(0, 10), club: String(c.club && c.club.libelle || ""),
-      city: String(c.ville || ""), km: c.distance != null ? Math.round(c.distance / 1000) : null, online: !!c.inscriptionEnLigne, natures: c.naturesEpreuves || [], aud: ageTxt(c), eps: null };
+      city: String(c.ville || ""), km: c.distance != null ? Math.round(c.distance / 1000) : null, online: !!c.inscriptionEnLigne, fav: !!c.favori, natures: c.naturesEpreuves || [], aud: ageTxt(c), eps: null };
   }
   function ficheMap(d) { // la fiche publique d'un tournoi
     if (!d || typeof d !== "object") return {};
@@ -997,7 +997,8 @@
     var cl = d.courtList || [], nc = cl.filter(function (c) { return c && c.couvert === true; }).length;
     if (cl.length) out.cov = nc === cl.length ? "in" : nc ? "mix" : "out";
     if (+d.prixEspece > 0) out.cash = +d.prixEspece; if (+d.prixLots > 0) out.lots = +d.prixLots;
-    out.tmc = /\bTMC\b/i.test(String(d.libelleCategorie || ""));
+    out.tmc = /\bTMC\b/i.test(String(d.libelleCategorie || "")); // confirmé par le type des épreuves (epMerge)
+    if (d.type) out.kind = d.type === "C" ? "indiv" : "tournoi"; // relevé 25/11 : les indivs (« INDIVIDUELS 2027… ») sont de type C, les tournois de type T
     return out;
   }
   // 4.11 : GET /api/back/public/v1/tournois/{n}/epreuves (relevé le 25/11/2026) : classementMin / classementMax ("15/4 "),

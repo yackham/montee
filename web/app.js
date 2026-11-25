@@ -2047,7 +2047,7 @@
   function tzFiche(t, quiet) { // épreuves, clôture, juge-arbitre et lieu lus sur la fiche Ten'Up du tournoi, gardés avec le tournoi trouvé
     if (!NATIVE || !S.tenup.linked) return Promise.resolve();
     return tenupQuery("fiche", { t: t.id }).then(function (r) {
-      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat", "surf", "cov", "cash", "lots", "tmc"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
+      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat", "surf", "cov", "cash", "lots", "tmc", "kind"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
       if (quiet) return; save(); if (UI.sheet && UI.sheet.k === "tz") render();
     });
   }
