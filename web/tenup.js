@@ -1006,6 +1006,7 @@
     if (cl.length) out.cov = nc === cl.length ? "in" : nc ? "mix" : "out";
     if (+d.prixEspece > 0) out.cash = +d.prixEspece; if (+d.prixLots > 0) out.lots = +d.prixLots;
     out.tmc = /\bTMC\b/i.test(String(d.libelleCategorie || "")); // confirmé par le type des épreuves (epMerge)
+    if (d.motifCloture || d.commentaireCloture) out.closeWhy = String(d.motifCloture || d.commentaireCloture).slice(0, 80); // 4.11.1 : pourquoi c'est clos (ex. complet)
     if (d.type) out.kind = d.type === "C" ? "indiv" : "tournoi"; // relevé 25/11 : les indivs (« INDIVIDUELS 2027… ») sont de type C, les tournois de type T
     return out;
   }
@@ -1017,6 +1018,12 @@
     (f.eps || []).forEach(function (e) { var x = by[e.id]; if (!x) return;
       var mn = String(x.classementMin || "").trim(), mx = String(x.classementMax || "").trim(); if (mn) e.min = mn; if (mx) e.max = mx;
       if (x.type) { e.fmt = /MULTI/i.test(x.type) ? "tmc" : "std"; if (e.fmt === "tmc") tmc = true; }
+      // 4.11.1 (relevé public du 25/11) : âges autorisés (ex. Senior : 19 à 44 ans), sexe, ouverture et clôture des inscriptions de CETTE épreuve
+      if (x.ageMinAutorise != null) e.aMin = +x.ageMinAutorise; if (x.ageMaxAutorise != null) e.aMax = +x.ageMaxAutorise;
+      if (!e.sex) e.sex = x.messieurs && !x.dames ? "H" : x.dames && !x.messieurs ? "F" : ""; if (x.double || x.mixte) e.dbl = true;
+      if (x.dateHeureClotureInscription) e.close = String(x.dateHeureClotureInscription).slice(0, 10); if (x.dateHeureOuvertureInscription) e.open = String(x.dateHeureOuvertureInscription).slice(0, 10);
+      // places publiques : quotaInscrit / quotaAttente par échelon de classement (le nombre d'inscrits, lui, n'est pas public)
+      var qs = function (L) { var n = 0; (L || []).forEach(function (q) { n += +(q && q.nombre) || 0; }); return n; }; if (qs(x.quotaInscrit)) e.quota = qs(x.quotaInscrit); if (qs(x.quotaAttente)) e.qWait = qs(x.quotaAttente);
       if (+x.tarifAdulte > 0 && !e.fee) e.fee = +x.tarifAdulte; if (+x.prixEspece > 0) { e.cash = +x.prixEspece; cash += e.cash; } if (+x.prixLots > 0) { e.lots = +x.prixLots; lots += e.lots; } });
     if (tmc) f.tmc = true; if (!f.cash && cash) f.cash = cash; if (!f.lots && lots) f.lots = lots;
     return f;
@@ -1026,6 +1033,17 @@
   function favsMap(j) {
     return ((j && j.tournoisFavoris) || []).map(function (f) { return { id: String(f.id || ""), fid: String(f.idFavori || ""), name: String(f.libelle || "Tournoi"), from: String(f.dateDebut || "").slice(0, 10),
       to: String(f.dateFin || f.dateDebut || "").slice(0, 10), club: String(f.nomClub || ""), online: !!f.inscriptionEnLigne, payOnline: !!f.paiementEnLigne }; }).filter(function (f) { return f.id; });
+  }
+  // 4.11.1 (Yann, build 4.11 : « TMC Femmes » et « TMC 30/3-30/1 » conseillés à un 15/3) : ce que dit le NOM d'un tournoi
+  // ou d'une épreuve, tant que sa fiche n'est pas lue. Le sexe (H, F, ou "" si mixte ou non dit)…
+  function nameSex(txt) {
+    txt = String(txt || ""); var f = /\b(femmes?|dames?|f[ée]minin(e|es|s)?|filles?)\b/i.test(txt), h = /\b(hommes?|messieurs|masculin(e|es|s)?|gar[çc]ons?)\b/i.test(txt);
+    return f && !h ? "F" : h && !f ? "H" : "";
+  }
+  // … et la fourchette de classement (« 30/3-30/1 », « NC-30/2 », « 15/4 à 15/1 ») : [a, b] tels qu'écrits, ou null
+  function nameRange(txt) {
+    var R = "(NC|-?\\d{1,2}\\/\\d|40|30|15|0)", m = String(txt || "").match(new RegExp("(?:^|[\\s(])" + R + "\\s*(?:-|–|à|a|au)\\s*" + R + "(?=$|[\\s)])", "i"));
+    if (!m || !/\/|NC/i.test(m[1] + m[2])) return null; return [normRank(m[1]), normRank(m[2])];
   }
   var SURF = { TB: "Terre battue", RES: "Résine", BP: "Béton poreux", TA: "Terre artificielle", GS: "Gazon synthétique", GAZ: "Gazon synthétique", MOQ: "Moquette" };
   function lieuMap(l) { // /installations/{idLieu}
@@ -1181,6 +1199,7 @@
     var arr = function (v) { return Array.isArray(v) ? v : []; };
     var main = arr(j.tableau).concat(arr(j.qualifications)).concat(arr(j.inscrits)).concat(arr(j.joueurs)).concat(Array.isArray(j) ? j : []);
     var wait = arr(j.listeAttente);
+    if (!Array.isArray(j) && !["tableau", "qualifications", "inscrits", "joueurs", "listeAttente"].some(function (k) { return Array.isArray(j[k]); })) return null; // 4.11.1 : forme inconnue → on ne compte pas (sinon « 0 inscrit » à tort)
     var flat = function (L) { var out = []; L.forEach(function (x) { if (!x) return; var pl = x.joueur1 || x.joueur || x.personne || x; out.push({ r: rk(pl), id: String(pl.idCrm || pl.id || "") }); }); return out; };
     return { list: flat(main).filter(function (x) { return x.r; }), wait: flat(wait).length };
   }
@@ -1413,7 +1432,7 @@
   // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
   function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { slotsMinus: slotsMinus, profMap: profMap, slotsMerge: slotsMerge, profBody: profBody, weekGen: weekGen, weekSame: weekSame, tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, epMerge: epMerge, favsMap: favsMap, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { slotsMinus: slotsMinus, profMap: profMap, slotsMerge: slotsMerge, profBody: profBody, weekGen: weekGen, weekSame: weekSame, tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, epMerge: epMerge, favsMap: favsMap, nameSex: nameSex, nameRange: nameRange, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);

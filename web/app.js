@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.11.0",
+    VERSION: "4.11.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1978,26 +1978,42 @@
   }
   function tzSearch(force) {
     var P = tzPrefs(); if (!NATIVE || !S.tenup.linked || S.tenup.expired || offline() || UI.tzBusy || !P.lat) return;
-    if (!force && S.tzr && S.tzr.q === P.cp + "/" + P.km + "/" + P.wk && Date.now() - (S.tzr.at || 0) < 12 * 3600e3) return;
+    // 4.11.1 : « v411 » dans la clé : une liste gardée d'avant la 4.11 (tous les tournois, même interdits) est relue ; sinon, on complète ses fiches
+    if (!force && S.tzr && S.tzr.q === P.cp + "/" + P.km + "/" + P.wk + "/v411" && Date.now() - (S.tzr.at || 0) < 12 * 3600e3) { tzFicheAuto(); return; }
     UI.tzBusy = true; var td = today(), to = new Date(td.getTime() + P.wk * 7 * 864e5);
     tenupQuery("tournois", { from: E.iso(td), to: E.iso(to), ville: P.city || "", lat: P.lat, lng: P.lng, km: P.km }).then(function (r) {
       UI.tzBusy = false;
       if (!r || r.error) { UI.tzErr = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
       UI.tzErr = null; if (r.cfg) S.tzCfg = r.cfg;
-      S.tzr = { at: Date.now(), q: P.cp + "/" + P.km + "/" + P.wk, list: r.list, hints: r.list ? null : { tried: r.tried, hints: r.hints } };
+      // 4.11.1 : un tournoi déjà lu garde sa fiche (épreuves, classements, clôture…) quand la recherche est relancée (autre distance, autres semaines)
+      var old = {}; ((S.tzr && S.tzr.list) || []).forEach(function (x) { if (x.eps != null) old[tuNum(x.id)] = x; });
+      (r.list || []).forEach(function (t) { var o = old[tuNum(t.id)]; if (o) ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "cat", "surf", "cov", "cash", "lots", "tmc", "kind", "payReq", "insReq"].forEach(function (k) { if (o[k] != null && t[k] == null) t[k] = o[k]; }); });
+      S.tzr = { at: Date.now(), q: P.cp + "/" + P.km + "/" + P.wk + "/v411", list: r.list, hints: r.list ? null : { tried: r.tried, hints: r.hints } };
       save(); render(); tzFicheAuto();
     });
   }
+  // 4.11.1 : ton sexe, celui de ton profil, sinon celui de ton compte Ten'Up (un seul endroit pour tout l'écran des tournois)
+  function mySex() { var x = S.profile.sex || String(tuMe().sexe || "").charAt(0).toUpperCase(); return x === "F" ? "F" : x === "H" || x === "M" ? "H" : ""; }
+  function tzRgOk(a, b, cur) { // ton classement dans la fourchette [a, b] (dans un sens ou dans l'autre)
+    var lo = a ? E.idx(T.normRank(a)) : null, hi = b ? E.idx(T.normRank(b)) : null; if (lo != null && hi != null && lo > hi) { var z = lo; lo = hi; hi = z; }
+    return !(cur >= 0 && ((lo != null && cur < lo) || (hi != null && cur > hi)));
+  }
   function tzEp(t) { // l'épreuve faite pour toi : simple, ton sexe, ton classement dans la fourchette
-    if (t.eps == null) return { id: null, wait: true }; // 4.6.0 : la recherche ne donne pas les épreuves, la fiche les lira
+    var cur = curIdx(), sx = mySex(), ns = T.nameSex(t.name);
+    if (ns && sx && ns !== sx) return null; // 4.11.1 (Yann) : « TMC Femmes » n'est pas pour un homme, fiche lue ou pas
+    if (t.eps == null) { // 4.6.0 : la recherche ne donne pas les épreuves, la fiche les lira ; d'ici là, le nom suffit à écarter (4.11.1)
+      if (tzYouth(t)) return null; var rg = T.nameRange(t.name);
+      if (rg && !tzRgOk(rg[0], rg[1], cur)) return null;
+      return rg ? { id: null, wait: true, min: rg[0], max: rg[1] } : { id: null, wait: true };
+    }
     if (tzYouth(t)) return null;
-    var cur = curIdx(), sx = S.profile.sex, best = null, old = null;
+    var best = null, old = null, ag = +tuMe().age || 0;
     (t.eps || []).forEach(function (e) {
-      if (e.dbl || (e.sex && sx && e.sex !== sx)) return;
+      var es = e.sex || T.nameSex(e.name); if (e.dbl || (es && sx && es !== sx)) return;
+      if (ag && ((e.aMin && ag < e.aMin) || (e.aMax && ag > e.aMax))) return; // 4.11.1 (Yann) : l'âge autorisé par Ten'Up pour l'épreuve (Senior, 35 ans…)
       var et = (e.name || "") + " · " + (e.aud || ""); if (T.youthOnly(et)) return; // 4.9.2 : pas les épreuves jeunes (balle orange, U12…)
-      if (T.seniorsPlus(et)) { if (!old) old = e; return; } // seniors+ : seulement s'il n'y a rien d'ouvert à tous (l'âge n'est pas connu)
-      var lo = e.min ? E.idx(T.normRank(e.min)) : null, hi = e.max ? E.idx(T.normRank(e.max)) : null;
-      if (cur >= 0 && ((lo != null && cur < lo) || (hi != null && cur > hi))) return;
+      if (e.aMin == null && T.seniorsPlus(et)) { if (!old) old = e; return; } // sans les âges de Ten'Up : seniors+ seulement s'il n'y a rien d'autre // seniors+ : seulement s'il n'y a rien d'ouvert à tous (l'âge n'est pas connu)
+      if (!tzRgOk(e.min, e.max, cur)) return;
       if (!best) best = e;
     });
     return best || old;
@@ -2018,9 +2034,18 @@
     var km = t.km != null ? t.km : tzKm(P, t), clash = tzClash(t), rel = E.nextRelease(today()), thr = null;
     try { thr = defendThreat(c); } catch (e) {}
     var forRel = end && end < E.iso(rel) ? rel : null, forThr = thr && end && end < E.iso(thr.rel) ? thr : null;
-    var close = t.closing && t.closing >= E.iso(today()) ? dGap(t.closing) : null;
-    var score = (km == null ? 10 : Math.max(0, 1 - km / Math.max(P.km, 20)) * 30) + (forThr ? 30 : 0) + (forRel ? 10 : 0) - (clash.length ? 60 : 0) - (ep ? 0 : 200) - (t.closing && close == null ? 100 : 0);
-    return { t: t, ep: ep, km: km, clash: clash, rel: forRel, thr: forThr, close: close, score: score };
+    var cl = (ep && ep.close) || t.closing; // 4.11.1 : la clôture de TON épreuve, sinon celle du tournoi
+    var close = cl && cl >= E.iso(today()) ? dGap(cl) : null, ins = tzInsSt(t, ep, cl, close);
+    var score = (km == null ? 10 : 30 * 50 / (50 + km)) /* 4.11.1 (Yann) : la proximité ne dépend plus de la distance choisie : élargir n'ajoute que des tournois, sans changer l'ordre des autres */ + (forThr ? 30 : 0) + (forRel ? 10 : 0) - (clash.length ? 60 : 0) - (ep ? 0 : 200) - (cl && close == null ? 100 : 0);
+    return { t: t, ep: ep, km: km, clash: clash, rel: forRel, thr: forThr, close: close, cl: cl, ins: ins, score: score };
+  }
+  // 4.11.1 (Yann : « savoir si on peut encore s'inscrire ou si c'est liste d'attente, sans ouvrir la fiche ») :
+  // pas encore ouvertes (date de l'épreuve), closes, liste d'attente (inscrits de TON épreuve, lus en arrière-plan, contre ses places)
+  function tzInsSt(t, ep, cl, close) { // 4.11.1 (Yann) : seulement ce que Ten'Up affiche : pas encore ouvertes, ouvertes, closes (ou complet)
+    var td = E.iso(today());
+    if (ep && ep.open && ep.open > td) return { k: "soon", txt: "Inscriptions à partir du " + fdate(ep.open).replace(/ \d{4}$/, "") };
+    if (cl && close == null) return { k: "closed", txt: /complet/i.test(t.closeWhy || "") ? "Complet : inscriptions closes" : "Inscriptions closes" };
+    return null;
   }
   function tzWhy(v) { // la phrase d'Ace, tirée du même calcul : des faits (agenda, distance, sorties du classement), jamais un pronostic
     if (!v.ep) return "Pas d'épreuve de simple pour toi.";
@@ -2043,7 +2068,7 @@
   function tzVs(x, v) { // ce qui manque à un autre tournoi, face au conseil d'Ace
     if (!x.ep) return "pas d'épreuve de simple pour toi";
     if (x.clash.length) return (x.km != null ? x.km + " km, mais en" : "En") + " même temps que " + x.clash[0].t.replace(/^Indispo : /, "ton indispo : ");
-    if (x.t.closing && x.close == null) return "inscriptions closes";
+    if (x.cl && x.close == null) return "inscriptions closes";
     if ((v.thr && !x.thr) || (v.rel && !x.rel && !x.thr)) return (x.km != null ? x.km + " km, " : "") + "finit après la sortie du " + fdate(E.iso(v.thr ? v.thr.rel : v.rel));
     if (x.km != null && v.km != null && x.km > v.km) return x.km + " km, " + (x.km - v.km) + " de plus";
     return x.km != null ? x.km + " km" : "";
@@ -2062,7 +2087,7 @@
     if (!v.clash.length) rows += ok("Rien d'autre ces jours-là", "ni tournoi, ni match d'équipe, ni indispo");
     if (v.km != null) rows += ok(v.km + " km", near ? "le plus proche de ceux qui restent" : "");
     if (v.thr) rows += ok("Avant que des points sortent", "sortie du " + fdate(E.iso(v.thr.rel))); else if (v.rel) rows += ok("Compte pour la sortie du " + fdate(E.iso(v.rel)), t.to ? "il finit le " + fdate(t.to) : "");
-    if (v.close != null) rows += ok("Inscriptions ouvertes", "jusqu'au " + fdate(t.closing));
+    if (v.close != null) rows += ok("Inscriptions ouvertes", "jusqu'au " + fdate(v.cl));
     XH += acCard("Ce que j'ai regardé", rows + '<span class="acd-f">Je ne fais pas de pronostic : le tableau n\'est pas publié avant le tournoi.</span>');
     var oth = L.filter(function (x) { return x !== v; }).sort(function (a, b2) { return b2.score - a.score; }).slice(0, 3);
     if (oth.length) XH += acCard("Et les autres ?", oth.map(function (x) { return acRow({ l: esc(x.t.name), s: esc(cap1(tzVs(x, v))), sheet: ["tz", x.t.id] }); }).join(""));
@@ -2080,7 +2105,9 @@
     if (UI.tzFiBusy) return; UI.tzFi = UI.tzFi || {};
     var todo = tzAll().sort(function (a, b) { return b.score - a.score; }).slice(0, 30).filter(function (v) { return v.t.eps == null && !UI.tzFi[v.t.id]; });
     if (!todo.length) return; UI.tzFiBusy = true; var ch = Promise.resolve();
-    todo.forEach(function (v) { UI.tzFi[v.t.id] = 1; ch = ch.then(function () { return tzFiche(v.t, true); }).then(function () { return new Promise(function (r) { setTimeout(r, 400); }); }); });
+    // 4.11.1 (Yann : « les infos ne sont lues qu'en ouvrant la fiche ») : chaque tuile se complète dès que sa fiche est lue, sans attendre les 30
+    var paint = function () { if (route() === "trouver" && !UI.sheet && !UI.ace) render(); };
+    todo.forEach(function (v) { UI.tzFi[v.t.id] = 1; /* 4.11.1 (Yann) : les inscrits ne sont lus qu'à l'ouverture d'une fiche, comme sur Ten'Up */ ch = ch.then(function () { return tzFiche(v.t, true); }).then(paint).then(function () { return new Promise(function (r) { setTimeout(r, 400); }); }); });
     ch.then(function () { UI.tzFiBusy = false; save(); if (route() === "trouver") render(); });
   }
   // 4.11 : tes favoris, ceux de Ten'Up (le même cœur des deux côtés) ; relus toutes les 30 min, et après chaque cœur touché
@@ -2094,14 +2121,34 @@
   function tzFavT(f) { // un favori hors de ta recherche : un tournoi en forme Montée, complété par sa fiche à l'ouverture
     UI.tzFavT = UI.tzFavT || {}; return UI.tzFavT[f.id] || (UI.tzFavT[f.id] = { id: f.id, name: f.name, from: f.from, to: f.to, club: f.club, city: "", online: f.online, payOnline: f.payOnline, eps: null }); }
   function tzFavHtml() { // Mes épreuves : tes favoris à venir, sans lancer de recherche
-    var td = E.iso(today()), L = ((S.tzFav && S.tzFav.list) || []).filter(function (f) { return (f.to || f.from) >= td; }).sort(function (a, b) { return a.from < b.from ? -1 : 1; });
+    var td = E.iso(today()), L = ((S.tzFav && S.tzFav.list) || []).filter(function (f) { return (f.to || f.from) >= td; });
     if (!L.length) return "";
-    return '<div class="blk tz-list tz-favs"><div class="blk-h"><span class="eyebrow">Tes favoris</span><span class="small">' + L.length + "</span></div>" + L.map(function (f) { return tzLine(tzEval(tzFind(f.id) || tzFavT(f)), true); }).join("") + "</div>";
+    // 4.11.1 (Yann : « pas rater la date d'inscription ») : la fiche de chaque favori est lue (clôture) ; ceux qui ferment dans 14 jours passent devant
+    var V = L.map(function (f) { return tzEval(tzFind(f.id) || tzFavT(f)); }), soon = function (v) { return v.close != null && v.close <= 14 ? v.close : 999; };
+    V.sort(function (a, b) { return soon(a) - soon(b) || (a.t.from < b.t.from ? -1 : 1); });
+    tzFavFiches(V);
+    return '<div class="blk tz-list tz-favs"><div class="blk-h"><span class="eyebrow">Tes favoris</span><span class="small">' + L.length + "</span></div>" + V.map(function (v) { return tzLine(v, true); }).join("") + "</div>";
+  }
+  function tzFavFiches(V) { // une lecture légère par favori pas encore lu, au rythme d'un humain
+    if (UI.tzFavFi) return; UI.tzFi = UI.tzFi || {}; var todo = V.filter(function (v) { return v.t.eps == null && !UI.tzFi[v.t.id]; }).slice(0, 10); if (!todo.length) return;
+    UI.tzFavFi = true; var ch = Promise.resolve();
+    todo.forEach(function (v) { UI.tzFi[v.t.id] = 1; ch = ch.then(function () { return tzFiche(v.t, true); }).then(function () { return new Promise(function (r) { setTimeout(r, 400); }); }); });
+    ch.then(function () { UI.tzFavFi = false; save(); if (route() === "tournoi" && !UI.sheet) render(); });
+  }
+  // 4.11.1 (maquette validée par Yann le 25/11) : Ta saison et Trouver un tournoi, en deux tuiles côte à côte
+  function meTilesHtml() {
+    var L = obUpcoming(183), n = L.length, nx = L[0], x = nx && E.parseDate(nx.d), P = S.tz || {}, sh = P.lat && S.tzr && S.tzr.list ? tzShown().length : null;
+    var dots = ""; for (var i = 0; i < Math.min(6, Math.max(n, 1)); i++) dots += "<i" + (i < n ? "" : ' class="o"') + "></i>";
+    var a = '<a class="met-t" href="#/saison"><span class="met-k">Ta saison</span>' + (nx ? '<span class="met-d"><b>' + dN(x) + "</b><span>" + esc(MOIS[x.getMonth()]) + '</span></span><span class="met-s">Ta prochaine date, un ' + esc(JOURS[x.getDay()]) + '</span><span class="met-dots">' + dots + '</span><span class="met-s met-s0">' + plural(n, "date", "dates") + " d'ici 6 mois</span>"
+      : '<span class="met-d"><b class="met-b0">Libre</b></span><span class="met-s">Rien de prévu d\'ici 6 mois. Tes épreuves, ton équipe et tes indispos arriveront ici.</span>') + "</a>";
+    var b = '<a class="met-t" href="#/trouver">' + coBall("mxtz", "repos", "sm") + '<span class="met-k">Tournois</span>' + (sh != null ? '<span class="met-n">' + sh + '</span><span class="met-s">pour toi autour de ' + esc(P.city || "chez toi") + ", à " + (P.km || 40) + " km</span>"
+      : '<span class="met-n met-n0">Trouver</span><span class="met-s">' + esc(P.city ? "Autour de " + P.city + ", à " + (P.km || 40) + " km" : "Ouverts à ton classement, près de chez toi") + "</span>") + '<span class="met-go">' + (sh ? "Trouver le mien ›" : "Chercher ›") + "</span></a>";
+    return '<div class="met-g">' + a + b + "</div>";
   }
   function tzFiche(t, quiet) { // épreuves, clôture, juge-arbitre et lieu lus sur la fiche Ten'Up du tournoi, gardés avec le tournoi trouvé
     if (!NATIVE || !S.tenup.linked) return Promise.resolve();
     return tenupQuery("fiche", { t: t.id, light: quiet ? 1 : 0 }).then(function (r) {
-      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat", "surf", "cov", "cash", "lots", "tmc", "kind", "payReq", "insReq"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
+      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat", "surf", "cov", "cash", "lots", "tmc", "kind", "payReq", "insReq", "closeWhy"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
       if (quiet) return; save(); if (UI.sheet && UI.sheet.k === "tz") render();
     });
   }
@@ -2120,6 +2167,7 @@
     var ln = (rg ? '<b class="rk-tag">' + esc(rg) + "</b>" : "") + (k !== "tournoi" ? '<span class="tz-tag">' + (k === "tmc" ? "TMC" : "Indivs") + "</span>" : "") +
       ((t.surf || []).length ? '<span class="tz-sf" aria-label="' + esc(t.surf.join(", ")) + '">' + t.surf.map(surfPic).join("") + "</span>" : "") + (tot ? '<span class="tz-cup">' + TZ_CUP + tot + " €</span>" : "");
     var hot = v.clash.length ? '<span class="tz-w">' + esc("En même temps : " + v.clash[0].t) + "</span>"
+      : v.ins ? '<span class="tz-w">' + esc(v.ins.txt) + "</span>"
       : v.close != null && v.close <= 7 ? '<span class="tz-w">' + esc(v.close === 0 ? "Inscriptions closes ce soir" : "Inscriptions closes dans " + plural(v.close, "jour")) + "</span>"
       : v.thr || v.rel ? '<span class="tz-v">' + (open ? esc(v.thr ? "Avant que des points sortent (" + fdate(E.iso(v.thr.rel)) + ")" : "Compte pour la sortie du " + fdate(E.iso(v.rel))) : pwX("Avant que des points sortent")) + "</span>" : "";
     return '<button class="row tz-t" data-a="tzOpen" data-v="' + esc(t.id) + '">' + tzBillet(t.from) + '<span class="grow"><span class="t">' + esc(t.name) + '</span><span class="s">' + esc(sub) + "</span>" + (ln ? '<span class="tz-ln">' + ln + "</span>" : "") + hot + "</span>" + tzHeart(t.id) + "</button>";
@@ -2176,10 +2224,11 @@
   function dzLoad(t, force) {
     var m = t.ins.more = t.ins.more || {}; if (!NATIVE || !S.tenup.linked || UI.dzBusy) return;
     if (!force && m.dz && Date.now() - m.dz.at < 10 * 6e4) return;
+    if (!force && UI.dzErrAt && Date.now() - UI.dzErrAt < 6e4) return; // 4.11.1 : pas de relecture en boucle après un échec
     UI.dzBusy = true; UI.dzErr = null;
     tenupQuery("dispos", { t: t.tuid, from: t.from, to: t.to || t.from }).then(function (r) {
-      UI.dzBusy = false; if (!r || r.error) { UI.dzErr = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
-      m.dz = { gen: r.gen, days: r.days, map: r.map, at: Date.now() }; save(); render();
+      UI.dzBusy = false; if (!r || r.error) { UI.dzErr = r && r.error || "Ten'Up n'a pas répondu"; UI.dzErrAt = Date.now(); render(); return; } UI.dzErrAt = 0;
+      m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; save(); render(); // 4.11.1 : pgen (ton profil) était perdu ici, donc l'écart avec le tournoi ne se voyait jamais
     });
   }
   V.dispos = function (id) {
@@ -2190,10 +2239,13 @@
     dzLoad(t);
     if (!D) return s + '<div class="card"><span class="small">' + esc(UI.dzErr ? UI.dzErr : NATIVE && S.tenup.linked ? "Lecture de tes dispos sur Ten'Up…" : "Relie Ten'Up pour voir tes dispos.") + "</span></div></div>";
     var can = Dl.ok && !!D.map, E1 = dzEd(t), n = Object.keys(E1).length;
-    var pDiff = D.pgen && [1, 2, 3, 4, 5, 6, 7].some(function (wd) { var iso = "2026-11-" + (22 + wd); return !T.dzSame(T.dzGenSlots(D.gen || [], iso, "iso"), T.dzGenSlots(D.pgen, iso, "iso")); }); // 4.9.3 : le tournoi garde la copie prise à l'inscription
     var hbOk = NATIVE && S.tenup.linked; // 4.10 : les créneaux habituels se changent depuis Montée, pour tous les tournois
+    if (hbOk) hbLoad(); // 4.11.1 (Yann : « j'ai modifié mes horaires habituels, rien n'a changé ») : comparer au profil tel qu'il est maintenant
+    var pGen = UI.hb && UI.hb.prof ? T.weekGen(UI.hb.prof.week) : D.pgen;
+    var pDiff = pGen && [1, 2, 3, 4, 5, 6, 7].some(function (wd) { var iso = "2026-11-" + (22 + wd); return !T.dzSame(T.dzGenSlots(D.gen || [], iso, "iso"), T.dzGenSlots(pGen, iso, "iso")); }); // 4.9.3 : le tournoi garde la copie prise à l'inscription
     s += '<h2>Tu es dispo, d\'habitude</h2>' + (hbOk ? '<p class="small" style="margin-top:-6px">Touche une ligne pour changer tes créneaux, pour tous tes tournois.</p>' : "") + '<div class="blk tz-blk tz-c' + (hbOk ? ' hb-open" role="button" tabindex="0" data-a="hbOpen' : "") + '">' + ((D.gen || []).length ? D.gen.map(function (g) {
-      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), hbOk ? I.next : ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>" + (pDiff ? '<p class="small dz-pd">Pour ce tournoi, Ten\'Up garde tes créneaux du moment de ton inscription : ils ont changé depuis sur ton profil.</p>' : "");
+      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), hbOk ? I.next : ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>" + (pDiff ? '<p class="small dz-pd">Pour ce tournoi, Ten\'Up garde tes créneaux du moment de ton inscription : ils ont changé depuis sur ton profil.</p>' +
+      (can ? '<button class="btn primary dz-pdb" data-a="hbTourOne" data-v="' + esc(t.id) + '"' + (UI.hbRun1 ? " disabled" : "") + ">" + (UI.hbRun1 ? "Mise à jour…" : "Mettre ce tournoi à jour") + "</button>" : "") : "");
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from);
     for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
     var exs = days.filter(function (iso) { return dzDay(t, D, iso).ex; }); // 4.10 (Yann) : voir et ajouter les indispos propres à ce tournoi
@@ -2245,8 +2297,9 @@
   function hbLoad(force) {
     if (!NATIVE || !S.tenup.linked || (UI.hb && UI.hb.busy)) return; UI.hb = UI.hb || {};
     if (!force && UI.hb.prof && Date.now() - UI.hb.prof.at < 10 * 6e4) return;
+    if (!force && UI.hb.errAt && Date.now() - UI.hb.errAt < 6e4) return; // 4.11.1 : après un échec, pas de nouvel essai à chaque affichage
     UI.hb.busy = true; UI.hb.err = null;
-    tenupQuery("profDispo", {}).then(function (r) { UI.hb.busy = false; if (!r || r.error) { UI.hb.err = r && r.error || "Ten'Up n'a pas répondu"; render(); return; }
+    tenupQuery("profDispo", {}).then(function (r) { UI.hb.busy = false; if (!r || r.error) { UI.hb.err = r && r.error || "Ten'Up n'a pas répondu"; UI.hb.errAt = Date.now(); render(); return; } UI.hb.errAt = 0;
       UI.hb.prof = r; UI.hb.week = JSON.parse(JSON.stringify(r.week)); render(); });
   }
   function hbOffCount(w) { var n = 0; for (var wd = 1; wd <= 7; wd++) if (!(w[wd] || []).length) n++; return n; }
@@ -2330,8 +2383,10 @@
     b += '<div class="seg hb-seg2"><button data-a="dzaAll" data-v="1" class="' + (a.all ? "on" : "") + '">Toute la journée</button><button data-a="dzaAll" data-v="0" class="' + (a.all ? "" : "on") + '">Juste un moment</button></div>';
     if (!a.all) b += '<div class="dz-hh"><label>Pas dispo de' + hSel('id="dza-f"', a.from) + '</label><label>À' + hSel('id="dza-t"', a.to) + '</label></div>';
     b += hbFrise(res, false, off) + hbChrono(res, false, off);
-    if (!a.all && res.length) b += '<p class="small">Ce ' + JOURS[dt.getDay()] + ", tu joues " + esc(res.map(function (x) { return "de " + dzH(x.from) + " à " + dzH(x.to); }).join(" et ")) + (cur.length ? " au lieu de " + esc(cur.map(dzSl).join(" · ")) : "") + ".</p>";
-    return { title: "Ajouter une indispo", sub: t.name + " · " + fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), body: '<div class="tz-sh dz-sh hb-day">' + b + '</div><button class="btn primary" data-a="dzaOk">Ajouter l\'indispo du ' + esc(JOURS[dt.getDay()].slice(0, 3) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]) + "</button>" };
+    var same = !a.all && T.dzSame(res, cur); // 4.11.1 (Yann : « samedi 13, juste pas dispo le matin ») : un moment où tu ne joues déjà pas ne change rien
+    if (same) b += '<p class="small hb-same">Le ' + JOURS[dt.getDay()] + ", tu ne joues déjà pas à ce moment-là" + (cur.length ? " (d'habitude " + esc(cur.map(dzSl).join(" · ")) + ")" : "") + " : il n'y a rien à changer.</p>";
+    else if (!a.all && res.length) b += '<p class="small">Ce ' + JOURS[dt.getDay()] + ", tu joues " + esc(res.map(function (x) { return "de " + dzH(x.from) + " à " + dzH(x.to); }).join(" et ")) + (cur.length ? " au lieu de " + esc(cur.map(dzSl).join(" · ")) : "") + ".</p>";
+    return { title: "Ajouter une indispo", sub: t.name + " · " + fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), body: '<div class="tz-sh dz-sh hb-day">' + b + '</div><button class="btn primary" data-a="dzaOk"' + (same ? " disabled" : "") + '>Ajouter l\'indispo du ' + esc(JOURS[dt.getDay()].slice(0, 3) + ". " + dN(dt) + " " + MOIS[dt.getMonth()]) + "</button>" };
   }
   // Glisser les ronds de la frise : l'heure suit le doigt par quarts d'heure, dans une bulle
   function hbDragInit() {
@@ -2359,21 +2414,28 @@
   var DET_TZ = function (id) {
     var fv = tzFavOf(id), t = tzFind(id) || (fv && tzFavT(fv)); if (!t) return null;
     var v = tzEval(t), e = v.ep, plus = isSup(), best = tzBest(), open = plus || (best && best.t.id === id), num = tuNum(t.id), b = "";
-    b += tzLieu(t, [t.club, t.city].filter(Boolean).map(insCase).join(", "));
-    b += tzJa(t, num);
-    b += tzRow("Ton épreuve", e && !e.wait ? [esc(e.name), tzRange(e) ? '<b class="rk-tag">' + esc(tzRange(e)) + "</b>" : "", e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ") +
-      (e.fmt === "tmc" ? '<br><span class="tz-sub">TMC : plusieurs matchs, même si tu perds le premier</span>' : t.kind === "indiv" ? '<br><span class="tz-sub">Indivs : une poule, puis un tableau</span>' : "") : e === null ? "Pas d'épreuve de simple pour toi" : "Lue sur la fiche Ten'Up…", "");
-    if ((t.surf || []).length) b += tzRow("Courts", t.surf.map(surfPic).join("") + esc(t.surf.join(", ") + (t.cov === "in" ? ", couverts" : t.cov === "out" ? ", extérieurs" : t.cov === "mix" ? ", couverts et extérieurs" : "")), "");
-    if (t.cash || t.lots) b += tzRow("Dotation", esc(((t.cash || 0) + (t.lots || 0)) + " €" + (t.cash && t.lots ? " : " + t.cash + " € en espèces, " + t.lots + " € en lots" : t.cash ? " en espèces" : " en lots")), "");
-    if (t.payReq) b += tzRow("Paiement", "En ligne, obligatoire pour être inscrit", ""); else if (t.payOnline) b += tzRow("Paiement", "En ligne ou sur place", "");
-    if (t.closing) b += tzRow("Inscriptions", (v.close == null ? "Closes depuis le " : "Jusqu'au ") + esc(fdate(t.closing)), "", v.close != null && v.close <= 7 ? "tz-due" : "");
-    b += tzRow("Ta saison", v.clash.length ? esc(v.clash.map(function (x) { return obDayLab(x.d) + " : " + x.t; }).join(" · ")) : "Rien d'autre ces jours-là.", "", v.clash.length ? "tz-due" : "");
-    var when = v.thr ? "Fini avant la sortie du " + fdate(E.iso(v.thr.rel)) + ", où des points sortent" + (v.thr.need != null ? " : une victoire contre un " + lab(v.thr.need) + " les remplace." : ".")
-      : "Tes victoires compteront à la sortie du " + fdate(E.iso(E.nextRelease(E.parseDate(t.to || t.from)))) + ".";
-    b += tzRow("Le bon moment", open ? esc(when) : pwX("Fini avant la sortie du 2 déc., où des points sortent."), "");
+    // 4.11.1 (maquette « fiche v2 » validée par Yann le 25/11) : l'essentiel en 4 cases, la phrase d'Ace, puis le pratique
+    var cell = function (l, v1, s1, cls) { return '<div class="tzv-c"><span class="tzv-l">' + l + '</span><span class="tzv-v' + (cls ? " " + cls : "") + '">' + v1 + '</span><span class="tzv-s">' + s1 + "</span></div>"; };
+    var rg = e && !e.wait ? tzRange(e) : "", g = "", tot = (t.cash || 0) + (t.lots || 0), sf = t.surf || [];
+    g += cell("Ton épreuve", e === null ? "Aucune" : rg ? '<b class="rk-tag">' + esc(rg) + "</b>" : e && e.wait && e.min ? '<b class="rk-tag">' + esc(tzRange(e)) + "</b>" : "…",
+      esc(e === null ? "Pas de simple pour toi" : e && !e.wait ? [e.fmt === "tmc" ? "TMC" : t.kind === "indiv" ? "Indivs" : cap1(e.name.replace(/\s*\(.*\)$/, "").replace(/\s+senior\b/i, "").toLowerCase()), e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ") : "Lue sur Ten'Up…"));
+    g += cell("Courts", sf.length ? surfPic(sf[0]) + esc(sf[0]) : "—", esc(sf.length > 1 ? "et " + sf.slice(1).join(", ").toLowerCase() : t.cov === "in" ? "Couverts" : t.cov === "out" ? "Extérieurs" : t.cov === "mix" ? "Couverts et extérieurs" : sf.length ? "" : "Pas indiqué"));
+    g += cell("Dotation", tot ? TZ_CUP + esc(tot.toLocaleString("fr-FR") + " €") : "—", esc(tot ? (t.cash && t.lots ? t.cash + " € en espèces, " + t.lots + " € en lots" : t.cash ? "En espèces" : "En lots") : "Pas indiquée"));
+    var iv = v.ins && v.ins.k === "soon" ? ["Bientôt", v.ins.txt.replace(/^Inscriptions /, ""), "tzv-w"] : v.cl && v.close == null ? ["Closes", (/complet/i.test(t.closeWhy || "") ? "Complet, depuis le " : "Depuis le ") + fdate(v.cl).replace(/ \d{4}$/, ""), "tzv-w"]
+      : v.cl ? ["Ouvertes", "Jusqu'au " + fdate(v.cl).replace(/ \d{4}$/, ""), v.close <= 7 ? "tzv-w" : "tzv-ok"] : ["Ouvertes", "Sur Ten'Up", "tzv-ok"];
+    g += cell("Inscriptions", esc(iv[0]), esc(iv[1]), iv[2]);
+    b += '<div class="tzv-g">' + g + "</div>";
+    var dS = function (d) { return fdate(E.iso(d)).replace(/ \d{4}$/, ""); }, when = v.thr ? "fini avant la sortie du " + dS(v.thr.rel) + ", où des points sortent" + (v.thr.need != null ? " : une victoire contre un " + lab(v.thr.need) + " les remplace" : "")
+      : "tes victoires compteront à la sortie du " + dS(E.nextRelease(E.parseDate(t.to || t.from)));
+    var say = v.clash.length ? "Attention, ça tombe en même temps que " + v.clash.map(function (x) { return x.t.replace(/^Indispo : /, "ton indispo : "); }).join(" et ") + "."
+      : "Rien d'autre ces jours-là, et " + (open ? esc(when) : pwX("tes victoires compteront à la sortie du 2 déc.")) + ".";
+    b += '<div class="tzv-ace" role="button" tabindex="0" data-a="ace" data-v="tz:' + esc(t.id) + '">' + coBall("tzv" + t.id, v.clash.length ? "concentree" : "repos", "sm") + '<span class="tzv-bub">' + (v.clash.length ? esc(say) : say) + "</span></div>";
+    var pr = tzLieu(t, [t.club, t.city].filter(Boolean).map(insCase).join(", ")) + tzJa(t, num);
+    if (t.payReq) pr += tzRow("Paiement", "En ligne, obligatoire pour être inscrit", ""); else if (t.payOnline) pr += tzRow("Paiement", "En ligne ou sur place", "");
+    if (e && !e.wait && e.fmt === "tmc") pr += tzRow("Format", "TMC : plusieurs matchs, même si tu perds le premier", ""); else if (t.kind === "indiv") pr += tzRow("Format", "Indivs : une poule, puis un tableau", "");
     if ((!t.ja || !t.ja.name || t.eps == null) && !(UI.tzFi || {})[t.id] && NATIVE && S.tenup.linked) { UI.tzFi = UI.tzFi || {}; UI.tzFi[t.id] = 1; setTimeout(function () { tzFiche(t); }, 600); } // 4.6.0 : épreuves et juge-arbitre en direct (Yann)
     return { title: t.name, hd: tzHeart(t.id), sub: [fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), t.club ? insCase(t.club) : ""].filter(Boolean).join(" · "),
-      body: '<div class="tz-sh">' + b + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
+      body: b + '<div class="tzv-h">Pratique</div><div class="tz-sh">' + pr + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
         '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>' };
   };
   var REFRESH_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>';
@@ -3737,9 +3799,9 @@
       viduel("eq", "Pas encore de rencontre par équipes", "Montée suit ton palmarès Ten'Up : dès ta première rencontre avec ton club, ton équipe s'affiche ici avec son classement et ses résultats.", [S.teams && S.teams.club && S.teams.club.nom ? tmNm(S.teams.club.nom) : "", seas].filter(Boolean).join(" · ")) +
       // 3.74.0 : un responsable sportif qui ne joue dans aucune équipe voit quand même celles du club (3.81 : dans l'onglet « Le club »)
       clubFolHtml()) + "</div>";
-    return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs + saisonRowHtml() + tzEntryHtml() + (tzFavs(false), tzFavHtml()) +
+    return '<div class="screen ins-scr">' + topbar("Mes épreuves", "Accueil") + syncH + tabs + meTilesHtml() +
       (!all.length ? viduel("toi", "Aucun tournoi ni indivs cette saison", "Dès que tu t'inscris sur Ten'Up, ton tournoi ou ta poule d'indivs arrive ici tout seul : tableau, adversaires, tes chances.", "Ta " + seas) : "") +
-sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
+sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tzFavs(false), tzFavHtml()) /* 4.11.1 (Yann) : les favoris sous tes épreuves en cours */ +
       (off.length ? '<button class="row tl-off" data-a="tlOff"><span class="grow"><span class="t">Terminées</span><span class="s">' + plural(off.length, "épreuve") + "</span></span>" + '<span class="tl-ch' + (UI.tlOff ? " on" : "") + '">' + I.next + "</span></button>" + (UI.tlOff ? '<div class="blk">' + off.map(row).join("") + "</div>" : "") : "") + "</div>";
   }
   V.tournoi = function (id) {
@@ -20686,7 +20748,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
         var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
       UI.dzPk = null; UI.sheet = null; render(); },
     // 4.10 : créneaux habituels (profil Ten'Up) et indispo d'un tournoi
-    hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(); render(); },
+    hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
     hbDay: function (el) { UI.hbd = null; UI.sheet = { k: "hbd", v: el.dataset.v, back: "hb" }; render(); },
     hbPlay: function (el) { var d = UI.hbd; if (!d) return; d.play = el.dataset.v === "1";
       if (d.play && !d.slots.length) { var h = (UI.hb.prof.week[d.wd] || []); d.slots = h.length ? JSON.parse(JSON.stringify(h)) : [{ from: "18:00", to: "22:00" }]; } render(); },
@@ -20706,12 +20768,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     hbOk: function () { var d = UI.hbd, H = UI.hb; if (!d || !H || !H.week) return;
       [d.wd].concat(Object.keys(d.also).filter(function (k) { return d.also[k]; }).map(Number)).forEach(function (k) { H.week[k] = d.play ? T.slotsMerge(d.slots).slots.map(function (x) { return { from: x.from, to: x.to }; }) : []; });
       UI.hbd = null; UI.sheet = { k: "hb" }; render(); },
-    hbSave: function () { var H = UI.hb; if (!H || !H.week || H.saving) return; var want = JSON.parse(JSON.stringify(H.week)); H.saving = true; render();
+    hbSave: function () { var H = UI.hb; if (!H || !H.week || H.saving) return; var want = JSON.parse(JSON.stringify(H.week)), before = JSON.parse(JSON.stringify(H.prof.week)); H.saving = true; render();
       tenupQuery("profDispoSave", { idCrm: H.prof.idCrm, body: T.profBody(H.prof, H.week) }).then(function (r) { H.saving = false;
         if (!r || r.error) { toast("Ten'Up a refusé : " + (r && r.error || "pas de réponse") + ". Rien n'a changé."); render(); return; }
         var ok = T.weekSame(r.week, want); H.prof = r; H.week = JSON.parse(JSON.stringify(r.week));
         toast(ok ? "Tes créneaux habituels sont enregistrés sur Ten'Up." : "Ten'Up n'a pas tout pris : vérifie tes créneaux.", ok);
-        UI.hbSel = {}; UI.sheet = ok && hbTours().length ? { k: "hbt" } : UI.sheet; render(); }); },
+        // 4.11.1 : « Et tes tournois ? » dès que Ten'Up a changé quelque chose, même s'il n'a pas tout pris
+        UI.hbSel = {}; UI.sheet = !T.weekSame(r.week, before) && hbTours().length ? { k: "hbt" } : UI.sheet; render(); }); },
+    hbTourOne: function (el) { var t = (S.tours || []).filter(function (x) { return x.id === el.dataset.v; })[0], H = UI.hb, D = t && (t.ins.more || {}).dz;
+      var gen = H && H.prof ? T.weekGen(H.prof.week) : D && D.pgen; if (!t || !gen || UI.hbRun1) return;
+      UI.hbRun1 = true; render();
+      hbTourRun(t, gen).then(function (ok) { return ok; }, function () { return false; }).then(function (ok) { UI.hbRun1 = false; save(); render();
+        toast(ok ? "Ton tournoi a tes créneaux habituels. Tes indispos juste pour lui sont gardées." : "Ten'Up n'a pas tout pris : vérifie les jours du tournoi.", ok); }); },
     hbTourTog: function (el) { UI.hbSel = UI.hbSel || {}; UI.hbSel[el.dataset.v] = UI.hbSel[el.dataset.v] === false; render(); },
     hbToursGo: function () { var H = UI.hb, sel = UI.hbSel || {}, L = hbTours().filter(function (t) { return sel[t.id] !== false; }); if (!H || !H.prof || UI.hbRun || !L.length) return;
       var gen = T.weekGen(H.prof.week), bad = 0; UI.hbRun = true; render();
@@ -20723,7 +20791,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) +
     dzaAll: function (el) { if (UI.dza) UI.dza.all = el.dataset.v === "1"; render(); },
     dzaOk: function () { var a = UI.dza, t = a && (S.tours || []).filter(function (x) { return x.id === a.t; })[0]; if (!t || !(t.ins.more || {}).dz) return;
       if (!a.all && (!a.from || !a.to || a.to <= a.from)) { toast("L'heure de fin doit être après l'heure de début."); return; }
-      var cur = dzDay(t, t.ins.more.dz, a.iso).slots; dzEd(t)[a.iso] = a.all ? [] : T.slotsMinus(cur, a.from, a.to); UI.dza = null; UI.sheet = null; render(); },
+      var cur = dzDay(t, t.ins.more.dz, a.iso).slots, nx = a.all ? [] : T.slotsMinus(cur, a.from, a.to); if (!a.all && T.dzSame(nx, cur)) { toast("Tu ne joues déjà pas à ce moment-là : rien à changer."); return; } dzEd(t)[a.iso] = nx; UI.dza = null; UI.sheet = null; render(); },
     dzSave: function (el) { var t = (S.tours || []).filter(function (x) { return x.id === el.dataset.v; })[0]; if (t) dzSaveRun(t); },
     tzWhere: function () { UI.sheet = { k: "tzf" }; render(); },
     tzSet: function (el) { var P = tzPrefs(); P[el.dataset.k] = +el.dataset.v; save(); render(); },
