@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.5",
+    VERSION: "4.18.6",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -909,6 +909,7 @@
       html = html.replace('<div class="screen', '<div class="screen has-tabs') + tabbar(sec); // 3.50.1 : aussi « screen ins-scr », « screen tm-scr »… (sinon le bas de page passe sous les onglets)
     }
     if (SK) { html = kidVoice(html).replace(/<div class="screen[^"]*">/, function (m) { return m + kidBand(); }); document.body.classList.add("kid-on"); } else document.body.classList.remove("kid-on"); // 4.15 : son profil, dit en haut de chaque écran
+    var kvFrom = html.length; // 4.18.1 : les feuilles ouvertes sur son profil sont aussi à la 3e personne (pas « Profils », ni la conversation d'Ace)
     if (UI.mmOv) { html += UI.mmOv; UI.mmOv = null; }
     else html += mmPill() || sjPill();
     if (UI.menu) html += menuHtml();
@@ -918,6 +919,7 @@
     if (UI.qaSheet && parts[0] === "" && !qaList().length) UI.qaSheet = false;
     if (UI.qaSheet && parts[0] === "") html += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="qaClose"></div><div class="sheet qa-sheet" role="dialog" aria-modal="true" aria-label="Annoter ton match"><span class="sheet-grab"></span>' + qaFormHtml() + "</div>";
     if (UI.actPlus) html += actPlusHtml();
+    if (SK && !(UI.sheet && /^kid/.test(UI.sheet.k || ""))) html = html.slice(0, kvFrom) + kidVoice(html.slice(kvFrom));
     if (UI.ace) html += aceHtml(); // 3.73 : Ace, le coach
     else if (parts[0] === "" && S.onboarded && S.matches.length && !S.aceSeen && !UI.sheet && !UI.notesOpen && !UI.qaSheet && !UI.actPlus) html += aceIntroHtml();
     if (!UI.ace && UI.aceBack && !UI.sheet && html.indexOf('class="mm-pill"') < 0) { try { var abQ = coQs(ctx()).filter(function (x) { return x[1] === UI.aceBack.q; })[0]; html += '<button class="ace-back" data-a="aceBack">' + coBall("ace:back", "repos", "xs") + '<span class="grow"><b>Revenir à Ace</b>' + (abQ ? "<small>" + esc(abQ[2]) + "</small>" : "") + "</span>" + I.next + "</button>"; } catch (e) {} }
@@ -22063,7 +22065,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         if (!el.value.trim() && (UI.fafHits || UI.fafErr || UI.faf.searched)) { UI.faf = { q: "" }; UI.fafHits = null; UI.fafErr = null; UI.fafLocal = null; render(); var ci = document.getElementById("ff-q"); if (ci) ci.focus(); return; }
         var kb = document.getElementById("faf-known");
         if (!kb && el.value.trim()) { var pos = el.selectionStart; render(); var ni = document.getElementById("ff-q"); if (ni) { ni.focus(); try { ni.setSelectionRange(pos, pos); } catch (e) {} } return; }
-        if (kb) kb.innerHTML = knownRows(el.value);
+        if (kb) kb.innerHTML = SK ? kidVoice(knownRows(el.value)) : knownRows(el.value);
         var go2 = el.parentNode && el.parentNode.querySelector(".sb-go"); if (go2) go2.classList.toggle("ready", !!(nameSplits(el.value).length || /^\d{5,}$/.test(el.value.replace(/\s/g, ""))));
         var clr = el.parentNode && el.parentNode.querySelector(".sb-clr"); if (clr) clr.hidden = !el.value;
         var bar = el.closest(".sbar"); if (bar && bar.classList.contains("done") && el.value !== UI.faf.searched) { bar.classList.remove("done"); var x = bar.querySelector(".sb-x"); if (x) x.outerHTML = '<button class="sb-clr" data-a="fafClear" aria-label="Effacer">' + I.cross + '</button><button class="sb-go" data-a="fafSearch">Chercher</button>'; }
