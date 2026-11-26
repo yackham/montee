@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.14.0",
+    VERSION: "4.14.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2234,7 +2234,9 @@
   // (sans valeur perso, voir T.dispoRaw), ce que Montée envoie, et ce que tu touches sur les écrans de dispos. 7 touches sur la version du menu = partager.
   function dzLog(ev, o) { try { var L = S.dzLog = S.dzLog || []; L.push(Object.assign({ at: new Date().toISOString().slice(0, 19), ev: ev, v: CONFIG.VERSION }, o || {})); if (L.length > 40) L.splice(0, L.length - 40); } catch (e) {} }
   // 4.11.5 : un jour que TU as mis « pas dispo » depuis Montée (envoi au bon format, relu vide) n'est plus « pas clair »
-  function dzAmb(g, t) { return !!g && !(g.slots || []).length && !(t && ((t.ins.more || {}).dzOff || {})[g.date]); }
+  // 4.11.6 (26/11) : quand le service des dispos de Ten'Up est en panne (sa propre page échoue aussi), on le dit simplement
+  function dzRefus(r) { var e = String(r && r.error || ""); return /ultérieurement|indisponible/i.test(e) ? "Ten'Up n'accepte aucun changement de dispos pour le moment, même sur son site. Réessaie plus tard." : "Ten'Up a refusé : " + (e || "pas de réponse") + "."; }
+  function dzAmb(g, t, src) { if ((src || (((t && t.ins.more) || {}).dz || {}).src) === "page") return false; /* 4.11.6 : lu sur la page Ten'Up, un jour vide est vraiment « pas dispo » */ return !!g && !(g.slots || []).length && !(t && ((t.ins.more || {}).dzOff || {})[g.date]); }
   function dzOffNote(t, days, want, got) { var m = t.ins.more = t.ins.more || {}, o = m.dzOff = m.dzOff || {};
     days.forEach(function (iso) { var g = (got || []).filter(function (x) { return x.date === iso; })[0]; if (!g) return; if (!g.slots.length && want[iso] && !want[iso].length) o[iso] = 1; else if (g.slots.length) delete o[iso]; }); }
   function dzAmbDays(t, D, days) { var ed = dzEd(t); return days.filter(function (iso) { return !ed[iso] && dzAmb((D.days || []).filter(function (x) { return x.date === iso; })[0], t); }); }
@@ -2254,7 +2256,7 @@
     tenupQuery("dispos", { t: t.tuid, from: t.from, to: t.to || t.from }).then(function (r) {
       UI.dzBusy = false; if (!r || r.error) { UI.dzErr = r && r.error || "Ten'Up n'a pas répondu"; UI.dzErrAt = Date.now(); render(); return; } UI.dzErrAt = 0;
       dzLog("lecture", { t: t.tuid, du: t.from, au: t.to, gen: r.gen, pgen: r.pgen, days: r.days, raw: r.raw, praw: r.praw });
-      m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; save(); render(); // 4.11.1 : pgen (ton profil) était perdu ici, donc l'écart avec le tournoi ne se voyait jamais
+      m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, src: r.src, at: Date.now() }; save(); render(); // 4.11.1 : pgen (ton profil) était perdu ici, donc l'écart avec le tournoi ne se voyait jamais
     });
   }
   V.dispos = function (id) {
@@ -2309,14 +2311,14 @@
     var body = T.dzBody(D.gen, ex, D.map, uuid); UI.dzSaving = true; render(); dzLog("envoi", { t: t.tuid, ed: JSON.parse(JSON.stringify(ed)), body: body });
     tenupQuery("dispoSave", { t: t.tuid, body: body, from: t.from, to: t.to || t.from }).then(function (r) {
       UI.dzSaving = false; dzLog("relu", { t: t.tuid, err: r && r.error || null, days: r && r.days, raw: r && r.raw });
-      if (!r || r.error) { toast("Ten'Up a refusé : " + (r && r.error || "pas de réponse") + ". Rien n'a changé dans Montée."); render(); return; }
+      if (!r || r.error) { toast(dzRefus(r) + " Rien n'a changé dans Montée."); render(); return; }
       var bad = days.filter(function (iso) { var g = (r.days || []).filter(function (x) { return x.date === iso; })[0]; return !T.dzSame(g ? g.slots : [], want[iso]); });
-      dzOffNote(t, days, want, r.days); D.days = r.days; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
+      dzOffNote(t, days, want, r.days); D.days = r.days; D.src = r.src; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
       toast(bad.length ? "Ten'Up n'a pas pris tes horaires du " + bad.map(dzDayName).join(", du ") + " : règle ce jour directement sur Ten'Up." : "Tes dispos sont enregistrées sur Ten'Up.", !bad.length);
     });
   }
   // ---- 4.10 (maquettes validées par Yann, 25/11) : créneaux habituels du profil, « Et tes tournois ? », ajouter une indispo ----
-  // Un seul calcul : T.slotsMerge (fusion), T.slotsMinus (indispo), T.profBody / T.weekGen (envois), T.dzBody (tournois). Jours ISO, 1 = lundi.
+  // Un seul calcul : T.slotsMerge (fusion), T.slotsMinus (indispo), T.profPlan / T.weekGen (envois), T.dzBody (tournois). Jours ISO, 1 = lundi.
   var HB_A = 8, HB_B = 23; // la frise va de 8 h à 23 h
   function hbMin(h) { var m = String(h).split(":"); return (+m[0]) * 60 + (+m[1] || 0); }
   function hbHM(n) { n = Math.max(0, Math.min(24 * 60, Math.round(n))); return ("0" + Math.floor(n / 60)).slice(-2) + ":" + ("0" + (n % 60)).slice(-2); }
@@ -2386,14 +2388,14 @@
     return tenupQuery("dispos", { t: t.tuid, from: from, to: to }).then(function (r) {
       dzLog("lecture-maj", { t: t.tuid, err: r && r.error || null, gen: r && r.gen, pgen: r && r.pgen, newGen: gen, days: r && r.days, raw: r && r.raw, praw: r && r.praw });
       if (!r || r.error) return false; var ex = {}, want = {};
-      var amb = (r.days || []).filter(function (g) { return dzAmb(g, t); }).map(function (g) { return g.date; }); if (amb.length) { m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, at: Date.now() }; return { amb: amb }; } // 4.11.2 : un jour pas clair, on n'envoie rien
+      var amb = (r.days || []).filter(function (g) { return dzAmb(g, t, r.src); }).map(function (g) { return g.date; }); if (amb.length) { m.dz = { gen: r.gen, pgen: r.pgen, days: r.days, map: r.map, src: r.src, at: Date.now() }; return { amb: amb }; } // 4.11.2 : un jour pas clair, on n'envoie rien
       (r.days || []).forEach(function (g) { var sl = g.slots.map(function (z) { return { from: z.from, to: z.to }; }); if (!T.dzSame(sl, T.dzGenSlots(r.gen, g.date, "iso"))) ex[g.date] = sl; });
       var days = [], d0 = E.parseDate(from), d1 = E.parseDate(to); for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
       days.forEach(function (iso) { want[iso] = ex[iso] || T.dzGenSlots(gen, iso, "iso"); });
       var hbBody = T.dzBody(gen, ex, "iso", hbUuid); dzLog("envoi-maj", { t: t.tuid, body: hbBody });
       return tenupQuery("dispoSave", { t: t.tuid, body: hbBody, from: from, to: to }).then(function (s) {
         dzLog("relu-maj", { t: t.tuid, err: s && s.error || null, days: s && s.days, raw: s && s.raw });
-        if (!s || s.error) return false; dzOffNote(t, days, want, s.days); m.dz = { gen: gen, pgen: gen, days: s.days, map: "iso", at: Date.now() };
+        if (!s || s.error) return false; dzOffNote(t, days, want, s.days); m.dz = { gen: gen, pgen: gen, days: s.days, map: "iso", src: s.src, at: Date.now() };
         return days.every(function (iso) { var g = (s.days || []).filter(function (x) { return x.date === iso; })[0]; return T.dzSame(g ? g.slots : [], want[iso]); });
       });
     });
@@ -21389,8 +21391,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       [d.wd].concat(Object.keys(d.also).filter(function (k) { return d.also[k]; }).map(Number)).forEach(function (k) { H.week[k] = d.play ? T.slotsMerge(d.slots).slots.map(function (x) { return { from: x.from, to: x.to }; }) : []; });
       UI.hbd = null; UI.sheet = { k: "hb" }; render(); },
     hbSave: function () { var H = UI.hb; if (!H || !H.week || H.saving) return; var want = JSON.parse(JSON.stringify(H.week)), before = JSON.parse(JSON.stringify(H.prof.week)); H.saving = true; render();
-      tenupQuery("profDispoSave", { idCrm: H.prof.idCrm, body: T.profBody(H.prof, H.week) }).then(function (r) { H.saving = false;
-        if (!r || r.error) { toast("Ten'Up a refusé : " + (r && r.error || "pas de réponse") + ". Rien n'a changé."); render(); return; }
+      tenupQuery("profDispoSave", { idCrm: H.prof.idCrm, plan: T.profPlan(H.prof, H.week, E.iso(today())) }).then(function (r) { H.saving = false;
+        if (!r || r.error) { toast(dzRefus(r) + " Rien n'a changé."); render(); return; }
         var ok = T.weekSame(r.week, want); H.prof = r; H.week = JSON.parse(JSON.stringify(r.week));
         toast(ok ? "Tes créneaux habituels sont enregistrés sur Ten'Up." : "Ten'Up n'a pas tout pris : vérifie tes créneaux.", ok);
         // 4.11.1 : « Et tes tournois ? » dès que Ten'Up a changé quelque chose, même s'il n'a pas tout pris

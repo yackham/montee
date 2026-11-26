@@ -243,13 +243,25 @@
         : KIND === "favDel" ? jV("/api/back/v1/profil/favoris/" + encodeURIComponent(A.fid || ""), { method: "DELETE" }) : Promise.resolve();
       return preV.then(function () { return jV("/api/back/v1/profil/favoris"); }).then(function (j) { return ok({ list: favsMap(j), at: Date.now() }); }).catch(err);
     }
+    // 4.11.6 : on lit comme la page « Mes disponibilités » : GET v3 (sans le juge-arbitre), à défaut le flux RSC de la page
+    var dzPageGet = function (u, h, js) { return fetch(location.origin + u, { credentials: "include", headers: h }).then(function (r) {
+      if (r.status === 401 || r.status === 403) throw new Error("auth"); if (!r.ok) throw new Error("http " + r.status); return js ? r.json() : r.text(); }).then(function (t) { var pg = dzPageFrom(t); if (!pg) throw new Error("page"); return pg; }); };
+    var dzPageRead = function (num) { return dzPageGet("/api/back/v3/tournois/" + num + "/disponibilites?recupererJugeArbitre=false", { "Accept": "application/json" }, true)
+      .catch(function (e) { if (e && e.message === "auth") throw e; return dzPageGet("/user/mes-inscriptions/" + num + "/disponibilites", { "RSC": "1" }); }); };
     if (KIND === "dispos") {
       // 4.6.0 (relevés de Yann, 25/11/2026) : tes créneaux habituels (profil) et tes dispos jour par jour sur les dates du tournoi
       var numD = String(A.t || "").replace(/^\D+_?/, ""), jD = function (u) { return fetch(location.origin + u, { credentials: "include", headers: { "Accept": "application/json" } }).then(function (r) {
         if (r.status === 401 || r.status === 403) throw new Error("auth"); if (!r.ok) throw new Error("http " + r.status); return r.json(); }); };
+      // 4.11.6 (relevé sur le Ten'Up de Yann, 26/11) : la page Ten'Up lit tes créneaux et tes changements exacts (GET v3, voir dzPageRead) ;
+      // l'adresse « …/disponibilites?dateDebut » se trompe sur les jours modifiés (vide alors que la page affiche 16 h – 21 h). On lit donc comme la page.
       return jD("/api/back/v2/profil/disponibilites").then(function (pf) {
-        return jD("/api/back/v1/tournois/" + numD + "/disponibilites?dateDebut=" + A.from + "&dateFin=" + A.to).then(function (d) {
-          var pg = genMap(pf), days = dispoDays(d); return ok({ gen: tourGen(pg, days), pgen: pg, days: days, map: "iso", at: Date.now(), raw: dispoRaw(d), praw: dispoRaw(pf) }); });
+        var pgP = genMap(pf);
+        return dzPageRead(numD).then(function (pg) { var days = dzPageDays(pg, A.from, A.to);
+          return ok({ gen: pg.gen, pgen: pgP, days: days, map: "iso", src: "page", lim: pg.lim, at: Date.now(), raw: dispoRaw({ generales: pg.gen, particulieres: pg.par }), praw: dispoRaw(pf) });
+        }).catch(function () {
+          return jD("/api/back/v1/tournois/" + numD + "/disponibilites?dateDebut=" + A.from + "&dateFin=" + A.to).then(function (d) {
+            var days = dispoDays(d); return ok({ gen: tourGen(pgP, days), pgen: pgP, days: days, map: "iso", src: "api", at: Date.now(), raw: dispoRaw(d), praw: dispoRaw(pf) }); });
+        });
       }).catch(err);
     }
     if (KIND === "profDispo" || KIND === "profDispoSave") {
@@ -259,15 +271,25 @@
       var idP = function () { return A.idCrm ? Promise.resolve(A.idCrm) : jP("/api/back/v2/profil/disponibilites").then(function (pf) { var p = ((pf && (pf.personnes || pf.utilisateurs)) || [])[0] || {}; var id = p.idCrm || (p.personne && p.personne.idCrm); if (!id) throw new Error("profil introuvable"); return id; }); };
       var readP = function (id) { return jP("/api/back/v1/profil/disponibilites?idCrms=" + encodeURIComponent(id)).then(function (j) { var m = profMap(j); if (!m) throw new Error("profil vide"); return m; }); };
       if (KIND === "profDispo") return idP().then(readP).then(function (m) { m.at = Date.now(); return ok(m); }).catch(err);
-      return jP("/api/back/v1/profil/disponibilites", { method: "PUT", body: JSON.stringify(A.body) }).then(function () { return readP(A.idCrm); }).then(function (m) { m.at = Date.now(); return ok(m); }).catch(err);
+      // 4.11.6 : comme la page « Mon compte » : modifiés (PUT), ajoutés (POST), retirés (DELETE /{idDisponibilite}?idCrm=…, relevé 26/11 : il répond souvent 400 mais retire bien le créneau, d'où la relecture qui fait foi)
+      var PL = A.plan || {}, U = "/api/back/v1/profil/disponibilites", gone = PL.del || [];
+      var delOne = function (id) { return jP(U + "/" + encodeURIComponent(id) + "?idCrm=" + encodeURIComponent(A.idCrm), { method: "DELETE" }).catch(function () { return null; }); };
+      // ordre : retirer d'abord (deux créneaux réunis ne se chevauchent jamais), puis modifier, puis ajouter
+      return gone.reduce(function (p, id) { return p.then(function () { return delOne(id); }); }, Promise.resolve())
+        .then(function () { return PL.put ? jP(U, { method: "PUT", body: JSON.stringify(PL.put) }) : null; })
+        .then(function () { return PL.post ? jP(U, { method: "POST", body: JSON.stringify(PL.post) }) : null; })
+        .then(function () { return readP(A.idCrm); }).then(function (m) { m.at = Date.now(); return ok(m); }).catch(err);
     }
     if (KIND === "dispoSave") {
       // 4.6.0 : le même envoi que la page Ten'Up (PUT, relevé le 25/11/2026), puis relecture des mêmes dates pour vérifier
       var numS = String(A.t || "").replace(/^\D+_?/, "");
       return fetch(location.origin + "/api/back/v1/tournois/" + numS + "/disponibilites", { method: "PUT", credentials: "include", headers: { "Accept": "application/json", "Content-Type": "application/json" }, body: JSON.stringify(A.body) }).then(function (r) {
         if (r.status === 401 || r.status === 403) throw new Error("auth"); if (!r.ok) return r.text().then(function (t) { throw new Error("http " + r.status + " " + t.slice(0, 160)); });
-        return fetch(location.origin + "/api/back/v1/tournois/" + numS + "/disponibilites?dateDebut=" + A.from + "&dateFin=" + A.to, { credentials: "include", headers: { "Accept": "application/json" } }).then(function (x) { return x.json(); });
-      }).then(function (d) { return ok({ days: dispoDays(d), at: Date.now(), raw: dispoRaw(d) }); }).catch(err);
+        // 4.11.6 : relu comme la page Ten'Up (voir « dispos »)
+        return dzPageRead(numS).then(function (pg) { return ok({ days: dzPageDays(pg, A.from, A.to), src: "page", at: Date.now(), raw: dispoRaw({ generales: pg.gen, particulieres: pg.par }) }); }, function () {
+          return fetch(location.origin + "/api/back/v1/tournois/" + numS + "/disponibilites?dateDebut=" + A.from + "&dateFin=" + A.to, { credentials: "include", headers: { "Accept": "application/json" } }).then(function (x) { return x.json(); })
+            .then(function (d) { return ok({ days: dispoDays(d), src: "api", at: Date.now(), raw: dispoRaw(d) }); }); });
+      }).catch(err);
     }
     if (KIND === "fiche") {
       // 4.6.0 : fiche publique d'un tournoi (relevée le 25/11/2026) : contact du juge-arbitre (mailJa, telephoneJa), clôture,
@@ -1166,9 +1188,22 @@
     var out = []; (slots || []).forEach(function (x) { if (b <= x.from || a >= x.to) { out.push({ from: x.from, to: x.to }); return; } if (a > x.from) out.push({ from: x.from, to: a }); if (b < x.to) out.push({ from: b, to: x.to }); });
     return out;
   }
-  function profBody(prof, week) { // 4.10.1 : comme la page Ten'Up (relevé du 25/11) : seulement les jours où tu joues ; un jour absent = pas dispo
-    var dis = []; for (var wd = 1; wd <= 7; wd++) if ((week[wd] || []).length) dis.push({ jour: wd, horaires: slotsMerge(week[wd] || []).slots.map(function (x) { var o = { heureDebut: "1970-01-01T" + x.from + ":00", heureFin: "1970-01-01T" + x.to + ":00" }; if (x.id != null) o.idDisponibilite = x.id; return o; }) });
-    return { utilisateurs: [{ idCrm: prof.idCrm, codeClub: prof.codeClub == null ? null : prof.codeClub, disponibilites: dis }] };
+
+  // 4.11.6 (relevé sur la page « Mon compte » de Yann, 26/11) : la page Ten'Up ne renvoie jamais toute la semaine.
+  // Un créneau ajouté part en POST (sans idDisponibilite), un créneau modifié en PUT (avec son idDisponibilite), un créneau retiré en DELETE /{id}.
+  // Un PUT avec un créneau sans id est refusé (400) : c'est ce qui faisait échouer « jeudi à partir de 20 h ». Les heures : date du jour + "THH:MM:00.000Z", comme la page.
+  function profPlan(prof, week, day) {
+    var t = function (x) { return day + "T" + x + ":00.000Z"; }, put = [], post = [], del = [];
+    for (var wd = 1; wd <= 7; wd++) {
+      var was = (prof.week[wd] || []).filter(function (x) { return x.id != null; }), now = slotsMerge(week[wd] || []).slots, free = was.slice(), p1 = [], p2 = [];
+      // un créneau gardé tel quel ne part pas ; sinon on réutilise les id du jour, dans l'ordre (modifier plutôt que supprimer puis ajouter)
+      var rest = now.filter(function (x) { var i = -1; free.forEach(function (w, k) { if (i < 0 && w.from === x.from && w.to === x.to) i = k; }); if (i >= 0) { free.splice(i, 1); return false; } return true; });
+      rest.forEach(function (x) { var w = free.shift(); if (w) p1.push({ idDisponibilite: w.id, heureDebut: t(x.from), heureFin: t(x.to) }); else p2.push({ heureDebut: t(x.from), heureFin: t(x.to) }); });
+      free.forEach(function (w) { del.push(w.id); });
+      if (p1.length) put.push({ jour: wd, horaires: p1 }); if (p2.length) post.push({ jour: wd, horaires: p2 });
+    }
+    var u = function (d) { return d.length ? { utilisateurs: [{ idCrm: prof.idCrm, codeClub: prof.codeClub == null ? null : prof.codeClub, disponibilites: d }] } : null; };
+    return { put: u(put), post: u(post), del: del };
   }
   function weekGen(week) { // la semaine du profil → les « generales » d'un tournoi
     var out = []; for (var wd = 1; wd <= 7; wd++) (week[wd] || []).forEach(function (x) { var k = x.from + "-" + x.to, g = out.filter(function (o) { return o.k === k; })[0]; if (g) g.jours.push(wd); else out.push({ k: k, jours: [wd], hd: x.from + ":00", hf: x.to + ":00" }); });
@@ -1193,18 +1228,44 @@
   // 4.11.3 (relevé de Yann, 25/11 21 h 57) : Ten'Up fait « habituel + dispos en plus − indispos », et l'indispo l'emporte quand les deux se chevauchent.
   // Mercredi habituel 20 h – 22 h, voulu 19 h 45 – 22 h : l'ancien envoi (indispo 20 – 22 + dispo 19 h 45 – 22) a donné 19 h 45 – 20 h.
   // On n'envoie donc que la différence : les morceaux d'habituel retirés (indispo) et les morceaux ajoutés hors habituel (dispo), jamais de chevauchement.
+  // 4.11.6 (PUT de la page Ten'Up relevé sur le compte de Yann, 26/11) : pour changer un jour, la page met « pas dispo » sur ses créneaux habituels
+  // (avec generaleId) puis ajoute les créneaux voulus (dispo, sans generaleId). Un jour « comme d'habitude » n'envoie rien. On fait exactement pareil.
   function dzBody(gen, ex, map, uuid) { // ex : {date: [{from, to}] créneaux où tu es dispo ce jour-là ([] = pas dispo)} → le contenu envoyé par la page Ten'Up
     var ids = gen.map(function () { return uuid(); }), par = [];
     Object.keys(ex).sort().forEach(function (iso) {
-      var on = slotsMerge(ex[iso] || []).slots, d = new Date(iso + "T12:00:00"), wd = DZ_MAPS[map](d), gi = -1, gs = [];
-      gen.forEach(function (g, i) { if (g.jours.indexOf(wd) < 0) return; if (gi < 0) gi = i; gs.push({ from: g.hd.slice(0, 5), to: g.hf.slice(0, 5), i: i }); });
-      gs.forEach(function (g) { var rest = [{ from: g.from, to: g.to }]; on.forEach(function (x) { rest = slotsMinus(rest, x.from, x.to); });
-        rest.forEach(function (r) { par.push({ disponible: false, dateDebut: iso + "T" + r.from + ":00", dateFin: iso + "T" + r.to + ":00", generaleId: ids[g.i] }); }); });
-      on.forEach(function (x) { var add = [{ from: x.from, to: x.to }]; gs.forEach(function (g) { add = slotsMinus(add, g.from, g.to); });
-        add.forEach(function (a) { par.push({ disponible: true, dateDebut: iso + "T" + a.from + ":00", dateFin: iso + "T" + a.to + ":00", generaleId: ids[gi >= 0 ? gi : 0] || uuid() }); }); });
+      var on = slotsMerge(ex[iso] || []).slots, wd = DZ_MAPS[map](new Date(iso + "T12:00:00")), gs = [];
+      gen.forEach(function (g, i) { if (g.jours.indexOf(wd) >= 0) gs.push({ from: g.hd.slice(0, 5), to: g.hf.slice(0, 5), i: i }); });
+      if (dzSame(on, slotsMerge(gs).slots)) return;
+      gs.forEach(function (g) { par.push({ disponible: false, dateDebut: iso + "T" + g.from + ":00", dateFin: iso + "T" + g.to + ":00", generaleId: ids[g.i] }); });
+      on.forEach(function (x) { par.push({ disponible: true, dateDebut: iso + "T" + x.from + ":00", dateFin: iso + "T" + x.to + ":00" }); });
     });
     return { generales: gen.map(function (g) { return { jours: g.jours, heureDebut: g.hd, heureFin: g.hf }; }), particulieres: par };
   }
+  // 4.11.6 : ce que lit la page Ten'Up dans son flux : {generales, particulieres, dateModification, isModifiable, jugeArbitre}. On ne garde que les créneaux.
+  function dzPageFrom(t) {
+    var o = t && typeof t === "object" ? t : null; // 4.11.6 : la réponse JSON de la page (v3), ou à défaut son flux RSC
+    if (!o) { t = String(t || ""); var i = t.indexOf('{"generales":');
+    if (i < 0) { t = t.replace(/\\"/g, '"'); i = t.indexOf('{"generales":'); } if (i < 0) return null;
+    var dep = 0, inS = false, esc = false, j = i;
+    for (; j < t.length; j++) { var c = t[j]; if (inS) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inS = false; continue; }
+      if (c === '"') inS = true; else if (c === "{") dep++; else if (c === "}") { dep--; if (!dep) break; } }
+    try { o = JSON.parse(t.slice(i, j + 1)); } catch (e) { return null; } }
+    if (!o || !Array.isArray(o.generales) || !Array.isArray(o.particulieres)) return null;
+    var hm = function (x) { return String(x || "").slice(11, 16); };
+    return { gen: genMap({ personnes: [{ disponibilites: { generales: o.generales } }] }), lim: o.dateModification ? String(o.dateModification).slice(0, 10) : null, mod: o.isModifiable !== false,
+      par: o.particulieres.map(function (p) { return { on: !!p.disponible, date: String(p.dateDebut || "").slice(0, 10), from: hm(p.dateDebut), to: hm(p.dateFin) }; }).filter(function (p) { return p.date && p.from && p.to; }) };
+  }
+  // Les jours du tournoi, comme la page Ten'Up les affiche : habituel du jour, puis chaque changement dans l'ordre (pas dispo : on retire ; dispo : on ajoute)
+  function dzPageDays(pg, from, to) {
+    var out = [], d = new Date(from + "T12:00:00"), e = new Date((to || from) + "T12:00:00");
+    for (var n = 0; d <= e && n < 62; n++, d = new Date(d.getTime() + 864e5)) {
+      var iso = d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2), sl = dzGenSlots(pg.gen, iso, "iso"), ps = pg.par.filter(function (p) { return p.date === iso; });
+      ps.forEach(function (p) { sl = p.on ? sl.concat([{ from: p.from, to: p.to }]) : slotsMinus(sl, p.from, p.to); });
+      out.push({ date: iso, slots: slotsMerge(sl).slots.map(function (x) { return { from: x.from, to: x.to, ex: ps.length > 0 }; }) });
+    }
+    return out;
+  }
+
 
   // 4.11.2 (diagnostic temporaire demandé par Yann, samedi 13) : la réponse Ten'Up telle quelle, sans AUCUNE valeur perso.
   // On garde les clés, les booléens, et seulement sous une clé de date, d'heure, de type ou de statut : dates, heures, petits codes ; un nombre devient « # », un autre texte « … ».
@@ -1260,7 +1321,7 @@
   var VERSION = "2.4";
   // Version pour l'app iPhone : corps d'une fonction async (WKWebView callAsyncJavaScript)
   // Le script embarque la recherche v2, utilisée en repli par tenupFetch
-  function src(fn) { return "var simOf = " + simOf.toString() + ";\nvar jaNameFrom = " + jaNameFrom.toString() + ";\nvar ageTxt = " + ageTxt.toString() + ";\nvar cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar epMerge = " + epMerge.toString() + ";\nvar favsMap = " + favsMap.toString() + ";\nvar SURF = " + JSON.stringify(SURF) + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar genMap = " + genMap.toString() + ";\nvar DZ_MAPS = { iso: function (d) { return (d.getDay() + 6) % 7 + 1; }, sun0: function (d) { return d.getDay(); }, sun1: function (d) { return d.getDay() + 1; } };\nvar dzGenSlots = " + dzGenSlots.toString() + ";\nvar dzSame = " + dzSame.toString() + ";\nvar dzMapping = " + dzMapping.toString() + ";\nvar profMap = " + profMap.toString() + ";\nvar slotsMerge = " + slotsMerge.toString() + ";\nvar tourGen = " + tourGen.toString() + ";\nvar dispoDays = " + dispoDays.toString() + ";\nvar dispoRaw = " + dispoRaw.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
+  function src(fn) { return "var simOf = " + simOf.toString() + ";\nvar jaNameFrom = " + jaNameFrom.toString() + ";\nvar ageTxt = " + ageTxt.toString() + ";\nvar cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar epMerge = " + epMerge.toString() + ";\nvar favsMap = " + favsMap.toString() + ";\nvar SURF = " + JSON.stringify(SURF) + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar genMap = " + genMap.toString() + ";\nvar DZ_MAPS = { iso: function (d) { return (d.getDay() + 6) % 7 + 1; }, sun0: function (d) { return d.getDay(); }, sun1: function (d) { return d.getDay() + 1; } };\nvar dzGenSlots = " + dzGenSlots.toString() + ";\nvar dzSame = " + dzSame.toString() + ";\nvar dzMapping = " + dzMapping.toString() + ";\nvar profMap = " + profMap.toString() + ";\nvar slotsMerge = " + slotsMerge.toString() + ";\nvar tourGen = " + tourGen.toString() + ";\nvar dispoDays = " + dispoDays.toString() + ";\nvar dzPageFrom = " + dzPageFrom.toString() + ";\nvar dzPageDays = " + dzPageDays.toString() + ";\nvar slotsMinus = " + slotsMinus.toString() + ";\nvar dispoRaw = " + dispoRaw.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
   // 3.47 : page de maintenance / file d'attente Ten'Up : on le dit au lieu de « Ten'Up n'a pas répondu »
   var MAINT = "var __mt = (document.title || \"\") + \" \" + Array.prototype.map.call(document.querySelectorAll(\"h1,h2\"), function (e) { return e.innerText; }).slice(0, 3).join(\" \");\n" +
     "if (/maintenance|mise à jour du site|file d'attente|queue-it|service (momentanément )?indisponible/i.test(__mt) || /maintenance/i.test(location.pathname)) return \"MONTEE-ERR maintenance\";\n";
@@ -1485,7 +1546,7 @@
   // 3.74.1 : départements indiqués dans le nom d'un championnat (« … - 25/90 », « CD57-… », « … (90) ») ; null si aucun
   function champDeps(n) { n = String(n || ""); var m = n.match(/-\s*(\d{2}[AB]?(?:\s*\/\s*\d{2}[AB]?)*)\s*$/) || n.match(/^CD\s*(\d{2})\b/i) || n.match(/\((\d{2})\)\s*$/); return m ? m[1].split(/\s*\/\s*/) : null; }
   function doublesCount(payload) { return payload.raw ? fromRaw(payload.raw).filter(function (m) { return m.dbl; }).length : 0; }
-  var api = { slotsMinus: slotsMinus, profMap: profMap, slotsMerge: slotsMerge, profBody: profBody, weekGen: weekGen, weekSame: weekSame, tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, epMerge: epMerge, favsMap: favsMap, nameSex: nameSex, nameRange: nameRange, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, dispoRaw: dispoRaw, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
+  var api = { profPlan: profPlan, slotsMinus: slotsMinus, profMap: profMap, slotsMerge: slotsMerge, weekGen: weekGen, weekSame: weekSame, tourGen: tourGen, jaNameFrom: jaNameFrom, ageTxt: ageTxt, youthOnly: youthOnly, seniorsPlus: seniorsPlus, cardsFrom: cardsFrom, cardMap: cardMap, ficheMap: ficheMap, epMerge: epMerge, favsMap: favsMap, nameSex: nameSex, nameRange: nameRange, lieuMap: lieuMap, tuInfos: tuInfos, dispoLimFrom: dispoLimFrom, dispoDays: dispoDays, dzPageFrom: dzPageFrom, dzPageDays: dzPageDays, dispoRaw: dispoRaw, genMap: genMap, dzMapping: dzMapping, dzGenSlots: dzGenSlots, dzBody: dzBody, dzSame: dzSame, tsMap: tsMap, inscritsMap: inscritsMap, champDeps: champDeps, ficheOf: ficheOf, queryScript: queryScript, nativeScriptBg: nativeScriptBg, tenupQuery: tenupQuery, v2Search: v2Search, fromRaw: fromRaw, kindOf: kindOf, orientSets: orientSets, nativeScript: nativeScript, VERSION: VERSION, doublesCount: doublesCount, doublesRows: doublesRows, isDouble: isDouble, script: script, bookmarklet: bookmarklet, decode: decode, rows: rows, official: official, normRank: normRank };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteeTenup = api;
 })(this);

@@ -119,8 +119,8 @@ test("indispos 4.6.0 : créneaux habituels, numérotation des jours, contenu env
   assert.deepStrictEqual(b.generales[0], { jours: [1, 2, 3, 4, 5], heureDebut: "18:30:00", heureFin: "22:00:00" });
   assert.deepStrictEqual(b.particulieres, [
     { disponible: false, dateDebut: "2027-02-10T18:30:00", dateFin: "2027-02-10T22:00:00", generaleId: "id0" },
-    { disponible: false, dateDebut: "2027-02-13T09:00:00", dateFin: "2027-02-13T14:00:00", generaleId: "id1" },
-    { disponible: false, dateDebut: "2027-02-13T18:00:00", dateFin: "2027-02-13T20:00:00", generaleId: "id1" }]); // 4.11.3 : seulement ce qui est retiré
+    { disponible: false, dateDebut: "2027-02-13T09:00:00", dateFin: "2027-02-13T20:00:00", generaleId: "id1" },
+    { disponible: true, dateDebut: "2027-02-13T14:00:00", dateFin: "2027-02-13T18:00:00" }]); // 4.11.6 : format de la page Ten'Up (habituel retiré, puis le voulu sans generaleId)
   assert.ok(/dzMapping/.test(T.queryScript("dispos", { t: "MOJA_1", from: "2027-02-08", to: "2027-02-14" })));
   assert.ok(/PUT/.test(T.queryScript("dispoSave", { t: "MOJA_1", body: {} })));
 });
@@ -175,12 +175,31 @@ test("4.10 : créneaux habituels du profil (lecture, fusion, envoi des 7 jours)"
   assert.deepEqual(T.slotsMerge([{ from: "14:00", to: "22:00" }, { from: "10:00", to: "14:00" }]).slots.map((x) => [x.from, x.to]), [["10:00", "22:00"]]);
   assert.equal(T.slotsMerge([{ from: "14:00", to: "16:00" }, { from: "20:00", to: "22:00" }]).merged.length, 0);
   const w = Object.assign({}, p.week, { 6: [{ from: "14:00", to: "16:00" }, { from: "20:00", to: "22:00" }] });
-  const b = T.profBody(p, w).utilisateurs[0];
-  assert.equal(b.idCrm, 1); assert.equal(b.codeClub, null); assert.deepEqual(b.disponibilites.map((d) => d.jour), [1, 6]);
-  assert.deepEqual(b.disponibilites[0].horaires, [{ heureDebut: "1970-01-01T18:00:00", heureFin: "1970-01-01T22:00:00", idDisponibilite: 9 }]);
-  assert.deepEqual(b.disponibilites[1].horaires.map((h) => h.heureDebut.slice(11, 16)), ["14:00", "20:00"]);
+  // 4.11.6 : comme la page Ten'Up : le samedi 14 h – 22 h (id 8) devient 14 h – 16 h (même id, PUT) + 20 h – 22 h (nouveau, POST) ; lundi inchangé : rien
+  const pl = T.profPlan(p, w, "2026-11-26");
+  assert.deepEqual(pl.put.utilisateurs[0].disponibilites, [{ jour: 6, horaires: [{ idDisponibilite: 8, heureDebut: "2026-11-26T14:00:00.000Z", heureFin: "2026-11-26T16:00:00.000Z" }] }]);
+  assert.deepEqual(pl.post.utilisateurs[0].disponibilites, [{ jour: 6, horaires: [{ heureDebut: "2026-11-26T20:00:00.000Z", heureFin: "2026-11-26T22:00:00.000Z" }] }]);
+  assert.equal(pl.put.utilisateurs[0].idCrm, 1); assert.equal(pl.put.utilisateurs[0].codeClub, null); assert.deepEqual(pl.del, []);
   assert.deepEqual(T.weekGen(w), [{ jours: [1], hd: "18:00:00", hf: "22:00:00" }, { jours: [6], hd: "14:00:00", hf: "16:00:00" }, { jours: [6], hd: "20:00:00", hf: "22:00:00" }]);
   assert.ok(T.weekSame(p.week, p.week)); assert.ok(!T.weekSame(p.week, w));
+});
+
+test("4.11.6 : créneaux habituels, tous les cas d'envoi (relevé de la page « Mon compte », 26/11)", () => {
+  const p = { idCrm: 1, codeClub: null, week: { 1: [{ from: "18:00", to: "22:00", id: 11 }], 2: [], 3: [{ from: "20:00", to: "22:00", id: 13 }], 4: [{ from: "18:00", to: "22:00", id: 14 }], 5: [], 6: [{ from: "10:00", to: "12:00", id: 16 }, { from: "14:00", to: "22:00", id: 17 }], 7: [] } };
+  const d = (b) => b ? b.utilisateurs[0].disponibilites.map((x) => x.jour + ":" + x.horaires.map((h) => (h.idDisponibilite || "+") + "@" + h.heureDebut.slice(11, 16) + "-" + h.heureFin.slice(11, 16)).join(",")).join(" ") : "";
+  const go = (ch) => { const pl = T.profPlan(p, Object.assign({}, p.week, ch), "2026-11-26"); return [d(pl.put), d(pl.post), pl.del.join(",")]; };
+  assert.deepEqual(go({}), ["", "", ""]); // rien changé : rien envoyé
+  assert.deepEqual(go({ 4: [{ from: "20:00", to: "22:00" }] }), ["4:14@20:00-22:00", "", ""]); // jeudi à partir de 20 h (le cas de Yann) : modifié, avec son id
+  assert.deepEqual(go({ 2: [{ from: "18:00", to: "22:00" }] }), ["", "2:+@18:00-22:00", ""]); // mardi ajouté
+  assert.deepEqual(go({ 3: [] }), ["", "", "13"]); // mercredi : pas dispo
+  assert.deepEqual(go({ 6: [{ from: "14:00", to: "22:00" }] }), ["", "", "16"]); // samedi matin retiré, l'après-midi gardé tel quel
+  assert.deepEqual(go({ 6: [{ from: "09:00", to: "12:00" }, { from: "14:00", to: "22:00" }] }), ["6:16@09:00-12:00", "", ""]);
+  assert.deepEqual(go({ 6: [{ from: "09:00", to: "22:00" }] }), ["6:16@09:00-22:00", "", "17"]); // deux créneaux réunis en un
+  assert.deepEqual(go({ 1: [{ from: "08:00", to: "10:00" }, { from: "18:00", to: "22:00" }] }), ["", "1:+@08:00-10:00", ""]); // un créneau en plus le lundi
+  assert.deepEqual(go({ 1: [{ from: "18:00", to: "20:00" }, { from: "21:00", to: "22:00" }] }), ["1:11@18:00-20:00", "1:+@21:00-22:00", ""]);
+  // aucune donnée perso dans ce qui part, à part l'identifiant Ten'Up que la page envoie elle-même
+  const pl = T.profPlan(p, Object.assign({}, p.week, { 2: [{ from: "18:00", to: "22:00" }] }), "2026-11-26");
+  assert.deepEqual(Object.keys(pl.post.utilisateurs[0]), ["idCrm", "codeClub", "disponibilites"]);
 });
 
 test("4.10 : une indispo « juste un moment » retire ce moment des créneaux", () => {
@@ -212,14 +231,41 @@ test("4.11.2 : relevé caché des dispos, aucune valeur perso ne passe", () => {
   assert.ok(/dispoRaw/.test(T.queryScript("dispos", { t: "MOJA_1" })));
 });
 
-test("4.11.3 : on n'envoie que la différence avec l'habituel (relevé de Yann : 19 h 45 – 22 h devenu 19 h 45 – 20 h)", () => {
+test("4.11.6 : on écrit exactement comme la page Ten'Up (relevé du 26/11 sur le compte de Yann)", () => {
   const gen = [{ jours: [1, 2, 4, 5], hd: "18:30:00", hf: "22:00:00" }, { jours: [3], hd: "20:00:00", hf: "22:00:00" }, { jours: [6, 7], hd: "14:00:00", hf: "22:00:00" }];
-  const p = (b) => b.particulieres.map((x) => [x.disponible, x.dateDebut.slice(11, 16), x.dateFin.slice(11, 16)]);
-  assert.deepEqual(p(T.dzBody(gen, { "2027-02-10": [{ from: "19:45", to: "22:00" }] }, "iso", () => "u")), [[true, "19:45", "20:00"]]); // plus tôt : on ajoute juste 19 h 45 – 20 h
-  assert.deepEqual(p(T.dzBody(gen, { "2027-02-10": [{ from: "20:30", to: "22:00" }] }, "iso", () => "u")), [[false, "20:00", "20:30"]]); // plus tard : on retire juste 20 h – 20 h 30
-  assert.deepEqual(p(T.dzBody(gen, { "2027-02-13": [{ from: "10:00", to: "18:00" }] }, "iso", () => "u")), [[false, "18:00", "22:00"], [true, "10:00", "14:00"]]);
-  assert.deepEqual(p(T.dzBody(gen, { "2027-02-13": [] }, "iso", () => "u")), [[false, "14:00", "22:00"]]);
+  const p = (b) => b.particulieres.map((x) => [x.disponible, x.dateDebut.slice(11, 16), x.dateFin.slice(11, 16), "generaleId" in x]);
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-10": [{ from: "19:45", to: "22:00" }] }, "iso", () => "u")), [[false, "20:00", "22:00", true], [true, "19:45", "22:00", false]]); // plus tôt
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-10": [{ from: "20:30", to: "22:00" }] }, "iso", () => "u")), [[false, "20:00", "22:00", true], [true, "20:30", "22:00", false]]); // plus tard
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-13": [{ from: "16:00", to: "21:00" }] }, "iso", () => "u")), [[false, "14:00", "22:00", true], [true, "16:00", "21:00", false]]); // le samedi 13 de Yann
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-13": [{ from: "10:00", to: "12:00" }, { from: "15:00", to: "18:00" }] }, "iso", () => "u")), [[false, "14:00", "22:00", true], [true, "10:00", "12:00", false], [true, "15:00", "18:00", false]]); // deux morceaux
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-13": [] }, "iso", () => "u")), [[false, "14:00", "22:00", true]]); // pas dispo
   assert.deepEqual(p(T.dzBody(gen, { "2027-02-13": [{ from: "14:00", to: "22:00" }] }, "iso", () => "u")), []); // comme d'habitude : rien
+  assert.deepEqual(p(T.dzBody(gen, { "2027-02-13": [{ from: "14:00", to: "18:00" }, { from: "18:00", to: "22:00" }] }, "iso", () => "u")), []); // morceaux qui se touchent = habituel
+  const b = T.dzBody(gen, { "2027-02-13": [] }, "iso", () => "u");
+  assert.deepEqual(b.generales.map((g) => g.jours), [[1, 2, 4, 5], [3], [6, 7]]); // les habituels du tournoi repartent tels quels
+});
+
+test("4.11.6 : lecture de la page Ten'Up (flux RSC), le juge-arbitre ne passe jamais", () => {
+  const o = { generales: [{ jours: [6, 7], heureDebut: "14:00:00", heureFin: "22:00:00" }, { jours: [1, 2, 4, 5], heureDebut: "18:30:00", heureFin: "22:00:00" }, { jours: [3], heureDebut: "20:00:00", heureFin: "22:00:00" }],
+    particulieres: [{ disponible: false, dateDebut: "2027-02-13T14:00:00", dateFin: "2027-02-13T22:00:00" }, { disponible: true, dateDebut: "2027-02-13T16:00:00", dateFin: "2027-02-13T21:00:00" }, { disponible: false, dateDebut: "2027-02-20T14:00:00", dateFin: "2027-02-20T22:00:00" }],
+    dateModification: "2027-02-03", isModifiable: true, jugeArbitre: { nom: "EXEMPLE", email: "ja@exemple.invalid", tel: "0600000000" } };
+  const j = JSON.stringify(o);
+  for (const rsc of ['1:["$","div",null,{}]\n2:{"state":{"data":' + j + '}}\n', '3:"' + j.replace(/"/g, '\\"') + '"']) {
+    const pg = T.dzPageFrom(rsc);
+    assert.ok(pg, "page lue");
+    assert.ok(!/exemple\.invalid|0600000000|EXEMPLE/.test(JSON.stringify(pg)), "rien du juge-arbitre");
+    assert.equal(pg.lim, "2027-02-03"); assert.equal(pg.mod, true);
+    const d = T.dzPageDays(pg, "2027-02-12", "2027-02-21");
+    const at = (x) => d.find((y) => y.date === x).slots;
+    assert.deepEqual(at("2027-02-12"), [{ from: "18:30", to: "22:00", ex: false }]); // vendredi habituel
+    assert.deepEqual(at("2027-02-13"), [{ from: "16:00", to: "21:00", ex: true }]); // samedi 13 changé
+    assert.deepEqual(at("2027-02-14"), [{ from: "14:00", to: "22:00", ex: false }]);
+    assert.deepEqual(at("2027-02-17"), [{ from: "20:00", to: "22:00", ex: false }]); // mercredi
+    assert.deepEqual(at("2027-02-20"), []); // pas dispo, vraiment vide
+  }
+  assert.equal(T.dzPageFrom("<html>rien</html>"), null);
+  const v3 = Object.assign({}, o); delete v3.jugeArbitre; // la réponse JSON v3 (recupererJugeArbitre=false)
+  assert.deepEqual(T.dzPageDays(T.dzPageFrom(v3), "2027-02-13", "2027-02-13"), [{ date: "2027-02-13", slots: [{ from: "16:00", to: "21:00", ex: true }] }]);
 });
 
 test("4.11.3 : deux morceaux qui se touchent n'en font qu'un à la lecture", () => {
