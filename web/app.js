@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.11.5",
+    VERSION: "4.11.7",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -3155,7 +3155,10 @@
   function tmOf(c, id) { return (c.teams || []).filter(function (t) { return t.id === id; })[0]; }
   // 4.11.4 (Davy) : une rencontre est jouée si sa feuille de match est terminée OU si elle est gagnée par forfait (Ten'Up : pas de feuille,
   // statut vide, score 4–0 donné au vainqueur, mais comptée dans le classement). Un seul test pour tous les écrans.
-  function tmDone(r) { return r.st === "T" || !!r.f; }
+  // 4.11.7 (Davy, équipe 1 dames : rencontres jouées restées vides) : Ten'Up ne passe la feuille en « T » qu'une fois validée ; avant, le
+  // score saisi est déjà là. Une rencontre passée avec un score saisi est jouée (score provisoire tant que la feuille n'est pas validée).
+  function tmSaisie(r) { return r.st !== "T" && !r.f && !!r.d && String(r.d).slice(0, 10) < E.iso(today()) && r.s1 != null && r.s2 != null && (r.s1 + r.s2 > 0 || !!r.w); }
+  function tmDone(r) { return r.st === "T" || !!r.f || tmSaisie(r); }
   function tmLive(r) { return r.d === E.iso(today()) && !tmDone(r); }
   function tmNext(c) { var me = c.me.mine, td = E.iso(today()); return (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.d >= td && !tmDone(r); }).sort(function (a, b) { return a.d < b.d ? -1 : 1; })[0] || null; }
   // 3.51.1 : « En cours » : l'équipe qui joue aujourd'hui d'abord, puis la prochaine rencontre la plus proche
@@ -3638,9 +3641,9 @@
     var tm = function (r) {
       var sc1 = tmScore(r) ? (tmLive(r) && (r.c1 || r.c2) ? r.c1 : r.s1) : null, sc2 = sc1 != null ? (tmLive(r) && (r.c1 || r.c2) ? r.c2 : r.s2) : null, lv = tmLive(r) && (r.c1 || r.c2), mine = r.a === me || r.b === me;
       var ln = function (id, nm, x, y) { var win = x != null && y != null && x > y; return '<span class="ln' + (id === me ? " me" : "") + (win ? " w" : "") + '"><span class="nm">' + esc(tmNm(nm)) + (r.dom === id ? '<small class="tm-dom-t"> · à domicile</small>' : "") + (r.f && r.f === id ? ' <span class="tm-ff">forfait</span>' : "") + '</span><b class="sc">' + (x != null ? x : "") + "</b></span>"; };
-      var moved = r.dt && r.d && r.dt !== r.d, lk = r.st === "T" || lv, tg = lk ? "a" : "div";
+      var moved = r.dt && r.d && r.dt !== r.d, lk = (tmDone(r) && !r.f) || lv, tg = lk ? "a" : "div";
       return "<" + tg + ' class="tm-m' + (mine ? " mine" : "") + (lv ? " lv" : "") + '"' + (lk ? ' href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"' : "") + ">" + ln(r.a, r.an, sc1, sc2) + ln(r.b, r.bn, sc2, sc1) +
-        (!r.f && (moved || r.rep || lv) ? '<small class="mv">' + (lv ? "en cours" : r.rep && !moved ? "reportée" : "jouée " + dayLab(r.d)) + "</small>" : "") + "</" + tg + ">";
+        (!r.f && (moved || r.rep || lv || tmSaisie(r)) ? '<small class="mv">' + [lv ? "en cours" : moved ? "jouée " + dayLab(r.d) : r.rep ? "reportée" : "", tmSaisie(r) ? "feuille pas encore validée" : ""].filter(Boolean).join(" · ") + "</small>" : "") + "</" + tg + ">";
     };
     var groups = function (L, desc) {
       var by = {}; L.forEach(function (r) { var j = jOf(r), k = j != null ? "j" + (100 + j) : "d" + r.d; (by[k] = by[k] || { j: j, d: r.dt || r.d, L: [] }).L.push(r); });
