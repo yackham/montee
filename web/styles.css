@@ -3271,9 +3271,9 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 
 /* 3.44.2 : saisie d'un tour (tq-) */
 .tq-sheet { gap: 14px; }
-.tq-hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.tq-hd { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 3px; } /* 4.21.2 (Yann) : titre puis nom de l'épreuve dessous, centrés */
 .tq-hd b { font-size: 21px; }
-.tq-hd span { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tq-hd span { font-size: 13px; color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; }
 .tq-seg { display: flex; background: var(--chip); border-radius: 99px; padding: 3px; }
 .tq-seg button { flex: 1; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 700; padding: 9px 6px; border-radius: 99px; white-space: nowrap; }
 .tq-seg button.on { background: var(--ink); color: var(--bg); }
@@ -8087,6 +8087,11 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 .lc-shw svg { width: 16px; height: 16px; }
 .lc-list > .lc-r + .lc-more { border-top: 0; } /* 4.21.1 : un seul trait sous le dernier match */
 
+/* 4.21.2 (Yann) : en thème clair, une feuille a la couleur du fond et les champs de saisie (couleur puce) s'y fondaient.
+   Sur une feuille claire, un champ prend la couleur des cartes ; dans une carte posée sur la feuille, il reprend sa couleur de champ. */
+:root:not([data-theme="nuit"]) .sheet :is(.tq-sb, .rl-in, .rl-e input, .ob-time input, .ob-time select.tsel, .field input[type=text], .field input[type=email], .field input[type=password], .field input[type=date], .field input[type=number], .field select, .field textarea, .tn-d.field .tn-dd input, .tn-d.field .tn-dd select.tsel) { background: var(--card) !important; }
+:root:not([data-theme="nuit"]) .sheet :is(.tq-card, .tq-enc) { background: var(--card); }
+:root:not([data-theme="nuit"]) .sheet .card :is(.tq-sb, .rl-in, .rl-e input, .ob-time input, .ob-time select.tsel, .field input[type=text], .field input[type=email], .field input[type=password], .field input[type=date], .field input[type=number], .field select, .field textarea, .tn-d.field .tn-dd input, .tn-d.field .tn-dd select.tsel) { background: var(--field) !important; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.
