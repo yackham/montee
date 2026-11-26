@@ -3307,7 +3307,7 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-card2 small > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tq-card2 small .rk-tag { flex: none; }
 .tq-chg { flex: none; align-self: center; }
-.tq-next { text-align: center; color: var(--muted); margin-top: 2px; }
+.tq-sheet .vdl { margin-top: 8px; }
 .tq-enc { display: flex; flex-direction: column; background: var(--chip); border-radius: 16px; padding: 0 14px; }
 .tq-er { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .tq-er:last-child { border-bottom: 0; }

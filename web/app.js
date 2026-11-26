@@ -5056,7 +5056,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }
     // 4.21.2 (Yann, maquette validée) : en poule, d'abord la recherche ; ensuite un encart (qui reçoit, numéro, date) et le bouton
     if (pool) {
-      if (!(R.name || R.rank)) return s + '<span class="small tq-next">Tu le choisis, puis tu complètes : qui reçoit, son numéro, la date.</span>' + trPoolFoot(t, R) + "</div>";
+      if (!(R.name || R.rank)) return s + (R.q ? "" : viduel("toi", "Qui rejoint ta poule ?", "Cherche-le par son nom. Ensuite, tu complètes qui reçoit, son numéro et la date.")) + trPoolFoot(t, R) + "</div>";
       var row = function (l, r) { return '<div class="tq-er"><span class="tq-el2">' + l + "</span>" + r + "</div>"; };
       s += '<div class="tq-enc">' +
         (t.kind === "champ" ? row("Qui reçoit ?", '<span class="tq-hp">' + [["me", "Chez toi"], ["him", "Chez lui"]].map(function (h) { return '<button class="tq-pill' + (R.host === h[0] ? " on" : "") + '" data-a="trHost" data-v="' + h[0] + '">' + (h[0] === "me" ? HOME_IC + " " : "") + h[1] + "</button>"; }).join("") + "</span>") : "") +
