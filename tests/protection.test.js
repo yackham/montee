@@ -1,4 +1,4 @@
-// Montée 4.11.6 : un adversaire déjà descendu il y a moins de 12 mois ne redescend pas (FFT, FAQ Classement Q12 et Q14).
+// Montée 4.11.8 : un adversaire déjà descendu il y a moins de 12 mois ne redescend pas (FFT, FAQ Classement Q12 et Q14).
 // Retour testeur : un 15/5 annoncé « 30 en janvier » alors que Ten'Up l'avait dit protégé. Noms génériques.
 // On teste la vraie fonction de app.js (oppProtUntil), extraite du fichier, avec le vrai moteur.
 const test = require("node:test"), assert = require("node:assert"), fs = require("fs"), path = require("path");
