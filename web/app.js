@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.11.6",
+    VERSION: "4.11.8",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -363,7 +363,7 @@
   // classement (S.rankLog) et le message de ta simulation Ten'Up (« n'évoluera pas… descente déjà survenue »).
   var PROT_RE = /n.?[ée]voluera pas|ne (bougera|changera) pas|d[ée]j[àa] (survenue|descendu)|maintenu|prot[ée]g/i; // 3.62 : « protégé » aussi (mais pas « pas protégé »)
   function protMsg(m) { m = String(m || ""); return PROT_RE.test(m) && !/(pas|non|plus|n'est) (encore )?prot[ée]g/i.test(m); }
-  function relOnOrBefore(d) { var r = E.nextRelease(new Date(d.getFullYear(), d.getMonth(), 0)); return r <= d ? r : E.nextRelease(new Date(d.getFullYear(), d.getMonth() - 1, 0)); } // 4.11.6 : la sortie d'un mois qui commence un mardi (1er sept. 2026) n'est plus sautée
+  function relOnOrBefore(d) { var r = E.nextRelease(new Date(d.getFullYear(), d.getMonth(), 0)); return r <= d ? r : E.nextRelease(new Date(d.getFullYear(), d.getMonth() - 1, 0)); } // 4.11.8 : la sortie d'un mois qui commence un mardi (1er sept. 2026) n'est plus sautée
   function myProtection() {
     var out = null, lg = S.rankLog || [];
     for (var i = lg.length - 1; i >= 0; i--) {
@@ -2741,7 +2741,7 @@
   // redescendre. Ten'Up ne le dit que pour la sortie qu'il simule ; pour les suivantes, Montée retrouve sa descente : son classement
   // vu le jour de matchs (tes matchs contre lui, les palmarès lus de ses adversaires de poule, ses saisons passées). S'il était mieux
   // classé qu'aujourd'hui à une date, il est descendu après : il reste protégé jusqu'à la même sortie un an plus tard (au plus tôt).
-  // 4.11.6 (Davy, 3e fois sur Anthony : « il descend en janvier » alors qu'il est protégé). Règle FFT (FAQ Classement, Q12 et Q14) :
+  // 4.11.8 (Davy, 3e fois sur Anthony : « il descend en janvier » alors qu'il est protégé). Règle FFT (FAQ Classement, Q12 et Q14) :
   // « Lorsque je descends d'un échelon, je suis assuré de ne pas descendre d'un échelon supplémentaire pendant un an » ; remonter
   // remet le compteur à zéro. On sait qu'il est descendu dans une fenêtre, sans savoir à quelle sortie : on retient la DERNIÈRE
   // sortie possible. Avant, on refaisait son bilan sur son palmarès pour dater la descente, mais un palmarès incomplet (saison
@@ -2758,7 +2758,7 @@
     var me = (S.scout || {})[tid]; ((me && me.past) || []).forEach(function (y) { if (y.y && y.cl) add((y.y - 1) + "-09-01", y.cl, 1); }); // son classement de la saison (sept. → août)
     // 3.62 : son meilleur classement Ten'Up, s'il date de la saison en cours ou de la précédente, montre une descente récente
     var pf = me && me.profil; if (pf && pf.meilleur && pf.meilleurAn && pf.meilleurAn >= seasonY(today()) - 1) add((pf.meilleurAn - 1) + "-09-01", pf.meilleur, 1);
-    // Ten'Up l'a dit protégé pour la sortie pa : il est descendu à une sortie d'avant, dans les 12 mois. 4.11.6 : au plus tard
+    // Ten'Up l'a dit protégé pour la sortie pa : il est descendu à une sortie d'avant, dans les 12 mois. 4.11.8 : au plus tard
     // à la sortie qui précède pa, donc protégé jusqu'à son anniversaire (avant : seulement jusqu'à pa, puis « il descend » à tort).
     var pa = x.protAt && E.parseDate(x.protAt), minU = pa ? protAfter(relOnOrBefore(new Date(pa.getTime() - 864e5))) : null;
     seen.sort(function (a, b) { return a.d < b.d ? -1 : 1; });
@@ -2781,7 +2781,7 @@
       if (end && relI > end) break;
       var o = { today: today(), release: rel }; if (prot) o.protectUntil = prot;
       var pr = E.project(all, cur, sx, o), nx = pr.status === "top" ? cur : pr.projected;
-      if (nx < cur && !prot) prot = protAfter(rel); else if (nx > cur) prot = null; // 4.11.6 : une seule règle (protAfter) ; remonter remet le compteur à zéro (FFT, Q14)
+      if (nx < cur && !prot) prot = protAfter(rel); else if (nx > cur) prot = null; // 4.11.8 : une seule règle (protAfter) ; remonter remet le compteur à zéro (FFT, Q14)
       var prevI = i ? out[i - 1].relI : z.relI, lost = all.filter(function (m) { if (m.result !== "V") return false; var d = E.parseDate(m.date); d.setFullYear(d.getFullYear() + 1); var x = E.iso(d); return x > prevI && x <= relI; }).length;
       out.push({ rel: rel, relI: relI, from: cur, rank: nx, dir: nx > cur ? "up" : nx < cur ? "down" : "same", kept: !!pr.kept, gain: gainVs(nx), lost: lost });
       cur = nx;
@@ -3151,7 +3151,10 @@
   function tmOf(c, id) { return (c.teams || []).filter(function (t) { return t.id === id; })[0]; }
   // 4.11.4 (Davy) : une rencontre est jouée si sa feuille de match est terminée OU si elle est gagnée par forfait (Ten'Up : pas de feuille,
   // statut vide, score 4–0 donné au vainqueur, mais comptée dans le classement). Un seul test pour tous les écrans.
-  function tmDone(r) { return r.st === "T" || !!r.f; }
+  // 4.11.7 (Davy, équipe 1 dames : rencontres jouées restées vides) : Ten'Up ne passe la feuille en « T » qu'une fois validée ; avant, le
+  // score saisi est déjà là. Une rencontre passée avec un score saisi est jouée (score provisoire tant que la feuille n'est pas validée).
+  function tmSaisie(r) { return r.st !== "T" && !r.f && !!r.d && String(r.d).slice(0, 10) < E.iso(today()) && r.s1 != null && r.s2 != null && (r.s1 + r.s2 > 0 || !!r.w); }
+  function tmDone(r) { return r.st === "T" || !!r.f || tmSaisie(r); }
   function tmLive(r) { return r.d === E.iso(today()) && !tmDone(r); }
   function tmNext(c) { var me = c.me.mine, td = E.iso(today()); return (c.renc || []).filter(function (r) { return (r.a === me || r.b === me) && r.d >= td && !tmDone(r); }).sort(function (a, b) { return a.d < b.d ? -1 : 1; })[0] || null; }
   // 3.51.1 : « En cours » : l'équipe qui joue aujourd'hui d'abord, puis la prochaine rencontre la plus proche
@@ -3634,9 +3637,9 @@
     var tm = function (r) {
       var sc1 = tmScore(r) ? (tmLive(r) && (r.c1 || r.c2) ? r.c1 : r.s1) : null, sc2 = sc1 != null ? (tmLive(r) && (r.c1 || r.c2) ? r.c2 : r.s2) : null, lv = tmLive(r) && (r.c1 || r.c2), mine = r.a === me || r.b === me;
       var ln = function (id, nm, x, y) { var win = x != null && y != null && x > y; return '<span class="ln' + (id === me ? " me" : "") + (win ? " w" : "") + '"><span class="nm">' + esc(tmNm(nm)) + (r.dom === id ? '<small class="tm-dom-t"> · à domicile</small>' : "") + (r.f && r.f === id ? ' <span class="tm-ff">forfait</span>' : "") + '</span><b class="sc">' + (x != null ? x : "") + "</b></span>"; };
-      var moved = r.dt && r.d && r.dt !== r.d, lk = r.st === "T" || lv, tg = lk ? "a" : "div";
+      var moved = r.dt && r.d && r.dt !== r.d, lk = (tmDone(r) && !r.f) || lv, tg = lk ? "a" : "div";
       return "<" + tg + ' class="tm-m' + (mine ? " mine" : "") + (lv ? " lv" : "") + '"' + (lk ? ' href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"' : "") + ">" + ln(r.a, r.an, sc1, sc2) + ln(r.b, r.bn, sc2, sc1) +
-        (!r.f && (moved || r.rep || lv) ? '<small class="mv">' + (lv ? "en cours" : r.rep && !moved ? "reportée" : "jouée " + dayLab(r.d)) + "</small>" : "") + "</" + tg + ">";
+        (!r.f && (moved || r.rep || lv || tmSaisie(r)) ? '<small class="mv">' + [lv ? "en cours" : moved ? "jouée " + dayLab(r.d) : r.rep ? "reportée" : "", tmSaisie(r) ? "feuille pas encore validée" : ""].filter(Boolean).join(" · ") + "</small>" : "") + "</" + tg + ">";
     };
     var groups = function (L, desc) {
       var by = {}; L.forEach(function (r) { var j = jOf(r), k = j != null ? "j" + (100 + j) : "d" + r.d; (by[k] = by[k] || { j: j, d: r.dt || r.d, L: [] }).L.push(r); });
