@@ -788,13 +788,15 @@
           // 3.47 : ses 3 saisons précédentes (son niveau sur la durée, son ancien classement), 6 s max chacune
           var now = new Date(), y0 = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear(), d0 = ((pal && (pal.matchs || pal.matches)) || []).map(function (m) { return String(m.date || m.dateMatch || ""); }).sort().pop() || "";
           var past = function (y) { return Promise.race([j(b + "/palmares/tennis?millesime=" + y + "&mobile=false"), new Promise(function (_, rej) { setTimeout(function () { rej(new Error("t")); }, 6000); })]).then(function (pp) { var ms = (pp && (pp.matchs || pp.matches)) || []; var dd = ms.map(function (m) { return String(m.date || m.dateMatch || ""); }).sort().pop() || ""; return ms.length && dd !== d0 ? { y: y, raw: ms, cl: palClOf(pp) } : null; }).catch(function () { return null; }); };
-          return Promise.all([j(b + "/profil-joueur").catch(function () { return null; }), j(b + "/simulation-classement", true).catch(function () { return null; }), Promise.all([1, 2, 3].map(function (k) { return past(y0 - k); }))]).then(function (r) {
+          return Promise.all([j(b + "/profil-joueur").catch(function () { return null; }), j(b + "/simulation-classement", true).catch(function () { return null; }), Promise.all([1, 2, 3].map(function (k) { return past(y0 - k); })), A.kid ? j(b + "/bilan-classement", true).catch(function () { return null; }) : null]).then(function (r) {
             var p = r[0] || {}, ct = p.classementTennis || {}, club = "";
             (function walk(o, d) { if (!o || d > 3 || club) return; Object.keys(o).forEach(function (k) { var v = o[k]; if (club) return; if (/club/i.test(k) && typeof v === "string" && v.length < 80) club = v; else if (/club/i.test(k) && v && typeof v === "object" && (v.nom || v.libelle)) club = v.nom || v.libelle; else if (v && typeof v === "object" && !Array.isArray(v)) walk(v, d + 1); }); })(p, 0);
             var sim = r[1] || {};
             return { id: A.id, fiche: ficheOf(p), profil: { prenom: p.prenom || A.prenom, nom: p.nom || A.nom, sexe: p.sexe || p.genre || A.sexe || "", age: p.age || A.age || null, club: club || A.club || "",
               lic: p.numeroLicence || A.licence || "", classement: (ct.dernierClassement && ct.dernierClassement.libelle) || A.rank || "", meilleur: ct.meilleurClassement && ct.meilleurClassement.libelle || "", meilleurAn: bestYear(ct.meilleurClassement) },
-              raw: (pal && (pal.matchs || pal.matches)) || [], past: (r[2] || []).filter(Boolean), sim: simOf(sim) };
+              raw: (pal && (pal.matchs || pal.matches)) || [], past: (r[2] || []).filter(Boolean), sim: simOf(sim),
+              // 4.15 (lot 4) : le profil de ton enfant : sa simulation et son bilan complets, lus comme les tiens (même calage)
+              simulation: A.kid ? sim : undefined, bilan: A.kid ? r[3] : undefined };
           });
         }, function (e) { if (e && e.message === "auth") throw e; return step(i + 1); });
       };
