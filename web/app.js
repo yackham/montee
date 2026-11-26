@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.16.0",
+    VERSION: "4.16.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -16137,7 +16137,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       '<span class="ob-lbl">Avec chaque date</span>' +
       '<div class="ob-li"><i>✓</i><span>Le lieu, quand Ten\'Up le donne.</span></div>' +
       '<div class="ob-li"><i>✓</i><span>Un rappel 2 h avant (la veille au soir s\'il n\'y a pas d\'heure).</span></div>' +
-      '<div class="ob-li"><i>✓</i><span>Si une date change sur Ten\'Up, Montée te le dit ici.</span></div>' +
       '<div class="ob-btns col"><button class="btn balle" data-a="calGo"' + (n ? "" : " disabled") + ">" + (n ? "Ajouter " + (n > 1 ? "ces " + n + " dates" : "cette date") : "Choisis au moins une date") + "</button></div>" };
   };
   function icsEsc(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n"); }
