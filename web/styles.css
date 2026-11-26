@@ -7876,3 +7876,14 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .kp-hr select { border: 0; background: none; color: inherit; font: inherit; font-size: inherit; font-weight: 800; padding: 0; margin-left: 2px; width: auto; -webkit-appearance: none; appearance: none; }
 .kp-msg { display: block; width: 100%; box-sizing: border-box; padding: 14px 16px; border: 0; border-radius: 16px 16px 16px 4px; background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); font: inherit; font-size: 14.5px; line-height: 1.5; resize: none; }
 .kp-row2 { display: flex; gap: 10px; } .kp-row2 > * { flex: 1; margin-top: 4px; }
+
+/* ---------- 4.14 : « Ils montent ce mois-ci » dans Le club (maquettes validées le 26/11/2026, lot 3) ---------- */
+.lm-r .rk-tag { flex: none; min-width: 58px; white-space: nowrap; font-size: 16px; }
+.lm-r b .kp-mvi { margin-left: 6px; vertical-align: 1px; }
+.lm-note { font-size: 12.5px; color: var(--muted); margin: 8px 0 10px; line-height: 1.4; }
+.lm-card .lm-note + .lm-note { margin-top: -4px; }
+.lm-hero .eyebrow { padding-right: 0; }
+.lm-foot { margin: 4px 4px 0; }
+.lm-go { display: block; margin: 6px auto 20px; }
+.lm-scr .lc-gh { margin-top: 12px; }
+.lm-card a.lc-more { text-decoration: none; }
