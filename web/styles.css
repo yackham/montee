@@ -7923,6 +7923,18 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .kd-no { display: flex; flex-direction: column; gap: 10px; }
 .kd-no b { font-size: 18px; }
 .tabbar .plus.kd-off { opacity: .35; }
+/* 4.17 (Yann, maquettes v2 validées le 26/11) : bandeau plein couleur balle, onglet à son prénom, section « Profils » dans Mon profil */
+.kd-band { background: var(--balle); color: #121212; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.kd-band .kd-l { background: #121212; color: var(--balle); }
+.kd-band b small { color: rgba(18,18,18,.65); }
+.kd-band .kd-sw { background: #121212; color: #fff; }
+.tab .kd-ti { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 12.5px; background: var(--balle); color: #121212; }
+.kd-sec { margin-top: 4px; }
+.kd-sec h3 { font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 14px 2px 2px; }
+.menu-sheet .ms-me { width: 100%; height: 100%; display: grid; place-items: center; font-weight: 800; font-size: 22px; }
+/* 4.17 : carte « Sortie validée » sur fond clair (Lin…) : le surtitre et le bouton restaient blancs */
+.card.hero.h3.fete .id-pill { color: var(--ink) !important; background: var(--chip) !important; }
+.card.hero.h3.fete .go { color: var(--ink) !important; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 28%, transparent) !important; }
 
 /* 4.16 (Yann, 26/11) : tes chances = une balle de tennis qui se remplit (widgets.js ballSvg), aux couleurs du thème */
 .ff-ring.ff-ball { width: 83px; height: 83px; } .ff-ring.ff-ball svg { transform: none; }
