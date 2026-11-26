@@ -7936,3 +7936,8 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .pl-c { box-shadow: none; background: color-mix(in srgb, currentColor 12%, transparent); }
 .sy, .sy.old, .sy.err, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .topbar .sy { border-color: transparent; background: color-mix(in srgb, currentColor 12%, transparent); }
 :root:not([data-theme="nuit"]) .fol-top.on { box-shadow: none; background: color-mix(in srgb, var(--acc-ink) 14%, var(--card)); }
+/* 4.16.5 (Yann, maquette validée le 26/11) : « Toi contre lui » en tête de Statistiques ; les rencontres en dépliant, lignes à plat */
+.h2h-c .ff-bdd { margin-top: 12px; }
+.h2h-rows { display: flex; flex-direction: column; }
+.h2h-rows .row { padding: 12px 0; border-top: 1px solid var(--line); }
+.h2h-rows .row:first-child { border-top: 0; }

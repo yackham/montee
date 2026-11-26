@@ -8948,10 +8948,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       (vsMe.length ? '<div class="kv-r"><span>Contre les ' + esc(myR) + "</span><b>" + vsV + " V · " + (vsMe.length - vsV) + " D</b></div>" : "") +
       (sp ? '<div class="kv-r"><span>Sa simulation Ten\'Up · ' + esc(fdate(sp.rel)) + '</span><b class="simv ' + sp.dir + '">' + (sp.dir === "same" ? "Maintien " + lab(sp.cur) : lab(sp.cur) + " → " + lab(sp.proj) + (sp.dir === "up" ? " ↑" : " ↓")) + "</b></div>" : simTxt ? '<div class="kv-r"><span>Simulation Ten\'Up</span><b>' + esc(simTxt) + "</b></div>" : "") + "</div>";
     // toi contre lui + adversaires communs
-    if (!D || mine.length) s += "<h2>Toi contre lui</h2>";
+    // 4.16.5 (Yann, maquette validée le 26/11/2026) : « Toi contre lui » en tête de Statistiques, le court du face-à-face, vos rencontres en dépliant
+    if (!D && !mine.length) s += "<h2>Toi contre lui</h2>";
     if (mine.length) {
-      var mv = mine.filter(function (m) { return m.result === "V"; }).length;
-      s += '<div class="card"><div class="h2h-big"><span>Toi</span><b>' + mv + " – " + (mine.length - mv) + "</b><span>" + esc(pr.prenom || "Lui") + "</span></div>" + mine.map(function (m) { return '<a class="row" href="#/match/' + m.id + '"><span class="vd lg ' + m.result + '">' + m.result + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.comp || "") + "</span></span>" + msbHtml(m) + I.next + "</a>"; }).join("") + "</div>";
+      var mv = mine.filter(function (m) { return m.result === "V"; }).length, lui = her ? "elle" : "lui";
+      var h2c = '<div class="card opp-head h2h-c"><span class="grow"><span class="eyebrow id-pill c-dur">Toi contre ' + lui + "</span>" + fcCourt(mv, mine.length - mv, String(name || "").split(" ")[0] || cap1(lui)) +
+        '<span class="small fc-sub">' + plural(mine.length, "match", "matchs") + " contre " + lui + (mine.length > 1 ? " · le dernier le " + esc(fdate(mine[0].date)) : "") + "</span>" +
+        '<details class="ff-bdd h2h-d"><summary>' + (mine.length > 1 ? "Voir les " + mine.length + " rencontres" : "Voir la rencontre") + '</summary><div class="h2h-rows">' + mine.map(function (m) { return '<a class="row" href="#/match/' + m.id + '"><span class="vd lg ' + m.result + '">' + m.result + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.comp || "") + "</span></span>" + msbHtml(m) + I.next + "</a>"; }).join("") + "</div></details></span></div>";
+      s = s.slice(0, s0) + h2c + s.slice(s0);
     }
     if (!mine.length && !D) s += '<div class="card"><span style="font-size:15px"><b>Jamais joué.</b> ' + (common0.length ? "Vos adversaires communs sont plus haut." : "Pas encore d\'adversaire commun cette saison.") + "</span></div>";
     var statsHtml = s.slice(s0); s = s.slice(0, s0) + (tab === "plan" && !mixed ? planHtml : tab === "pal" ? palHtml(rows, id, name, pr) : statsHtml);
@@ -16523,6 +16527,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return '<a class="rev-hint' + (dark ? " dark" : "") + '" href="#/' + advPath(nameKey(name)) + '">' + 
       '<span class="grow"><span class="eyebrow">' + (x.fiche ? "Ta fiche sur lui" : "Ton retour du dernier match") + '</span>' + noteHtml(x.text) + '<span class="small">' + (x.m ? (x.m.result === "V" ? "Victoire" : "Défaite") + (x.date ? " le " + esc(fdate(x.date)) : "") + (x.m.score ? " · " + esc(x.m.score) : "") : "Sur sa fiche") + (n.length > 1 ? " · " + plural(n.length - 1, "autre note", "autres notes") : "") + "</span></span></a>";
   }
+  // 4.2 (Yann, piste A + B validée le 23/11/2026) : le score du face-à-face sur un court vu de dessus. Un seul dessin, partout (fiche d'adversaire, Statistiques)
+  function fcCourt(v, d, name) {
+    var crt = '<svg class="fc-crt" viewBox="0 0 236 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"><rect x="1" y="1" width="234" height="98" rx="2"/><path d="M1 13h234M1 87h234M55 13v74M181 13v74M55 50h126"/></g><path d="M118 -2v104" stroke="currentColor" stroke-width="3" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/></svg>';
+    return '<span class="fc-court" role="img" aria-label="' + v + " victoire" + (v > 1 ? "s" : "") + " pour toi, " + d + " pour " + esc(name) + '">' + crt +
+      '<span class="fc-sd me"><b style="color:' + (v > d ? "var(--gazon)" : v < d ? "var(--terre)" : "var(--ink)") + '">' + v + "</b><small>Toi</small></span>" +
+      '<span class="fc-ball">' + tball(22) + "</span>" +
+      '<span class="fc-sd him"><b>' + d + "</b><small>" + esc(name) + "</small></span></span>";
+  }
   V.adversaire = function (key) {
     key = decodeURIComponent(key || "");
     var ms = knownMatches(false).filter(function (m) { return m.opp && !isAnon(m.opp) && nameKey(m.opp) === key; }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
@@ -16532,12 +16544,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var s = '<div class="screen">' + topbar(name, ms[0].oppRank ? "Classé " + ms[0].oppRank + " au dernier match" : "");
     var prep = null; try { prep = coAdvPrep(key); } catch (e) {}
     // 4.2 (Yann, piste A + B validée le 23/11/2026) : le score sur un court vu de dessus, Ace posé sur la carte avec sa phrase
-    var crt = '<svg class="fc-crt" viewBox="0 0 236 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"><rect x="1" y="1" width="234" height="98" rx="2"/><path d="M1 13h234M1 87h234M55 13v74M181 13v74M55 50h126"/></g><path d="M118 -2v104" stroke="currentColor" stroke-width="3" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/></svg>';
     var oh = '<div class="card opp-head"><span class="grow"><span class="eyebrow id-pill c-dur">Face-à-face</span>' +
-      '<span class="fc-court" role="img" aria-label="' + v + " victoire" + (v > 1 ? "s" : "") + " pour toi, " + d + " pour " + esc(name) + '">' + crt +
-      '<span class="fc-sd me"><b style="color:' + (v > d ? "var(--gazon)" : v < d ? "var(--terre)" : "var(--ink)") + '">' + v + "</b><small>Toi</small></span>" +
-      '<span class="fc-ball">' + tball(22) + "</span>" +
-      '<span class="fc-sd him"><b>' + d + "</b><small>" + esc(name) + "</small></span></span>" +
+      fcCourt(v, d, name) +
       '<span class="small fc-sub">' + plural(ms.length, "match", "matchs") + " contre lui" + (v === d && v >= 1 && jk("f-belle") ? " · la belle s'annonce" : "") + "</span><!--FAFACE--></span></div>";
     s += dockAce(oh, "adv", (prep ? [prep] : []).concat(coAdvTips(key, ms)), "<!--FAFACE-->", "vs:" + key); // 3.73 ; 3.75 : « Prépare-moi le match » d'abord
     // 3.93 (Yann, partage) : un match prévu contre lui = l'avant-match se partage en image (tes chances, vos matchs, ce qu'il rapporte)
