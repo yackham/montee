@@ -7888,6 +7888,36 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .lm-scr .lc-gh { margin-top: 12px; }
 .lm-card a.lc-more { text-decoration: none; }
 
+/* 4.15.0 (lot 4, maquettes f1, f2, p1, p2 validées le 26/11/2026) : le profil de ton enfant */
+.kd-av2 { flex: none; display: inline-flex; align-items: center; }
+.kd-av2 .hd-av + .hd-av { margin-left: -12px; box-shadow: 0 0 0 2.5px var(--card); }
+.hd-av.kd-avL, .kd-av.kd-avL { background: var(--balle); color: #121212; }
+.kd-r { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 0; border: 0; border-bottom: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.kd-r .grow { flex: 1; min-width: 0; }
+.kd-r b { display: block; font-size: 16px; font-weight: 700; }
+.kd-r small { display: block; font-size: 13px; color: var(--muted); margin-top: 1px; }
+.kd-av { flex: none; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; font-weight: 800; font-size: 15px; background: var(--chip, rgba(127,127,127,.18)); color: var(--ink); }
+.kd-av img, .kd-me img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.kd-ok { flex: none; font-size: 12.5px; font-weight: 800; color: var(--gazon); padding: 3px 10px; border-radius: 99px; box-shadow: inset 0 0 0 1.5px currentColor; }
+.kd-plus { flex: none; font-size: 12px; font-weight: 800; color: var(--muted); }
+.kd-add { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 0; border: 0; background: none; color: var(--ink); font: inherit; font-size: 15.5px; font-weight: 700; text-align: left; cursor: pointer; }
+.kd-add i { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 22px; box-shadow: inset 0 0 0 1.5px var(--line); color: var(--muted); }
+.kd-note { font-size: 13px; color: var(--muted); line-height: 1.45; margin: 10px 0 0; }
+.kd-st { font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 16px 0 2px; }
+.kd-pick { flex: none; font-size: 13.5px; font-weight: 800; color: #121212; background: var(--balle); border-radius: 99px; padding: 7px 14px; }
+.kd-pick.ghost { background: none; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+.kd-del { display: block; margin: 14px auto 0; color: var(--terre); }
+.kd-band { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 6px); z-index: 30; display: flex; align-items: center; gap: 10px; margin: 0 0 10px; padding: 7px 7px 7px 10px; border-radius: 99px; background: color-mix(in srgb, var(--balle) 18%, var(--card)); box-shadow: 0 6px 18px rgba(0,0,0,.18); font-size: 14px; color: var(--ink); }
+.kd-band .kd-l { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; background: var(--balle); color: #121212; }
+.kd-band b { flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kd-band b small { font-weight: 600; color: var(--muted); margin-left: 6px; font-size: 13px; }
+.kd-sw { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 0; font: inherit; font-weight: 800; font-size: 13.5px; padding: 5px 11px 5px 5px; border-radius: 99px; background: var(--card); color: var(--ink); cursor: pointer; }
+.kd-me { flex: none; width: 22px; height: 22px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--solid); color: var(--on-solid); }
+.kd-lim { padding: 12px 14px; border-radius: 16px; background: var(--card); font-size: 13.5px; color: var(--muted); line-height: 1.4; margin-top: 10px; }
+.kd-no { display: flex; flex-direction: column; gap: 10px; }
+.kd-no b { font-size: 18px; }
+.tabbar .plus.kd-off { opacity: .35; }
+
 /* 4.16 (Yann, 26/11) : tes chances = une balle de tennis qui se remplit (widgets.js ballSvg), aux couleurs du thème */
 .ff-ring.ff-ball { width: 92px; height: 92px; } .ff-ring.ff-ball svg { transform: none; }
 .ff-ball .obq-f { transform-box: view-box; }
