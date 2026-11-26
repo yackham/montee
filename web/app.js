@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.16.4",
+    VERSION: "4.16.9",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -79,6 +79,7 @@
     return blank();
   }
   var S = load();
+  if (S.prefs && S.prefs.epTab) delete S.prefs.epTab; // 4.16.7 (Yann) : Mes épreuves se rouvre toujours sur « Toi »
   if (S.tenup && S.tenup.cred) { delete S.tenup.cred; try { localStorage.setItem("montee.v1", JSON.stringify(S)); } catch (e) {} }
   // 3.74.3 (Yann) : fin des diagnostics de test (rapport des équipes) : les traces déjà enregistrées sont effacées
   if (S.teamsTrace || (S.clubTrace && S.clubTrace.last)) { delete S.teamsTrace; if (S.clubTrace) delete S.clubTrace.last; try { localStorage.setItem("montee.v1", JSON.stringify(S)); } catch (e) {} }
@@ -752,7 +753,7 @@
     if (navBack) { navBack = false; y = UI.scrollPos[r] || 0; }
     else if (TAB_ROOTS[r] != null) { stack = [r]; delete UI.scrollPos[r]; } // un onglet : sa pile repart de zéro
     else if (at >= 0) { stack = stack.slice(0, at + 1); y = UI.scrollPos[r] || 0; } // page déjà ouverte : on y revient, sans boucle
-    else if (stack[stack.length - 1] !== r) { stack.push(r); delete UI.scrollPos[r]; }
+    else if (stack[stack.length - 1] !== r) { stack.push(r); delete UI.scrollPos[r]; if (r === "tournoi") epToi(); } // 4.16.7 (Yann) : on arrive sur Mes épreuves par « Toi »
     UI.menu = false;
     var show = function () { render(); window.scrollTo(0, y); };
     // 4.4.3 (Yann, B2) : on glisse vers une page, on revient en glissant, on change d'onglet en fondu ; la barre d'onglets ne bouge pas
@@ -1495,9 +1496,10 @@
     var r = route().split("/")[0];
     if ((r === "match" || r === "entrainement") && UI.draft) return { d: UI.draft, save: r === "match" ? "saveMatch" : "saveTraining" };
     if (r === "raquette" && UI.racketDraft) return { d: UI.racketDraft, save: "saveRacket" };
+    if (r === "dispos") { var t = (S.tours || []).filter(function (x) { return x.id === route().split("/")[1]; })[0]; if (t) return { dz: t, save: "dzSaveHere" }; } // 4.16.7 (Yann) : jours changés pas encore envoyés
     return null;
   }
-  function isDirty() { var e = editCtx(); return !!(e && UI.origKey === e.save + (e.d._for || "") && snap(e.d) !== UI.orig); }
+  function isDirty() { var e = editCtx(); if (e && e.dz) return Object.keys(dzEd(e.dz)).length > 0; return !!(e && UI.origKey === e.save + (e.d._for || "") && snap(e.d) !== UI.orig); }
   function saveBar(action, draft, isNew) {
     var key = action + (draft._for || "");
     if (UI.origKey !== key) { UI.origKey = key; UI.orig = snap(draft); }
@@ -1512,8 +1514,10 @@
     if (btn && d) btn.disabled = false;
   }
   function leaveSheet() {
-    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="leaveStay"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Modifications non enregistrées"><b>Enregistrer tes modifications ?</b>' +
-      '<span class="small">Tu as changé des choses sur cette page.</span>' +
+    var e = editCtx(), ed = e && e.dz ? dzEd(e.dz) : null, D = e && e.dz && (e.dz.ins.more || {}).dz, k = ed ? Object.keys(ed).sort() : [];
+    var why = ed && D ? k.map(function (iso) { var hab = dzHab(D, iso); return esc(cap1(dzDayName(iso))) + " : " + esc(ed[iso].length ? ed[iso].map(dzSl).join(" · ") : "pas dispo") + " au lieu de " + esc(hab.length ? hab.map(dzSl).join(" · ") : "pas dispo"); }).join("<br>") + "<br>Si tu quittes maintenant, Ten'Up et le juge-arbitre ne le sauront pas." : "Tu as changé des choses sur cette page.";
+    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="leaveStay"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Modifications non enregistrées"><b>' + (ed ? "Tu n'as pas enregistré" : "Enregistrer tes modifications ?") + "</b>" +
+      '<span class="small">' + why + "</span>" +
       '<button class="btn primary" data-a="leaveSave">Enregistrer</button><button class="btn soft" data-a="leaveDiscard">Ne pas enregistrer</button><button class="linkbtn" data-a="leaveStay">Rester sur la page</button></div>';
   }
   // 3.46.2 : le libellé du retour dit où il mène
@@ -2267,7 +2271,12 @@
     pos.forEach(function (k, i) { if (i && k === pos[i - 1] + 1) run.push(k); else { if (run.length) out.push(run); run = [k]; } }); if (run.length) out.push(run);
     return out.map(function (r) { return r.length > 2 ? N[o[r[0]]] + " au " + N[o[r[r.length - 1]]] : r.map(function (k) { return N[o[k]]; }).join(", "); }).join(", "); }
   function dzEd(t) { UI.dzEd = UI.dzEd || {}; return (UI.dzEd[t.id] = UI.dzEd[t.id] || {}); }
-  function dzHab(D, iso) { return D.map ? T.dzGenSlots(D.gen || [], iso, D.map) : []; }
+  // 4.16.7 (Yann, 26/11 : « je m'en fous des horaires du tournoi, je veux voir mes horaires à moi ») : « d'habitude » = TES créneaux (profil Ten'Up).
+  // La copie que Ten'Up garde pour le tournoi (prise à l'inscription) ne sert qu'à reconnaître ses jours habituels ; à l'envoi, le tournoi reprend tes créneaux.
+  function dzHabT(D, iso) { return D.map ? T.dzGenSlots(D.gen || [], iso, D.map) : []; }
+  function dzWant(D) { var H = UI.hb; return H && H.prof ? T.weekGen(H.prof.week) : D.pgen || null; } // jours ISO
+  function dzHab(D, iso) { var w = dzWant(D); return w ? T.dzGenSlots(w, iso, "iso") : dzHabT(D, iso); }
+  function dzStale(D) { var w = dzWant(D); return !!w && !!D.map && [1, 2, 3, 4, 5, 6, 7].some(function (wd) { var iso = "2026-11-" + (22 + wd); return !T.dzSame(dzHabT(D, iso), T.dzGenSlots(w, iso, "iso")); }); }
   // 4.11.2 (Yann, samedi 13) : Ten'Up renvoie parfois un jour VIDE, sans « particuliere », alors que sa page l'affiche dispo. Vide = pas clair :
   // on ne l'affiche pas « Pas dispo » et on n'envoie rien tant que tu n'as pas dit ce que tu veux pour ce jour-là.
   // 4.11.2 : relevé caché (demandé par Yann le 25/11 pour le samedi 13, À RETIRER une fois le bug compris) : ce que Ten'Up renvoie
@@ -2284,9 +2293,14 @@
   function dzDay(t, D, iso) { // ce jour-là : { slots: [{from, to}] où tu es dispo, ex: exception, ed: changé dans Montée }
     var ed = dzEd(t)[iso], hab = dzHab(D, iso);
     if (ed) return { slots: ed, ex: !T.dzSame(ed, hab), ed: true };
-    var g = (D.days || []).filter(function (x) { return x.date === iso; })[0], sl = g ? g.slots.map(function (z) { return { from: z.from, to: z.to }; }) : hab;
-    if (dzAmb(g, t)) return { slots: hab, ex: false, ed: false, amb: true };
-    return { slots: sl, ex: !T.dzSame(sl, hab), ed: false };
+    var b = dzBase(t, D, iso); b.ed = false; return b;
+  }
+  function dzBase(t, D, iso) { // ce jour-là sur Ten'Up, sans tes changements pas encore enregistrés
+    var hab = dzHab(D, iso), g = (D.days || []).filter(function (x) { return x.date === iso; })[0];
+    if (dzAmb(g, t)) return { slots: hab, ex: false, amb: true };
+    var sl = g ? g.slots.map(function (z) { return { from: z.from, to: z.to }; }) : hab;
+    if (!g || T.dzSame(sl, dzHabT(D, iso))) return { slots: hab, ex: false }; // un jour habituel du tournoi suit tes créneaux
+    return { slots: sl, ex: !T.dzSame(sl, hab) };
   }
   function dzLoad(t, force) {
     var m = t.ins.more = t.ins.more || {}; if (!NATIVE || !S.tenup.linked || UI.dzBusy) return;
@@ -2309,11 +2323,9 @@
     var can = Dl.ok && !!D.map, E1 = dzEd(t), n = Object.keys(E1).length;
     var hbOk = NATIVE && S.tenup.linked; // 4.10 : les créneaux habituels se changent depuis Montée, pour tous les tournois
     if (hbOk) hbLoad(); // 4.11.1 (Yann : « j'ai modifié mes horaires habituels, rien n'a changé ») : comparer au profil tel qu'il est maintenant
-    var pGen = UI.hb && UI.hb.prof ? T.weekGen(UI.hb.prof.week) : D.pgen;
-    var pDiff = pGen && [1, 2, 3, 4, 5, 6, 7].some(function (wd) { var iso = "2026-11-" + (22 + wd); return !T.dzSame(T.dzGenSlots(D.gen || [], iso, "iso"), T.dzGenSlots(pGen, iso, "iso")); }); // 4.9.3 : le tournoi garde la copie prise à l'inscription
-    s += '<h2>Tu es dispo, d\'habitude</h2>' + (hbOk ? '<p class="small" style="margin-top:-6px">Touche une ligne pour changer tes créneaux, pour tous tes tournois.</p>' : "") + '<div class="blk tz-blk tz-c' + (hbOk ? ' hb-open" role="button" tabindex="0" data-a="hbOpen' : "") + '">' + ((D.gen || []).length ? D.gen.map(function (g) {
-      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), hbOk ? I.next : ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>" + (pDiff ? '<p class="small dz-pd">Pour ce tournoi, Ten\'Up garde tes créneaux du moment de ton inscription : ils ont changé depuis sur ton profil.</p>' +
-      (can ? '<button class="btn primary dz-pdb" data-a="hbTourOne" data-v="' + esc(t.id) + '"' + (UI.hbRun1 ? " disabled" : "") + ">" + (UI.hbRun1 ? "Mise à jour…" : "Mettre ce tournoi à jour") + "</button>" : "") : "");
+    var pGen = dzWant(D), cg = pGen || D.gen || [], cm = pGen ? "iso" : D.map || "iso", stale = dzStale(D);
+    s += '<h2>Tu es dispo, d\'habitude</h2>' + (hbOk ? '<p class="small" style="margin-top:-6px">Tes horaires à toi, pour tous tes tournois. Touche pour les changer.</p>' : "") + '<div class="blk tz-blk tz-c' + (hbOk ? ' hb-open" role="button" tabindex="0" data-a="hbOpen' : "") + '">' + (cg.length ? cg.map(function (g) {
+      return tzLine1(esc(cap1(dzJours(g.jours, cm))), esc(dzH(g.hd) + " – " + dzH(g.hf)), hbOk ? I.next : ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>";
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from);
     for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
     var exs = days.filter(function (iso) { return dzDay(t, D, iso).ex; }); // 4.10 (Yann) : voir et ajouter les indispos propres à ce tournoi
@@ -2326,21 +2338,21 @@
         '<span class="s">' + (x.amb ? "Ten'Up ne le dit pas clairement à Montée : touche pour choisir" : x.ed ? "Changé, pas encore enregistré" : x.ex ? "Juste ce jour-là" : "Comme d'habitude") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") + "</div>";
     if (!Dl.ok) { var J = m.ja; s += '<h2>Un souci ?</h2><div class="blk tz-blk tz-c">' + (J && (J.tel || J.mail) ? tzLine1("Juge-arbitre", esc(J.name ? nameCase(J.name) : "Le juge-arbitre du tournoi"), (J.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(J.tel) + '"') : "") + (J.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(J.mail) + '"') : "")) : tzLine1("Juge-arbitre", "Ses coordonnées sont sur la page du tournoi", "")) + '</div><p class="small">Les indispos ne se changent plus dans l\'app : le juge-arbitre peut encore en tenir compte si tu le préviens.</p>'; }
     if (Dl.ok && !D.map) s += '<p class="small">Montée ne reconnaît pas encore tes créneaux habituels. Pour ne rien abîmer, change tes dispos sur Ten\'Up.</p><button class="btn" data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos">Ouvrir sur Ten\'Up</button>';
-    if (can) s += '<button class="btn primary" data-a="dzSave" data-v="' + esc(t.id) + '"' + (n && !UI.dzSaving ? "" : " disabled") + ">" + (UI.dzSaving ? "Envoi à Ten'Up…" : n ? "Enregistrer sur Ten'Up" : "Rien à enregistrer") + '</button><p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion, puis relu pour vérifier. Le juge-arbitre les voit comme d\'habitude.</p>';
+    if (can) s += '<p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion, puis relu pour vérifier. Le juge-arbitre les voit comme d\'habitude.</p>';
+    if (can && (n || stale)) s += '<div class="savebar-space"></div><div class="savebar dirty"><span class="sb-state">' + (n ? plural(n, "jour") + " " + (n > 1 ? "changés" : "changé") + ", pas encore sur Ten'Up" : "Ce tournoi n'a pas encore tes horaires sur Ten'Up") + '</span><button class="btn primary" data-a="dzSave" data-v="' + esc(t.id) + '"' + (UI.dzSaving ? " disabled" : "") + ">" + (UI.dzSaving ? "Envoi…" : "Enregistrer") + "</button></div>"; // 4.16.7 (Yann) : le bouton reste visible dès qu'il y a quelque chose à envoyer
     return s + "</div>";
   };
-  var DET_DZ = function (v) { // un jour du tournoi : comme d'habitude, pas dispo, ou un autre horaire
+  var DET_DZ = function (v) { // un jour du tournoi : la même frise que tes créneaux habituels (4.16.7, maquette validée par Yann le 26/11)
     var a = String(v || "").split("|"), t = (S.tours || []).filter(function (x) { return x.id === a[0]; })[0]; if (!t || !(t.ins.more || {}).dz) return null;
-    var D = t.ins.more.dz, iso = a[1], d = E.parseDate(iso), x = dzDay(t, D, iso), hab = dzHab(D, iso);
-    var cur = UI.dzPk || (!x.ex ? "hab" : !x.slots.length ? "off" : "autre"), z = x.slots[0] || hab[0] || { from: "14:00", to: "18:00" };
-    var opt = function (k, lbl, sub) { return '<button class="dz-o' + (cur === k ? " on" : "") + '" data-a="dzPick" data-v="' + k + '"><span class="grow"><span class="t">' + lbl + '</span><span class="s">' + sub + '</span></span>' + (cur === k ? '<span class="dz-ck">✓</span>' : "") + "</button>"; };
-    var b = opt("hab", "Comme d'habitude", hab.length ? esc(hab.map(dzSl).join(" · ")) : "Pas de créneau ce jour-là") + opt("off", "Pas dispo ce jour-là", "Toute la journée") +
-      opt("autre", "Un autre horaire", "Dispo seulement sur ce créneau");
-    if (cur === "autre") b += '<div class="dz-hh"><label>De' + hSel('id="dz-f"', z.from) + '</label><label>À' + hSel('id="dz-t"', z.to) + '</label></div>';
-    if (x.amb) b = '<p class="small">Ten\'Up ne dit pas clairement à Montée si tu es dispo ce jour-là. Regarde sur Ten\'Up et choisis : rien n\'est envoyé avant.</p>' + b;
-    return { title: cap1(JOURS[d.getDay()]) + " " + dN(d) + " " + MOIS[d.getMonth()], sub: t.name, body: '<div class="tz-sh dz-sh">' + b + '</div><button class="btn primary" data-a="dzOk" data-v="' + esc(cur) + '">OK</button>' };
+    var D = t.ins.more.dz, iso = a[1], dt = E.parseDate(iso), x = dzDay(t, D, iso), hab = dzHab(D, iso), d = UI.hbd;
+    if (!d || d.dz !== t.id || d.iso !== iso) d = UI.hbd = { dz: t.id, iso: iso, hab: hab, play: !!x.slots.length, slots: JSON.parse(JSON.stringify(x.slots)), also: {} };
+    var b = x.amb ? '<p class="small">Ten\'Up ne dit pas clairement à Montée si tu es dispo ce jour-là. Regarde sur Ten\'Up et choisis : rien n\'est envoyé avant.</p>' : "";
+    b += '<div class="seg hb-seg2"><button data-a="hbPlay" data-v="1" class="' + (d.play ? "on" : "") + '">Je joue</button><button data-a="hbPlay" data-v="0" class="' + (d.play ? "" : "on") + '">Je ne joue pas</button></div>';
+    b += d.play ? hbFrise(d.slots, true, null, hab) + hbChrono(d.slots, true) + '<button class="dz-add" data-a="hbAdd">+ Ajouter un créneau</button>' : hbFrise([], false, null, hab) + hbChrono([], false);
+    if (!T.dzSame(d.play ? d.slots : [], hab)) b += '<button class="dz-add dz-back" data-a="dzHabGo">↺ Revenir à d\'habitude (' + esc(hab.length ? hab.map(dzSl).join(" · ") : "pas dispo") + ")</button>";
+    return { title: cap1(JOURS[dt.getDay()]) + " " + dN(dt) + " " + MOIS[dt.getMonth()], sub: t.name + " · d'habitude : " + (hab.length ? hab.map(dzSl).join(" · ") : "pas dispo"), body: '<div class="tz-sh dz-sh hb-day">' + b + '</div><button class="btn primary" data-a="dzOk">OK</button>' };
   };
-  function dzSaveRun(t) {
+  function dzSaveRun(t, done) {
     var m = t.ins.more, D = m.dz, ed = dzEd(t); if (!D || !D.map || UI.dzSaving) return;
     if (Date.now() - D.at > 10 * 6e4) { toast("Je relis d'abord tes dispos sur Ten'Up, réessaie dans un instant."); dzLoad(t, true); return; }
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from), ex = {}, want = {};
@@ -2348,13 +2360,15 @@
     var amb = dzAmbDays(t, D, days); if (amb.length) { dzLog("refus", { t: t.tuid, amb: amb }); toast("Ten'Up ne dit pas clairement si tu es dispo le " + amb.map(dzDayName).join(", le ") + ". Touche ce jour et choisis, puis enregistre : rien n'est envoyé avant."); return; }
     days.forEach(function (iso) { var x = dzDay(t, D, iso); want[iso] = x.slots; if (x.ex) ex[iso] = x.slots; });
     var uuid = function () { try { return crypto.randomUUID(); } catch (e) { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); }); } };
-    var body = T.dzBody(D.gen, ex, D.map, uuid); UI.dzSaving = true; render(); dzLog("envoi", { t: t.tuid, ed: JSON.parse(JSON.stringify(ed)), body: body });
+    var stale = dzStale(D), gen = stale ? dzWant(D) : D.gen, map = stale ? "iso" : D.map; // 4.16.7 : un tournoi en retard reprend tes créneaux
+    var body = T.dzBody(gen, ex, map, uuid); UI.dzSaving = true; render(); dzLog("envoi", { t: t.tuid, ed: JSON.parse(JSON.stringify(ed)), body: body });
     tenupQuery("dispoSave", { t: t.tuid, body: body, from: t.from, to: t.to || t.from }).then(function (r) {
       UI.dzSaving = false; dzLog("relu", { t: t.tuid, err: r && r.error || null, days: r && r.days, raw: r && r.raw });
-      if (!r || r.error) { toast(dzRefus(r) + " Rien n'a changé dans Montée."); render(); return; }
+      if (!r || r.error) { toast(dzRefus(r) + " Rien n'a changé dans Montée."); render(); if (done) done(false); return; }
       var bad = days.filter(function (iso) { var g = (r.days || []).filter(function (x) { return x.date === iso; })[0]; return !T.dzSame(g ? g.slots : [], want[iso]); });
-      dzOffNote(t, days, want, r.days); D.days = r.days; D.src = r.src; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
+      dzOffNote(t, days, want, r.days); D.days = r.days; D.src = r.src; D.at = Date.now(); if (stale) { D.gen = gen; D.map = "iso"; D.pgen = gen; } UI.dzEd[t.id] = {}; save(); render();
       toast(bad.length ? "Ten'Up n'a pas pris tes horaires du " + bad.map(dzDayName).join(", du ") + " : règle ce jour directement sur Ten'Up." : "Tes dispos sont enregistrées sur Ten'Up.", !bad.length);
+      if (done) done(!bad.length);
     });
   }
   // ---- 4.10 (maquettes validées par Yann, 25/11) : créneaux habituels du profil, « Et tes tournois ? », ajouter une indispo ----
@@ -2374,11 +2388,13 @@
   }
   function hbOffCount(w) { var n = 0; for (var wd = 1; wd <= 7; wd++) if (!(w[wd] || []).length) n++; return n; }
   // La frise : créneaux en vert sur fond hachuré ; drag : des ronds à glisser ; off : un moment retiré, en orange
-  function hbFrise(slots, drag, off) {
+  function hbFrise(slots, drag, off, hab) { // hab (4.16.7) : tes créneaux habituels, en trait gris sous la frise
     var t = ""; for (var h = HB_A; h <= HB_B; h++) t += '<i class="hb-tk' + (h % 4 === 0 ? " hb-tk4" : "") + '" style="left:' + hbPc(h + ":00") + '"></i>';
     var seg = function (x, i, k) { return '<span class="hb-seg' + (k ? " " + k : "") + '" data-i="' + i + '" style="left:' + hbPc(x.from) + ";width:calc(" + hbPc(x.to) + " - " + hbPc(x.from) + ')">' + (drag ? '<b class="hb-h" data-hbh="' + i + '|s"></b><b class="hb-h hb-he" data-hbh="' + i + '|e"></b>' : "") + "</span>"; };
     var lab = [HB_A, 12, 16, 20, HB_B].map(function (h) { return '<span style="left:' + hbPc(h + ":00") + '"' + (h === HB_A ? ' class="hb-l0"' : h === HB_B ? ' class="hb-l1"' : "") + ">" + h + " h</span>"; }).join("");
-    return '<div class="hb-fr"><div class="hb-bar' + (drag ? ' hb-drag" data-a="hbBar' : "") + '">' + t + (off ? seg(off, -1, "hb-off") : "") + slots.map(function (x, i) { return seg(x, i); }).join("") + '</div><div class="hb-lab">' + lab + "</div>" +
+    var gh = hab ? '<div class="hb-gh">' + hab.map(function (x) { return '<i style="left:' + hbPc(x.from) + ";width:calc(" + hbPc(x.to) + " - " + hbPc(x.from) + ')"></i>'; }).join("") + "</div>" : "";
+    return '<div class="hb-fr"><div class="hb-bar' + (drag ? ' hb-drag" data-a="hbBar' : "") + '">' + t + (off ? seg(off, -1, "hb-off") : "") + slots.map(function (x, i) { return seg(x, i); }).join("") + "</div>" + gh + '<div class="hb-lab">' + lab + "</div>" +
+      (hab ? '<p class="small hb-ghl"><i></i>' + (hab.length ? "Ton horaire habituel" : "D'habitude, tu ne joues pas ce jour-là") + "</p>" : "") +
       (drag ? '<p class="small hb-hint">Glisse les ronds pour changer les heures · touche un vide pour ajouter un créneau.</p>' : "") + "</div>";
   }
   // La journée lue dans l'ordre des heures : avant…, créneaux, trous, après…
@@ -3823,10 +3839,10 @@
       L.forEach(function (m) {
         var ps = m[sd] || [];
         ps.forEach(function (p) {
-          var k = String(p.id || "n:" + kpNk(p.n)), o = P[k] || (P[k] = { id: k, n: p.n, r: "", s: 0, d: 0, rs: [], du: {}, rc: {}, b: false, last: "" });
+          var k = String(p.id || "n:" + kpNk(p.n)), o = P[k] || (P[k] = { id: k, n: p.n, r: "", s: 0, d: 0, rs: [], rsd: [], du: {}, rc: {}, b: false, last: "" });
           o.rc[r.id] = 1; if (p.b) o.b = true; if (p.n && r.d >= o.last) o.n = p.n;
           if (m.dbl) {
-            o.d++; if (!o.r && p.r) { o.r = p.r; o.rd = r.d; }
+            o.d++; o.rsd.push(m.w === me ? "v" : m.w ? "d" : ""); if (!o.r && p.r) { o.r = p.r; o.rd = r.d; }
             ps.forEach(function (q) { if (q === p) return; var mk = String(q.id || "n:" + kpNk(q.n)), du = o.du[mk] || (o.du[mk] = { n: 0, w: 0 }); du.n++; if (m.w === me) du.w++; });
           } else {
             o.s++; o.rs.push(m.w === me ? "v" : m.w ? "d" : ""); if (p.r) { al.push(p.r); if (r.d >= o.last) { o.last = r.d; o.r = p.r; o.rd = r.d; } }
@@ -3874,7 +3890,9 @@
   function kpNm(p) { return kpMe(p) ? "Toi" : kpShort(p.n) || "Joueur"; }
   function kpNmMsg(p) { return kpMe(p) ? kpShort(S.profile.name || p.n) || "Moi" : kpShort(p.n) || "Joueur"; }
   function kpPre(p) { return kpMe(p) ? "toi" : (nameCase(p.n).split(/\s+/)[0] || kpNm(p)); }
-  function kpRes(rs) { rs = (rs || []).filter(Boolean); return rs.length ? ' <span class="kp-res" aria-label="' + esc(rs.map(function (x) { return x === "v" ? "victoire" : "défaite"; }).join(", ")) + '">' + rs.map(function (x) { return '<i class="' + x + '"></i>'; }).join("") + "</span>" : ""; }
+  // 4.16.6 (Yann) : une colonne Simple (carrés) et une colonne Double (ronds), comme la légende de « Ta saison »
+  function kpRes(rs, k) { rs = rs || []; var lab = function (x) { return x === "v" ? "gagné" : x === "d" ? "perdu" : "sans résultat"; };
+    return '<span class="kp-cl ' + k + '" aria-label="' + (k === "s" ? "Simples" : "Doubles") + " : " + esc(rs.length ? rs.map(lab).join(", ") : "aucun") + '">' + (rs.length ? rs.map(function (x) { return '<i class="' + x + '"></i>'; }).join("") : '<span class="z" aria-hidden="true">–</span>') + "</span>"; }
   // Format de la division : simples et doubles (Ten'Up), sinon le plus grand nombre de simples vus sur les feuilles
   function kpFmt(c) {
     var ns = +c.ns || 0, nd = c.nd != null ? +c.nd || 0 : null;
@@ -4249,16 +4267,66 @@
   function kpEffHtml(c) {
     var P = kpPl(c), R = kpRost(c, c.me.mine), U = !c.cloture ? kpUp(c) : [];
     setTimeout(function () { try { kpLoad([[c, [c.me.mine]]]); kpWarm(P); } catch (e) {} }, 0);
-    var rel = E.nextRelease(today()), anyMv = false;
+    var rel = E.nextRelease(today()), anyMv = false, anyB = false;
     var rows = P.map(function (p) {
-      var mv = kpMv(p); if (mv) anyMv = true; var x = p.R || {}, me = kpMe(p), real = !me && !/^[nm]:/.test(p.id);
-      return "<" + (real ? 'button data-a="kpOpen" data-v="' + esc(p.id) + '"' : "div") + ' class="kp-r">' + kpRkTag(p) + '<span class="grow"><b>' + esc(kpNm(p)) + (x.b ? '<span class="kp-fl">brûlé</span>' : "") + kpMvi(mv) + "</b><small>" + plural(x.s || 0, "simple") + " · " + plural(x.d || 0, "double") + kpRes(x.rs) + "</small></span>" + (real ? '<span class="pa-ch" aria-hidden="true">›</span></button>' : "</div>");
+      var mv = kpMv(p); if (mv) anyMv = true; if ((p.R || {}).b) anyB = true; var x = p.R || {};
+      return '<button data-a="sheet" data-k="kpJo" data-v="' + esc(c.id + "|" + p.id) + '" class="kp-r">' + kpRkTag(p) + '<span class="grow"><b>' + esc(kpNm(p)) + (x.b ? '<span class="kp-fl">brûlé</span>' : "") + kpMvi(mv) + "</b></span>" + kpRes(x.rs, "s") + kpRes(x.rsd, "d") + '<span class="pa-ch" aria-hidden="true">›</span></button>';
     }).join("");
     return '<h2 class="tm-gh">L\'effectif</h2><div class="card kp-eff"><span class="eyebrow">' + plural(P.length, "joueur") + " <small>dans ce championnat · " + plural(R.nR, "rencontre") + "</small></span>" +
-      (UI.kpBusy ? '<span class="small kp-ld"><span class="spin"></span> Lecture des feuilles de match…</span>' : "") + (rows || '<p class="kp-note">Les joueurs apparaissent ici dès la 1re feuille de match, ou choisis-les toi-même.</p>') +
+      (UI.kpBusy ? '<span class="small kp-ld"><span class="spin"></span> Lecture des feuilles de match…</span>' : "") + (rows ? '<div class="kp-hd" aria-hidden="true"><span class="kp-cl s"><i></i>Simple</span><span class="kp-cl d"><i></i>Double</span><span class="pa-ch">›</span></div>' + rows : '<p class="kp-note">Les joueurs apparaissent ici dès la 1re feuille de match, ou choisis-les toi-même.</p>') +
       (U.length ? '<button class="kp-more" data-a="sheet" data-k="kpDz" data-v="' + esc(c.id) + '"><span>Les dispos, rencontre par rencontre</span><span aria-hidden="true">›</span></button>' : "") +
       '<button class="kp-more" data-a="sheet" data-k="kpWho" data-v="' + esc(c.id) + '"><span>Ajouter un joueur du club</span><span aria-hidden="true">›</span></button></div>' +
-      '<p class="kp-note kp-pn">Points : ses résultats en simple dans ce championnat.' + (anyMv ? " Flèche : son classement à la sortie du " + JOURS[rel.getDay()] + " " + dN(rel) + " " + MOIS[rel.getMonth()] + " (simulation Ten'Up)." : "") + "</p>";
+      '<p class="kp-note kp-pn">Carré : un simple, rond : un double, dans ce championnat. Vert : gagné, orangé : perdu.' + (anyMv ? " Flèche : son classement à la sortie du " + JOURS[rel.getDay()] + " " + dN(rel) + " " + MOIS[rel.getMonth()] + " (simulation Ten'Up)." : "") + (anyB ? "<br>Brûlé (d'après la feuille de match Ten'Up) : il a déjà assez joué dans cette équipe ou une plus forte du club pour ne plus pouvoir jouer dans une équipe de numéro plus grand. Le nombre de rencontres dépend du règlement du championnat." : "") + "</p>";
+  }
+
+  // 4.16.6 (Yann) : la fiche « championnat » d'un joueur de l'effectif : classement, simples, doubles, dispos à venir, forme ; un encart doux par section
+  function kpJoMs(c, pid) {
+    var me = c.me.mine, S2 = [], D2 = [];
+    kpRenc(c, me).forEach(function (r) {
+      var L = kpF(r.id); if (!L) return; var sd = r.a === me ? "a" : "b", od = sd === "a" ? "b" : "a", w = sd === "a" ? 1 : 2, o = kpOpp(c, r);
+      L.forEach(function (m) {
+        var ps = m[sd] || [], k = function (q) { return String(q.id || "n:" + kpNk(q.n)); };
+        if (!ps.some(function (q) { return k(q) === String(pid); })) return;
+        var sc = String(m.sc || "").split(" ").filter(Boolean).map(function (z) { var t = z.split("-"); return sd === "a" ? t[0] + "/" + t[1] : t[1] + "/" + t[0]; }).join(" ");
+        var x = { r: r, j: kpJ(c, r), opp: o.nm, home: o.home, res: m.w === w ? "V" : m.w ? "D" : "", sc: m.wo ? "WO" : sc, them: m[od] || [], mate: ps.filter(function (q) { return k(q) !== String(pid); })[0] };
+        (m.dbl ? D2 : S2).push(x);
+      });
+    });
+    return { s: S2, d: D2 };
+  }
+  function kpJoSheet(v) {
+    var a = String(v || "").split("|"), c = tmFind(a[0]); if (!c || !c.me) return null;
+    var p = kpPl(c).filter(function (q) { return String(q.id) === a[1]; })[0]; if (!p) return null;
+    var me = kpMe(p), real = !me && !/^[nm]:/.test(p.id), M = kpJoMs(c, p.id), U = kpUp(c), av = function (r) { return kpAv(c, r.id)[p.id]; };
+    var day = function (r) { var d = E.parseDate(String(r.d).slice(0, 10)); return dN(d) + " " + MOIS[d.getMonth()]; };
+    var bil = function (L) { var v = L.filter(function (x) { return x.res === "V"; }).length, d = L.filter(function (x) { return x.res === "D"; }).length; return [v ? v + " V" : "", d ? d + " D" : ""].filter(Boolean).join(" · ") || plural(L.length, "match", "matchs"); };
+    var enc = function (h, b, body) { return '<div class="kp-enc"><div class="kp-eh"><span>' + h + "</span>" + (b ? "<b>" + b + "</b>" : "") + "</div>" + body + "</div>"; };
+    var vd = function (x) { return x.res ? '<span class="vd ' + x.res + '">' + x.res + "</span>" : '<span class="vd kp-vd0" aria-label="sans résultat">–</span>'; };
+    var where = function (x) { return [x.j ? "J" + x.j : "", (x.home ? "contre " : "chez ") + x.opp, x.sc].filter(Boolean).join(" · "); };
+    var nm = function (q) { return q ? esc(kpShort(q.n) || "Joueur") : "?"; };
+    var mv = kpMv(p), rk = kpRk(p);
+    var brl = (p.R || {}).b ? '<p class="kp-note kp-jn"><span class="kp-fl" style="margin:0 6px 0 0">brûlé</span>D\'après la feuille de match Ten\'Up, ' + (me ? "tu ne peux" : "il ne peut") + " plus jouer dans une équipe de numéro plus grand du club.</p>" : "";
+    var top = '<div class="lc-r kp-jr">' + kpRkTag(p) + '<span class="grow">' + (mv ? "<b>" + (mv.dir === "up" ? "Monte" : "Descend") + " probablement à " + esc(lab(mv.proj)) + "</b><small>" + esc(cap1(rkRelLab(mv))) + " · simulation Ten'Up</small>" : "<b>Classé " + esc(rk || "?") + "</b><small>" + (me ? "Ton" : "Son") + " classement officiel Ten'Up</small>") + "</span></div>";
+    var sRows = M.s.map(function (x) { var o = x.them[0]; return '<div class="lc-r kp-jr">' + vd(x) + '<span class="grow"><b>contre ' + (o && o.r ? '<span class="rk-tag">' + esc(o.r) + "</span> " : "") + nm(o) + "</b><small>" + esc(where(x)) + '</small></span><span class="small">' + day(x.r) + "</span></div>"; }).join("");
+    var dRows = M.d.map(function (x) { return '<div class="lc-r kp-jr">' + vd(x) + '<span class="grow"><b>' + (x.mate ? "avec " + nm(x.mate) : "En double") + "</b><small>" + (x.them.length ? "face à " + x.them.map(nm).join(" / ") + " · " : "") + esc(where(x)) + '</small></span><span class="small">' + day(x.r) + "</span></div>"; }).join("");
+    var none = function (t) { return '<p class="kp-note kp-jn">' + t + "</p>"; };
+    var dz = U.length ? '<small class="small kp-jh">Touche le rond pour changer : dispo, pas dispo, sans réponse.</small>' + U.map(function (r) { var o = kpOpp(c, r), j = kpJ(c, r), x = av(r), k = x === 1 ? "y" : x === 0 ? "n" : "", t = x === 1 ? "Dispo" : x === 0 ? "Pas dispo" : "Sans réponse";
+        return '<div class="lc-r kp-jr"><span class="grow"><b>' + esc((j ? "J" + j + " · " : "") + o.nm) + "</b><small>" + esc(kpDay(r.d) + " · " + (o.home ? "à domicile" : "à l'extérieur")) + '</small></span><span class="small">' + t + '</span><button class="kp-c" data-a="kpAv" data-v="' + esc(c.id + "|" + r.id + "|" + p.id) + '" aria-label="' + esc(kpDay(r.d) + " : " + t.toLowerCase() + ", toucher pour changer") + '"><i class="' + k + '">' + (x === 1 ? "✓" : x === 0 ? "✕" : "?") + "</i></button></div>"; }).join("")
+      : '<div class="kp-jend"><span class="kp-jic" aria-hidden="true">' + I.check + "</span><span><b>Plus de rencontre à venir</b><small>" + (c.cloture ? "Le championnat est terminé." : "Toutes les rencontres de l'équipe sont jouées.") + "</small></span></div>";
+    var fm = "";
+    try {
+      var rows = null, own = E.idx(T.normRank(rk));
+      if (me) { var cx = ctx(); rows = effMs(cx.proj.matches); own = cx.cur < 0 ? 0 : cx.cur; }
+      else { var sc = (S.scout || {})[String(p.id)]; if (sc && sc.rows) rows = hisEffRows(sc.rows, p.id, nameCase(p.n)); }
+      if (rows && own != null) { var F = ffStats(rows, own), l5 = F.last.slice(0, 5);
+        if (l5.length) fm = enc(me ? "Ta forme" : "Sa forme", F.form.v + " V sur " + F.form.n, '<div class="kp-jf"><small class="small">' + (me ? "Tes " : "Ses ") + plural(l5.length, "dernier match", "derniers matchs") + " en simple, tournois compris, du plus récent au plus ancien</small><span>" + l5.map(function (m) { return '<span class="vd ' + m.result + '">' + m.result + "</span>"; }).join("") + "</span></div>"); }
+    } catch (e) {}
+    var body = enc("Classement", "", top + brl) +
+      enc('<i class="kp-sh s" aria-hidden="true"></i>En simple', M.s.length ? bil(M.s) : "", sRows || none((me ? "Tu n'as" : "Il n'a") + " pas encore joué de simple dans ce championnat.")) +
+      enc('<i class="kp-sh d" aria-hidden="true"></i>En double', M.d.length ? bil(M.d) : "", dRows || none((me ? "Tu n'as" : "Il n'a") + " pas encore joué de double dans ce championnat.")) +
+      enc(me ? "Tes dispos" : "Ses dispos", U.length ? U.filter(function (r) { return av(r) === 1; }).length + " sur " + U.length : "", dz) + fm +
+      (real ? '<button class="kp-more kp-jlk" data-a="kpOpen" data-v="' + esc(p.id) + '"><span>Sa fiche et votre face-à-face</span><span aria-hidden="true">›</span></button>' : "");
+    return { title: me ? "Toi" : kpShort(p.n) || "Joueur", sub: (me ? "Ton" : "Son") + " championnat avec " + tmNm(kpTeamNm(c)), body: body };
   }
 
   // ——— La compo proposée par Ace (modifiable)
@@ -9021,10 +9089,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       (vsMe.length ? '<div class="kv-r"><span>Contre les ' + esc(myR) + "</span><b>" + vsV + " V · " + (vsMe.length - vsV) + " D</b></div>" : "") +
       (sp ? '<div class="kv-r"><span>Sa simulation Ten\'Up · ' + esc(fdate(sp.rel)) + '</span><b class="simv ' + sp.dir + '">' + (sp.dir === "same" ? "Maintien " + lab(sp.cur) : lab(sp.cur) + " → " + lab(sp.proj) + (sp.dir === "up" ? " ↑" : " ↓")) + "</b></div>" : simTxt ? '<div class="kv-r"><span>Simulation Ten\'Up</span><b>' + esc(simTxt) + "</b></div>" : "") + "</div>";
     // toi contre lui + adversaires communs
-    if (!D || mine.length) s += "<h2>Toi contre lui</h2>";
+    // 4.16.5 (Yann, maquette validée le 26/11/2026) : « Toi contre lui » en tête de Statistiques, le court du face-à-face, vos rencontres en dépliant
+    if (!D && !mine.length) s += "<h2>Toi contre lui</h2>";
     if (mine.length) {
-      var mv = mine.filter(function (m) { return m.result === "V"; }).length;
-      s += '<div class="card"><div class="h2h-big"><span>Toi</span><b>' + mv + " – " + (mine.length - mv) + "</b><span>" + esc(pr.prenom || "Lui") + "</span></div>" + mine.map(function (m) { return '<a class="row" href="#/match/' + m.id + '"><span class="vd lg ' + m.result + '">' + m.result + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.comp || "") + "</span></span>" + msbHtml(m) + I.next + "</a>"; }).join("") + "</div>";
+      var mv = mine.filter(function (m) { return m.result === "V"; }).length, lui = her ? "elle" : "lui";
+      var h2c = '<div class="card opp-head h2h-c"><span class="grow"><span class="eyebrow id-pill c-dur">Toi contre ' + lui + "</span>" + fcCourt(mv, mine.length - mv, String(name || "").split(" ")[0] || cap1(lui)) +
+        '<span class="small fc-sub">' + plural(mine.length, "match", "matchs") + " contre " + lui + (mine.length > 1 ? " · le dernier le " + esc(fdate(mine[0].date)) : "") + "</span>" +
+        '<details class="ff-bdd h2h-d"><summary>' + (mine.length > 1 ? "Voir les " + mine.length + " rencontres" : "Voir la rencontre") + '</summary><div class="h2h-rows">' + mine.map(function (m) { return '<a class="row" href="#/match/' + m.id + '"><span class="vd lg ' + m.result + '">' + m.result + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.comp || "") + "</span></span>" + msbHtml(m) + I.next + "</a>"; }).join("") + "</div></details></span></div>";
+      s = s.slice(0, s0) + h2c + s.slice(s0);
     }
     if (!mine.length && !D) s += '<div class="card"><span style="font-size:15px"><b>Jamais joué.</b> ' + (common0.length ? "Vos adversaires communs sont plus haut." : "Pas encore d\'adversaire commun cette saison.") + "</span></div>";
     var statsHtml = s.slice(s0); s = s.slice(0, s0) + (tab === "plan" && !mixed ? planHtml : tab === "pal" ? palHtml(rows, id, name, pr) : statsHtml);
@@ -14284,6 +14356,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.13 : la saison d'une équipe (qui joue, dispos, compo d'Ace, convocation)
     kpWho: function (v) { return kpWhoSheet(v); },
     kpDz: function (v) { return kpDzSheet(v); },
+    kpJo: function (v) { return kpJoSheet(v); },
     kpCompo: function (v) { return kpCompoSheet(v); },
     kpConv: function (v) { return kpConvSheet(v); },
     lmDef: function (v) { return lmDefSheet(v); }, // 4.14
@@ -16615,6 +16688,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return '<a class="rev-hint' + (dark ? " dark" : "") + '" href="#/' + advPath(nameKey(name)) + '">' + 
       '<span class="grow"><span class="eyebrow">' + (x.fiche ? "Ta fiche sur lui" : "Ton retour du dernier match") + '</span>' + noteHtml(x.text) + '<span class="small">' + (x.m ? (x.m.result === "V" ? "Victoire" : "Défaite") + (x.date ? " le " + esc(fdate(x.date)) : "") + (x.m.score ? " · " + esc(x.m.score) : "") : "Sur sa fiche") + (n.length > 1 ? " · " + plural(n.length - 1, "autre note", "autres notes") : "") + "</span></span></a>";
   }
+  // 4.2 (Yann, piste A + B validée le 23/11/2026) : le score du face-à-face sur un court vu de dessus. Un seul dessin, partout (fiche d'adversaire, Statistiques)
+  function fcCourt(v, d, name) {
+    var crt = '<svg class="fc-crt" viewBox="0 0 236 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"><rect x="1" y="1" width="234" height="98" rx="2"/><path d="M1 13h234M1 87h234M55 13v74M181 13v74M55 50h126"/></g><path d="M118 -2v104" stroke="currentColor" stroke-width="3" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/></svg>';
+    return '<span class="fc-court" role="img" aria-label="' + v + " victoire" + (v > 1 ? "s" : "") + " pour toi, " + d + " pour " + esc(name) + '">' + crt +
+      '<span class="fc-sd me"><b style="color:' + (v > d ? "var(--gazon)" : v < d ? "var(--terre)" : "var(--ink)") + '">' + v + "</b><small>Toi</small></span>" +
+      '<span class="fc-ball">' + tball(22) + "</span>" +
+      '<span class="fc-sd him"><b>' + d + "</b><small>" + esc(name) + "</small></span></span>";
+  }
   V.adversaire = function (key) {
     key = decodeURIComponent(key || "");
     var ms = knownMatches(false).filter(function (m) { return m.opp && !isAnon(m.opp) && nameKey(m.opp) === key; }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
@@ -16624,12 +16705,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var s = '<div class="screen">' + topbar(name, ms[0].oppRank ? "Classé " + ms[0].oppRank + " au dernier match" : "");
     var prep = null; try { prep = coAdvPrep(key); } catch (e) {}
     // 4.2 (Yann, piste A + B validée le 23/11/2026) : le score sur un court vu de dessus, Ace posé sur la carte avec sa phrase
-    var crt = '<svg class="fc-crt" viewBox="0 0 236 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"><rect x="1" y="1" width="234" height="98" rx="2"/><path d="M1 13h234M1 87h234M55 13v74M181 13v74M55 50h126"/></g><path d="M118 -2v104" stroke="currentColor" stroke-width="3" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/></svg>';
     var oh = '<div class="card opp-head"><span class="grow"><span class="eyebrow id-pill c-dur">Face-à-face</span>' +
-      '<span class="fc-court" role="img" aria-label="' + v + " victoire" + (v > 1 ? "s" : "") + " pour toi, " + d + " pour " + esc(name) + '">' + crt +
-      '<span class="fc-sd me"><b style="color:' + (v > d ? "var(--gazon)" : v < d ? "var(--terre)" : "var(--ink)") + '">' + v + "</b><small>Toi</small></span>" +
-      '<span class="fc-ball">' + tball(22) + "</span>" +
-      '<span class="fc-sd him"><b>' + d + "</b><small>" + esc(name) + "</small></span></span>" +
+      fcCourt(v, d, name) +
       '<span class="small fc-sub">' + plural(ms.length, "match", "matchs") + " contre lui" + (v === d && v >= 1 && jk("f-belle") ? " · la belle s'annonce" : "") + "</span><!--FAFACE--></span></div>";
     s += dockAce(oh, "adv", (prep ? [prep] : []).concat(coAdvTips(key, ms)), "<!--FAFACE-->", "vs:" + key); // 3.73 ; 3.75 : « Prépare-moi le match » d'abord
     // 3.93 (Yann, partage) : un match prévu contre lui = l'avant-match se partage en image (tes chances, vos matchs, ce qu'il rapporte)
@@ -18866,7 +18943,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       S.notif = ok; save(); syncNative(); render();
     }).catch(function () {});
   }
+  // 4.16.7 (Yann : « quand je recharge mes épreuves, j'aimerais revenir sur Toi ») : à l'ouverture de l'app, en arrivant sur Mes épreuves,
+  // en touchant Actualiser ou en revenant dans l'app après quelques minutes, l'onglet repart sur « Toi ». Un retour depuis une épreuve ou une équipe garde l'onglet.
+  function epToi() { if (S.prefs && S.prefs.epTab && S.prefs.epTab !== "toi") { S.prefs.epTab = "toi"; save(); return true; } return false; }
   function nativeWake() {
+    if (UI.bgAt && Date.now() - UI.bgAt > 3 * 60000 && route() === "tournoi" && epToi()) render(); UI.bgAt = 0;
     if (SK) { kidAuto(); return; } // 4.15
     if (!NATIVE) return;
     setTimeout(function () { bkSnap(false).then(function (ok) { if (ok && route() === "donnees") render(); }); }, 6000); // 3.76.0 : copie de la semaine
@@ -19616,11 +19697,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.16",
+    v: "4.16.7",
     pages: [
       // 4.16 (Yann, 26/11/2026) : tes chances = une balle de tennis qui se remplit, aux couleurs de ton thème (fiche, accueil, tournois, widgets, montre)
       { hero: true, title: "Montée 4.16", text: "Tes chances contre un adversaire se lisent d'un coup d'œil : une balle de tennis qui se remplit, aux couleurs de ton thème." },
       { tag: "Nouveau", tone: "rose", title: "Tes chances, en balle", vis: "bal416", text: IOS ? "Plus elle est pleine, plus le match est pour toi. Sur sa fiche, dans Ce qui arrive, tes tournois, tes widgets et ta montre. Touche « D'où vient » pour le détail du calcul." : "Plus elle est pleine, plus le match est pour toi. Sur sa fiche, dans Ce qui arrive, tes tournois et tes widgets. Touche « D'où vient » pour le détail du calcul." },
+      // 4.16.7 (Yann, 26/11/2026, maquette validée) : l'effectif en colonnes Simple / Double, et la fiche championnat d'un joueur
+      { tag: "Nouveau", tone: "rose", title: "Ton effectif, d'un coup d'œil", vis: "ef416", text: "Dans Mes équipes : les simples en carrés, les doubles en ronds, verts quand c'est gagné. Touche un joueur : ses matchs, ses dispos à venir et sa forme." },
       // 4.15 (Yann, 26/11/2026, lot 4 validé) : le profil de ton enfant
       { hero: true, title: "Montée 4.15", text: "Ton enfant joue aussi ? Ajoute-le et passe sur son profil : son classement, sa montée et ses chances contre un adversaire, calculés comme les tiens." },
       { tag: "Nouveau", tone: "rose", title: "Le profil de ton enfant", vis: "kid415", text: "Touche ta pastille sur l'accueil : ajoute ton enfant ou un proche, et passe sur son profil. « Revenir à moi » est en haut de chaque écran." },
@@ -19778,7 +19861,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-      var PHARES = ["bal416", "kid415", "kidl415", "kidf415", "lm414"]; // 4.16 : la balle des chances en tête (kp413 sort) // 4.15 : le profil de ton enfant en tête ; // 4.14 : ils montent ce mois-ci en tête // 4.13 : la saison d'une équipe, puis l'adversaire qui bouge (4.12) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
+      var PHARES = ["ef416", "bal416", "kid415", "kidl415", "kidf415"]; // 4.16.7 : l'effectif en colonnes et la fiche championnat en tête (lm414 sort) // 4.16 : la balle des chances en tête (kp413 sort) // 4.15 : le profil de ton enfant en tête ; // 4.14 : ils montent ce mois-ci en tête // 4.13 : la saison d'une équipe, puis l'adversaire qui bouge (4.12) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -19812,6 +19895,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.13 : la compo d'Ace, la convocation, l'effectif
     if (k === "kp413") return nvc('<span class="nv-k" style="color:#D4E64A">TA COMPO · DIM. 6 DÉC.</span>' + [["S1", "Toi", "15/4"], ["S2", "Hugo L.", "15/5"], ["S3", "Lucas B.", "15/5"], ["D", "Toi · Hugo L.", ""]].map(function (x) { return '<span style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08)"><b style="flex:none;width:26px;height:26px;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);display:grid;place-items:center;font-size:11px">' + x[0] + '</b><b style="flex:1;font-size:14px">' + x[1] + '</b><span style="font-size:13px;opacity:.75">' + x[2] + "</span></span>"; }).join(""));
     if (k === "cv413") return nvc('<span class="nv-k" style="color:#D4E64A">LE MESSAGE</span><span style="display:block;padding:10px 12px;border-radius:14px 14px 14px 4px;background:rgba(255,255,255,.08);font-size:12.5px;line-height:1.5;text-align:left"><b>TC Exemple 2 · Journée 5</b><br>Dim. 6 déc. · RDV 8 h 45, début 9 h<br><br><b>🎾 SIMPLES</b><br>1️⃣ Toi · 15/4<br>2️⃣ Hugo L. · 15/5<br>3️⃣ Lucas B. · 15/5<br><br>Confirmez-moi votre présence.</span>');
+    if (k === "ef416") return nvc('<span class="nv-k" style="color:#D4E64A">L\'EFFECTIF</span><span style="display:flex;justify-content:flex-end;gap:10px;font-size:10px;font-weight:800;opacity:.7"><span style="width:52px;text-align:left">SIMPLE</span><span style="width:34px;text-align:left;white-space:nowrap">DOUBLE</span></span>' + [["15/3", "Thomas M.", "vvd", "v"], ["15/4", "Hugo L.", "v", "v"], ["30", "Antoine R.", "v", "d"]].map(function (x) { var sh = function (r, rd) { return r.split("").map(function (z) { return '<i style="display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:' + rd + ';background:' + (z === "v" ? "#6FC28F" : "rgba(232,138,94,.6)") + '"></i>'; }).join(""); }; return '<span style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);text-align:left"><b style="flex:none;width:40px;font-size:14px">' + x[0] + '</b><b style="flex:1;font-size:14px">' + x[1] + '</b><span style="width:52px">' + sh(x[2], "3px") + '</span><span style="width:34px">' + sh(x[3], "50%") + "</span></span>"; }).join(""));
     if (k === "ef413") return nvc('<span class="nv-k" style="color:#D4E64A">L\'EFFECTIF</span>' + [["15/3", "Thomas M.", "4 simples · 2 doubles", ""], ["15/4", "Hugo L.", "3 simples · 1 double", "↓ 15/5"], ["30", "Antoine R.", "2 simples", "↑ 15/5"]].map(function (x) { return '<span style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);text-align:left"><b style="flex:none;width:44px;font-size:14px">' + x[0] + '</b><span style="flex:1"><b style="font-size:14px">' + x[1] + (x[3] ? ' <span style="font-size:12px;color:' + (x[3].charAt(0) === "↑" ? "#7BC79A" : "#E88A5E") + '">' + x[3] + "</span>" : "") + '</b><small style="display:block;font-size:11.5px;opacity:.7">' + x[2] + "</small></span></span>"; }).join(""));
     if (k === "rkm412") return nvc('<span class="nv-k" style="color:#D4E64A">JE LE JOUE · JOUR</span><span style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' + [["SAM.", "28", 0, 0], ["DIM.", "29", 0, 0], ["LUN.", "30", 0, 0], ["MAR.", "1", 1, 0], ["MER.", "2", 1, 1]].slice(1).map(function (d) { return '<span style="position:relative;display:flex;flex-direction:column;align-items:center;padding:6px 0;border-radius:12px;background:' + (d[3] ? "#D4E64A;color:#121212" : "rgba(255,255,255,.08)") + '"><small style="font-size:9.5px;font-weight:800;opacity:.75">' + d[0] + '</small><b style="font-size:17px">' + d[1] + '</b>' + (d[2] ? '<i style="position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:#E88A5E"></i>' : "") + "</span>"; }).join("") + '</span><span style="display:flex;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);font-size:12.5px;line-height:1.4"><b style="flex:none;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1.5px #E88A5E;color:#E88A5E;display:grid;place-items:center">↓</b><span><b style="display:block;color:#E88A5E;font-size:13.5px">Mer. 2 déc. : il sera 15/2 ce jour-là</b>Ta victoire vaudra +30 pts au lieu de +45.</span></span>');
     if (k === "pa45") return nvc('<span class="nv-k" style="color:#D4E64A">TES PROCHAINS ADVERSAIRES</span>' + [["MC", "M. Caron · 15/2", nvPill + "a perdu lundi", "47 % → 57 %", 1], ["TD", "T. Durand · 15/3", "Rien de neuf", "61 %", 0], ["JM", "J. Moreau · 15/1", "a gagné samedi", "38 % → 34 %", 0]].map(function (r) { return '<span style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)">' + nvAv(r[0]) + '<span style="flex:1;display:flex;flex-direction:column;min-width:0"><b style="font-size:14px">' + r[1] + '</b><span style="font-size:12.5px;opacity:' + (r[4] ? 1 : 0.7) + '">' + r[2] + '</span></span><b style="font-size:13px;color:' + (r[4] ? "#6FC28F" : "#F2F3F5") + ';white-space:nowrap">' + r[3] + "</b></span>"; }).join(""));
@@ -20386,7 +20470,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       UI.draft = null; UI.racketDraft = null; UI.rkMenu = false; back();
     },
     leaveStay: function () { UI.leaveAsk = false; render(); },
-    leaveDiscard: function () { UI.leaveAsk = false; UI.draft = null; UI.racketDraft = null; UI.rkMenu = false; UI.origKey = null; back(); },
+    leaveDiscard: function () { var e = editCtx(); if (e && e.dz) UI.dzEd[e.dz.id] = {}; UI.leaveAsk = false; UI.draft = null; UI.racketDraft = null; UI.rkMenu = false; UI.origKey = null; back(); },
     leaveSave: function () { var e = editCtx(); UI.leaveAsk = false; if (e) A[e.save](); },
     rkMenu: function () { UI.rkMenu = !UI.rkMenu; render(); },
     bilanSel: function (el) { UI.bilanSel = +el.dataset.v; render(); },
@@ -20673,7 +20757,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var nm = String(x && x.name || "").split(" "), hit = x && x.hit && x.hit.id ? x.hit : { id: id, prenom: nm.slice(0, -1).join(" "), nom: nm.slice(-1)[0] || "", rank: x && x.rank || "" };
       UI.trR = null; UI.plSched = null; openScout(hit);
     },
-    insSync: function () { insRefresh(true); render(); },
+    insSync: function () { epToi(); insRefresh(true); render(); window.scrollTo(0, 0); }, // 4.16.7 (Yann) : actualiser revient sur « Toi »
     insOpen: function () { window.open("https://tenup.fft.fr/user/mes-inscriptions", "_system"); },
     tlOff: function () { UI.tlOff = !UI.tlOff; render(); },
     actPlus: function () { UI.actPlus = true; render(); },
@@ -21694,21 +21778,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     tzOpen: function (el) { UI.sheet = { k: "tz", v: el.dataset.v }; render(); },
     tzTab: function (el) { if (el.dataset.v === "rec" && !isSup()) { UI.supFrom = "trouver"; UI.sheet = { k: "plusPrev", v: "cap" }; render(); return; } UI.tzTab = el.dataset.v; render(); },
     tzCp: function () { var v = (document.getElementById("tz-cp") || {}).value; tzHome(v).then(function (P) { if (!P) { toast("Code postal introuvable."); return; } if (!UI.sheet) tzSearch(true); render(); }); },
-    dzDay: function (el) { UI.dzPk = null; UI.sheet = { k: "dz", v: location.hash.split("/")[2] + "|" + el.dataset.v }; render(); },
-    dzPick: function (el) { UI.dzPk = el.dataset.v; render(); },
-    dzOk: function (el) {
-      var a = String(UI.sheet && UI.sheet.v || "").split("|"), t = (S.tours || []).filter(function (x) { return x.id === a[0]; })[0], k = el.dataset.v;
-      if (t && t.ins.more && t.ins.more.dz) { var ed = dzEd(t), hab = dzHab(t.ins.more.dz, a[1]);
-        if (k === "hab") ed[a[1]] = hab; else if (k === "off") ed[a[1]] = [];
-        else { var f = (document.getElementById("dz-f") || {}).value, to = (document.getElementById("dz-t") || {}).value;
-          if (!f || !to || to <= f) { toast("L'heure de fin doit être après l'heure de début."); return; } ed[a[1]] = [{ from: f.slice(0, 5), to: to.slice(0, 5) }]; }
-        var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && !dzAmb(g, t) && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
-      UI.dzPk = null; UI.sheet = null; render(); },
+    dzDay: function (el) { UI.hbd = null; UI.sheet = { k: "dz", v: location.hash.split("/")[2] + "|" + el.dataset.v }; render(); },
+    dzHabGo: function () { var d = UI.hbd; if (!d || !d.dz) return; d.slots = JSON.parse(JSON.stringify(d.hab)); d.play = !!d.hab.length; render(); },
+    dzOk: function () { var d = UI.hbd, t = d && d.dz && (S.tours || []).filter(function (x) { return x.id === d.dz; })[0];
+      if (t && t.ins.more && t.ins.more.dz) { var ed = dzEd(t), nx = d.play ? T.slotsMerge(d.slots).slots.map(function (x) { return { from: x.from, to: x.to }; }) : [], b = dzBase(t, t.ins.more.dz, d.iso);
+        if (!b.amb && T.dzSame(nx, b.slots)) delete ed[d.iso]; else ed[d.iso] = nx; } // revenu à ce que Ten'Up a déjà : plus rien à envoyer pour ce jour
+      UI.hbd = null; UI.sheet = null; render(); },
     // 4.10 : créneaux habituels (profil Ten'Up) et indispo d'un tournoi
     hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
     hbDay: function (el) { UI.hbd = null; UI.sheet = { k: "hbd", v: el.dataset.v, back: "hb" }; render(); },
     hbPlay: function (el) { var d = UI.hbd; if (!d) return; d.play = el.dataset.v === "1";
-      if (d.play && !d.slots.length) { var h = (UI.hb.prof.week[d.wd] || []); d.slots = h.length ? JSON.parse(JSON.stringify(h)) : [{ from: "18:00", to: "22:00" }]; } render(); },
+      if (d.play && !d.slots.length) { var h = d.dz ? d.hab : (UI.hb.prof.week[d.wd] || []); d.slots = h.length ? JSON.parse(JSON.stringify(h)) : [{ from: "18:00", to: "22:00" }]; } render(); },
     hbDel: function (el) { var d = UI.hbd; if (!d) return; d.slots.splice(+el.dataset.v, 1); if (!d.slots.length) d.play = false; render(); },
     hbAdd: function () { var d = UI.hbd; if (!d) return; var A0 = HB_A * 60, B0 = HB_B * 60, cur = A0, best = null;
       d.slots.concat([{ from: hbHM(B0), to: hbHM(B0) }]).forEach(function (x) { var a = Math.max(cur, A0), b = Math.min(hbMin(x.from), B0); if (b - a >= 30 && (!best || b - a > best.b - best.a)) best = { a: a, b: b }; cur = Math.max(cur, hbMin(x.to)); });
@@ -21732,12 +21812,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         toast(ok ? "Tes créneaux habituels sont enregistrés sur Ten'Up." : "Ten'Up n'a pas tout pris : vérifie tes créneaux.", ok);
         // 4.11.1 : « Et tes tournois ? » dès que Ten'Up a changé quelque chose, même s'il n'a pas tout pris
         UI.hbSel = {}; UI.sheet = !T.weekSame(r.week, before) && hbTours().length ? { k: "hbt" } : UI.sheet; render(); }); },
-    hbTourOne: function (el) { var t = (S.tours || []).filter(function (x) { return x.id === el.dataset.v; })[0], H = UI.hb, D = t && (t.ins.more || {}).dz;
-      var gen = H && H.prof ? T.weekGen(H.prof.week) : D && D.pgen; if (!t || !gen || UI.hbRun1) return;
-      UI.hbRun1 = true; render();
-      hbTourRun(t, gen).then(function (ok) { return ok; }, function () { return false; }).then(function (ok) { UI.hbRun1 = false; save(); render();
-        if (ok && ok.amb) { toast("Rien n'est envoyé : Ten'Up ne dit pas clairement si tu es dispo le " + ok.amb.map(dzDayName).join(", le ") + ". Touche ce jour dans la liste et choisis d'abord."); return; }
-        toast(ok ? "Ton tournoi a tes créneaux habituels. Tes indispos juste pour lui sont gardées." : "Ten'Up n'a pas tout pris : vérifie les jours du tournoi.", ok); }); },
     hbTourTog: function (el) { UI.hbSel = UI.hbSel || {}; UI.hbSel[el.dataset.v] = UI.hbSel[el.dataset.v] === false; render(); },
     hbToursGo: function () { var H = UI.hb, sel = UI.hbSel || {}, L = hbTours().filter(function (t) { return sel[t.id] !== false; }); if (!H || !H.prof || UI.hbRun || !L.length) return;
       var gen = T.weekGen(H.prof.week), bad = 0; UI.hbRun = true; render();
@@ -21755,6 +21829,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (!a.all && (!a.from || !a.to || a.to <= a.from)) { toast("L'heure de fin doit être après l'heure de début."); return; }
       var cur = dzDay(t, t.ins.more.dz, a.iso).slots, nx = a.all ? [] : T.slotsMinus(cur, a.from, a.to); if (!a.all && T.dzSame(nx, cur)) { toast("Tu ne joues déjà pas à ce moment-là : rien à changer."); return; } dzEd(t)[a.iso] = nx; UI.dza = null; UI.sheet = null; render(); },
     dzSave: function (el) { var t = (S.tours || []).filter(function (x) { return x.id === el.dataset.v; })[0]; if (t) dzSaveRun(t); },
+    dzSaveHere: function () { var e = editCtx(); if (e && e.dz) dzSaveRun(e.dz, function (ok) { if (ok) back(); }); }, // depuis « Tu n'as pas enregistré » : on part une fois enregistré
     tzWhere: function () { UI.sheet = { k: "tzf" }; render(); },
     tzSet: function (el) { var P = tzPrefs(); P[el.dataset.k] = +el.dataset.v; save(); render(); },
     tzGo: function () { UI.sheet = null; tzSearch(true); render(); },
@@ -22124,7 +22199,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     try { var lwm = Tenup && Tenup.addListener && Tenup.addListener("watchMatch", function () { watchTake(); }); if (lwm && lwm.catch) lwm.catch(function () {}); } catch (e) {}
     try { var lw = Tenup && Tenup.addListener && Tenup.addListener("widgetAction", function () { try { var ta = Tenup.takeAction(); if (ta && ta.then) ta.then(function (r) { if (r && r.action) widgetAction(r.action); }).catch(function () {}); } catch (e) {} }); if (lw && lw.catch) lw.catch(function () {}); } catch (e) {}
     try {
-      var l = AppP && AppP.addListener("appStateChange", function (st) { if (st && st.isActive) nativeWake(); else { try { syMomentsPush(); } catch (e) {} } }); // 4.5.0 : en partant, le téléphone sait quand relire
+      var l = AppP && AppP.addListener("appStateChange", function (st) { if (st && st.isActive) nativeWake(); else { UI.bgAt = Date.now(); try { syMomentsPush(); } catch (e) {} } }); // 4.5.0 : en partant, le téléphone sait quand relire
       if (l && l.catch) l.catch(function () {});
     } catch (e) {}
     // Notification d'un joueur suivi : ouvre sa fiche
