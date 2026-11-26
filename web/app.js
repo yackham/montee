@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.7",
+    VERSION: "4.18.8",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -3529,16 +3529,13 @@
     }
     // les équipes, groupées au choix
     if (L.length) {
-      // 4.4.4 (Yann) : l'onglet Division seulement si Ten'Up donne la division d'au moins une équipe
-      var hasDiv = L.some(function (x) { return !!tmDiv(x.c.div); });
-      var gb = (S.prefs || {}).lcGrp || "cat"; if (gb === "div" && !hasDiv) gb = "cat";
+      var gb = (S.prefs || {}).lcGrp || "rk"; if (gb === "div") gb = "rk"; /* 4.18.1 (Yann : « vire l'onglet Division ») */
       var X = L.filter(function (x) { return !F || (F === "g" ? x.pos === 1 : F === "2" ? x.pos === 2 : lcPosC(x) === "r"); }), G = [];
       var put = function (k, x) { var g = G.filter(function (o) { return o.t === k; })[0]; if (!g) G.push(g = { t: k, L: [] }); g.L.push(x); };
-      if (gb === "rk") { X.forEach(function (x) { put(x.pos === 1 ? "En tête" : lcPosC(x) === "r" ? "À surveiller" : "Dans le coup", x); }); var o = ["En tête", "Dans le coup", "À surveiller"]; G.sort(function (a, b) { return o.indexOf(a.t) - o.indexOf(b.t); }); G.forEach(function (g) { g.L.sort(function (a, b) { return a.pos - b.pos; }); }); }
-      else if (gb === "div") X.forEach(function (x) { put(tmDiv(x.c.div) || "Division ?", x); });
+      if (gb === "rk") { X.forEach(function (x) { put(!x.pos || !x.n ? "Pas encore classées" : x.pos === 1 ? "En tête" : x.pos * 2 <= x.n ? "Haut de poule" : "Bas de poule", x); }); var o = ["En tête", "Haut de poule", "Bas de poule", "Pas encore classées"]; /* 4.18.1 (Yann : « Dans le coup alors qu'on est 5/6 ») : la moitié de la poule décide */ G.sort(function (a, b) { return o.indexOf(a.t) - o.indexOf(b.t); }); G.forEach(function (g) { g.L.sort(function (a, b) { return a.pos - b.pos; }); }); }
       else X.forEach(function (x) { put(champNm(x.c), x); });
       s += '<h2 class="tm-gh lc-h">Les équipes <small>' + plural(L.length, "en cours", "en cours") + "</small></h2>" +
-        '<div class="seg lc-seg">' + [["cat", "Catégorie"], ["rk", "Classement"]].concat(hasDiv ? [["div", "Division"]] : []).map(function (o) { return '<button class="' + (gb === o[0] ? "on" : "") + '" data-a="lcGrp" data-v="' + o[0] + '" aria-pressed="' + (gb === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
+        '<div class="seg lc-seg">' + [["rk", "Classement"], ["cat", "Catégorie"]].map(function (o) { return '<button class="' + (gb === o[0] ? "on" : "") + '" data-a="lcGrp" data-v="' + o[0] + '" aria-pressed="' + (gb === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
         (F ? '<button class="lnk lc-fx" data-a="lcF" data-v="">Voir toutes les équipes</button>' : "") +
         G.map(function (g) { return '<h3 class="lc-gh">' + esc(g.t) + "<small>" + plural(g.L.length, "équipe", "équipes") + '</small></h3><div class="blk lc-list">' + g.L.map(function (x, i) { return lcRow(x, gb === "cat", i); }).join("") + "</div>"; }).join("");
     }
