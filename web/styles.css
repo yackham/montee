@@ -3190,8 +3190,10 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-r.v .tq-n::after { background: color-mix(in srgb, var(--gazon) 70%, transparent); } .tq-r.last .tq-n::after { display: none; }
 .tq-b { width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; background: var(--chip); color: var(--ink); flex: none; }
 .tq-r.v .tq-b { background: var(--gazon); color: var(--on-gazon, #fff); } .tq-r.d .tq-b { background: var(--terre); color: var(--on-terre, #fff); }
-.tq-r .grow { display: flex; flex-direction: column; gap: 3px; padding-bottom: 16px; min-width: 0; } .tq-r.last .grow { padding-bottom: 2px; }
+.tq-r .grow { flex: 1; display: flex; flex-direction: column; gap: 3px; padding-bottom: 16px; min-width: 0; } .tq-r.last .grow { padding-bottom: 2px; }
 .tq-k { font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.tq-k { display: flex; align-items: center; justify-content: space-between; gap: 8px; } /* 4.21.1 : « Modifier » à droite de la ligne du tour */
+.tq-edk { flex: none; min-height: 36px; margin: -10px -4px -10px 0; padding: 0 4px; font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; }
 .tq-o { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .tq-o b { font-size: 15px; } .tq-o a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent); }
 .tq-p { flex: none; font-size: 18px; }
 .tq-alt { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); } .tq-alt b { color: var(--ink); }

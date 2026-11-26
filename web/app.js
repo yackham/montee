@@ -3271,7 +3271,7 @@
       var p = trRoundP(r), g = r.res ? null : (function () { var rk = trRk(r); return rk ? trGain(rk) : null; })(), A2 = trAlt(r), past = r.day && dGap(r.day) <= 0;
       var col = r.res === "V" ? "v" : r.res === "D" ? "d" : "", nxt = !r.res && !done && rs.filter(function (x) { return !x.res; })[0] === r;
       s += '<div class="tq-r ' + col + (nxt ? " nx" : "") + (i === rs.length - 1 ? " last" : "") + '"><span class="tq-n"><span class="tq-b">' + (r.res || i + 1) + '</span></span><span class="grow">' +
-        '<span class="tq-k">' + esc(trLab(i) + " · " + trWhen(r)) + "</span>" +
+        '<span class="tq-k"><span>' + esc(trLab(i) + " · " + trWhen(r)) + "</span>" + (!r.res && !done ? '<button class="linkbtn tq-edk" data-a="trRound" data-i="' + i + '" aria-label="Modifier ce tour">Modifier</button>' : "") + "</span>" + // 4.21.1 (Yann, maquette B) : « Modifier » sur la ligne du tour
         '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + trWhoHtml(r) + "</a>" : trWhoHtml(r)) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<span class="tq-p tq-pb">' + oddsBall(p / 100, 30) + "</span>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
         (r.opp && r.opp.club && !done ? '<span class="small">' + esc(r.opp.club) + "</span>" : "") +
         (r.opp && !r.res && rkMv(r.opp, r.day) ? rkMoveHtml(rkMv(r.opp, r.day), r.day, rkHe(r.opp.tid)) : "") +
@@ -3280,7 +3280,6 @@
           [[A2.a, A2.pA, A2.rA], [A2.b, A2.pB, A2.rB]].map(function (z) { return '<span class="tq-alt"><span>' + esc(trNm(z[0].name) || "Un joueur") + (z[2] ? ' <span class="rk-tag">' + esc(z[2]) + "</span>" : "") + "</span><b>" + (z[1] != null ? z[1] + " %" : "–") + "</b></span>"; }).join("") : "") +
         (g != null && !r.res ? '<span class="tq-g">' + (g > 0 ? "+" + g + " pts si tu gagnes" : "Une victoire ne changerait pas ton bilan") + "</span>" : "") +
         (!r.res && past && !done ? '<span class="tq-res"><button class="chip" data-a="trRes" data-v="V" data-i="' + i + '">J\'ai gagné</button><button class="chip" data-a="trRes" data-v="D" data-i="' + i + '">J\'ai perdu</button></span>' : "") +
-        (!r.res && !done ? '<button class="linkbtn tq-edl" data-a="trRound" data-i="' + i + '">Modifier ce tour</button>' : "") +
         (r.res && !done ? '<button class="linkbtn tq-edl" data-a="trUndo" data-i="' + i + '">Corriger le résultat</button>' : "") +
         "</span></div>";
     });
