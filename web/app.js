@@ -3288,7 +3288,7 @@
         (g != null ? '<span class="tq-gn' + (g > 0 ? "" : " z") + '">' + (g > 0 ? "+" + g + " pts si tu gagnes" : "Une victoire ne changerait pas ton bilan") + "</span>" : "") +
         "</span>" +
         (r.res ? '<span class="tq-sc">' + sc + (!done ? '<button class="tq-pen" data-a="trSc" data-i="' + i + '" aria-label="Corriger le résultat">' + PEN_IC + "</button>" : "") + "</span>"
-          : !done ? '<span class="tq-rc">' + (nx && past ? '<button class="tq-rb" data-a="trSc" data-i="' + i + '">' + PEN_IC + "Résultat</button>" : "") + '<button class="linkbtn tq-edk" data-a="trRound" data-i="' + i + '" aria-label="Modifier ce tour">Modifier</button></span>' : "") +
+          : !done ? '<span class="tq-rc">' + (nx && past ? '<button class="tq-rb" data-a="trSc" data-i="' + i + '">' + PEN_IC + "Résultat</button>" : '<button class="tq-pen" data-a="trRound" data-i="' + i + '" aria-label="Changer l\'adversaire, le jour ou l\'heure">' + PEN_IC + "</button>") + "</span>" : "") +
         "</div>";
     });
     return s;
@@ -5113,6 +5113,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       (x.day ? '<button class="linkbtn" data-a="plSchedClear" style="align-self:center">Retirer la date</button>' : "") + "</div>";
   }
   // 4.22.0 (Yann) : « Ton résultat » : Victoire / Défaite puis le score set par set (facultatif), le même sélecteur que la saisie d'un match
+  // 4.22.0 (Yann : « pas joli la restitution ») : le score fini se lit comme sur Ton chemin (tableau d'arbitre), un seul « Modifier »
+  function trScScore(d) {
+    var st = d.sets || [], w = st.filter(function (x) { return x[0] > x[1]; }).length, l = st.length - w;
+    if (UI.scoreManual || UI.scoreEdit != null || !(w === 2 || l === 2)) return scoreHtml(d);
+    return '<div class="field"><span class="lbl">Score</span><div class="tq-scr">' + msbHtml({ score: d.score }) + '<button class="linkbtn" data-a="trScRe">Modifier</button></div></div>';
+  }
   function trScSheet(t) {
     var R = UI.trSc, r = t.rounds[R.i], d = UI.draft || {}, rk = r.res ? rkNow(r.opp || {}, true) : trRk(r);
     var RES_V = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>';
@@ -5121,8 +5127,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       '<div class="tq-hd"><b>Ton ' + esc(trLab(R.i).toLowerCase()) + "</b></div>" +
       '<span class="tq-rs-who">Contre ' + esc(r.opp && r.opp.name ? trNm(r.opp.name) : trWho(r)) + (rk ? ' <span class="rk-tag">' + esc(rk) + "</span>" : "") + (r.day ? " · " + esc(dayLab(r.day)) : "") + "</span>" +
       '<div class="field"><span class="lbl">Résultat</span><div class="seg res"><button data-a="dset" data-k="result" data-v="V" class="rv' + (d.result === "V" ? " on" : "") + '">' + RES_V + 'Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (d.result === "D" ? " on" : "") + '">' + RES_D + "Défaite</button></div></div>" +
-      (d.result ? scoreHtml(d) : "") +
+      (d.result ? trScScore(d) : "") +
       '<div class="tq-rs-b"><button class="btn soft" data-a="trScClose">Plus tard</button><button class="btn primary" data-a="trScSave"' + (d.result ? "" : " disabled") + ">Enregistrer</button></div>" +
+      '<button class="linkbtn" data-a="trScRound" style="align-self:center">Changer l\'adversaire, le jour ou l\'heure</button>' +
       (r.res ? '<button class="linkbtn" data-a="trScDel" style="align-self:center;color:var(--terre)">Retirer le résultat</button>' : "") + "</div>";
   }
   function trRoundSheet(t) {
@@ -21215,6 +21222,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var mx = r.res ? trMx(r) : null; UI.trSc = { id: id, i: i }; UI.scoreEdit = null; UI.scoreManual = false; UI.stb = false;
       UI.draft = { result: r.res || null, score: mx ? mx.score || "" : "", sets: mx && mx.score ? setsOf(mx.score) : [] }; render();
     },
+    trScRe: function () { var d = UI.draft; if (!d) return; d.sets = []; d.score = ""; UI.scoreEdit = null; UI.stb = false; render(); },
+    trScRound: function () { var R = UI.trSc; if (!R) return; UI.trSc = null; UI.draft = null; UI.scoreEdit = null; UI.scoreManual = false; A.trRound({ dataset: { i: String(R.i) } }); },
     trScClose: function () { UI.trSc = null; UI.draft = null; UI.scoreEdit = null; UI.scoreManual = false; render(); },
     trScSave: function () {
       var t = tourOf(route().split("/")[1]), R = UI.trSc, d = UI.draft, inp = document.getElementById("m-score"); if (!t || !R || !d || !d.result) return;

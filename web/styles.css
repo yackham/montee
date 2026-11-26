@@ -4784,7 +4784,7 @@ a.tm-r.lk .tm-s::after { content: " ›"; color: var(--muted); font-weight: 600;
 .rk-near .chip { padding: 0 4px; }
 .rk-other { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
 .rk-other label { font-size: 14px; color: var(--sub); }
-.cond-ed { color: var(--hl, var(--acc-ink)); font-weight: 600; font-size: 15px; flex: none; }
+.cond-ed { color: var(--gazon); font-weight: 600; font-size: 15px; flex: none; }
 .cond-min { flex-direction: row; align-items: center; gap: 12px; text-align: left; cursor: pointer; border: none; width: 100%; font: inherit; color: inherit; }
 .cond-min .grow { display: flex; flex-direction: column; gap: 3px; }
 .cond-min small { color: var(--sub); font-size: 13px; }
@@ -5133,7 +5133,7 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .td3-i > .card.rate .rate-row button { background: var(--chip); color: var(--ink); }
 :root[data-skin="retro"] .td3-i > .card.rate :is(.eyebrow, .linkbtn) { color: #7B1E2C; }
 /* C3 : surligneur et gris de panneau sur cartes blanches */
-:root:not([data-theme="nuit"]) :is(.gl-card, .tp-card) .eyebrow, :root:not([data-theme="nuit"]) .cond-ed { color: var(--acc-ink); }
+:root:not([data-theme="nuit"]) :is(.gl-card, .tp-card) .eyebrow { color: var(--acc-ink); }
 :root:not([data-theme="nuit"]) .tug-r:not(.n) > span { color: var(--ink); }
 :root:not([data-theme="nuit"]) :is(.rk-other label, .cond-min small, .hx-big:not(.pos), .hx-badge) { color: var(--muted); }
 :root:not([data-theme="nuit"]) .off-card.hx.v .hx-badge { color: var(--acc-ink); }
@@ -8066,8 +8066,8 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 .tq-path .tq-tr { align-items: flex-start; }
 .tq-tr .grow { gap: 2px; padding-bottom: 14px; }
 .tq-tr .tg-k { line-height: 1.35; }
-.tq-rc { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-top: 10px; }
-.tq-rc .tq-edk { margin: 0; min-height: 34px; } .tq-rc .tq-rb { margin-top: 6px; }
+.tq-rc { flex: none; display: flex; align-items: center; gap: 6px; margin-top: 16px; }
+.tq-rc .tq-rb { margin-top: 0; }
 .tq-tr .t { font-size: 15px; } .tq-tr .t a { color: inherit; text-decoration: none; }
 .tq-tr .tq-m { display: flex; align-items: center; flex-wrap: wrap; gap: 0 5px; white-space: nowrap; }
 .tq-tr .tq-m .pts-in { color: var(--gazon); }
@@ -8092,6 +8092,10 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 /* 4.22.0 : Victoire / Défaite choisie bien visible dans tous les thèmes (les règles .seg button.on des thèmes l'éteignaient) */
 :root:root:root .seg.res button.rv.on.on { background: var(--gazon); color: var(--on-gazon, #121212); box-shadow: none; }
 :root:root:root .seg.res button.rd.on.on { background: var(--terre); color: var(--on-terre, #121212); box-shadow: none; }
+.tq-scr { display: flex; align-items: center; gap: 14px; background: var(--chip); border-radius: 16px; padding: 12px 14px; }
+.tq-scw { display: flex; flex-direction: column; gap: 1px; font-size: 13.5px; line-height: 1.15; color: var(--muted); font-weight: 600; }
+.tq-scr .mscr { font-size: 17px; gap: 1px 14px; border-left: 0; padding-left: 0; }
+.tq-scr .linkbtn { margin-left: auto; min-height: 36px; font-size: 14px; font-weight: 700; }
 .tq-rs-who { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tq-rs-b { display: flex; gap: 10px; } .tq-rs-b .btn { flex: 1; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
