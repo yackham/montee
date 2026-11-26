@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.11.6",
+    VERSION: "4.12.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1724,7 +1724,7 @@
       (t.rounds || []).forEach(function (r, i) { if (r.res || !r.opp || !r.opp.tid || (r.day && r.day < td)) return; var id = String(r.opp.tid);
         add({ id: id, name: r.opp.name, rank: r.opp.rank, hit: r.opp.hit || hitOf(id, r.opp.name, r.opp.rank), day: r.day || "", time: r.time || "", lab: trLab(i) }); });
       (t.pool || []).forEach(function (x) { if (x.res || !x.tid || (x.day && x.day < td)) return; var id = String(x.tid);
-        add({ id: id, name: x.name, rank: x.rankNow || x.rank, hit: x.hit || hitOf(id, x.name, x.rank), day: x.day || "", time: x.time || "", lab: "Poule" }); });
+        add({ id: id, name: x.name, rank: x.rankNow || x.rank, hit: x.hit || hitOf(id, x.name, x.rank), day: x.day || "", time: x.time || "", lab: "Poule", sim: x.sim || null }); });
     }); } catch (e) {}
     try { plans().forEach(function (pl) { if (dGap(pl.day) < 0 || (pl.tour && tourOf(pl.tour))) return; var id = String(pl.id || ""); if (!(S.scout || {})[id] && !/^\d+$/.test(id)) return;
       add({ id: id, name: pl.name, rank: pl.rank, pl: pl, hit: hitOf(id, pl.name, pl.rank), day: pl.day, time: pl.time || "", lab: "Match prévu" }); }); } catch (e) {}
@@ -1783,16 +1783,25 @@
     return '<button class="card pa-l' + (N.length ? " pa-hot" : "") + '" data-a="paOpen"><span class="pa-av" aria-hidden="true"><i>' + esc(initials(paName(who))) + '</i></span><span class="pa-tx"><b>Tes prochains adversaires</b><span>' + tx + '</span></span><span class="pa-ch" aria-hidden="true">›</span></button>';
   }
   // La feuille : figée à l'ouverture, puis ta visite devient la nouvelle référence (« depuis ta dernière visite »)
-  function paRowHtml(o, n, p) {
+  // 4.12.0 : sa sortie du classement avant ton match (même calcul que la fiche et « Je le joue »)
+  function paMoveHtml(o) {
+    var mv = o.sim ? rkMove(simProj(o.sim, o.rank)) : rkMoveOf(o.id, o.rank); if (!mv) return "";
+    var up = mv.dir === "up", hd = (up ? "Monte " : "Descend ") + lab(mv.proj) + " " + rkRelLab(mv), tx;
+    if (o.day && o.day >= mv.relI) tx = "Ton match a lieu après : ta victoire vaudra " + rkPts(mv.g1) + (mv.g0 !== mv.g1 ? " au lieu de " + rkPts(mv.g0) : "") + (up && mv.perf ? ", ce serait une perf" : "") + ".";
+    else if (o.day) tx = "Ton match a lieu avant : ta victoire vaut encore " + rkPts(mv.g0) + ".";
+    else tx = "Si ton match a lieu ce jour-là ou après : " + rkPts(mv.g1) + (mv.g0 !== mv.g1 ? " au lieu de " + rkPts(mv.g0) : "") + ".";
+    return '<span class="rkm-pa"><b class="' + (up ? "up" : "dn") + '">' + esc(hd) + "</b> " + esc(tx) + "</span>";
+  }
+  function paRowHtml(o, n, p, lock) {
     var b = (S.paSeen || {})[o.id], p0 = b ? b.p : null, nw = paIsNew(n);
     var ch = p0 != null && p != null && p !== p0 ? '<span class="pa-ch2' + (p < p0 ? " dn" : "") + '">Tes chances : ' + p0 + " % → " + p + " %</span>" : "";
     var tx = n.k === "wait" ? (oppWait(o.id) ? WAIT_P : "Sa fiche Ten'Up n'est pas encore lue.") : n.t;
     return '<a class="pa-r" href="#/joueur/' + encodeURIComponent(o.id) + '"><i aria-hidden="true">' + esc(initials(paName(o))) + "</i><div><b>" + (o.rank ? '<span class="rk-tag">' + esc(o.rank) + "</span> " : "") + esc(paName(o)) + "</b>" + (nw ? '<span class="pa-new">Nouveau</span>' : "") +
-      "<small>" + esc(paWhen(o)) + (p != null && !ch ? " · " + p + " % de chances" : "") + '</small><p class="' + (nw ? "" : "pa-calm") + '">' + tx + "</p>" + ch + '</div><span class="pa-ch" aria-hidden="true">›</span></a>';
+      "<small>" + esc(paWhen(o)) + (p != null && !ch ? " · " + p + " % de chances" : "") + '</small><p class="' + (nw ? "" : "pa-calm") + '">' + tx + "</p>" + ch + (lock ? "" : paMoveHtml(o)) + '</div><span class="pa-ch" aria-hidden="true">›</span></a>';
   }
   function paOpen() {
     var L = paList(), plus = isSup(), rows = L.map(function (o, i) { var n = paNews(o), p = null; try { p = oppWait(o.id) ? null : paChance(o); } catch (e) {} return { o: o, n: n, p: p, h: plus || i === 0 ? paRowHtml(o, n, p) : "" }; });
-    var lock = plus ? "" : L.slice(1).map(function (o) { return paRowHtml(o, { k: "calm", t: "Rien de neuf depuis ta dernière visite." }, null); }).join(""); // flou : un texte type, jamais ses vraies nouvelles
+    var lock = plus ? "" : L.slice(1).map(function (o) { return paRowHtml(o, { k: "calm", t: "Rien de neuf depuis ta dernière visite." }, null, true); }).join(""); // flou : un texte type, jamais ses vraies nouvelles
     UI.paSheet = { plus: plus, n: L.length, body: rows.map(function (x) { return x.h; }).join("") + (lock ? '<div class="pa-lock" aria-hidden="true">' + lock + "</div>" : "") };
     S.paSeen = S.paSeen || {};
     rows.forEach(function (x, i) { if (!plus && i > 0) return; var sc = (S.scout || {})[x.o.id]; if (sc && sc.rows) S.paSeen[x.o.id] = { snap: folSnap(sc), p: x.p != null ? x.p : (S.paSeen[x.o.id] || {}).p, at: Date.now() }; });
@@ -2721,6 +2730,40 @@
   // et ce que vaut ta victoire avant / après (faits : points du barème, à ton classement actuel)
   var PLUS_LOCK = function () { return PLUS && !isSup(); };
   function gainVs(o) { if (o == null) return null; try { var c = ctx(); return E.simulateWin(allMatches(), c.cur, c.sex, o, Object.assign({}, c.opts, { kind: TR_KIND })).gain; } catch (e) { return null; } }
+  // 4.12.0 (Yann, maquettes validées le 26/11) : L'ADVERSAIRE QUI VA MONTER OU DESCENDRE. Règle FFT (FAQ Classement FF24-012, Q16-17 et
+  // Q21-22) : c'est son classement LE JOUR DU MATCH qui compte, et un match joué le mardi de la sortie ou après compte avec le nouveau
+  // classement. Le tableau affiche souvent celui de l'inscription. Une seule fonction pour la fiche, « Je le joue » et « Tes prochains
+  // adversaires » : sa projection (simProj, la simulation Ten'Up de sa fiche, protection comprise) et ce que vaut ta victoire avant et
+  // après (gainVs, le calcul de « Ce qui se joue pour toi »). On informe des points, sans jamais conseiller un jour : la convocation décide.
+  function rkMove(sp) {
+    if (!sp || sp.dir === "same" || sp.proj == null || sp.cur == null) return null;
+    var relI = E.iso(sp.rel); if (dGap(relI) < 0) return null;
+    var g0 = gainVs(sp.cur), g1 = gainVs(sp.proj); if (g0 == null || g1 == null) return null;
+    var me = curIdx();
+    return { dir: sp.dir, cur: sp.cur, proj: sp.proj, rel: sp.rel, relI: relI, g0: g0, g1: g1, perf: me != null && sp.proj > me && sp.cur <= me };
+  }
+  // Sa fiche lue (S.scout) : sa projection à la prochaine sortie ; rien pour une joueuse quand tu es un joueur (et l'inverse)
+  function rkMoveOf(id, rank) {
+    var sc = (S.scout || {})[String(id || "")]; if (!sc || !sc.sim) return null;
+    var sx = String((sc.profil && sc.profil.sexe) || (sc.hit && sc.hit.sexe) || "").trim(), my = S.profile.sex || String(((S.tenup || {}).me || {}).sexe || "").charAt(0).toUpperCase();
+    if (sx && my && (/^F/i.test(sx) ? "F" : "H") !== (/^F/i.test(my) ? "F" : "H")) return null;
+    return rkMove(simProj(sc.sim, rank || (sc.profil && sc.profil.classement) || (sc.hit && sc.hit.rank) || ""));
+  }
+  function rkPts(g) { return (g > 0 ? "+" + g : "0") + " pt" + (Math.abs(g) > 1 ? "s" : ""); }
+  function rkRelLab(mv) { return JOURS[mv.rel.getDay()] + " " + dN(mv.rel) + " " + MOIS_L[mv.rel.getMonth()]; }
+  var RKM_UP = svg('<path d="M12 19V5M6 11l6-6 6 6"/>', 2.6), RKM_DN = svg('<path d="M12 5v14M6 13l6 6 6-6"/>', 2.6);
+  // L'alerte. dayI : le jour du match s'il est connu (choisi dans « Je le joue » ou programmé), sinon les deux valeurs côte à côte.
+  function rkMoveHtml(mv, dayI, he, legend) {
+    if (!mv) return "";
+    var up = mv.dir === "up", P = he || "Il", p = P.toLowerCase(), to = lab(mv.proj), from = lab(mv.cur), rl = rkRelLab(mv), D = dayI ? E.parseDate(dayI) : null;
+    var dl = D ? JOURS[D.getDay()].slice(0, 3).replace(/^./, function (c) { return c.toUpperCase(); }) + ". " + dN(D) + " " + MOIS[D.getMonth()] : "";
+    var same = mv.g0 === mv.g1, perf = up && mv.perf ? " : ce serait une perf" : "", t, b;
+    if (D && dayI >= mv.relI) { t = dl + " : " + p + " sera " + to + " ce jour-là"; b = "Le classement sort le " + rl + ". " + (same ? "Ta victoire vaudra toujours " + rkPts(mv.g1) : "Ta victoire vaudra " + rkPts(mv.g1) + " au lieu de " + rkPts(mv.g0)) + perf + "."; }
+    else if (D) { t = dl + " : " + p + " sera encore " + from; b = P + (up ? " monte " : " descend ") + to + " le " + rl + ". Ce jour-là, ta victoire vaut " + rkPts(mv.g0) + (same ? "." : " ; à partir du " + dN(mv.rel) + " " + MOIS_L[mv.rel.getMonth()] + ", " + rkPts(mv.g1) + "."); }
+    else { t = P + (up ? " monte " : " descend ") + to + " le " + rl; b = "Si tu " + (P === "Elle" ? "la" : "le") + " joues ce jour-là ou après, ta victoire comptera contre un" + (P === "Elle" ? "e" : "") + " " + to + perf + "."; }
+    var eve = new Date(mv.rel.getTime() - 864e5), two = D || same ? "" : '<span class="rkm-two"><span><b>' + rkPts(mv.g0) + "</b>jusqu'au " + JOURS[eve.getDay()].slice(0, 3) + ". " + dN(eve) + " " + MOIS[eve.getMonth()] + '</span><span class="' + (up ? "up" : "dn") + '"><b>' + rkPts(mv.g1) + "</b>à partir du " + dN(mv.rel) + " " + MOIS[mv.rel.getMonth()] + "</span></span>";
+    return '<div class="rkm ' + (up ? "up" : "dn") + '"><span class="rkm-ic">' + (up ? RKM_UP : RKM_DN) + '</span><span><b class="rkm-t">' + esc(t) + "</b>" + esc(b) + two + "<small>" + esc(legend || "Règle FFT : classement de l'adversaire au jour du match. Projection d'après sa simulation Ten'Up.") + "</small></span></div>";
+  }
   function poolTiming(t) {
     try { if (poolAutoLink(t)) save(); } catch (e) {}
     var end = t.dl || t.to || "", out = [];
@@ -6675,7 +6718,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var him = hi < D.me ? "Pour lui : te battre vaudrait une perf (+" + E.BAREME.win(D.me - hi - 1) + " pts). Il jouera libéré." : hi === D.me ? "Pour lui aussi, c'est un match à son échelon." : "Pour lui : il a plus à perdre que toi.";
     return '<div class="card key ff-stake"><span class="eyebrow id-pill id-tag c-gazon"><span>Ce qui se joue pour toi</span></span><div class="stk2"><div class="sb g"><span class="k">Si tu gagnes</span><b>' + (g > 0 ? "+" + g : "0") + " pt" + (Math.abs(g) > 1 ? "s" : "") + "</b><span>" + esc(winTxt) + '</span></div><div class="sb t"><span class="k">Si tu perds</span><b>' + (lo < 0 ? lo : "0") + " pt" + (Math.abs(lo) > 1 ? "s" : "") + "</b><span>" + esc(lossTxt) + "</span></div></div>" +
       '<div class="prog"><i style="width:' + pct(nx.total) + '%;background:var(--gazon)"></i>' + (g > 0 ? '<i style="left:' + pct(nx.total) + "%;width:" + Math.max(0, pct(after) - pct(nx.total)) + '%;background:color-mix(in srgb,var(--gazon) 45%,transparent)"></i>' : "") + '</div><div class="pl"><span>' + nx.total + " aujourd'hui</span>" + (g > 0 ? '<span class="g">' + after + " si tu gagnes</span>" : "") + "<span>" + nx.norme + " pour " + esc(nx.label) + "</span></div>" +
-      (tail ? '<span class="p">' + tail + "</span>" : "") + '<span class="small">' + esc(him) + "</span></div>";
+      (tail ? '<span class="p">' + tail + "</span>" : "") + '<span class="small">' + esc(him) + "</span>" + ffMoveHtml(D) + "</div>";
+  }
+  // 4.12.0 : l'alerte « il va monter / descendre » dans Ce qui se joue pour toi (au jour du match programmé, s'il y en a un)
+  function rkHe(id) { var sc = (S.scout || {})[String(id || "")], sx = String((sc && ((sc.profil && sc.profil.sexe) || (sc.hit && sc.hit.sexe))) || ""); return /^F/i.test(sx) ? "Elle" : "Il"; }
+  function ffMoveHtml(D) {
+    var id = String(route().split("/")[1] || ""), pl = planOf(id), day = pl && pl.day && dGap(pl.day) >= 0 ? pl.day : "";
+    return rkMoveHtml(rkMove(D.sp), day, rkHe(id));
   }
   // Rapport de force : les points qui comptent vraiment, pondérés (classement, bilans face au classement de l'autre…)
   function ffForceCard(D) {
@@ -13884,12 +13933,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 3.47 (Yann) : les jours en bande (comme un calendrier), « Autre » ouvre directement le calendrier du téléphone ; type et 3e set en segments
     var days = []; for (var i = 0; i < 7; i++) { var d = new Date(today().getTime() + i * 864e5); days.push(E.iso(d)); }
     var inList = days.indexOf(J.day) >= 0 && !J.other, JW = ["DIM.", "LUN.", "MAR.", "MER.", "JEU.", "VEN.", "SAM."];
-    var dayTile = function (x, i) { var d = E.parseDate(x); return '<button class="jj-d' + (inList && J.day === x ? " on" : "") + '" data-a="jjDay" data-v="' + x + '"><small>' + (i === 0 ? "AUJ." : i === 1 ? "DEM." : JW[d.getDay()]) + "</small><b>" + d.getDate() + "</b><small>" + MOIS[d.getMonth()].replace(/\.$/, "") + "</small></button>"; };
+    var mv = rkMoveOf(J.id), af = function (x) { return mv && x >= mv.relI ? " rkm-af " + mv.dir : ""; }; // 4.12.0 : point sur les jours après sa sortie
+    var dayTile = function (x, i) { var d = E.parseDate(x); return '<button class="jj-d' + (inList && J.day === x ? " on" : "") + af(x) + '" data-a="jjDay" data-v="' + x + '"><small>' + (i === 0 ? "AUJ." : i === 1 ? "DEM." : JW[d.getDay()]) + "</small><b>" + d.getDate() + "</b><small>" + MOIS[d.getMonth()].replace(/\.$/, "") + "</small></button>"; };
     var od = !inList && J.day ? E.parseDate(J.day) : null;
-    var other = '<label class="jj-d jj-o' + (od ? " on" : "") + '">' + (od ? "<small>" + JW[od.getDay()] + "</small><b>" + od.getDate() + "</b><small>" + MOIS[od.getMonth()].replace(/\.$/, "") + "</small>" : JJ_CAL + "<small>Autre</small>") + '<input type="date" id="jj-date" min="' + E.iso(today()) + '" value="' + esc(od ? J.day : "") + '" aria-label="Choisir une autre date"></label>';
+    var other = '<label class="jj-d jj-o' + (od ? " on" + af(J.day) : "") + '">' + (od ? "<small>" + JW[od.getDay()] + "</small><b>" + od.getDate() + "</b><small>" + MOIS[od.getMonth()].replace(/\.$/, "") + "</small>" : JJ_CAL + "<small>Autre</small>") + '<input type="date" id="jj-date" min="' + E.iso(today()) + '" value="' + esc(od ? J.day : "") + '" aria-label="Choisir une autre date"></label>';
     var seg = function (a, opts) { return '<div class="seg jj-seg">' + opts.map(function (o) { return '<button class="' + (o[2] ? "on" : "") + '" data-a="' + a + '" data-v="' + o[0] + '">' + o[1] + "</button>"; }).join("") + "</div>"; };
     s += head("Match contre " + esc(nm)) +
       '<span class="jj-k">Jour</span><div class="jj-days">' + days.map(dayTile).join("") + other + "</div>" +
+      (mv ? rkMoveHtml(mv, J.day && !J.other || od ? J.day : "", rkHe(J.id), J.day ? "Point " + (mv.dir === "up" ? "vert" : "rouge") + " : les jours après sa " + (mv.dir === "up" ? "montée" : "descente") + " probable." : "") : "") +
       '<span class="jj-k">Type</span>' + seg("jjHom", [["1", "Homologué", J.hom], ["0", "Libre", !J.hom]]) +
       '<span class="jj-k">3e set</span>' + seg("jjFmt", [["full", "Set classique", J.fmt !== "stb"], ["stb", "Super tie-break", J.fmt === "stb"]]) +
       '<button class="btn primary" data-a="jjSave">' + (J.edit ? "Enregistrer" : "Programmer") + "</button>" +
@@ -18792,8 +18843,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.11",
+    v: "4.12",
     pages: [
+      // 4.12 (Yann, 26/11/2026) : l'adversaire qui va monter ou descendre, ses points au jour du match (règle FFT)
+      { hero: true, title: "Montée 4.12", text: "Ton adversaire va monter ou descendre ? Montée te dit ce que vaudra ta victoire le jour du match, avant même que le tableau change." },
+      { tag: "Nouveau", tone: "rose", title: "Il monte ou il descend ?", vis: "rkm412", text: "Sur sa fiche, dans « Je le joue » et dans tes prochains adversaires : son classement le jour du match et ce que vaut ta victoire. Règle FFT : c'est ce classement-là qui compte." },
       // 4.11 (Yann, 25/11/2026) : trouver un tournoi (filtre, surface, dotation, favoris Ten'Up, « Pourquoi lui ? ») ; 4.10 : tes dispos dans Montée
       { hero: true, title: "Montée 4.11", text: "Trouve ton tournoi sans passer par Ten'Up : seulement ceux où tu as le droit de jouer, tes favoris, et Ace qui t'explique son choix." },
       { tag: "Nouveau", tone: "rose", title: "Trouve ton tournoi", vis: "tz411", text: "Seulement ceux où tu as le droit de jouer, avec le classement, la surface, la dotation et le paiement en ligne. Choisis Tous, Tournois, TMC ou Indivs." },
@@ -18935,7 +18989,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-    var PHARES = ["tz411", "fav411", "why411", "hb410", "free411"]; // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
+    var PHARES = ["rkm412", "tz411", "fav411", "why411", "free411"]; // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -18957,6 +19011,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.5 : visuels des nouveautés (couleurs fixes : l'écran est toujours sombre ; noms d'exemple génériques)
     var nvAv = function (t, c) { return '<span style="width:34px;height:34px;flex:none;border-radius:17px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:' + (c || "#3A3F49") + ';color:#F2F3F5">' + t + "</span>"; };
     var nvPill = '<em style="font-style:normal;font-size:11.5px;font-weight:800;border-radius:99px;padding:2px 8px;background:#D4E64A;color:#121212;margin-right:6px">Nouveau</em>';
+    if (k === "rkm412") return nvc('<span class="nv-k" style="color:#D4E64A">JE LE JOUE · JOUR</span><span style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' + [["SAM.", "28", 0, 0], ["DIM.", "29", 0, 0], ["LUN.", "30", 0, 0], ["MAR.", "1", 1, 0], ["MER.", "2", 1, 1]].slice(1).map(function (d) { return '<span style="position:relative;display:flex;flex-direction:column;align-items:center;padding:6px 0;border-radius:12px;background:' + (d[3] ? "#D4E64A;color:#121212" : "rgba(255,255,255,.08)") + '"><small style="font-size:9.5px;font-weight:800;opacity:.75">' + d[0] + '</small><b style="font-size:17px">' + d[1] + '</b>' + (d[2] ? '<i style="position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:#E88A5E"></i>' : "") + "</span>"; }).join("") + '</span><span style="display:flex;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);font-size:12.5px;line-height:1.4"><b style="flex:none;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1.5px #E88A5E;color:#E88A5E;display:grid;place-items:center">↓</b><span><b style="display:block;color:#E88A5E;font-size:13.5px">Mer. 2 déc. : il sera 15/2 ce jour-là</b>Ta victoire vaudra +30 pts au lieu de +45.</span></span>');
     if (k === "pa45") return nvc('<span class="nv-k" style="color:#D4E64A">TES PROCHAINS ADVERSAIRES</span>' + [["MC", "M. Caron · 15/2", nvPill + "a perdu lundi", "47 % → 57 %", 1], ["TD", "T. Durand · 15/3", "Rien de neuf", "61 %", 0], ["JM", "J. Moreau · 15/1", "a gagné samedi", "38 % → 34 %", 0]].map(function (r) { return '<span style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)">' + nvAv(r[0]) + '<span style="flex:1;display:flex;flex-direction:column;min-width:0"><b style="font-size:14px">' + r[1] + '</b><span style="font-size:12.5px;opacity:' + (r[4] ? 1 : 0.7) + '">' + r[2] + '</span></span><b style="font-size:13px;color:' + (r[4] ? "#6FC28F" : "#F2F3F5") + ';white-space:nowrap">' + r[3] + "</b></span>"; }).join(""));
     if (k === "aw47") return nvc(watchBox('<span style="display:flex;gap:7px;align-items:flex-start"><span style="flex:none">' + coBall("nv47", "joie", "xs") + '</span><b style="font-size:12px;line-height:1.25">Il te manque <span style="color:#D4E64A">30 pts</span> pour 15/1. Tu veux savoir quoi ?</b></span>' + '<span style="display:flex;align-items:center;gap:7px;background:#22252B;border-radius:13px;padding:6px 8px"><i style="width:20px;height:20px;border-radius:10px;flex:none;background:#8FA8FF33;display:block"></i><span style="display:flex;flex-direction:column;line-height:1.2"><b style="font-size:11.5px">Ton match de demain</b><span style="font-size:10px;font-weight:700;color:#8FA8FF">Thomas M. · 53 %</span></span></span>' + '<span style="display:flex;align-items:center;gap:7px;background:#22252B;border-radius:13px;padding:6px 8px"><i style="width:20px;height:20px;border-radius:10px;flex:none;background:#D4E64A33;display:block"></i><span style="display:flex;flex-direction:column;line-height:1.2"><b style="font-size:11.5px">Monter 15/1</b><span style="font-size:10px;font-weight:700;color:#D4E64A">30 pts à prendre</span></span></span>' + '<span style="display:flex;align-items:center;gap:7px;background:#22252B;border-radius:13px;padding:6px 8px"><i style="width:20px;height:20px;border-radius:10px;flex:none;background:#E88A5E33;display:block"></i><span style="display:flex;flex-direction:column;line-height:1.2"><b style="font-size:11.5px">Ce qui sort</b><span style="font-size:10px;font-weight:700;color:#E88A5E">Rien d\'ici 3 mois</span></span></span>'));
     var nvAce = function (id, mood, txt) { return '<span style="display:flex;gap:10px;align-items:center;margin-bottom:12px"><span style="flex:none">' + coBall(id, mood, "sm") + '</span><span style="background:#353944;border-radius:18px 18px 18px 6px;padding:10px 13px;font-size:14px;font-weight:700;line-height:1.35">' + txt + "</span></span>"; };
