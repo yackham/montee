@@ -7840,7 +7840,7 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .kp-eff { padding: 14px 16px 6px; }
 .kp-eff .eyebrow { display: flex; justify-content: space-between; gap: 8px; }
 .kp-eff .eyebrow small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--muted); }
-.kp-eff .kp-r:last-of-type { border-bottom: 0; }
+.kp-eff .kp-r + .kp-more { border-top: 0; }
 .kp-eff .pa-ch { flex: none; color: var(--muted); font-size: 18px; }
 .kp-more { display: flex; justify-content: space-between; width: 100%; border: 0; border-top: 1px solid var(--line); background: none; color: var(--muted); font: inherit; font-size: 14px; font-weight: 700; padding: 12px 0 8px; }
 .kp-fl { display: inline-block; font-size: 11px; font-weight: 800; color: var(--terre); padding: 1px 7px; border-radius: 99px; box-shadow: inset 0 0 0 1.5px currentColor; margin-left: 6px; vertical-align: 1px; }
@@ -7926,6 +7926,29 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .tq-p.tq-pb { display: inline-flex; align-self: center; margin: -6px 0 -6px 6px; }
 .pa-chb { display: flex; gap: 6px; align-items: center; margin-top: 8px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
 .pa-chb > i { font-style: normal; opacity: .6; }
+
+/* 4.16.3 (Yann, 26/11) : les rencontres de la saison du club, à plat dans la feuille (pas d'encadré dans l'encadré) ;
+   un championnat = un titre, ses équipes séparées par un trait fin et un peu d'air */
+.lc-rb { display: flex; flex-direction: column; gap: 2px; }
+.lc-rb + .lc-rb { margin-top: 22px; }
+.lc-rb .ce-list + .lc-sub { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+/* 4.16.3 (Yann, 26/11) : plus de pastilles à contour. Étiquettes et scores : fond doux teinté de leur couleur, sans trait */
+.ce-sc, .lc-sc, .ce-me, .lc-me, .kp-fl, .ok-pill, .fx-pt, .sj-pill, .sq-c .hd .sj-new, .ob-tag, .mp-gift, .pal-e, .kd-ok, .lg-up, .ci-src, .demo-pill, .t.gg, .ce-fl.on, .ls-pp.ok, .pt-tag { box-shadow: none; background: color-mix(in srgb, currentColor 14%, transparent); }
+.tsx-tg em { border-color: transparent; background: color-mix(in srgb, currentColor 14%, transparent); }
+.mtn-pill { border-color: transparent; background: color-mix(in srgb, currentColor 14%, var(--card)); }
+.tsx-r.V, .tim-r.V, .tsx-r.D, .tim-r.D { box-shadow: none; background: color-mix(in srgb, currentColor 14%, transparent) !important; }
+/* 4.16.2 : chargement Ten'Up de « Ils montent » (la carte se redessine seule, pas l'écran) */
+.lm-wrap { display: flex; flex-direction: column; gap: 12px; }
+.lm-ld { display: flex; flex-direction: column; gap: 6px; padding: 14px 0 8px; }
+.lm-tu { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; }
+.lm-tu .spin { width: 14px; height: 14px; border-width: 2px; border-color: var(--line); border-top-color: var(--gazon); flex: none; }
+.lm-step { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lm-sk { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.lm-sk i { display: block; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--ink) 10%, transparent); animation: lmSk 1.4s ease-in-out infinite; animation-delay: calc(var(--i) * .15s); }
+.lm-sk i.a { width: 44px; height: 14px; flex: none; } .lm-sk span { flex: 1; display: flex; flex-direction: column; gap: 7px; } .lm-sk i.b { width: 52%; height: 12px; } .lm-sk i.c { width: 34%; }
+@keyframes lmSk { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .lm-sk i { animation: none; } }
+.lm-upd { display: flex; align-items: center; gap: 8px; } .lm-upd .spin { width: 12px; height: 12px; border-width: 2px; border-color: var(--line); border-top-color: var(--gazon); }
 /* 4.16.5 (Yann, 26/11, Face-à-face) : de l'air autour d'Ace et du bandeau « Prévu », et plus de contours en haut de la fiche */
 .card.id-dock.ff-say { margin-top: 76px; }
 .ff-say > .ace-peek { top: -52px; }

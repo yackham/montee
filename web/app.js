@@ -3511,7 +3511,7 @@
     var row = function (o) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
       return '<a class="row ce-lr" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '"><span class="grow"><span class="t">' + esc((r.dom === me ? "Contre " : "Chez ") + tmNm(r.a === me ? r.bn : r.an)) + '</span><span class="s">' + esc(lcDay(String(r.d).slice(0, 10))) + '</span></span><span class="ce-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span>" + I.next + "</a>"; };
     var body = K.map(function (c) { var T = Object.keys(C[c]).sort(function (a, b) { return (+a || 99) - (+b || 99); }), all = [].concat.apply([], T.map(function (t) { return C[c][t]; }));
-      return '<div class="card lc-blk lc-rb"><div class="tg-h"><b>' + esc(c) + '</b></div><span class="small">' + (T.length > 1 ? plural(T.length, "équipe", "équipes") + " · " : "") + plural(all.length, "rencontre", "rencontres") + (k ? "" : " · " + bil(all)) + "</span>" +
+      return '<div class="lc-rb"><div class="tg-h"><b>' + esc(c) + '</b></div><span class="small">' + (T.length > 1 ? plural(T.length, "équipe", "équipes") + " · " : "") + plural(all.length, "rencontre", "rencontres") + (k ? "" : " · " + bil(all)) + "</span>" +
         T.map(function (t) { var R = C[c][t]; return '<div class="lc-sub">' + (+t ? "Équipe " + t : "L'équipe") + (k || T.length < 2 ? "" : "<small>" + bil(R) + "</small>") + '</div><div class="ce-list">' + R.map(row).join("") + "</div>"; }).join("") + "</div>"; }).join("");
     return { title: k === "v" ? "Les victoires du club" : k === "n" ? "Les nuls du club" : k === "d" ? "Les défaites du club" : "Les rencontres de la saison", sub: plural(X.length, "rencontre", "rencontres") + " · " + plural(K.length, "championnat", "championnats") + ", du point de vue du club", body: body || '<span class="small">Rien pour l\'instant.</span>' };
   }
@@ -3781,25 +3781,36 @@
   function kpJ(c, r) { var k = r.dt || String(r.d).slice(0, 10), j = (c.cal || []).filter(function (x) { return String(x.d).slice(0, 10) === k; })[0]; return j ? j.j : null; }
   // Les feuilles de match : celles déjà lues pour l'écran d'une rencontre (S.fdmCache3), sinon les nôtres (S.kpF, 150 au plus)
   function kpF(rid) { var a = (S.kpF || {})[rid] || (S.fdmCache3 || {})[rid]; return a && a.L; }
+  // 4.16.2 (Yann : « ça mouline et ça se recharge à chaque fois ») : 400 feuilles gardées (avant : 150, moins que les feuilles d'une
+  // saison d'un club de 25 équipes : elles se chassaient l'une l'autre et tout était relu à chaque ouverture). Une feuille que Ten'Up ne
+  // donne pas encore (pas validée) n'est retentée qu'au bout de 2 jours (S.kpMiss), au lieu de chaque ouverture.
+  var KP_FMAX = 400;
+  function kpMissed(rid) { var t = (S.kpMiss || {})[rid]; return !!t && Date.now() - t < 2 * 864e5; }
+  // les feuilles d'une liste d'équipes encore à lire
+  function kpTodo(list) {
+    var T0 = UI.kpTried || {}, todo = [];
+    list.forEach(function (o) { var c = o[0]; if (!c || !c.path || c.path.d == null || c.path.p == null) return; o[1].forEach(function (tid) { kpRenc(c, tid).forEach(function (r) { if (r.st === "T" && !r.f && !kpF(r.id) && !T0[r.id] && !kpMissed(r.id) && !todo.some(function (x) { return x.r === r; })) todo.push({ c: c, r: r }); }); }); });
+    return todo;
+  }
   function kpKeep(rid, L) {
     S.kpF = S.kpF || {};
     var sl = function (p) { return { id: p.id || "", n: p.n || "", r: p.r || "", b: p.b ? 1 : 0 }; };
     S.kpF[rid] = { at: Date.now(), L: L.map(function (m) { return { dbl: !!m.dbl, w: m.w || 0, a: (m.a || []).map(sl), b: (m.b || []).map(sl) }; }) };
-    var ks = Object.keys(S.kpF); if (ks.length > 150) ks.sort(function (x, y) { return S.kpF[x].at - S.kpF[y].at; }).slice(0, ks.length - 150).forEach(function (k) { delete S.kpF[k]; });
+    var ks = Object.keys(S.kpF); if (ks.length > KP_FMAX) ks.sort(function (x, y) { return S.kpF[x].at - S.kpF[y].at; }).slice(0, ks.length - KP_FMAX).forEach(function (k) { delete S.kpF[k]; });
   }
   // Lecture des feuilles (une à la fois, 14 au plus par passage, chaque feuille tentée une fois par ouverture de l'app)
-  function kpLoad(list) {
+  // paint : redessine seulement ce qui montre la progression (sinon tout l'écran est redessiné)
+  function kpLoad(list, paint) {
     if (!NATIVE || !S.tenup || !S.tenup.linked || UI.kpBusy || offline()) return;
-    var T0 = UI.kpTried || (UI.kpTried = {}), todo = [];
-    list.forEach(function (o) { var c = o[0]; if (!c || !c.path || c.path.d == null || c.path.p == null) return; o[1].forEach(function (tid) { kpRenc(c, tid).forEach(function (r) { if (r.st === "T" && !r.f && !kpF(r.id) && !T0[r.id] && !todo.some(function (x) { return x.r === r; })) todo.push({ c: c, r: r }); }); }); });
+    var T0 = UI.kpTried || (UI.kpTried = {}), todo = kpTodo(list);
     if (!todo.length) return;
     UI.kpBusy = true; var rt = route(); todo = todo.slice(0, 14);
     var next = function (i) {
-      if (i >= todo.length) { UI.kpBusy = false; save(); if (route() === rt) render(); return; }
+      if (i >= todo.length) { UI.kpBusy = false; save(); if (route() === rt) (paint || render)(); return; }
       var c = todo[i].c, r = todo[i].r; T0[r.id] = 1;
       tenupQuery("rencontre", { c: c.cid || c.id, d: c.path.d, p: c.path.p, q: c.path.q, r: r.id }).then(function (x) {
-        var L = x && !x.error ? fdmParse(x.data, { a: r.a, b: r.b }) : null; if (L && L.length) kpKeep(r.id, L);
-        if (i % 4 === 3 && route() === rt) render(); next(i + 1);
+        var L = x && !x.error ? fdmParse(x.data, { a: r.a, b: r.b }) : null; if (L && L.length) kpKeep(r.id, L); else if (x && !x.error) { S.kpMiss = S.kpMiss || {}; S.kpMiss[r.id] = Date.now(); }
+        if (route() === rt) { if (paint) paint(); else if (i % 4 === 3) render(); } next(i + 1);
       }, function () { next(i + 1); });
     };
     next(0);
@@ -3935,30 +3946,72 @@
     });
     [L.up, L.dn, L.eu, L.ed].forEach(function (A) { A.sort(function (x, y) { return y.to - x.to || (x.p.n < y.p.n ? -1 : 1); }); });
     L.pre = L.soon && L.eu.length > 0; // la semaine avant la sortie : l'estimation, s'il y a des montées en vue
+    // ce qui reste à lire sur Ten'Up : feuilles de match, puis fiches (un joueur que Ten'Up ne donne pas : retenté au bout de 3 jours)
+    var Tr = UI.lmTried || {};
+    L.sh = (NATIVE && (S.tenup || {}).linked) ? kpTodo(lmTeams().map(function (c) { return [c, [c.me.mine]]; })).length : 0;
+    L.need = !NATIVE || !(S.tenup || {}).linked ? [] : Object.keys(P).filter(function (id) { var q = Q[id]; if (Tr[id]) return false; if (q && q.miss && Date.now() - q.miss < 3 * 864e5) return false; if (!q || !q.at || lmPer(q.at) < relI) return true; return L.soon ? Date.now() - (q.sa || 0) > 2 * 864e5 : Date.now() - q.at > 10 * 864e5; });
+    L.fresh = Object.keys(P).filter(function (id) { return !Q[id] || (!Q[id].at && !Q[id].miss); }).length; // jamais lus
+    L.left = L.sh + L.need.length; UI.lmTot = Math.max(UI.lmTot || 0, L.left); UI.lmShTot = Math.max(UI.lmShTot || 0, L.sh);
+    // 1re lecture (aucun joueur connu, ou un joueur sur 5 jamais lu) : le chargement plutôt qu'une liste qui se remplit sous les yeux
+    L.loading = L.left > 0 && !offline() && (L.n === 0 || L.fresh * 5 >= L.n);
     return L;
   }
   // Lecture : d'abord les feuilles de match des équipes du club (kpLoad), puis les fiches, 10 joueurs par appel ; chaque joueur relu
   // après chaque sortie, sa simulation tous les 2 jours la semaine d'avant, sinon tous les 10 jours
   function lmLoad(L) {
-    try { kpLoad(lmTeams().map(function (c) { return [c, [c.me.mine]]; })); } catch (e) {}
+    // après chaque feuille ou chaque lot de fiches : la carte se redessine, et la lecture continue jusqu'au bout
+    var paint = function () { lmPaint(); if (!UI.kpBusy && !UI.lmBusy) setTimeout(function () { try { lmLoad(lmList()); } catch (e) {} }, 0); };
+    try { kpLoad(lmTeams().map(function (c) { return [c, [c.me.mine]]; }), paint); } catch (e) {}
     if (!NATIVE || !S.tenup || !S.tenup.linked || UI.lmBusy || UI.kpBusy || offline()) return;
-    var relI = E.iso(L.rel), Q = (S.lm && S.lm.P) || {}, Tr = UI.lmTried || (UI.lmTried = {});
-    var need = Object.keys(L.P).filter(function (id) { var q = Q[id]; if (Tr[id]) return false; if (!q || !q.at || lmPer(q.at) < relI) return true; return L.soon ? Date.now() - (q.sa || 0) > 2 * 864e5 : Date.now() - q.at > 10 * 864e5; });
+    var Tr = UI.lmTried || (UI.lmTried = {}), need = L.need || [];
     if (!need.length) return;
-    var ids = need.slice(0, 10), rt = route(); ids.forEach(function (id) { Tr[id] = 1; }); UI.lmBusy = true;
+    var ids = need.slice(0, 10), rt = route(); ids.forEach(function (id) { Tr[id] = 1; }); UI.lmBusy = true; paint();
     tenupQuery("ranks", { ids: ids }).then(function (x) {
       UI.lmBusy = false;
       if (x && !x.error && x.L) {
-        S.lm = S.lm || {}; S.lm.P = S.lm.P || {}; var t = x.at || Date.now(), per = lmPer(t), d = E.iso(new Date(t));
+        S.lm = S.lm || {}; S.lm.P = S.lm.P || {}; var t = x.at || Date.now(), per = lmPer(t), d = E.iso(new Date(t)), got = {};
         x.L.forEach(function (o) {
-          var q = S.lm.P[o.id] || (S.lm.P[o.id] = { h: {} }); q.at = t; if (o.sx) q.sx = o.sx; if (o.age) q.age = o.age; if (o.sim) { q.sim = o.sim; q.sa = t; }
+          got[o.id] = 1; var q = S.lm.P[o.id] || (S.lm.P[o.id] = { h: {} }); q.at = t; delete q.miss; if (o.sx) q.sx = o.sx; if (o.age) q.age = o.age; if (o.sim) { q.sim = o.sim; q.sa = t; }
           if (o.rk) { q.h = q.h || {}; q.h[per] = [d, o.rk]; Object.keys(q.h).sort().slice(0, -3).forEach(function (k) { delete q.h[k]; }); }
         });
-        Object.keys(S.lm.P).forEach(function (k) { if (t - (S.lm.P[k].at || 0) > 400 * 864e5) delete S.lm.P[k]; }); // plus vu depuis plus d'un an
-        save();
+        ids.forEach(function (id) { if (!got[id]) { var q = S.lm.P[id] || (S.lm.P[id] = { h: {} }); q.miss = t; } }); // pas de fiche : retentée dans 3 jours
+        Object.keys(S.lm.P).forEach(function (k) { if (t - (S.lm.P[k].at || S.lm.P[k].miss || 0) > 400 * 864e5) delete S.lm.P[k]; }); // plus vu depuis plus d'un an
+        save(); try { lmNotif(); } catch (e) {}
       }
-      if (route() === rt) render();
-    }, function () { UI.lmBusy = false; });
+      if (route() === rt) paint();
+    }, function () { UI.lmBusy = false; lmPaint(); });
+  }
+  // 4.17 (Yann, maquette du 26/11) : le matin de la sortie, à 10 h, une notification avec les joueurs du club qui devraient monter
+  // (leur estimation, la même que la carte : rien n'est lu sur Ten'Up en arrière-plan, il n'y a pas de serveur). La toucher ouvre
+  // « Ils montent », qui relit les fiches et donne la liste officielle, avec « Féliciter sur WhatsApp ». Personne en vue : pas de notif.
+  function lmNotif() {
+    if (!NATIVE || !LN) return;
+    var cancel = function () { LN.cancel({ notifications: [{ id: 2300 }] }).catch(function () {}); };
+    if (!S.notif || !np("club") || !clubOn()) return cancel();
+    var L = lmList(), at = new Date(L.nx.getTime()); at.setHours(10, 0, 0, 0);
+    if (!L.soon || !L.eu.length || at <= new Date()) return cancel();
+    var nm = tmNm(((S.teams || {}).club || {}).nom || "club"), N = L.eu.map(function (o) { return kpShort(o.p.n); }).filter(Boolean), k = L.eu.length;
+    var who = N.length <= 3 ? N.join(", ").replace(/, ([^,]*)$/, " et $1") : N.slice(0, 3).join(", ") + " et " + (k - 3) + " autre" + (k - 3 > 1 ? "s" : "");
+    var n = { id: 2300, title: "Ça monte au " + nm + " ?", body: who + (k > 1 ? " devraient" : " devrait") + " monter aujourd'hui. Touche pour le classement officiel et " + (k > 1 ? "les" : "le") + " féliciter.", schedule: { at: at }, extra: { url: "montee://open/montees" } };
+    var key = n.title + n.body + at.getTime(); if (UI.lmNK === key) return; UI.lmNK = key;
+    LN.cancel({ notifications: [{ id: 2300 }] }).catch(function () {}).then(function () { return LN.schedule({ notifications: [n] }); }).catch(function () {});
+  }
+  // Redessine seulement la carte (pas tout l'écran) pendant la lecture
+  function lmPaint() {
+    var el = document.querySelector(".lm-wrap"); if (!el) return;
+    if (route() === "montees") { var L = lmList(), c = el.querySelector(".lm-card"); if (!L.loading) { render(); return; } if (c) c.innerHTML = lmLoadHtml(L); return; }
+    var t = document.createElement("div"); t.innerHTML = lmCard(true); var n = t.firstElementChild;
+    if (n && el.innerHTML !== n.innerHTML) el.innerHTML = n.innerHTML;
+  }
+  // Le chargement : Montée va chercher les infos sur Ten'Up (feuilles de match, puis classements), avec une barre qui avance
+  function lmLoadHtml(L) {
+    var tot = Math.max(UI.lmTot || 0, L.left), done = Math.max(0, tot - L.left), pc = tot ? Math.max(6, Math.round(100 * done / tot)) : 6;
+    var step = L.sh ? "Feuilles de match des équipes · " + (UI.lmShTot - L.sh) + "/" + UI.lmShTot : "Classements des joueurs · " + (L.n - L.need.length) + "/" + L.n;
+    var sk = [0, 1, 2].map(function (i) { return '<div class="lm-sk" style="--i:' + i + '"><i class="a"></i><span><i class="b"></i><i class="c"></i></span></div>'; }).join("");
+    return '<div class="lm-ld"><span class="lm-tu"><span class="spin"></span>Montée va chercher les infos sur Ten\'Up</span>' +
+      '<span class="ti-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + tot + '" aria-valuenow="' + done + '"><i style="width:' + pc + '%"></i></span>' +
+      '<span class="lm-step">' + esc(step) + "</span></div>" + sk +
+      '<p class="lm-note">La première fois prend une minute ou deux. Ensuite, tout reste sur ton téléphone et seuls les changements sont relus.</p>';
   }
   function lmDayLab(d) { return JOURS[d.getDay()] + " " + dN(d) + " " + MOIS_L[d.getMonth()]; }
   function lmRow(o, pre, i) {
@@ -3967,10 +4020,14 @@
   }
   function lmHead(t, sub) { return '<h2 class="tm-gh lc-h"><span>' + t + '<svg class="lc-wb" viewBox="0 0 50 14" aria-hidden="true"><circle cx="3" cy="11" r="3" fill="var(--balle)"/></svg></span><small>' + esc(sub) + "</small></h2>"; }
   // La carte de l'onglet Le club
-  function lmCard() {
-    var L = lmList(); setTimeout(function () { try { lmLoad(L); } catch (e) {} }, 0);
+  function lmCard(inner) {
+    var L = lmList(); if (!inner) setTimeout(function () { try { lmLoad(L); lmNotif(); } catch (e) {} }, 0);
+    return '<div class="lm-wrap">' + lmCardIn(L) + "</div>";
+  }
+  function lmCardIn(L) {
+    if (L.loading) return lmHead(L.soon ? "Ils devraient monter" : "Ils montent", L.soon ? lmDayLab(L.nx) : "classement du " + dN(L.rel) + " " + MOIS[L.rel.getMonth()]) + '<div class="blk lc-list lm-card">' + lmLoadHtml(L) + "</div>";
     if (!L.n) return "";
-    var busy = UI.lmBusy || UI.kpBusy, prog = L.read < L.n && (S.tenup || {}).linked ? '<p class="lm-note"><span class="spin"></span> Lecture des classements sur Ten\'Up · ' + L.read + "/" + L.n + " joueurs</p>" : "";
+    var busy = (UI.lmBusy || UI.kpBusy) && L.left > 0, prog = busy ? '<p class="lm-note lm-upd"><span class="spin"></span> Mise à jour sur Ten\'Up · ' + (L.n - L.need.length) + "/" + L.n + " joueurs</p>" : "";
     if (L.pre) return lmHead("Ils devraient monter", lmDayLab(L.nx)) + '<div class="blk lc-list lm-card">' + L.eu.slice(0, 3).map(function (o, i) { return lmRow(o, true, i); }).join("") +
       '<p class="lm-note">Estimation d\'après leur simulation Ten\'Up. Le classement officiel tranche ' + JOURS[L.nx.getDay()] + ".</p>" + (busy ? prog : "") +
       '<a class="lc-more" href="#/montees">' + (L.eu.length > 1 ? "Les " + L.eu.length + " montées probables" : "Le détail") + " ›</a></div>";
@@ -3985,7 +4042,8 @@
     var s = '<div class="screen lm-scr">' + topbar("", backLab("Le club")), L = lmList(), nm = tmNm(((S.teams || {}).club || {}).nom || "Le club");
     setTimeout(function () { try { lmLoad(L); } catch (e) {} }, 0);
     var pre = L.pre, U = pre ? L.eu : L.up, D = pre ? L.ed : L.dn, rl = pre ? L.nx : L.rel, G = lmGrp(U), k = 0;
-    s += '<h1 class="tm-h">' + (pre ? "Ils devraient monter" : "Ils montent") + "</h1>";
+    s += '<h1 class="tm-h">' + (pre || (L.loading && L.soon) ? "Ils devraient monter" : "Ils montent") + "</h1>";
+    if (L.loading) return s + '<div class="lm-wrap"><div class="blk lc-list lm-card">' + lmLoadHtml(L) + "</div></div></div>";
     var tile = function (n, lab0, cl) { return '<button data-a="sheet" data-k="lmDef" data-v="' + (pre ? "pre" : "") + '"><b class="' + cl + '">' + n + "</b><small>" + lab0 + "</small></button>"; };
     s += '<div class="card lc-hero lm-hero"><span class="eyebrow">' + esc(nm) + " · " + (pre ? "sortie du " : "classement du ") + dN(rl) + " " + MOIS[rl.getMonth()] + "</span>" +
       '<div class="lc-vnd">' + tile(U.length, pre ? "montées probables" : U.length > 1 ? "montées" : "montée", "v") + tile(D.length, pre ? "descentes probables" : D.length > 1 ? "descentes" : "descente", "d") + tile(L.n, "joueurs du club", "") + "</div></div>";
@@ -17955,11 +18013,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var mo = syMoments().join(","); UI.syMomK = mo; // 4.5.0 (B1)
     Tenup.setState({ state: JSON.stringify(st), script: bgScript, moments: mo }).catch(function () {});
     scheduleReleaseNotif();
+    try { lmNotif(); } catch (e) {} // 4.17 : les montées du club
     try { scheduleTeamsNotif(); schedulePoolNotif(); } catch (e) {}
     try { scheduleCoachNotif(); } catch (e) {}
   }
   // 3.49 (maquette validée) : chaque notification se règle dans Réglages › Notifications
-  var NP_DEF = { hom: 1, poule: 1, avant: 1, apres: 1, eq: 1, sortie: 1, coach: 1, jalons: 1, fol: 1, insc: 1, seance: 1 };
+  var NP_DEF = { hom: 1, poule: 1, avant: 1, apres: 1, eq: 1, sortie: 1, club: 1, coach: 1, jalons: 1, fol: 1, insc: 1, seance: 1 };
   function np(k) { var p = S.notifP || {}; if (k === "lvl") return p.lvl || "norm"; if ((k === "coach" || k === "seance" || k === "jalons") && pauseOn()) return false; /* 3.94 : en pause, Ace et les rappels se taisent */ return p[k] == null ? !!NP_DEF[k] : !!p[k]; }
   function npKey(date, a, b) { var tk = function (n) { return String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z]+/).filter(function (t) { return t.length >= 3; }).join(" "); }; return date ? date + "|" + [tk(a), tk(b)].sort().join("|") : ""; }
   function npApply() { lastPlanKey = ""; lastTimingKey = ""; lastTeamNotifKey = ""; lastPoolNotifKey = ""; lastSjKey = ""; try { scheduleSjNotif(); } catch (e) {} try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
@@ -19518,7 +19577,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var grp = function (h, rows) { return '<h2 class="nf-gh">' + h + '</h2><div class="nf-grp' + (S.notif ? "" : " off") + '">' + rows.join("") + "</div>"; };
     s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche et tes adversaires qui bougent avec Montée+" : ", avec ta revanche s'il t'a battu, et tes adversaires qui bougent")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
     s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Ace", "Le lundi : ta semaine et le match qui compte. Avec Montée+ : tes chances qui bougent et tes consignes remplies"), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
-    var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
+    var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("club", "Les montées du club", "Le matin de la sortie, les joueurs du club qui devraient monter"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
     if (HC_OK && hcOn()) oth.push('<label class="nf-row"><span class="nf-r"><b>Séances de la montre</b><small>Une nouvelle séance à enregistrer</small></span><input type="checkbox" role="switch" data-a="hcNotify"' + (S.health.notify !== false ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>");
     s += grp("Les autres", oth);
     var lv = np("lvl"), LV = { ess: "Tes matchs, ta poule et ton classement, rien d'autre.", norm: "En plus, 3 autres par semaine au plus (copains, jalons…) : on garde les plus importantes.", tout: "Tout ce que tu as activé, sans limite." };
@@ -22037,6 +22096,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         var mt = u && /tournoi\/(\w+)/.exec(u); if (mt && tourOf(mt[1])) go("tournoi/" + mt[1]);
         if (u && /open\/coach/.test(u)) go(PLUS_LOCK() ? "courbes" : "coach");
         if (u && /open\/seance/.test(u)) go("seance");
+        if (u && /open\/montees/.test(u)) go("montees"); // 4.17
         if (u && /open\/lundi/.test(u)) go(""); // 3.93 : ton lundi avec Ace
         if (u && /open\/ace/.test(u)) { if (location.hash !== "#/" && location.hash !== "") go(""); setTimeout(function () { UI.ace = { q: "next" }; render(); }, 80); } // 3.75 : le rappel du jour J ouvre ton match dans Ace
         if (u && /open\/plus/.test(u)) { if (trialInfo()) UI.sheet = { k: "trialEnd" }; go(trialInfo() ? "" : "soutenir"); }
