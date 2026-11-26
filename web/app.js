@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.11.5",
+    VERSION: "4.11.6",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -363,7 +363,7 @@
   // classement (S.rankLog) et le message de ta simulation Ten'Up (« n'évoluera pas… descente déjà survenue »).
   var PROT_RE = /n.?[ée]voluera pas|ne (bougera|changera) pas|d[ée]j[àa] (survenue|descendu)|maintenu|prot[ée]g/i; // 3.62 : « protégé » aussi (mais pas « pas protégé »)
   function protMsg(m) { m = String(m || ""); return PROT_RE.test(m) && !/(pas|non|plus|n'est) (encore )?prot[ée]g/i.test(m); }
-  function relOnOrBefore(d) { var r = E.nextRelease(new Date(d.getFullYear(), d.getMonth(), 1)); return r <= d ? r : E.nextRelease(new Date(d.getFullYear(), d.getMonth() - 1, 1)); }
+  function relOnOrBefore(d) { var r = E.nextRelease(new Date(d.getFullYear(), d.getMonth(), 0)); return r <= d ? r : E.nextRelease(new Date(d.getFullYear(), d.getMonth() - 1, 0)); } // 4.11.6 : la sortie d'un mois qui commence un mardi (1er sept. 2026) n'est plus sautée
   function myProtection() {
     var out = null, lg = S.rankLog || [];
     for (var i = lg.length - 1; i >= 0; i--) {
@@ -2741,7 +2741,14 @@
   // redescendre. Ten'Up ne le dit que pour la sortie qu'il simule ; pour les suivantes, Montée retrouve sa descente : son classement
   // vu le jour de matchs (tes matchs contre lui, les palmarès lus de ses adversaires de poule, ses saisons passées). S'il était mieux
   // classé qu'aujourd'hui à une date, il est descendu après : il reste protégé jusqu'à la même sortie un an plus tard (au plus tôt).
-  function oppProtUntil(x, all, sx) {
+  // 4.11.6 (Davy, 3e fois sur Anthony : « il descend en janvier » alors qu'il est protégé). Règle FFT (FAQ Classement, Q12 et Q14) :
+  // « Lorsque je descends d'un échelon, je suis assuré de ne pas descendre d'un échelon supplémentaire pendant un an » ; remonter
+  // remet le compteur à zéro. On sait qu'il est descendu dans une fenêtre, sans savoir à quelle sortie : on retient la DERNIÈRE
+  // sortie possible. Avant, on refaisait son bilan sur son palmarès pour dater la descente, mais un palmarès incomplet (saison
+  // passée non lue) la datait trop tôt, sa protection expirait trop tôt et Montée annonçait une descente que la FFT interdit.
+  // Protégé jusqu'à la même sortie un an plus tard, comprise (Ten'Up : « descente déjà survenue 12 mois auparavant »).
+  function protAfter(at) { var ann = E.nextRelease(new Date(at.getFullYear() + 1, at.getMonth(), 0)); return new Date(ann.getTime() + 864e5); }
+  function oppProtUntil(x) {
     var tid = x && x.tid ? String(x.tid) : "", cur = E.idx(T.normRank(x && (x.rankNow || x.rank) || "")); if (!tid || cur == null) return null;
     var seen = [], add = function (d, r, cl) { var i = E.idx(T.normRank(r || "")); if (d && i != null) seen.push({ d: d, i: i, cl: !!cl }); };
     (S.matches || []).forEach(function (m) { if (String(m.oid || "") === tid) add(m.date, m.oppRank); });
@@ -2751,27 +2758,16 @@
     var me = (S.scout || {})[tid]; ((me && me.past) || []).forEach(function (y) { if (y.y && y.cl) add((y.y - 1) + "-09-01", y.cl, 1); }); // son classement de la saison (sept. → août)
     // 3.62 : son meilleur classement Ten'Up, s'il date de la saison en cours ou de la précédente, montre une descente récente
     var pf = me && me.profil; if (pf && pf.meilleur && pf.meilleurAn && pf.meilleurAn >= seasonY(today()) - 1) add((pf.meilleurAn - 1) + "-09-01", pf.meilleur, 1);
-    // 3.62 : Ten'Up l'a déjà dit protégé pour une sortie (message de sa simulation, gardé) : il l'est au moins jusque-là
-    var pa = x.protAt && E.parseDate(x.protAt), minU = pa ? new Date(pa.getTime() + 864e5) : null;
-    if (minU && minU <= today()) minU = null;
+    // Ten'Up l'a dit protégé pour la sortie pa : il est descendu à une sortie d'avant, dans les 12 mois. 4.11.6 : au plus tard
+    // à la sortie qui précède pa, donc protégé jusqu'à son anniversaire (avant : seulement jusqu'à pa, puis « il descend » à tort).
+    var pa = x.protAt && E.parseDate(x.protAt), minU = pa ? protAfter(relOnOrBefore(new Date(pa.getTime() - 864e5))) : null;
     seen.sort(function (a, b) { return a.d < b.d ? -1 : 1; });
-    var hi = null, lo = null; seen.forEach(function (v) { if (v.i > cur) { hi = v; lo = null; } else if (v.i < cur) hi = lo = null; else if (hi && !lo && v.d > hi.d) lo = v; }); // remonté depuis : le compteur repart de zéro
-    if (!hi) return minU;
+    var hi = null, lo = null; seen.forEach(function (v) { if (v.i > cur) { hi = v; lo = null; } else if (v.i < cur) { hi = lo = null; if (pa && v.d >= x.protAt) minU = null; } else if (hi && !lo && v.d > hi.d) lo = v; }); // remonté depuis : le compteur repart de zéro
+    var until = minU;
     // Sa descente a eu lieu à une sortie entre le dernier jour où on le voit mieux classé (hi) et le 1er jour où on le voit à son
-    // classement actuel (lo, sinon aujourd'hui). On cherche la sortie où son bilan ne tenait plus (refait sur son palmarès).
-    // 3.62 (Davy : Anthony marqué « à éviter » alors qu'il est protégé) : sans bilan qui tombe, on prend la DERNIÈRE sortie possible
-    // de cette fenêtre, plus la 1re (la 1re faisait expirer sa protection trop tôt et le donnait à éviter à tort).
-    var from = E.nextRelease(E.parseDate(hi.d)), last = relOnOrBefore(lo ? E.parseDate(lo.d) : today()), at = null;
-    if (last < from) last = from;
-    if (all && all.length) for (var r = from, n = 0; r <= last && n < 24; r = E.nextRelease(new Date(r.getTime() + 864e5)), n++) {
-      var pr; try { pr = E.project(all, hi.i, sx || "H", { today: r, release: r }); } catch (e) { break; }
-      if (pr && pr.status === "descente") { at = r; break; }
-    }
-    if (!at) at = last;
-    // Ten'Up protège encore la sortie du même mois un an après (« descente déjà survenue 12 mois auparavant ») : on la compte
-    var ann = E.nextRelease(new Date(at.getFullYear() + 1, at.getMonth(), 0)), until = new Date(ann.getTime() + 864e5);
-    if (minU && minU > until) until = minU;
-    return until > today() ? until : null;
+    // classement actuel (lo, sinon aujourd'hui) : au plus tard, la dernière sortie de cette fenêtre.
+    if (hi) { var u2 = protAfter(relOnOrBefore(lo ? E.parseDate(lo.d) : today())); if (!until || u2 > until) until = u2; }
+    return until && until > today() ? until : null;
   }
   function poolFuture(t, z, n) {
     var sc = z.x.tid && (S.scout || {})[String(z.x.tid)]; if (!sc || !sc.rows) return [];
@@ -2779,13 +2775,13 @@
     sc.rows.forEach(add); (sc.past || []).forEach(function (y) { (y.rows || []).forEach(add); });
     var seen = {}; all = all.filter(function (m) { var key = [m.date, m.result, m.oppRank, m.score, m.dbl].join("|"); if (seen[key]) return false; seen[key] = 1; return true; });
     var sx = String((sc.profil && sc.profil.sexe) || (sc.hit && sc.hit.sexe) || "H").charAt(0).toUpperCase() === "F" ? "F" : "H";
-    var cur = z.sp.proj, rel = z.rel, prot = z.sp.kept ? new Date(rel.getFullYear() + 1, rel.getMonth(), rel.getDate()) : z.sp.dir === "down" ? E.nextRelease(new Date(rel.getFullYear() + 1, rel.getMonth(), 1)) : oppProtUntil(z.x, all, sx), end = t.dl || t.to || "", out = [];
+    var cur = z.sp.proj, rel = z.rel, prot = z.sp.dir === "down" ? protAfter(rel) : z.sp.dir === "up" ? null : oppProtUntil(z.x) || (z.sp.kept ? protAfter(relOnOrBefore(new Date(rel.getTime() - 864e5))) : null), end = t.dl || t.to || "", out = [];
     for (var i = 0; i < (n || 2); i++) {
       rel = E.nextRelease(new Date(rel.getTime() + 864e5)); var relI = E.iso(rel);
       if (end && relI > end) break;
       var o = { today: today(), release: rel }; if (prot) o.protectUntil = prot;
       var pr = E.project(all, cur, sx, o), nx = pr.status === "top" ? cur : pr.projected;
-      if (nx < cur && !prot) prot = E.nextRelease(new Date(rel.getFullYear() + 1, rel.getMonth(), 1));
+      if (nx < cur && !prot) prot = protAfter(rel); else if (nx > cur) prot = null; // 4.11.6 : une seule règle (protAfter) ; remonter remet le compteur à zéro (FFT, Q14)
       var prevI = i ? out[i - 1].relI : z.relI, lost = all.filter(function (m) { if (m.result !== "V") return false; var d = E.parseDate(m.date); d.setFullYear(d.getFullYear() + 1); var x = E.iso(d); return x > prevI && x <= relI; }).length;
       out.push({ rel: rel, relI: relI, from: cur, rank: nx, dir: nx > cur ? "up" : nx < cur ? "down" : "same", kept: !!pr.kept, gain: gainVs(nx), lost: lost });
       cur = nx;
