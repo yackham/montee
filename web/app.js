@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.16.2",
+    VERSION: "4.16.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -3511,7 +3511,7 @@
     var row = function (o) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
       return '<a class="row ce-lr" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '"><span class="grow"><span class="t">' + esc((r.dom === me ? "Contre " : "Chez ") + tmNm(r.a === me ? r.bn : r.an)) + '</span><span class="s">' + esc(lcDay(String(r.d).slice(0, 10))) + '</span></span><span class="ce-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span>" + I.next + "</a>"; };
     var body = K.map(function (c) { var T = Object.keys(C[c]).sort(function (a, b) { return (+a || 99) - (+b || 99); }), all = [].concat.apply([], T.map(function (t) { return C[c][t]; }));
-      return '<div class="card lc-blk lc-rb"><div class="tg-h"><b>' + esc(c) + '</b></div><span class="small">' + (T.length > 1 ? plural(T.length, "équipe", "équipes") + " · " : "") + plural(all.length, "rencontre", "rencontres") + (k ? "" : " · " + bil(all)) + "</span>" +
+      return '<div class="lc-rb"><div class="tg-h"><b>' + esc(c) + '</b></div><span class="small">' + (T.length > 1 ? plural(T.length, "équipe", "équipes") + " · " : "") + plural(all.length, "rencontre", "rencontres") + (k ? "" : " · " + bil(all)) + "</span>" +
         T.map(function (t) { var R = C[c][t]; return '<div class="lc-sub">' + (+t ? "Équipe " + t : "L'équipe") + (k || T.length < 2 ? "" : "<small>" + bil(R) + "</small>") + '</div><div class="ce-list">' + R.map(row).join("") + "</div>"; }).join("") + "</div>"; }).join("");
     return { title: k === "v" ? "Les victoires du club" : k === "n" ? "Les nuls du club" : k === "d" ? "Les défaites du club" : "Les rencontres de la saison", sub: plural(X.length, "rencontre", "rencontres") + " · " + plural(K.length, "championnat", "championnats") + ", du point de vue du club", body: body || '<span class="small">Rien pour l\'instant.</span>' };
   }
