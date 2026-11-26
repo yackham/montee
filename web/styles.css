@@ -7782,3 +7782,19 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .met-d b.met-b0 { font-size: 26px; }
 /* 4.11.4 (Yann) : l'équipe forfait, étiquette teintée sans contour à côté de son nom dans les rencontres de la poule */
 .tm-m .tm-ff { display: inline-block; vertical-align: 1px; margin-left: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--terre); background: color-mix(in srgb, var(--terre) 16%, transparent); border-radius: 99px; padding: 2px 8px; white-space: nowrap; }
+/* 4.12.0 (Yann, maquettes du 26/11) : l'adversaire qui va monter ou descendre. Alerte à plat, séparée d'un trait fin, couleur en accent seulement */
+.rkm { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0 4px; padding: 12px 0 0; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.45; text-align: left; color: var(--ink); }
+.rkm-ic { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 1.5px currentColor; }
+.rkm-ic svg { width: 15px; height: 15px; }
+.rkm.dn .rkm-ic, .rkm.dn .rkm-t { color: var(--terre); } .rkm.up .rkm-ic, .rkm.up .rkm-t { color: var(--gazon); }
+.rkm-t { display: block; font-weight: 800; font-size: 14.5px; }
+.rkm small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+.rkm-two { display: flex; gap: 16px; margin-top: 6px; }
+.rkm-two span { font-size: 13px; color: var(--muted); }
+.rkm-two b { display: block; font-size: 18px; font-weight: 800; color: var(--ink); }
+.rkm-two .dn b { color: var(--terre); } .rkm-two .up b { color: var(--gazon); }
+.jj-d.rkm-af::after { content: ""; position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--terre); }
+.jj-d.rkm-af.up::after { background: var(--gazon); }
+.jj-d.on.rkm-af::after { box-shadow: 0 0 0 2px var(--balle); }
+.rkm-pa { display: block; margin-top: 8px; padding: 9px 0 0; border-top: 1px solid var(--line); font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+.rkm-pa b { font-weight: 800; } .rkm-pa b.dn { color: color-mix(in srgb, var(--terre) 78%, var(--ink)); } .rkm-pa b.up { color: var(--gazon); }
