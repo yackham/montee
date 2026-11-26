@@ -11412,6 +11412,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (d.best.length) Q.push(["toi", "best", "Je suis le meilleur quand ?", "Ta meilleure version", d.best[0].p + " % de victoires", "heart", null, 1]);
       if (d.seen.items && d.seen.items.length) Q.push(["toi", "scout", "Qu'est-ce que mes adversaires savent de moi ?", "Ton rapport de scouting", "Ce qu'ils préparent contre toi", "info", null, 1]);
     }
+    try { acDiscover(true).forEach(function (x) { if (x.q) Q.push(["go", x.q, x.ask, x.t, x.s, "spark"]); }); } catch (e) {} // 4.20 : les tuiles « À découvrir » sont des sujets d'Ace
     // filet : une même question (même texte) n'apparaît qu'une fois, ex. deux épreuves au même nom
     var seenQ = {}; return Q.filter(function (x) { var k = x[2].toLowerCase(); if (seenQ[k]) return false; seenQ[k] = 1; return true; });
   }
@@ -11434,6 +11435,73 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function acTone(pc) { return pc == null ? "" : pc >= 50 ? "g" : pc >= 25 ? "y" : "r"; }
   // une ligne : [carré V/D] libellé + sous-titre · barre · valeur ; touchable (feuille de détail ou page)
   // 4.4 : le picto et la couleur de chaque type, les mêmes que les billets de « Ce qui arrive » (poule, tournoi, sortie, équipe)
+  // 4.19 (Yann, 26/11/2026) : « À découvrir dans Montée », en bas de l'écran d'Ace. Des tuiles qui ouvrent les vraies fonctions,
+  // seulement quand elles te servent (4 au plus). Rien de nouveau à calculer : mêmes listes que les écrans qu'elles ouvrent (hbTours, myTeams, tmNext, matNeed).
+  var DV_CAL = svg('<rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M8 2.5v4M16 2.5v4M3 10h18M8.5 15l2 2 4-4"/>'), DV_PIN = svg('<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>');
+  // 4.20 (Yann, 26/11, 2e temps) : une tuile ouvre d'abord la conversation d'Ace avec tes vraies données en cartes, puis propose l'écran.
+  // Elle ouvre l'écran directement seulement quand Ace n'a rien à montrer (pas de recherche de tournois, pas de raquette).
+  function acDiscover(all) { // all : tous les sujets (pour la conversation), sinon les 4 tuiles
+    var L = [], tu = NATIVE && S.tenup.linked, td = E.iso(today()), in30 = E.iso(new Date(today().getTime() + 30 * 864e5));
+    if (tu) {
+      var t = dvTour();
+      if (t) { var lim = (t.ins.more || {}).dispoLim, tn = (t.name || "Ton tournoi").trim(); L.push({ q: "dv-dz", ask: "Je suis dispo quand pour « " + tn + " » ?", ic: DV_CAL, t: "Tes dispos", s: tn + (lim ? " · à changer avant le " + fdate(lim) : " · " + fdate(t.from)) }); }
+      if (all || !S.hbSeen) L.push({ q: "dv-hb", ask: "Je suis dispo quand, d'habitude ?", ic: I.clock, t: "Tes créneaux habituels", s: "Tes heures, pour tous tes tournois" });
+      if (!(S.tours || []).some(function (x) { return (x.to || x.from) >= td && x.from <= in30; })) {
+        var tzL = []; try { tzL = (S.tz || {}).lat ? tzShown() : []; } catch (e) {}
+        L.push(tzL.length ? { q: "dv-tz", ask: "Il y a quel tournoi pour moi ?", ic: DV_PIN, t: "Trouver un tournoi", s: plural(tzL.length, "tournoi") + " pour toi" } : { h: "#/trouver", ic: DV_PIN, t: "Trouver un tournoi", s: "Près de chez toi, sans collision" });
+      }
+    }
+    var eq = dvTeam(); if (eq) L.push({ q: "dv-eq", ask: "Mon équipe joue quand ?", ic: TEAM_IC, t: "Ton équipe", s: eq.nx ? "Prochaine rencontre le " + fdate(eq.nx.d) : "Rencontres, compo et classement" });
+    var rk = bag(); if (!rk.length) L.push({ h: "#/materiel", ic: I.racket, t: "Ton matériel", s: "Tes raquettes et tes cordages" });
+    else if (rk.some(function (r) { return /soon|change|broken/.test(racketStatus(r).level); })) L.push({ q: "dv-mat", ask: "Je dois recorder quand ?", ic: I.racket, t: "Ton matériel", s: "Un recordage à prévoir" });
+    return all ? L : L.slice(0, 4);
+  }
+  function dvTour() { return hbTours().slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; })[0] || null; }
+  function dvTeam() { if (!teamsOn()) return null; return myTeams().map(function (c) { return { c: c, nx: tmNext(c) }; }).sort(function (a, b) { return (a.nx ? 0 : 1) - (b.nx ? 0 : 1) || (a.nx && b.nx && a.nx.d < b.nx.d ? -1 : 0); })[0] || null; }
+  function dvAns(q) { // les réponses d'Ace aux tuiles « À découvrir » : mêmes données et mêmes fonctions que les écrans qu'elles ouvrent
+    var A = [], XH = "", F = [];
+    if (q === "dv-dz") {
+      var t = dvTour(); if (!t) return null; var m = t.ins.more || {}, D = m.dz, Dl = tzDispo(m.dispoLim); dzLoad(t);
+      A.push((Dl.ok ? (m.dispoLim ? Dl.txt.replace(/^Modifiables/, "Tu peux encore les changer") : "Tu peux les changer d'ici") : Dl.txt).replace(/\.?$/, "."));
+      if (D) { var days = [], d = E.parseDate(t.from), end = E.parseDate(t.to || t.from); while (d <= end && days.length < 21) { days.push(E.iso(d)); d = new Date(d.getTime() + 864e5); }
+        XH += acCard("Tes dispos, jour par jour", days.map(function (iso) { var z = dzDay(t, D, iso); return acRow({ l: esc(dzDayName(iso)), s: z.amb ? "À vérifier sur Ten'Up" : z.slots.length ? esc(z.slots.map(dzSl).join(" · ")) : "Pas dispo", v: z.ex ? '<span class="hb-ch1">changé</span>' : "" }); }).join(""));
+      } else XH += acCard("", '<p class="small">' + esc(UI.dzErr ? "Ten'Up : " + UI.dzErr : "Je lis tes dispos sur Ten'Up…") + "</p>");
+      if (Dl.ok) F.push(["Changer mes dispos", null, "#/dispos/" + t.id]);
+      return { a: A, x: XH, f: F, facts: [], mood: "concentree" };
+    }
+    if (q === "dv-hb") {
+      hbLoad(); var H = UI.hb || {}; if (!S.hbSeen) { S.hbSeen = 1; save(); }
+      A.push("Tes créneaux habituels servent pour <b>tous</b> tes tournois, sauf les jours que tu changes pour un tournoi.");
+      XH += H.prof ? acCard("Ta semaine sur Ten'Up", [1, 2, 3, 4, 5, 6, 7].map(function (wd) { var sl = H.prof.week[wd] || []; return acRow({ l: esc(hbDayName(wd)), s: sl.length ? esc(sl.map(dzSl).join(" · ")) : "Pas dispo" }); }).join(""))
+        : acCard("", '<p class="small">' + esc(H.err ? "Ten'Up : " + H.err : "Je lis tes créneaux sur Ten'Up…") + "</p>");
+      F.push(["Changer mes créneaux habituels", null, null, ["hb", ""]]);
+      return { a: A, x: XH, f: F, facts: [], mood: "repos" };
+    }
+    if (q === "dv-tz") {
+      var L = []; try { L = tzShown().slice().sort(function (a, b) { return b.score - a.score; }); } catch (e) {} if (!L.length) return null; var P = tzPrefs();
+      A.push(plural(L.length, "tournoi") + " ouvert" + (L.length > 1 ? "s" : "") + " à ton classement autour de " + esc(P.city || "chez toi") + ". Voici ceux qui collent le mieux à ta saison.");
+      XH += acCard("Pour toi", L.slice(0, 3).map(function (v) { return acRow({ l: esc(v.t.name), s: esc(fdate(v.t.from)) + (v.km != null ? " · " + Math.round(v.km) + " km" : "") + (v.clash.length ? " · collision" : ""), sheet: ["tz", v.t.id] }); }).join(""));
+      F.push([L.length > 3 ? "Les " + L.length + " tournois" : "Trouver un tournoi", null, "#/trouver"]);
+      return { a: A, x: XH, f: F, facts: [], mood: "concentree" };
+    }
+    if (q === "dv-eq") {
+      var e = dvTeam(); if (!e) return null; var c = e.c, me = c.me.mine, mt = tmOf(c, me) || {}, nx = e.nx;
+      A.push(nx ? "Prochaine rencontre le <b>" + esc(fdate(nx.d)) + "</b>, " + (nx.a === me ? "à domicile" : "à l'extérieur") + "." : "Pas de rencontre à venir pour l'instant.");
+      var rows = []; if (nx) rows.push(acRow({ l: esc(tmNm(nx.an) + " – " + tmNm(nx.bn)), s: esc(fdate(nx.d)) + " · " + (nx.a === me ? "à domicile" : "à l'extérieur"), href: "#/equipe/" + c.id }));
+      if (mt.cl) rows.push(acRow({ l: "Ta place dans la poule", s: esc(tmDiv(c.div)), v: esc(tmOrd(mt.cl)) }));
+      XH += acCard(esc(tmNm(((S.teams || {}).club || {}).nom || "")) || "Ton équipe", rows.join("") || '<p class="small">Rien à montrer pour l\'instant.</p>');
+      F.push(["Voir l'équipe", null, "#/equipe/" + c.id]);
+      return { a: A, x: XH, f: F, facts: [], mood: "joie" };
+    }
+    if (q === "dv-mat") {
+      var R = bag(); if (!R.length) return null;
+      A.push("Je compte tes heures de jeu depuis le dernier recordage, raquette par raquette.");
+      XH += acCard("Tes cordages", R.map(function (r) { var st = racketStatus(r), ref = wearRef(st), lv = st.level; return acRow({ l: esc(r.name), s: lv === "broken" ? "Cordage cassé" : lv === "change" ? "À recorder" : lv === "soon" ? "Bientôt à recorder" : st.known ? "Ça va" : "Pas encore d'heures", scl: lv === "ok" || lv === "unknown" ? "" : "r", bar: st.known ? 100 * st.min / (ref || 1) : null, cl: lv === "ok" ? "g" : lv === "soon" ? "y" : "r", v: st.known ? esc(fmtHours(st.min)) : "", href: "#/raquette/" + r.id }); }).join(""));
+      F.push(["Ton matériel", null, "#/materiel"]);
+      return { a: A, x: XH, f: F, facts: [], mood: "repos" };
+    }
+    return null;
+  }
   function acSvg(k) { return { po: FT_IC.po, to: FT_IC.to, li: FT_IC.li, so: FR_REL, eq: TEAM_IC }[k] || ""; }
   // 4.4 (Yann, 24/11) : UN seul modèle Montée+ dans Ace : ce qui s'ouvre (lisible), Ace avec son « + » jaune, le bouton d'essai de partout (plusCta)
   function acLock(t, id) { if (isSup()) return ""; return '<div class="acd acl"><div class="acl-r"><span class="acl-av">' + coBall("lk:" + (id || ""), "joie", "xs") + '<i aria-hidden="true">+</i></span><span class="acl-t">' + t + "</span></div>" + plusCta() + "</div>"; }
@@ -11474,6 +11542,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (k[0] === "next" || k[0] === "vs") return coMatchAns(c, q);
     if (k[0] === "tz") return tzWhyAns(c, k[1] || "");
     if (k[0] === "news") return coNewsAns(c);
+    if (/^dv-/.test(q)) { var dv = null; try { dv = dvAns(q); } catch (e) {} if (dv) return dv; }
     var ez = pl && pl.list && pl.list[0], rel = p.release ? fdate(p.release).replace(/^1 /, "1er ") : "";
     var routeLine = function () { return ez ? esc(pisteLabel(ez)) + (pl.goal === "keep" ? " et tu restes " : " et tu montes ") + esc(lab(pl.target)) + "." : ""; }; // dit une seule fois, dans « Comment je monte ? » (4.4)
     if (k[0] === "up") {
@@ -11730,6 +11799,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         var qs = Q.filter(function (x) { return x[0] === gr[0]; }); if (!qs.length) return;
         s += '<span class="ace-k">' + gr[1] + '</span><div class="ace-grid">' + qs.map(function (x) { return '<button class="ace-tile' + (x[1] === hot ? " hot" : "") + '" data-a="aceQ" data-v="' + esc(x[1]) + '"><i' + (x[6] ? ' class="aci-' + x[6] + '"' : "") + (x[8] ? ' style="color:' + x[8] + '"' : "") + ">" + (x[6] ? acSvg(x[6]) : I[x[5]] || I.spark) + "</i><b>" + esc(x[3]) + "</b><small>" + esc(x[4]) + "</small>" + (x[7] && !isSup() ? '<span class="ace-plt">Montée+</span>' : "") + "</button>"; }).join("") + "</div>";
       });
+      var dv = []; try { dv = acDiscover(); } catch (e) {}
+      if (dv.length) s += '<span class="ace-k">À découvrir dans Montée</span><div class="ace-grid">' + dv.map(function (x) { return '<button class="ace-tile' + (x.q && x.q === hot ? " hot" : "") + (x.h ? " dv-t" : "") + '" ' + (x.q ? 'data-a="aceQ" data-v="' + esc(x.q) + '"' : 'data-a="coachGo" data-h="' + esc(x.h) + '"') + "><i>" + x.ic + "</i><b>" + esc(x.t) + "</b><small>" + esc(x.s) + "</small>" + (x.h ? '<span class="dv-go" aria-hidden="true">›</span>' : "") + "</button>"; }).join("") + "</div>";
     } else {
       if (!UI.aceT || !UI.aceT.t.length || UI.aceT.t[UI.aceT.t.length - 1].q !== q) aceAsk(q);
       var T = UI.aceT.t, nQ = T.length, an = null, lastQ = null;
@@ -19819,8 +19890,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.18.0",
+    v: "4.21.0",
     pages: [
+      // 4.21 (Yann, 26/11/2026, maquette validée) : la conversation avec Ace est un fil, gardé jusqu'au ✕ ; 4.20 : « À découvrir dans Montée »
+      { hero: true, title: "Montée 4.21", text: "Avec Ace, rien ne se perd : tes questions et ses réponses s'empilent, et la conversation te suit d'une page à l'autre jusqu'à ce que tu la fermes." },
+      { tag: "Nouveau", tone: "rose", title: "Toute la conversation", vis: "fil421", text: "Pose tes questions à la suite : chaque réponse, avec ses cartes, reste dans le fil. Remonte quand tu veux pour relire." },
+      { tag: "Nouveau", tone: "rose", title: "Continuer avec Ace", vis: "cont421", text: "Ace t'emmène sur une page ? La bulle jaune te suit partout. Touche-la pour reprendre là où tu en étais, ✕ pour finir la conversation." },
+      { tag: "Nouveau", tone: "rose", title: "À découvrir dans Montée", vis: "dv420", text: "En bas de l'écran d'Ace : tes dispos, tes créneaux habituels, ton équipe… Ace te montre l'essentiel en cartes, puis t'ouvre l'écran." },
       // 4.18 (Yann, 26/11/2026) : 4.17 (suivis) et le profil de ton enfant v2, livrés ensemble
       { hero: true, title: "Montée 4.18", text: "Tu suis un joueur ? Chacun de ses résultats arrive maintenant en notification. Et le profil de ton enfant devient plus clair et plus simple." },
       // 4.17 (Yann, 26/11/2026, maquettes validées) : un joueur suivi = tous ses résultats ; la course du mois passe au second plan
@@ -19991,7 +20067,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-      var PHARES = ["fol417", "kid417", "kidl415", "fol417b", "bal416"]; // 4.18 : suivis (4.17) et profil de ton enfant v2 ; 5 pages max (ef416, kidf415 sortent)
+      var PHARES = ["fil421", "cont421", "dv420", "fol417", "kid417"]; // 4.21 : fil d'Ace, bulle, À découvrir ; puis suivis et profil de ton enfant // 4.18 : suivis (4.17) et profil de ton enfant v2 ; 5 pages max (ef416, kidf415 sortent)
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -20013,6 +20089,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.5 : visuels des nouveautés (couleurs fixes : l'écran est toujours sombre ; noms d'exemple génériques)
     var nvAv = function (t, c) { return '<span style="width:34px;height:34px;flex:none;border-radius:17px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:' + (c || "#3A3F49") + ';color:#F2F3F5">' + t + "</span>"; };
     var nvPill = '<em style="font-style:normal;font-size:11.5px;font-weight:800;border-radius:99px;padding:2px 8px;background:#D4E64A;color:#121212;margin-right:6px">Nouveau</em>';
+    // 4.21 : le fil d'Ace et la bulle « Continuer avec Ace » (couleurs fixes, écran sombre)
+    var nvMe = function (t) { return '<span style="align-self:flex-end;max-width:80%;padding:7px 11px;border-radius:16px 16px 5px 16px;background:#D4E64A;color:#15170F;font-size:12.5px;font-weight:700;text-align:left">' + t + "</span>"; };
+    var nvAce = function (t) { return '<span style="align-self:flex-start;max-width:86%;padding:7px 11px;border-radius:16px;background:rgba(255,255,255,.08);font-size:12.5px;font-weight:600;text-align:left">' + t + "</span>"; };
+    var nvCard = function (k2, v, c) { return '<span style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 11px;border-radius:14px;background:rgba(255,255,255,.06);font-size:12px"><span style="opacity:.75;font-weight:700;letter-spacing:.04em">' + k2 + '</span><b style="color:' + c + '">' + v + "</b></span>"; };
+    if (k === "fil421") return nvc('<span style="display:flex;flex-direction:column;gap:7px">' + nvMe("Je joue qui en premier dans ma poule ?") + nvAce("Thomas M. le 5 déc.") + nvCard("SI TU GAGNES", "+20 pts", "#6FC28F") + '<span style="align-self:center;font-size:11px;opacity:.6">17:52</span>' + nvMe("Comment je monte 15/1 ?") + nvAce("Le plus court : 2 victoires contre des 15/1.") + "</span>");
+    if (k === "cont421") return nvc('<span style="display:flex;flex-direction:column;gap:8px;text-align:left"><span class="nv-k" style="color:#D4E64A">TA POULE</span>' + [["1", "Toi", "1-1"], ["2", "Julien Moreau", "1-0"]].map(function (x) { return '<span style="display:flex;gap:10px;font-size:12.5px;padding:4px 0"><b style="opacity:.6">' + x[0] + '</b><span style="flex:1">' + x[1] + "</span><b>" + x[2] + "</b></span>"; }).join("") +
+      '<span style="align-self:flex-end;display:flex;align-items:center;gap:8px;margin-top:6px;padding:5px 6px 5px 5px;border-radius:26px;background:#D4E64A;color:#15170F;box-shadow:0 10px 24px -8px rgba(0,0,0,.6)"><span style="width:30px;height:30px;border-radius:50%;background:#15170F;display:grid;place-items:center"><span style="width:20px;height:20px;border-radius:50%;background:#D4E64A"></span></span><span><b style="display:block;font-size:12.5px">Continuer avec Ace</b><small style="font-size:11px;color:#3B4214">Monter 15/1 · Ta poule</small></span><span style="width:22px;height:22px;border-radius:50%;background:rgba(21,23,15,.12);display:grid;place-items:center;font-size:11px;font-weight:800">✕</span></span></span>');
+    if (k === "dv420") return nvc('<span class="nv-k" style="color:#D4E64A">À DÉCOUVRIR DANS MONTÉE</span><span style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;text-align:left">' + [["Tes dispos", "Open d'hiver · avant le 9 déc."], ["Tes créneaux habituels", "Pour tous tes tournois"], ["Trouver un tournoi", "Près de chez toi"], ["Ton équipe", "Rencontres et classement"]].map(function (x) { return '<span style="padding:10px;border-radius:14px;background:rgba(255,255,255,.07)"><b style="display:block;font-size:12.5px">' + x[0] + '</b><small style="font-size:11px;opacity:.7">' + x[1] + "</small></span>"; }).join("") + "</span>");
     if (k === "bal416") { var WA = window.MonteeWidgetArt, PN = WA.palette("nuit"); return nvc('<span class="nv-k" style="color:#D4E64A">TES CHANCES</span><span style="display:flex;justify-content:space-around;align-items:flex-end;gap:6px">' + [[0.18, "Gros défi"], [0.47, "Match ouvert"], [0.72, "À ta portée"], [0.92, "Large favori"]].map(function (x) { return '<span style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;font-weight:700;text-align:center">' + WA.ballSvg(x[0], 60, { col: WA.ballCol(x[0], PN.terre, PN.gazon), empty: "#2E323B", ring: "rgba(255,255,255,.22)", ink: "#F2F3F5", halo: "#24272E" }) + x[1] + "</span>"; }).join("") + "</span>"); }
     // 4.14 : ils montent ce mois-ci (noms d'exemple génériques)
     // 4.15 : le profil de ton enfant (noms d'exemple génériques)
@@ -21916,7 +22000,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         if (!b.amb && T.dzSame(nx, b.slots)) delete ed[d.iso]; else ed[d.iso] = nx; } // revenu à ce que Ten'Up a déjà : plus rien à envoyer pour ce jour
       UI.hbd = null; UI.sheet = null; render(); },
     // 4.10 : créneaux habituels (profil Ten'Up) et indispo d'un tournoi
-    hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
+    hbOpen: function () { if (!S.hbSeen) { S.hbSeen = 1; save(); } UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
     hbDay: function (el) { UI.hbd = null; UI.sheet = { k: "hbd", v: el.dataset.v, back: "hb" }; render(); },
     hbPlay: function (el) { var d = UI.hbd; if (!d) return; d.play = el.dataset.v === "1";
       if (d.play && !d.slots.length) { var h = d.dz ? d.hab : (UI.hb.prof.week[d.wd] || []); d.slots = h.length ? JSON.parse(JSON.stringify(h)) : [{ from: "18:00", to: "22:00" }]; } render(); },
