@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.19.2",
+    VERSION: "4.21.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -117,7 +117,7 @@
     var k = id != null ? kidOf(id) : null;
     if (k) { SK = kidLoad(k); SK.tenup = Object.assign({}, SK.tenup, { linked: !!(SP.tenup && SP.tenup.linked), expired: !!(SP.tenup && SP.tenup.expired) }); SP.kidOn = String(k.id); S = kidProxy(); }
     else { SK = null; delete SP.kidOn; S = SP; }
-    UI.sheet = null; UI.ace = null; UI.lastHtml = null; TRP_M = {}; PAL_IX = null;
+    UI.sheet = null; UI.ace = null; UI.aceT = null; UI.lastHtml = null; TRP_M = {}; PAL_IX = null;
     try { localStorage.setItem(KEY, JSON.stringify(SP)); } catch (e) {}
   }
   function save() {
@@ -757,8 +757,8 @@
   })();
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
-    // 4.0.5 (Yann) : quitter Ace par un lien garde de quoi revenir à la conversation (pastille « Revenir à Ace » sur la page suivante)
-    if (UI.ace && UI.ace.q) UI.aceBack = { q: UI.ace.q, h: location.hash }; else if (UI.aceBack && UI.aceBack.h !== location.hash) UI.aceBack = null;
+    // 4.21 (Yann) : quitter Ace par un lien garde toute la conversation (bulle « Continuer avec Ace » sur toutes les pages, jusqu'au ✕)
+    aceKeep();
     var r = route(); UI.sheet = null; UI.ace = null; UI.flAnim = true; // 3.66 : la fleur s'anime à chaque arrivée sur une page
     // 3.57.3 (testeur) : la feuille « Programmer le match » restait ouverte en quittant la poule et se rouvrait au retour
     UI.plSched = null; UI.plHost = null;
@@ -922,9 +922,10 @@
     if (SK && !(UI.sheet && /^kid/.test(UI.sheet.k || ""))) html = html.slice(0, kvFrom) + kidVoice(html.slice(kvFrom));
     if (UI.ace) html += aceHtml(); // 3.73 : Ace, le coach
     else if (parts[0] === "" && S.onboarded && S.matches.length && !S.aceSeen && !UI.sheet && !UI.notesOpen && !UI.qaSheet && !UI.actPlus) html += aceIntroHtml();
-    if (!UI.ace && UI.aceBack && !UI.sheet && html.indexOf('class="mm-pill"') < 0) { try { var abQ = coQs(ctx()).filter(function (x) { return x[1] === UI.aceBack.q; })[0]; html += '<button class="ace-back" data-a="aceBack">' + coBall("ace:back", "repos", "xs") + '<span class="grow"><b>Revenir à Ace</b>' + (abQ ? "<small>" + esc(abQ[2]) + "</small>" : "") + "</span>" + I.next + "</button>"; } catch (e) {} }
+    if (!UI.ace && UI.aceT && UI.aceT.t.length && !UI.sheet && !UI.notesOpen) html += aceContHtml(); // 4.21 : la conversation avec Ace reste ouverte
     if (!UI.sheet && !UI.leaveAsk && notesDue()) html += notesHtml();
     document.body.classList.toggle("has-pill", html.indexOf('class="mm-pill"') >= 0);
+    document.body.classList.toggle("has-acec", html.indexOf('class="ace-cont"') >= 0);
     document.body.classList.toggle("glow", parts[0] !== "bienvenue");
     document.body.classList.toggle("locked", !!(UI.ace || UI.menu || UI.rkMenu || UI.sheet || UI.actPlus || UI.qaSheet || UI.jj || UI.leaveAsk || UI.notesOpen));
     // 3.49.1 (Yann : l'accueil « clignote » au lancement) : chaque synchro (Ten'Up, montre, joueurs suivis, widgets…) refaisait
@@ -940,7 +941,8 @@
     if (S.onboarded && !UI.capCkT) UI.capCkT = setTimeout(function () { UI.capCkT = null; try { capCheck(); } catch (e) {} }, 600); // 3.62
     Array.prototype.forEach.call(app.querySelectorAll("textarea"), growTa);
     // 3.74.1 (accessibilité) : à chaque nouveau sujet d'Ace, on repart du haut et le focus va sur la question
-    try { var aceK = UI.ace ? "q:" + (UI.ace.q || "") : ""; if (aceK && aceK !== UI.aceK) { var ae = document.querySelector(".ace"); if (ae) { ae.scrollTop = 0; var af = ae.querySelector(".ace-me") || ae.querySelector(".ace-hero b"); if (af) { af.setAttribute("tabindex", "-1"); af.focus({ preventScroll: true }); } } } UI.aceK = aceK; } catch (e) {}
+    // 4.21 : dans le fil, on arrive sur la dernière question (ou là où on l'avait laissé, en revenant par la bulle)
+    try { var aceK = UI.ace ? "q:" + (UI.ace.q || "") + ":" + (UI.ace.q && UI.aceT ? UI.aceT.t.length : 0) + ":" + (UI.aceRest || 0) : ""; if (aceK && aceK !== UI.aceK) { var ae = document.querySelector(".ace"); if (ae) { var mes = ae.querySelectorAll(".ace-me"), af = mes[mes.length - 1] || ae.querySelector(".ace-hero b"); ae.scrollTop = UI.aceRest && UI.aceT && UI.aceT.y != null ? UI.aceT.y : mes.length > 1 ? Math.max(0, af.getBoundingClientRect().top + ae.scrollTop - 76) : 0; UI.aceRest = 0; if (af) { af.setAttribute("tabindex", "-1"); af.focus({ preventScroll: true }); } } } UI.aceK = aceK; } catch (e) {}
     try { mountBalles(document.body); } catch (e) {} // 3.73 : la Balle (bulles du coach, accueil, discussion)
     // Barre des courbes : recréée par le rendu, on remet tout de suite son fond « collé » et le bon onglet (sinon transparente jusqu'au prochain défilement)
     try { cbSpy(true); } catch (e) {}
@@ -11693,16 +11695,31 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   // 4.4 (Ace plus vivant) : sa réponse s'écrit mot à mot, seulement quand on vient de poser la question (balises gardées entières)
   function acWords(h) { var n = 0; return String(h).split(/(<[^>]+>)/).map(function (t) { return t.charAt(0) === "<" ? t : t.replace(/[^\s]+/g, function (w) { return '<span class="aw" style="--i:' + Math.min(70, n++) + '">' + w + "</span>"; }); }).join(""); }
+  // 4.21 (Yann, comme Bevel) : la conversation avec Ace est un fil. Chaque question et sa réponse s'empilent ;
+  // le fil survit à la navigation (bulle « Continuer avec Ace ») et ne se termine qu'au ✕.
+  function aceAsk(q) {
+    if (q) { var T = UI.aceT || (UI.aceT = { t: [] }), l = T.t[T.t.length - 1]; if (!l || l.q !== q) { T.t.push({ q: q, at: Date.now() }); if (T.t.length > 12) T.t.shift(); UI.aceFresh = 1; } }
+    UI.ace = { q: q || "" }; UI.aceRest = 0;
+  }
+  function aceResume() { var T = UI.aceT, l = T && T.t[T.t.length - 1]; UI.ace = { q: l ? l.q : "" }; UI.aceRest = l ? 1 : 0; }
+  function aceKeep() { if (UI.ace && UI.ace.q && UI.aceT) { var ae = document.querySelector(".ace"); if (ae) UI.aceT.y = ae.scrollTop; } }
+  function aceBackKey() { if (UI.ace.q) { aceKeep(); UI.ace = null; } else if (UI.aceT && UI.aceT.t.length) aceResume(); else UI.ace = null; }
+  function aceContHtml() {
+    var c = ctx(), T = UI.aceT.t, Q = coQs(c), lb = [];
+    for (var i = T.length - 1; i >= 0 && lb.length < 2; i--) { var x = Q.filter(function (y) { return y[1] === T[i].q; })[0]; if (x && lb.indexOf(x[3]) < 0) lb.push(x[3]); }
+    return '<div class="ace-cont"><button class="ace-cont-go" data-a="aceBack" aria-label="Continuer la conversation avec Ace"><span class="ace-cont-h">' + coBall("ace:cont", "repos", "xs") + (T.length > 1 ? '<i class="ace-cont-n">' + T.length + "</i>" : "") + '</span><span class="ace-cont-t"><b>Continuer avec Ace</b>' + (lb.length ? "<small>" + esc(lb.join(" · ")) + "</small>" : "") + '</span></button><button class="ace-cont-x" data-a="aceClose" aria-label="Fermer la conversation avec Ace">' + I.cross + "</button></div>";
+  }
+  function aceWhen(t, prev) { var d = new Date(t), hm = ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); if (prev && hm === aceWhen(prev).slice(-5)) return ""; return (!prev && E.iso(d) === E.iso(today()) ? "Aujourd'hui " : "") + hm; }
   // L'écran d'Ace : les sujets en tuiles, puis une réponse en gros texte, ses chiffres et les suites (maquette v2 validée)
   function aceHtml() {
     var c = ctx(), Q = coQs(c), q = UI.ace.q || "", name = S.profile.name || "", ask = q ? Q.filter(function (x) { return x[1] === q; })[0] : null;
     var top = function (mid) { return '<div class="ace-top">' + mid + '<button class="ace-x" data-a="aceClose" aria-label="Fermer">' + I.cross + "</button></div>"; };
     var fresh = ask && UI.aceFresh; UI.aceFresh = 0; // 4.3 : Ace « écrit » puis répond, seulement quand on vient de poser la question
-    var s = '<div class="ace" role="dialog" aria-modal="true" aria-label="Ace, ton coach"><div class="ace-in' + (fresh ? " ace-fresh" : "") + '">';
+    var s = '<div class="ace" role="dialog" aria-modal="true" aria-label="Ace, ton coach"><div class="ace-in">'; // 4.21 : l'animation « fraîche » ne vise que le dernier échange du fil
     if (!ask) {
       var h = coHomeTip(c), hot = h.tip ? h.tip.v : "";
       var g = c.proj.status !== "top" && c.proj.next ? (c.proj.status === "montee" ? "Tu montes " + esc(lab(c.proj.projected)) + " à la prochaine sortie." : "Il te manque " + plural(Math.max(0, c.proj.next.norme - c.proj.next.total), "pt") + " pour " + esc(c.proj.next.label) + ".") : "";
-      s += top('<span class="small ace-pv">' + (isSup() ? '<span class="ace-plt">Montée+</span> tout reste dans ton téléphone' : "Gratuit · tout reste dans ton téléphone") + "</span>") + '<div class="ace-hero"><span class="ace-tk" data-a="aceTickle" aria-hidden="true">' + coBall("ace:hero", h.mood, "xl") + "</span><span><b>Salut" + (name ? " " + esc(name) : "") + " !</b><small>" + g + " On parle de quoi ?</small></span></div>";
+      s += top((UI.aceT && UI.aceT.t.length ? '<button class="ace-ret" data-a="aceBack">' + I.next + "<span>Ta conversation</span></button>" : "") + '<span class="small ace-pv">' + (UI.aceT && UI.aceT.t.length ? "" : isSup() ? '<span class="ace-plt">Montée+</span> tout reste dans ton téléphone' : "Gratuit · tout reste dans ton téléphone") + "</span>") + '<div class="ace-hero"><span class="ace-tk" data-a="aceTickle" aria-hidden="true">' + coBall("ace:hero", h.mood, "xl") + "</span><span><b>Salut" + (name ? " " + esc(name) : "") + " !</b><small>" + g + " On parle de quoi ?</small></span></div>";
       // 3.75 : « Pour toi, maintenant », les vraies cartes du moment avant les sujets (un sujet en carte n'est pas répété en tuile)
       var fd = []; try { fd = coFeed(c); } catch (e) {}
       var inFd = {}; fd.forEach(function (x) { inFd[x.q] = 1; if (x.q2) inFd[x.q2] = 1; }); // 4.4 : le coup d'Ace dit déjà ce qui sort
@@ -11714,18 +11731,34 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         s += '<span class="ace-k">' + gr[1] + '</span><div class="ace-grid">' + qs.map(function (x) { return '<button class="ace-tile' + (x[1] === hot ? " hot" : "") + '" data-a="aceQ" data-v="' + esc(x[1]) + '"><i' + (x[6] ? ' class="aci-' + x[6] + '"' : "") + (x[8] ? ' style="color:' + x[8] + '"' : "") + ">" + (x[6] ? acSvg(x[6]) : I[x[5]] || I.spark) + "</i><b>" + esc(x[3]) + "</b><small>" + esc(x[4]) + "</small>" + (x[7] && !isSup() ? '<span class="ace-plt">Montée+</span>' : "") + "</button>"; }).join("") + "</div>";
       });
     } else {
-      var an = coAnswer(c, q);
-      s += top('<span class="ace-ctx"><span>' + esc(ask[3]) + " · " + esc(ask[4]) + "</span></span>"); // 4.3 : Ace passe à côté de sa réponse (une seule fois par écran)
-      // la réponse d'abord (gros texte), puis ses cartes de chiffres ; le portrait garde sa fleur en tête
-      var xh = an.x || "", hero = xh.indexOf('<div class="acp-hero">') === 0 ? xh.slice(0, xh.indexOf("</span></div>") + 13) : "";
-      if (hero) xh = xh.slice(hero.length);
-      s += '<div class="ace-me">' + esc(ask[2]) + "</div>" + hero + (fresh ? '<div class="ace-typing" aria-hidden="true"><i></i><i></i><i></i></div>' : "") + (an.a.length ? '<div class="ace-a"><span class="ace-av">' + coBall("ace:" + q, an.mood, "sm") + "</span>" + an.a.map(function (x) { return "<p>" + (fresh ? acWords(x) : x) + "</p>"; }).join("") + "</div>" : "") + xh;
-      UI.aceVis = UI.aceVis || {}; UI.aceVis[q] = 1;
-      if (an.facts && an.facts.length) s += '<div class="ace-fact">' + an.facts.map(function (f) { return "<span><em>" + esc(f[0]) + "</em>" + esc(f[1]) + "</span>"; }).join("") + "</div>";
-      var more = an.f.map(function (f) { return f[3] ? '<button data-a="sheet" data-k="' + esc(f[3][0]) + '" data-v="' + esc(f[3][1] || "") + '"><i>↳</i>' + esc(f[0]) + "</button>" : f[2] ? '<button data-a="coachGo" data-h="' + esc(f[2]) + '"><i>↳</i>' + esc(f[0]) + "</button>" : '<button data-a="aceQ" data-v="' + esc(f[1]) + '"><i>↳</i>' + esc(f[0]) + "</button>"; });
-      Q.filter(function (x) { return x[1] !== q && an.f.every(function (f) { return f[1] !== x[1]; }); }).sort(function (a, b) { return (UI.aceVis[a[1]] ? 1 : 0) - (UI.aceVis[b[1]] ? 1 : 0) || (a[0] === ask[0] ? 0 : 1) - (b[0] === ask[0] ? 0 : 1); }).slice(0, Math.max(2, 4 - an.f.length)).forEach(function (x) { more.push('<button data-a="aceQ" data-v="' + esc(x[1]) + '"><i>↳</i>' + esc(x[2]) + "</button>"); });
-      var seenM = {}; more = more.filter(function (h) { var k = h.replace(/<[^>]*>/g, "").replace(/^↳/, "").trim().toLowerCase(); if (seenM[k]) return false; seenM[k] = 1; return true; }); // chaque suggestion une seule fois
-      s += '<span class="ace-k">Tu peux aussi me demander</span><div class="ace-f">' + more.join("") + "</div>";
+      if (!UI.aceT || !UI.aceT.t.length || UI.aceT.t[UI.aceT.t.length - 1].q !== q) aceAsk(q);
+      var T = UI.aceT.t, nQ = T.length, an = null, lastQ = null;
+      s += top('<span class="ace-ctx"><span>Toi et Ace' + (nQ > 1 ? ' <small class="ace-ctx-n">· ' + nQ + " questions</small>" : "") + "</span></span>");
+      UI.aceVis = UI.aceVis || {};
+      T.forEach(function (t, i) {
+        UI.ace.q = t.q; // coQs lit la question en cours (sujet « vs: » ajouté seulement pour elle)
+        var Qt = coQs(c), at = Qt.filter(function (x) { return x[1] === t.q; })[0];
+        if (!at) return; // sujet qui n'existe plus (match passé…) : on le saute
+        var isL = i === T.length - 1, fr = fresh && isL, a = coAnswer(c, t.q), wh = aceWhen(t.at, i ? T[i - 1].at : 0);
+        // la réponse d'abord (gros texte), puis ses cartes de chiffres ; le portrait garde sa fleur en tête
+        var xh = a.x || "", hero = xh.indexOf('<div class="acp-hero">') === 0 ? xh.slice(0, xh.indexOf("</span></div>") + 13) : "";
+        if (hero) xh = xh.slice(hero.length);
+        s += (wh ? '<span class="ace-when">' + wh + "</span>" : "") + '<div class="ace-turn' + (fr ? " ace-fresh" : "") + '">';
+        s += '<div class="ace-me">' + esc(at[2]) + "</div>" + hero + (fr ? '<div class="ace-typing" aria-hidden="true"><i></i><i></i><i></i></div>' : "") + (a.a.length ? '<div class="ace-a"><span class="ace-av">' + coBall("ace:" + t.q + ":" + i, a.mood, "sm") + "</span>" + a.a.map(function (x) { return "<p>" + (fr ? acWords(x) : x) + "</p>"; }).join("") + "</div>" : "") + xh;
+        if (a.facts && a.facts.length) s += '<div class="ace-fact">' + a.facts.map(function (f) { return "<span><em>" + esc(f[0]) + "</em>" + esc(f[1]) + "</span>"; }).join("") + "</div>";
+        UI.aceVis[t.q] = 1; an = a; lastQ = at;
+        if (isL) s += "%%MORE%%";
+        s += "</div>";
+      });
+      UI.ace.q = q;
+      var more = [];
+      if (an && lastQ && lastQ[1] === q) {
+        more = an.f.map(function (f) { return f[3] ? '<button data-a="sheet" data-k="' + esc(f[3][0]) + '" data-v="' + esc(f[3][1] || "") + '"><i>↳</i>' + esc(f[0]) + "</button>" : f[2] ? '<button data-a="coachGo" data-h="' + esc(f[2]) + '"><i>↳</i>' + esc(f[0]) + "</button>" : '<button data-a="aceQ" data-v="' + esc(f[1]) + '"><i>↳</i>' + esc(f[0]) + "</button>"; });
+        Q = coQs(c);
+        Q.filter(function (x) { return x[1] !== q && an.f.every(function (f) { return f[1] !== x[1]; }); }).sort(function (a, b) { return (UI.aceVis[a[1]] ? 1 : 0) - (UI.aceVis[b[1]] ? 1 : 0) || (a[0] === lastQ[0] ? 0 : 1) - (b[0] === lastQ[0] ? 0 : 1); }).slice(0, Math.max(2, 4 - an.f.length)).forEach(function (x) { more.push('<button data-a="aceQ" data-v="' + esc(x[1]) + '"><i>↳</i>' + esc(x[2]) + "</button>"); });
+        var seenM = {}; more = more.filter(function (h) { var k = h.replace(/<[^>]*>/g, "").replace(/^↳/, "").trim().toLowerCase(); if (seenM[k]) return false; seenM[k] = 1; return true; }); // chaque suggestion une seule fois
+      }
+      s = s.replace("%%MORE%%", more.length ? '<span class="ace-k">Tu peux aussi me demander</span><div class="ace-f">' + more.join("") + "</div>" : "");
       s += '<button class="ace-bot" data-a="aceQ" data-v=""><span>Autres sujets</span><b>Tous les sujets</b></button>';
     }
     return s + "</div></div>";
@@ -19008,7 +19041,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var to = /(^|&)to=([\w-]+)/.exec(qs); if (to) UI.cbTo = to[2];
       var tb = /(^|&)tab=(\w+)/.exec(qs); if (tb) UI.fafTab = tb[2]; // widget « Joueurs suivis » // widget « Points à défendre » : droit sur sa courbe
       // 3.81 : widget Ace : l'accueil, puis Ace ouvert sur la question du moment
-      if (pth[0] === "ace") { go(""); try { var av = aceNow().v || ""; UI.ace = { q: av }; render(); } catch (e) {} return; }
+      if (pth[0] === "ace") { go(""); try { var av = aceNow().v || ""; aceAsk(av); render(); } catch (e) {} return; }
       go(pth[0] || ""); return;
     }
     var q = {}; (m[2].split("?")[1] || "").split("&").forEach(function (kv) { var p = kv.split("="); if (p[0]) q[p[0]] = decodeURIComponent(p[1] || ""); });
@@ -21125,11 +21158,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
     coachUndo: function () { var u = UI.coUndo, m = coMem(); if (!u) return; delete m.no[u.id]; if (m.scr[u.s]) m.scr[u.s]--; UI.coUndo = null; save(); var tk = document.querySelector(".toast"); if (tk) tk.remove(); render(); },
-    ace: function (el) { if (el.classList.contains("ace-peek")) { S.aceTap = 1; haptic("light"); } var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg") || el.classList.contains("hd-bub"))) m.op[UI.coHomeId] = Date.now(); UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; Array.prototype.forEach.call(document.querySelectorAll(".wow-bub"), function (b) { b.remove(); }); save(); render(); haptic("light"); },
-    aceQ: function (el) { UI.ace = { q: el.dataset.v || "" }; UI.aceFresh = 1; render(); var a = document.querySelector(".ace"); if (a) a.scrollTop = 0; },
-    aceClose: function () { UI.ace = null; UI.aceBack = null; render(); },
+    ace: function (el) { if (el.classList.contains("ace-peek")) { S.aceTap = 1; haptic("light"); } var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg") || el.classList.contains("hd-bub"))) m.op[UI.coHomeId] = Date.now(); if (el.dataset.v || !(UI.aceT && UI.aceT.t.length)) aceAsk(el.dataset.v || ""); else aceResume(); Array.prototype.forEach.call(document.querySelectorAll(".wow-bub"), function (b) { b.remove(); }); save(); render(); haptic("light"); },
+    aceQ: function (el) { aceAsk(el.dataset.v || ""); render(); },
+    aceClose: function () { UI.ace = null; UI.aceT = null; render(); }, // 4.21 : le ✕ (fil ou bulle) est la seule fin de la conversation
     aceTickle: function (el) { var b = el.querySelector(".cbl-b > div"); if (b && window.Balle && Balle.play2 && !b._busy) { haptic("light"); Balle.play2(b, "rire", 1300, b._base); } }, // 4.4 : on touche Ace, il rit
-    aceBack: function () { var q = UI.aceBack ? UI.aceBack.q : ""; UI.aceBack = null; UI.ace = { q: q }; render(); haptic("light"); },
+    aceBack: function () { aceResume(); render(); haptic("light"); },
     aceLk: function (el) { UI.aceLk = UI.aceLk === el.dataset.v ? null : el.dataset.v; render(); haptic("light"); },
     aceLkAll: function (el) { UI.aceLkAll = el.dataset.v; render(); },
     // 3.75 : « Le jour J, rappelle-moi » : une notification locale le matin du match (ou 2 h avant l'heure prévue)
@@ -21148,8 +21181,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         else askNotif();
       }).catch(function () { askNotif(); });
     },
-    aceIntro: function (el) { S.aceSeen = 1; save(); if (el.dataset.v === "go") UI.ace = { q: "" }; render(); },
-    coachGo: function (el) { var h = el.dataset.h || "", q = h.split("?")[1]; if (q) UI.mmTab = q; if (UI.ace && UI.ace.q) UI.aceBack = { q: UI.ace.q, h: h.split("?")[0] }; UI.sheet = null; UI.ace = null; if (location.hash === h.split("?")[0]) render(); else location.hash = h.split("?")[0]; },
+    aceIntro: function (el) { S.aceSeen = 1; save(); if (el.dataset.v === "go") aceAsk(""); render(); },
+    coachGo: function (el) { var h = el.dataset.h || "", q = h.split("?")[1]; if (q) UI.mmTab = q; aceKeep(); UI.sheet = null; UI.ace = null; if (location.hash === h.split("?")[0]) render(); else location.hash = h.split("?")[0]; },
     goSeasonCard: function (ev) { UI.cardWhich = "season"; UI.cardStyle = null; go("carte"); },
     cardWhich: function (el) { UI.cardWhich = el.dataset.v; UI.cardStyle = null; render(); },
     cardSkin: function (el) {
@@ -22275,7 +22308,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   app.addEventListener("click", tip);
   document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && UI.menu) { UI.menu = false; render(); } });
   document.addEventListener("keydown", function (ev) { var t = ev.target; if ((ev.key === "Enter" || ev.key === " ") && t && t.classList && t.classList.contains("ace-peek") && t.dataset.a) { ev.preventDefault(); t.click(); } }); // 4.9 : Ace posé sur une carte, au clavier
-  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && UI.ace && !UI.sheet) { if (UI.ace.q) UI.ace.q = ""; else UI.ace = null; render(); } }); // 3.74.1 : Échap = retour d'Android
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && UI.ace && !UI.sheet) { aceBackKey(); render(); } }); // 3.74.1 : Échap = retour d'Android
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.tq && UI.trR) { ev.preventDefault(); if (nameSplits(UI.trR.q || "").length && NATIVE) { ev.target.blur(); A.trFind(); } } });
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.ff) { ev.preventDefault(); ev.target.blur(); UI.fafLocal = null; fafSearch(null); } });
   document.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "tz-cp") { ev.preventDefault(); ev.target.blur(); A.tzCp(); } }); // 4.9.2 : Entrée valide le code postal et ferme le clavier
@@ -22316,7 +22349,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         if (u && /open\/seance/.test(u)) go("seance");
         if (u && /open\/montees/.test(u)) go("montees"); // 4.17
         if (u && /open\/lundi/.test(u)) go(""); // 3.93 : ton lundi avec Ace
-        if (u && /open\/ace/.test(u)) { if (location.hash !== "#/" && location.hash !== "") go(""); setTimeout(function () { UI.ace = { q: "next" }; render(); }, 80); } // 3.75 : le rappel du jour J ouvre ton match dans Ace
+        if (u && /open\/ace/.test(u)) { if (location.hash !== "#/" && location.hash !== "") go(""); setTimeout(function () { aceAsk("next"); render(); }, 80); } // 3.75 : le rappel du jour J ouvre ton match dans Ace
         if (u && /open\/plus/.test(u)) { if (trialInfo()) UI.sheet = { k: "trialEnd" }; go(trialInfo() ? "" : "soutenir"); }
       });
       if (ln && ln.catch) ln.catch(function () {});
@@ -22325,7 +22358,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     try {
       var bl = AppP && AppP.addListener("backButton", function () {
         if (UI.leaveAsk) { UI.leaveAsk = false; render(); return; }
-        if (UI.ace && !UI.sheet) { if (UI.ace.q) UI.ace.q = ""; else UI.ace = null; render(); return; } // 3.73 : Ace : réponse → sujets → fermé
+        if (UI.ace && !UI.sheet) { aceBackKey(); render(); return; } // 4.21 : retour = on range le fil dans la bulle (rien ne se perd)
         if (!S.aceSeen && document.querySelector(".ace-intro")) { S.aceSeen = 1; save(); render(); return; }
         if (UI.sheet) { UI.sheet = null; render(); return; }
         if (UI.plSched != null) { UI.plSched = null; UI.plHost = null; render(); return; } // 3.57.3 : feuilles de l'épreuve : le retour les ferme d'abord

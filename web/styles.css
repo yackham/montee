@@ -6341,10 +6341,6 @@ button.acr, a.acr { cursor: pointer; }
 .acx-c { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .acx { animation: none; } .acr-go.tg svg { transition: none; } }
 /* 4.0.5 (Yann) : revenir à la conversation d'Ace après avoir suivi un lien */
-.ace-back { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + var(--sab)); z-index: 39; width: min(92vw, 420px); display: flex; align-items: center; gap: 10px; font: inherit; text-align: left; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 8px 12px; box-shadow: 0 10px 28px -8px rgba(0,0,0,.45); cursor: pointer; animation: up .25s ease-out; }
-.ace-back b { display: block; font-size: 14.5px; } .ace-back small { display: block; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ace-back .grow { flex: 1; min-width: 0; } .ace-back > svg { flex: none; width: 16px; height: 16px; color: var(--muted); }
-@media (prefers-reduced-motion: reduce) { .ace-back { animation: none; } }
 .acb { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 0 10px; padding: 2px 0 8px; }
 .acb-n { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
 .acb-n small { font-size: 15px; font-weight: 700; color: var(--muted); }
@@ -8036,3 +8032,21 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .kp-jlk { border-top: 0; margin-top: 8px; }
 /* 4.16.6 : les ronds de dispo, fond doux au lieu du contour (règle du 26/11) */
 .kp-c i, .kp-c i.y, .kp-c i.n { box-shadow: none; background: color-mix(in srgb, currentColor 16%, transparent); }
+/* 4.21 (Yann, comme Bevel) : la conversation avec Ace est un fil, et une bulle la garde ouverte sur toutes les pages */
+.ace-turn { display: flex; flex-direction: column; gap: inherit; }
+.ace-when { align-self: center; font-size: 12px; color: var(--muted); padding: 2px 10px; margin-top: 6px; }
+.ace-ctx-n { font-weight: 500; font-size: 13px; color: var(--muted); }
+.ace-ret { flex: none; display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 14px 0 10px; border: 0; border-radius: 22px; background: var(--card); color: var(--ink); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+.ace-ret svg { width: 16px; height: 16px; transform: scaleX(-1); }
+.ace-cont { position: fixed; right: 14px; bottom: calc(98px + var(--sab)); z-index: 39; display: flex; align-items: center; max-width: calc(100vw - 28px); border-radius: 32px; background: #D4E64A; color: #15170F; box-shadow: 0 12px 30px -8px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.18); animation: up .25s ease-out; }
+body.has-pill .ace-cont { bottom: calc(166px + var(--sab)); }
+body:not(:has(.tabbar)) .ace-cont { bottom: calc(16px + var(--sab)); }
+body.has-acec .screen { padding-bottom: calc(170px + var(--sab)); }
+body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
+.ace-cont-go { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 4px 6px 6px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ace-cont-h { position: relative; flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: #15170F; }
+.ace-cont-n { position: absolute; right: -4px; top: -2px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: #15170F; color: #D4E64A; font-style: normal; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+.ace-cont-t { min-width: 0; } .ace-cont-t b { display: block; font-size: 14.5px; } .ace-cont-t small { display: block; font-size: 12.5px; color: #3B4214; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52vw; }
+.ace-cont-x { flex: none; width: 44px; height: 44px; margin: 0 2px 0 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle, rgba(21,23,15,.12) 15px, transparent 16px); color: #15170F; cursor: pointer; }
+.ace-cont-x svg { width: 14px; height: 14px; }
+@media (prefers-reduced-motion: reduce) { .ace-cont { animation: none; } }
