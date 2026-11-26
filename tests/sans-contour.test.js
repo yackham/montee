@@ -5,7 +5,7 @@
 // (ou sont des exceptions qui ne sont pas des boutons : cases à cocher, carrés « défaite », pastilles de couleur).
 const test = require("node:test"), assert = require("node:assert"), fs = require("fs"), path = require("path");
 const CSS = fs.readFileSync(path.join(__dirname, "../web/styles.css"), "utf8");
-const MARK = "/* 4.19.1 (Yann, 24/11 puis 26/11";
+const MARK = "/* 4.19.3 (Yann, 24/11 puis 26/11";
 const BTN = /btn|button|pill|tile|chip|\.on(?![\w-])|\.hot(?![\w-])|cta|-opt(?![\w-])|tier|\.tag(?![\w-])/;
 const RING = /box-shadow:[^;}]*\b0 0 0 [0-9.]+px (?!var\(--(bg|card)\))/;
 const BORDER = /(?:^|[;{\s])border(?:-color)?\s*:\s*(?![\s]|0\b|none|transparent|var\(--(?:bg|card)\))[^;}]*/;
@@ -29,7 +29,7 @@ function offenders(css) {
 const CONNUES = new Set(JSON.parse(fs.readFileSync(path.join(__dirname, "sans-contour.connues.json"), "utf8")));
 
 test("le bloc commun « plus aucun contour » est bien en fin de styles.css", () => {
-  const i = CSS.indexOf(MARK); assert.ok(i > 0, "bloc 4.19.1 absent");
+  const i = CSS.indexOf(MARK); assert.ok(i > 0, "bloc 4.19.3 absent");
   assert.ok(CSS.length - i < 8000, "le bloc commun doit rester en fin de fichier (il gagne sur les règles d'avant)");
 });
 
