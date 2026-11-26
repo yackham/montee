@@ -8088,6 +8088,20 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 .lc-shw svg { width: 16px; height: 16px; }
 .lc-list > .lc-r + .lc-more { border-top: 0; } /* 4.21.1 : un seul trait sous le dernier match */
 
+/* 4.21.2 (Yann) : liste des adversaires lue dans le mail : nom, balle jaune + club, numéro, qui reçoit sous le texte */
+.ti-hint { color: var(--muted); margin-top: 4px; }
+.ti-r2 { align-items: flex-start; padding: 14px 0; }
+.ti-r2 .grow { gap: 3px; }
+.ti-nm { display: flex; align-items: baseline; gap: 8px; }
+.ti-nm > b { flex: 1; min-width: 0; font-size: 15px; line-height: 1.25; }
+.ti-nm > .linkbtn, .ti-nm > .ti-q, .ti-nm > .ti-busy { flex: none; margin-left: auto; }
+.ti-nm > .linkbtn { padding: 0; min-height: 0; line-height: 1.25; }
+.ti-sub { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ti-sub .rk-tag { flex: none; white-space: nowrap; }
+.ti-sub > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ti-hp { display: flex; gap: 6px; margin-top: 8px; }
+.ti-hp .tq-pill { display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; font-size: 12.5px; }
+.ti-hp .tq-pill svg { width: 13px; height: 13px; }
 /* 4.21.2 (Yann) : en thème clair, une feuille a la couleur du fond et les champs de saisie (couleur puce) s'y fondaient.
    Sur une feuille claire, un champ prend la couleur des cartes ; dans une carte posée sur la feuille, il reprend sa couleur de champ. */
 :root:not([data-theme="nuit"]) .sheet :is(.tq-sb, .rl-in, .rl-e input, .ob-time input, .ob-time select.tsel, .field input[type=text], .field input[type=email], .field input[type=password], .field input[type=date], .field input[type=number], .field select, .field textarea, .tn-d.field .tn-dd input, .tn-d.field .tn-dd select.tsel) { background: var(--card) !important; }
