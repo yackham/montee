@@ -4998,7 +4998,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function trCard(o, k, chg) {
     var nm = trNm(o.name) || "Un joueur " + (o.rank || ""), ag = ageOfX(o);
     // 4.21.2 (Yann) : en poule, le classement en petite balle jaune devant (norme .rk-tag) et « changer » en clair
-    if (chg) { var nn = trNm(o.name); return '<div class="tq-card tq-card2"><span class="tq-av big">' + esc(nn ? initials(nn) : "?") + '</span><span class="grow"><b>' + esc(nn || "Ton adversaire") + "</b><small>" + (o.rank ? '<b class="rk-tag">' + esc(o.rank) + "</b>" : "") + "<span>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</span></small></span>" + '<button class="linkbtn tq-chg" data-a="trClear" data-v="' + k + '">changer</button></div>' +
+    if (chg) { var nn = trNm(o.name); return '<div class="tq-card tq-card2"><span class="tq-av big">' + esc(nn ? initials(nn) : "?") + '</span><span class="grow"><b>' + esc(nn || "Ton adversaire") + "</b><small>" + (o.rank ? '<b class="rk-tag">' + esc(o.rank) + "</b>" : "") + "<span>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</span></small></span>" + (chg === true ? '<button class="linkbtn tq-chg" data-a="trClear" data-v="' + k + '">changer</button>' : "") + "</div>" +
       (o.tid ? '<button class="linkbtn tq-fiche" data-a="plOpen" data-v="' + esc(o.tid) + '">Voir sa fiche : palmarès, plan de jeu ›</button>' : "") }
     return '<div class="tq-card"><span class="tq-av big">' + esc(/^qualifié/.test(nm) ? "Q" : initials(nm)) + '</span><span class="grow"><b>' + esc(nm) + "</b><small>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : /^qualifié/.test(nm) ? "Pas encore connu" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</small></span>" + (o.rank ? '<b class="tq-big">' + esc(o.rank) + "</b>" : "") + '<button class="tq-x" data-a="trClear" data-v="' + k + '" aria-label="Changer">' + I.cross + "</button></div>" +
       (o.tid ? '<button class="linkbtn tq-fiche" data-a="plOpen" data-v="' + esc(o.tid) + '">Voir sa fiche : palmarès, plan de jeu ›</button>' : "");
@@ -5038,7 +5038,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       (pool ? "" : '<div class="tq-seg"><button class="' + (alt ? "" : "on") + '" data-a="trMode" data-v="one">Un adversaire</button><button class="' + (alt ? "on" : "") + '" data-a="trMode" data-v="alt">Le vainqueur de…</button></div>');
     if (!alt) {
       if (R.name || R.rank) {
-        s += trCard(R, 0, pool);
+        s += trCard(R, 0, addP ? true : pool ? "fixe" : false); // 4.21.2 (Yann) : un match de poule ne change pas de joueur
         var g = R.rank ? trGain(R.rank) : null, p = R.rank && !oppWait(R.tid) ? trP(R.rank, R.tid, R.name) : null;
         if (R.rank && oppWait(R.tid)) s += '<div class="tq-stake"><span>Si tu gagnes</span><b>' + (g > 0 ? "+" + g + " pts · " : "") + WAIT_P + "</b></div>";
         else if (p != null) s += '<div class="tq-stake"><span>Si tu gagnes</span><b>' + (g > 0 ? "+" + g + " pts · " : g === 0 ? "aucun point · " : "") + p + " % de chances</b></div>";
