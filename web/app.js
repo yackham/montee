@@ -1706,7 +1706,7 @@
   function trWhoHtml(r) {
     var rk = r.opp ? (r.res ? rkNow(r.opp, true) : rkShow(r.opp, r.day)) : "", tg = rk ? ' <span class="rk-tag">' + esc(rk) + "</span>" : "";
     if (r.opp && r.opp.name) return esc(trNm(r.opp.name)) + tg;
-    if (rk) return "Un" + tg;
+    if (rk) return "Adversaire à venir" + tg;
     return esc(trWho(r));
   }
   // Pour « le vainqueur de A / B » : qui devrait passer, et tes chances contre chacun
@@ -3272,7 +3272,7 @@
       var col = r.res === "V" ? "v" : r.res === "D" ? "d" : "", nxt = !r.res && !done && rs.filter(function (x) { return !x.res; })[0] === r;
       s += '<div class="tq-r ' + col + (nxt ? " nx" : "") + (i === rs.length - 1 ? " last" : "") + '"><span class="tq-n"><span class="tq-b">' + (r.res || i + 1) + '</span></span><span class="grow">' +
         '<span class="tq-k"><span>' + esc(trLab(i) + " · " + trWhen(r)) + "</span>" + (!r.res && !done ? '<button class="linkbtn tq-edk" data-a="trRound" data-i="' + i + '" aria-label="Modifier ce tour">Modifier</button>' : "") + "</span>" + // 4.21.1 (Yann, maquette B) : « Modifier » sur la ligne du tour
-        '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + trWhoHtml(r) + "</a>" : trWhoHtml(r)) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<span class="tq-p tq-pb">' + oddsBall(p / 100, 30) + "</span>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
+        '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + trWhoHtml(r) + '<span class="tq-gt" aria-hidden="true">›</span></a>' : trWhoHtml(r)) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<span class="tq-p tq-pb">' + oddsBall(p / 100, 30) + "</span>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
         (r.opp && r.opp.club && !done ? '<span class="small">' + esc(r.opp.club) + "</span>" : "") +
         (r.opp && !r.res && rkMv(r.opp, r.day) ? rkMoveHtml(rkMv(r.opp, r.day), r.day, rkHe(r.opp.tid)) : "") +
         (r.beat && !r.res ? '<span class="small">Il a battu ' + esc(trNm(r.beat.name)) + (r.beat.score ? " " + esc(r.beat.score) : "") + "</span>" : "") +
@@ -21191,7 +21191,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     trRes: function (el) {
       var t = tourOf(route().split("/")[1]); if (!t) return;
       var pool = el.dataset.k === "pool", r = (pool ? t.pool : t.rounds)[+el.dataset.i]; if (!r) return;
-      var rk = pool ? r.rank : r.opp && r.opp.rank ? r.opp.rank : "";
+      var rk = pool ? (r.rankNow || r.rank) : trRk(r); // 4.21.1 : son classement officiel du jour du match
       TR_KIND = t.kind === "champ" ? "champ" : "tournoi"; if (el.dataset.v === "V" && rk) r.pts = trGain(rk) || 0; // les points, mesurés avant que le match n'entre dans le bilan
       r.res = el.dataset.v; trMatchSync(t, r, pool); save(); haptic(r.res === "V" ? "success" : "light");
       var tid = pool ? r.tid : r.opp && r.opp.tid; if (tid) S.plans = (S.plans || []).filter(function (x) { return x.id !== String(tid); });

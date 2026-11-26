@@ -3194,7 +3194,7 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-k { font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .tq-k { display: flex; align-items: center; justify-content: space-between; gap: 8px; } /* 4.21.1 : « Modifier » à droite de la ligne du tour */
 .tq-edk { flex: none; min-height: 36px; margin: -10px -4px -10px 0; padding: 0 4px; font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; }
-.tq-o { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .tq-o b { font-size: 15px; } .tq-o a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent); }
+.tq-o { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .tq-o b { font-size: 15px; } .tq-o a { color: inherit; text-decoration: none; } .tq-gt { color: var(--muted); font-weight: 600; margin-left: 5px; } /* 4.21.1 : plus de soulignement, une flèche vers sa fiche */
 .tq-p { flex: none; font-size: 18px; }
 .tq-alt { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); } .tq-alt b { color: var(--ink); }
 .tq-g { align-self: flex-start; font-size: 11.5px; font-weight: 800; padding: 3px 8px; border-radius: 99px; background: color-mix(in srgb, var(--gazon) 16%, transparent); color: var(--gazon); margin-top: 2px; }
