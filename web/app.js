@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.0",
+    VERSION: "4.18.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -18983,7 +18983,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }).catch(function () {});
   }
   // 4.16.7 (Yann : « quand je recharge mes épreuves, j'aimerais revenir sur Toi ») : à l'ouverture de l'app, en arrivant sur Mes épreuves,
-  // en touchant Actualiser ou en revenant dans l'app après quelques minutes, l'onglet repart sur « Toi ». Un retour depuis une épreuve ou une équipe garde l'onglet.
+  // ou en revenant dans l'app après quelques minutes, l'onglet repart sur « Toi ». Un retour depuis une épreuve ou une équipe garde l'onglet.
   function epToi() { if (S.prefs && S.prefs.epTab && S.prefs.epTab !== "toi") { S.prefs.epTab = "toi"; save(); return true; } return false; }
   function nativeWake() {
     if (UI.bgAt && Date.now() - UI.bgAt > 3 * 60000 && route() === "tournoi" && epToi()) render(); UI.bgAt = 0;
@@ -20806,7 +20806,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var nm = String(x && x.name || "").split(" "), hit = x && x.hit && x.hit.id ? x.hit : { id: id, prenom: nm.slice(0, -1).join(" "), nom: nm.slice(-1)[0] || "", rank: x && x.rank || "" };
       UI.trR = null; UI.plSched = null; openScout(hit);
     },
-    insSync: function () { epToi(); insRefresh(true); render(); window.scrollTo(0, 0); }, // 4.16.7 (Yann) : actualiser revient sur « Toi »
+    insSync: function () { insRefresh(true); render(); }, // 4.18.1 (Yann, build) : Actualiser garde l'onglet en cours (Le club reste Le club)
     insOpen: function () { window.open("https://tenup.fft.fr/user/mes-inscriptions", "_system"); },
     tlOff: function () { UI.tlOff = !UI.tlOff; render(); },
     actPlus: function () { UI.actPlus = true; render(); },
