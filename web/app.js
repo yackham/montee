@@ -1837,7 +1837,7 @@
     var ch = p0 != null && p != null && p !== p0 ? '<span class="pa-chb">' + oddsBall(p0 / 100, 30) + '<i aria-hidden="true">→</i>' + oddsBall(p / 100, 30) + "<span>Tes chances " + (p < p0 ? "baissent" : "montent") + "</span></span>" : "";
     var tx = n.k === "wait" ? (oppWait(o.id) ? WAIT_P : "Sa fiche Ten'Up n'est pas encore lue.") : n.t;
     return '<a class="pa-r" href="#/joueur/' + encodeURIComponent(o.id) + '"><i aria-hidden="true">' + esc(initials(paName(o))) + "</i><div><b>" + (o.rank ? '<span class="rk-tag">' + esc(o.rank) + "</span> " : "") + esc(paName(o)) + "</b>" + (nw ? '<span class="pa-new">Nouveau</span>' : "") +
-      "<small>" + esc(paWhen(o)) + (p != null && !ch ? " · " + p + " % de chances" : "") + '</small><p class="' + (nw ? "" : "pa-calm") + '">' + tx + "</p>" + ch + (lock ? "" : paMoveHtml(o)) + '</div><span class="pa-ch" aria-hidden="true">›</span></a>';
+      "<small>" + esc(paWhen(o)) + (p != null && !ch ? " · " + oddsBallI(p, 22) : "") + '</small><p class="' + (nw ? "" : "pa-calm") + '">' + tx + "</p>" + ch + (lock ? "" : paMoveHtml(o)) + '</div><span class="pa-ch" aria-hidden="true">›</span></a>';
   }
   function paOpen() {
     var L = paList(), plus = isSup(), rows = L.map(function (o, i) { var n = paNews(o), p = null; try { p = oppWait(o.id) ? null : paChance(o); } catch (e) {} return { o: o, n: n, p: p, h: plus || i === 0 ? paRowHtml(o, n, p) : "" }; });
@@ -7135,6 +7135,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return BALL_TC[k];
   }
   function oddsBall(p, S) { var W = window.MonteeWidgetArt, c = ballTheme(); return W && W.ballSvg ? W.ballSvg(p, S, { col: W.ballCol(p, c.t, c.g) }) : "<b>" + Math.round(p * 100) + " %</b>"; }
+  // une mini-balle dans une ligne (pc en %)
+  function oddsBallI(pc, S) { return '<span class="obq-i">' + oddsBall(pc / 100, S || 22) + "</span>"; }
   // la couleur de la balle pour la montre (toujours sur fond sombre : couleurs de Nuit)
   function ballHexWatch(pc) { var W = window.MonteeWidgetArt; if (!W || !W.ballCol || pc == null) return null; var P = W.palette("nuit"); return W.ballCol(pc / 100, P.terre, P.gazon); }
   function ffFirst(pr) { return pr.prenom ? String(pr.prenom).split(/[\s-]/)[0].charAt(0).toUpperCase() + String(pr.prenom).split(/[\s-]/)[0].slice(1).toLowerCase() : "Lui"; }
@@ -10996,10 +10998,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var fiche = !o.name ? "" : o.tid ? "#/joueur/" + encodeURIComponent(o.tid) : h ? "#/adversaire/" + encodeURIComponent(o.key) : "";
     var last = h ? E.parseDate(h.ms[0].date) : null;
     XH += acCard(o.d ? "Ton match" : "Contre lui", acRow({ l: nm + acRk(o.rank), s: (o.d ? esc(coWhen(o)) + (o.comp ? " · " : "") : "") + esc(o.comp || (o.rank ? "classé " + o.rank : "")), href: fiche || null }) +
-      (pc != null ? acRow({ l: "Tes chances", bar: pc, cl: acTone(pc), v: pc + " %" }) : "") +
+      (pc != null ? acRow({ l: "Tes chances", v: oddsBallI(pc, 40) }) : "") +
       (nx && g ? acRow({ l: "Une victoire rapporte", s: "dans ton bilan " + esc(nx.label), v: "+" + g, cl: "g", sheet: ["mmBilan", "up"] }) : "") +
       acRow(h ? { l: "Face-à-face", s: plural(h.ms.length, "match", "matchs") + ", " + (h.ms[0].result === "V" ? "gagné" : "perdu") + " le dernier" + (last ? " en " + last.getFullYear() : ""), v: h.v + "-" + h.d, cl: h.v > h.d ? "g" : h.v < h.d ? "r" : "", sheet: ["h2hm", o.key] } : { l: "Face-à-face", s: "première fois contre lui" }) +
-      (pc != null ? '<span class="acd-f">% : tes chances, d\'après tes résultats contre les ' + esc(o.rank) + " et les siens</span>" : ""));
+      (pc != null ? '<span class="acd-f">La balle : tes chances, d\'après tes résultats contre les ' + esc(o.rank) + " et les siens</span>" : ""));
     var f = coForm(o.tid);
     if (f) XH += acCard("Lui, en ce moment", f.rows.map(function (r) { return acRow({ sq: r.result, l: "Contre un " + esc(r.oppRank || "joueur non classé"), s: esc(coAgo(r.date)) + (r.score ? " · " + esc(r.score) : "") }); }).join("") + '<span class="acd-f">Tiré de sa fiche Ten\'Up' + (f.at ? ", lue " + esc(agoLab(f.at)) : "") + "</span>");
     if (!sup && wk) XH += acLock("<b>Ta consigne pour ce match</b>, tirée de ton point faible.", "next");
@@ -11065,11 +11067,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (nm && o && o.days <= 45 && st.g && c.proj.next && ok("coup:" + nm.id + ":" + o.iso)) {
       var on = esc(nameCase(o.m.opp || "") || "un " + o.rank), cid = "coup:" + nm.id + ":" + o.iso;
       out.push({ q: "next", q2: "when", h: acCard('<span class="acd-tag"><i></i>Le coup d\'Ace · cette semaine</span>', '<p class="acd-p"><b>' + esc(coWhen(nm)) + " contre " + esc(nm.name || "un " + nm.rank) + ", c'est le match qui compte double.</b> " + (st.g >= o.pts ? "Gagne-le et tu compenses" : "Gagne-le et tu amortis") + " ta victoire contre " + on + ", qui sort de ton bilan le " + esc(o.dt) + ".</p>" +
-        acRow({ ic: coIcK(nm), l: nmL, s: esc(nm.comp) + (st.p != null ? " · " + st.p + " % de chances" : ""), v: "+" + st.g, cl: "g" }) +
+        acRow({ ic: coIcK(nm), l: nmL, s: esc(nm.comp) + (st.p != null ? " · " + oddsBallI(st.p, 22) : ""), v: "+" + st.g, cl: "g" }) +
         acRow({ ic: "so", l: on + acRk(o.rank), s: "ta victoire sort le " + esc(o.dt), v: "−" + o.pts, cl: "r" }) + acts("Préparer le match", "next", cid)) });
       o = null; // déjà dit : pas de 2e carte « Ce qui sort »
     } else if (nm && ok(nm.id)) {
-      out.push({ q: "next", h: acCard('<span class="acd-tag"><i></i>' + esc(coWhen(nm)) + "</span>", acRow({ ic: coIcK(nm), l: nmL, s: esc(nm.comp), cl: acTone(st.p), v: st.p != null ? st.p + " %" : "" }) + (st.g && c.proj.next ? acRow({ l: "Une victoire rapporte", v: "+" + st.g, cl: "g" }) : "") + acts("Préparer le match", "next", nm.id)) }); }
+      out.push({ q: "next", h: acCard('<span class="acd-tag"><i></i>' + esc(coWhen(nm)) + "</span>", acRow({ ic: coIcK(nm), l: nmL, s: esc(nm.comp), v: st.p != null ? oddsBallI(st.p, 34) : "" }) + (st.g && c.proj.next ? acRow({ l: "Une victoire rapporte", v: "+" + st.g, cl: "g" }) : "") + acts("Préparer le match", "next", nm.id)) }); }
     var N = null; try { N = coNews(3); } catch (e) {}
     if (N && ok("news:" + N.n.at)) { var z = coNewsSum(c, N);
       out.push({ q: "news", h: acCard("Nouveau sur Ten'Up", coNewsRow(z.rows[0], false) + (z.rows.length > 1 ? '<span class="acd-f">+ ' + plural(z.rows.length - 1, "autre résultat", "autres résultats") + "</span>" : "") + (z.nx ? coNewsBig(z) : "") + acts("Ce qui a changé", "news", "news:" + N.n.at)) }); }
@@ -11299,7 +11301,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var st2 = nm2 ? coStake(nm2) : null, rp = nm2 && st2.g ? nm2 : null;
       if (o2) { var on2 = esc(nameCase(o2.m.opp || "") || "un " + o2.rank);
         XH += acCard(rp ? "Ce qui sort, ce qui la compense" : "Ce qui sort", acBig(esc(o2.dt), "ta victoire contre " + on2 + acRk(o2.rank) + " sort de ton bilan", "y", null, '<b class="r">− ' + o2.pts + "</b> pts") +
-          (rp ? acRow({ ic: coIcK(rp), l: esc(rp.name || "Ton adversaire") + acRk(rp.rank), s: esc(coWhen(rp, true)) + (st2.p != null ? " · " + st2.p + " % de chances" : ""), v: "+" + st2.g, cl: "g", href: rp.href || null }) : "") +
+          (rp ? acRow({ ic: coIcK(rp), l: esc(rp.name || "Ton adversaire") + acRk(rp.rank), s: esc(coWhen(rp, true)) + (st2.p != null ? " · " + oddsBallI(st2.p, 22) : ""), v: "+" + st2.g, cl: "g", href: rp.href || null }) : "") +
           (rel ? acRow({ ic: "so", l: "Sortie du classement", v: esc(rel) }) : ""));
         A.push(rp ? "<b>Ton match " + esc(coWhen(rp, true)) + " contre " + esc(rp.name || "un " + rp.rank) + " la compense" + (st2.g >= o2.pts ? "" : " en partie") + ".</b> Ta victoire contre " + on2 + " sort de ton bilan le " + esc(o2.dt) + " : elle y pèse " + o2.pts + " pts."
           : "<b>Ta victoire contre " + on2 + " sort de ton bilan le " + esc(o2.dt) + ".</b> Elle y pèse " + o2.pts + " pts : une victoire contre un " + esc(o2.rank) + " ou mieux d'ici là la compense.");
@@ -11313,7 +11315,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
           .sort(function (a, b) { return (a.d ? 0 : 1) - (b.d ? 0 : 1) || (a.d < b.d ? -1 : a.d > b.d ? 1 : 0) || (b.p || 0) - (a.p || 0) || b.g - a.g; }); // 4.11.2 (Yann : « ils sont calés ») : les matchs datés d'abord, dans l'ordre des dates ; les autres par chances
         if (left.length) {
           var dat = left.filter(function (x) { return x.d; }), und = left.filter(function (x) { return !x.d; }), t0p = E.iso(today()), pf = function (x) { return x.d < t0p ? "le " + fdate(x.d) + ", score à entrer" : x.d === t0p ? "aujourd'hui" : "le " + fdate(x.d); };
-          XH += acCard("Tes matchs à jouer", left.map(function (x, i) { var best = !x.d && x === und[0] && und.length > 1; return acRow({ l: esc(x.n) + acRk(x.r), s: (x.d ? esc(cap1(pf(x))) + " · " : "") + (x.p != null ? x.p + " % de chances" : x.w ? "lecture de sa fiche…" : "chances inconnues") + (best ? " · le plus jouable" : ""), scl: best ? "g" : "", bar: x.p, cl: acTone(x.p), v: x.g ? "+" + x.g + "<small> pts</small>" : "" }); }).join(""));
+          XH += acCard("Tes matchs à jouer", left.map(function (x, i) { var best = !x.d && x === und[0] && und.length > 1; return acRow({ l: esc(x.n) + acRk(x.r), s: (x.d ? esc(cap1(pf(x))) + " · " : "") + (x.p != null ? oddsBallI(x.p, 22) : x.w ? "lecture de sa fiche…" : "chances inconnues") + (best ? " · le plus jouable" : ""), scl: best ? "g" : "", cl: acTone(x.p), v: x.g ? "+" + x.g + "<small> pts</small>" : "" }); }).join(""));
           var dot = function (z) { return /\.$/.test(z) ? z : z + "."; };
           if (dat.length) A.push("<b>" + dot(esc(dat[0].n) + " " + esc(pf(dat[0]))) + "</b>" + (dat[1] ? " Puis " + dot(dat.slice(1).map(function (x) { return esc(x.n) + " " + esc(pf(x)); }).join(", ")) : ""));
           if (und.length) A.push(dat.length ? (und.length > 1 ? "Reste à caler : <b>" + esc(und[0].n) + " d'abord</b>, c'est le plus jouable, puis " + und.slice(1).map(function (x) { return esc(x.n); }).join(", ") + "." : "Reste à caler : <b>" + esc(und[0].n) + "</b>.")
