@@ -7927,7 +7927,7 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .pa-chb { display: flex; gap: 6px; align-items: center; margin-top: 8px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
 .pa-chb > i { font-style: normal; opacity: .6; }
 /* 4.16.5 (Yann, 26/11, Face-à-face) : de l'air autour d'Ace et du bandeau « Prévu », et plus de contours en haut de la fiche */
-.card.id-dock.ff-say { margin-top: 88px; }
+.card.id-dock.ff-say { margin-top: 76px; }
 .ff-say > .ace-peek { top: -52px; }
 .ff-say .ace-bub { bottom: 18px; }
 .jj-note { gap: 10px; padding: 12px 16px; margin-top: 12px; }
