@@ -7919,7 +7919,7 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .tabbar .plus.kd-off { opacity: .35; }
 
 /* 4.16 (Yann, 26/11) : tes chances = une balle de tennis qui se remplit (widgets.js ballSvg), aux couleurs du thème */
-.ff-ring.ff-ball { width: 92px; height: 92px; } .ff-ring.ff-ball svg { transform: none; }
+.ff-ring.ff-ball { width: 83px; height: 83px; } .ff-ring.ff-ball svg { transform: none; }
 .ff-ball .obq-f { transform-box: view-box; }
 .obq-m { display: inline-flex; margin: -8px 0; }
 .obq-i { display: inline-flex; vertical-align: middle; margin: -4px 0; }
