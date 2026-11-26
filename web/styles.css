@@ -3342,7 +3342,10 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-h span { font-size: 13.5px; color: var(--muted); }
 .tq-h select.tsel { text-align-last: right; }
 .tq-h input, .tq-h select.tsel { border: 0; background: none; color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; text-align: right; min-width: 80px; min-height: 40px; outline: none; -webkit-appearance: none; appearance: none; }
-.tq-stake b { font-size: 13px; }
+.tq-stake b { font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+.tq-stake { align-items: center; }
+.tq-stake b { color: var(--ink); }
+.tq-odds { display: inline-flex; align-items: center; gap: 8px; }
 .tq-undo { align-self: center; font-size: 13px; }
 .tl-r .tl-vd { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
 .tl-r .tl-vd b { font-size: 13px; }

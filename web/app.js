@@ -5043,7 +5043,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         s += trCard(R, 0, addP ? true : pool ? "fixe" : false); // 4.21.2 (Yann) : un match de poule ne change pas de joueur
         var g = R.rank ? trGain(R.rank) : null, p = R.rank && !oppWait(R.tid) ? trP(R.rank, R.tid, R.name) : null;
         if (R.rank && oppWait(R.tid)) s += '<div class="tq-stake"><span>Si tu gagnes</span><b>' + (g > 0 ? "+" + g + " pts · " : "") + WAIT_P + "</b></div>";
-        else if (p != null) s += '<div class="tq-stake"><span>Si tu gagnes</span><b>' + (g > 0 ? "+" + g + " pts · " : g === 0 ? "aucun point · " : "") + p + " % de chances</b></div>";
+        else if (p != null) s += '<div class="tq-stake"><span>Si tu gagnes <b>' + (g > 0 ? "+" + g + " pts" : g === 0 ? "aucun point" : "") + '</b></span><span class="tq-odds">Tes chances ' + oddsBallI(p, 36) + "</span></div>"; // 4.21.2 (Yann) : la balle des chances, comme partout
       } else s += trSearchHtml(R);
     } else {
       R.alt = R.alt || [{}, {}];
