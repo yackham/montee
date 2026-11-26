@@ -740,6 +740,21 @@
     }, { passive: false, capture: true });
     document.addEventListener("click", function (e) { if (sup && Date.now() - sup < 800 && e.target.closest && e.target.closest(".tabbar a.tab")) { e.preventDefault(); e.stopPropagation(); } }, true);
   })();
+  // 4.18.2 (Yann : « je peux pas cliquer de suite sur l'onglet Entraînements au chargement ») : même cause que 4.4.8, iOS retient le clic
+  // tant que la page s'anime (pastilles des jours, chiffres qui défilent). Les onglets Matchs / Entraînements (et les autres sélecteurs d'onglets)
+  // partent donc eux aussi au lever du doigt ; le clic d'iOS qui suit, s'il arrive, est ignoré pour ne pas compter deux fois.
+  (function () {
+    var SEL = '.seg button[data-a$="Tab"]', tg = null, x0 = 0, y0 = 0, sup = 0, own = false;
+    document.addEventListener("touchstart", function (e) { var b = e.touches.length === 1 && e.target.closest ? e.target.closest(SEL) : null; tg = b && !b.disabled ? b : null; if (tg) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, { passive: true, capture: true });
+    document.addEventListener("touchmove", function (e) { if (tg && (Math.abs(e.touches[0].clientX - x0) > 10 || Math.abs(e.touches[0].clientY - y0) > 10)) tg = null; }, { passive: true, capture: true });
+    document.addEventListener("touchcancel", function () { tg = null; }, { passive: true, capture: true });
+    document.addEventListener("touchend", function (e) {
+      var b = tg; tg = null; if (!b || !b.isConnected) return;
+      e.preventDefault(); sup = Date.now(); own = true;
+      try { b.click(); } finally { own = false; }
+    }, { passive: false, capture: true });
+    document.addEventListener("click", function (e) { if (!own && sup && Date.now() - sup < 800 && e.target.closest && e.target.closest(SEL)) { e.preventDefault(); e.stopPropagation(); } }, true);
+  })();
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
     // 4.0.5 (Yann) : quitter Ace par un lien garde de quoi revenir à la conversation (pastille « Revenir à Ace » sur la page suivante)
