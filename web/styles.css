@@ -3300,6 +3300,29 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-pill { flex: none; min-width: 46px; padding: 8px 10px; border: 0; border-radius: 99px; background: var(--chip); color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; }
 .tq-pill.on { background: var(--ink); color: var(--bg); }
 .tq-card { display: flex; align-items: center; gap: 12px; background: var(--chip); border-radius: 16px; padding: 12px 10px 12px 14px; }
+/* 4.21.2 (Yann) : ajout d'un adversaire de poule : carte du joueur, puis un encart à lignes plates */
+.tq-card2 .grow { min-width: 0; }
+.tq-card2 .grow > b { display: block; overflow-wrap: anywhere; line-height: 1.25; }
+.tq-card2 small { display: flex; align-items: center; gap: 6px; margin-top: 3px; min-width: 0; }
+.tq-card2 small > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tq-card2 small .rk-tag { flex: none; }
+.tq-chg { flex: none; align-self: center; }
+.tq-next { text-align: center; color: var(--muted); margin-top: 2px; }
+.tq-enc { display: flex; flex-direction: column; background: var(--chip); border-radius: 16px; padding: 0 14px; }
+.tq-er { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.tq-er:last-child { border-bottom: 0; }
+.tq-el2 { flex: 1; min-width: 0; font-weight: 600; }
+.tq-hp { display: flex; gap: 6px; }
+.tq-hp .tq-pill { display: inline-flex; align-items: center; gap: 4px; padding: 7px 11px; font-size: 12.5px; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.tq-hp .tq-pill.on { background: var(--ink); color: var(--bg); }
+.tq-ein { flex: 0 1 170px; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; text-align: right; padding: 8px 0; }
+.tq-ein::placeholder { color: var(--gazon); font-weight: 600; opacity: 1; }
+.tq-dt { display: flex; gap: 6px; align-items: center; }
+.tq-dt .tn-dd { position: relative; }
+.tq-dt .tn-dd input[type=date], .tq-dt .tn-dd select { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; text-align: right; padding: 8px 0; -webkit-appearance: none; appearance: none; }
+.tq-dt .tn-dd:not(.v) input[type=date] { color: transparent; width: 150px; }
+.tq-dt input[type=date]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; opacity: 0; cursor: pointer; }
+.tq-dt .tn-dd em { left: auto; right: 0; color: var(--gazon); font-weight: 600; white-space: nowrap; }
 .tq-big { font-size: 20px !important; flex: none; }
 .tq-x { border: 0; background: none; color: var(--muted); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex: none; padding: 0; }
 .tq-x svg { width: 16px; height: 16px; }

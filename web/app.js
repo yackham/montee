@@ -4995,8 +4995,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var go = NATIVE && nameSplits(R.q || "").length;
     return '<div class="tq-sb"><span class="tq-mag">' + TQ_MAG + '</span><input type="search" enterkeyhint="search" data-tq="q" value="' + esc(R.q || "") + '" placeholder="' + (alt ? "Prénom et nom, ou q4" : "Prénom et nom, ex. : Julien Moreau") + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="tq-go" data-a="trFind"' + (go ? "" : " hidden") + ">" + (UI.trBusy ? "…" : "Chercher") + '</button></div><div id="tq-live" class="tq-live">' + trLive(R) + "</div>";
   }
-  function trCard(o, k) {
+  function trCard(o, k, chg) {
     var nm = trNm(o.name) || "Un joueur " + (o.rank || ""), ag = ageOfX(o);
+    // 4.21.2 (Yann) : en poule, le classement en petite balle jaune devant (norme .rk-tag) et « changer » en clair
+    if (chg) { var nn = trNm(o.name); return '<div class="tq-card tq-card2"><span class="tq-av big">' + esc(nn ? initials(nn) : "?") + '</span><span class="grow"><b>' + esc(nn || "Ton adversaire") + "</b><small>" + (o.rank ? '<b class="rk-tag">' + esc(o.rank) + "</b>" : "") + "<span>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</span></small></span>" + '<button class="linkbtn tq-chg" data-a="trClear" data-v="' + k + '">changer</button></div>' +
+      (o.tid ? '<button class="linkbtn tq-fiche" data-a="plOpen" data-v="' + esc(o.tid) + '">Voir sa fiche : palmarès, plan de jeu ›</button>' : "") }
     return '<div class="tq-card"><span class="tq-av big">' + esc(/^qualifié/.test(nm) ? "Q" : initials(nm)) + '</span><span class="grow"><b>' + esc(nm) + "</b><small>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : /^qualifié/.test(nm) ? "Pas encore connu" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</small></span>" + (o.rank ? '<b class="tq-big">' + esc(o.rank) + "</b>" : "") + '<button class="tq-x" data-a="trClear" data-v="' + k + '" aria-label="Changer">' + I.cross + "</button></div>" +
       (o.tid ? '<button class="linkbtn tq-fiche" data-a="plOpen" data-v="' + esc(o.tid) + '">Voir sa fiche : palmarès, plan de jeu ›</button>' : "");
   }
@@ -5022,6 +5025,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       '<button class="btn primary" data-a="plSchedSave">Enregistrer</button>' +
       (x.day ? '<button class="linkbtn" data-a="plSchedClear" style="align-self:center">Retirer la date</button>' : "") + "</div>";
   }
+  function trPoolFoot(t, R) {
+    return (R.i !== "new" && (t.pool[+R.i] || {}).res ? '<button class="linkbtn" data-a="trUndo" data-k="pool" data-i="' + R.i + '" style="align-self:center">Retirer le résultat (' + t.pool[+R.i].res + ")</button>" : "") +
+      (R.i !== "new" ? '<span class="small" style="text-align:center">Pour retirer ce joueur de la poule : « Modifier la poule ».</span>' : "");
+  }
   function trRoundSheet(t) {
     var R = UI.trR, pool = R.k === "pool", alt = !pool && R.mode === "alt";
     var addP = pool && R.i === "new"; // 4.21.2 (Yann) : « + Ajouter un adversaire » ajoute un joueur à la poule, pas un match
@@ -5031,7 +5038,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       (pool ? "" : '<div class="tq-seg"><button class="' + (alt ? "" : "on") + '" data-a="trMode" data-v="one">Un adversaire</button><button class="' + (alt ? "on" : "") + '" data-a="trMode" data-v="alt">Le vainqueur de…</button></div>');
     if (!alt) {
       if (R.name || R.rank) {
-        s += trCard(R, 0);
+        s += trCard(R, 0, pool);
         var g = R.rank ? trGain(R.rank) : null, p = R.rank && !oppWait(R.tid) ? trP(R.rank, R.tid, R.name) : null;
         if (R.rank && oppWait(R.tid)) s += '<div class="tq-stake"><span>Si tu gagnes</span><b>' + (g > 0 ? "+" + g + " pts · " : "") + WAIT_P + "</b></div>";
         else if (p != null) s += '<div class="tq-stake"><span>Si tu gagnes</span><b>' + (g > 0 ? "+" + g + " pts · " : g === 0 ? "aucun point · " : "") + p + " % de chances</b></div>";
@@ -5047,8 +5054,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       });
       if (NATIVE && R.alt.some(function (a) { return a && a.tid; })) s += '<div class="tq-watch"><i></i><span>Dès que leur match est sur Ten\'Up, Montée te prévient et met ton tour à jour.</span></div>';
     }
-    if (pool && t.kind === "champ") s += hostSeg(R.host || "", "trHost");
-    if (pool) s += '<span class="tq-lab">Son numéro · facultatif</span><div class="tq-sb"><span class="tq-mag">' + CALL_IC + '</span><input type="tel" inputmode="tel" data-tr="tel" value="' + esc(telFmt(R.tel || "")) + '" placeholder="06 12 34 56 78" autocomplete="off"></div>';
+    // 4.21.2 (Yann, maquette validée) : en poule, d'abord la recherche ; ensuite un encart (qui reçoit, numéro, date) et le bouton
+    if (pool) {
+      if (!(R.name || R.rank)) return s + '<span class="small tq-next">Tu le choisis, puis tu complètes : qui reçoit, son numéro, la date.</span>' + trPoolFoot(t, R) + "</div>";
+      var row = function (l, r) { return '<div class="tq-er"><span class="tq-el2">' + l + "</span>" + r + "</div>"; };
+      s += '<div class="tq-enc">' +
+        (t.kind === "champ" ? row("Qui reçoit ?", '<span class="tq-hp">' + [["me", "Chez toi"], ["him", "Chez lui"]].map(function (h) { return '<button class="tq-pill' + (R.host === h[0] ? " on" : "") + '" data-a="trHost" data-v="' + h[0] + '">' + (h[0] === "me" ? HOME_IC + " " : "") + h[1] + "</button>"; }).join("") + "</span>") : "") +
+        row("Son numéro", '<input class="tq-ein" type="tel" inputmode="tel" data-tr="tel" value="' + esc(telFmt(R.tel || "")) + '" placeholder="Ajouter" autocomplete="off" aria-label="Son numéro">') +
+        row("Date du match", '<span class="tq-dt"><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '" aria-label="Date du match"><em>Pas encore fixée ›</em></span>' + (R.day ? '<span class="tn-dd v">' + hSel('data-tr="time"', R.time, "Heure") + "<em></em></span>" : "") + "</span>") +
+        "</div>" +
+        '<button class="btn primary" data-a="trSave">' + (addP ? "Ajouter " + esc(trNm(R.name).split(" ")[0] || "ce joueur") + " à ma poule" : "Enregistrer") + "</button>" + trPoolFoot(t, R) + "</div>";
+      return s;
+    }
     // 3.45 (Yann) : en poule (ou épreuve longue), la date se saisit directement, pas de pastilles qui défilent
     var longEv = pool || (t.to && t.from && (E.parseDate(t.to) - E.parseDate(t.from)) / 864e5 > 7);
     s += '<span class="tq-lab">' + (addP ? "Ton match · si la date est déjà fixée" : "Quand ?") + "</span>" + (longEv ? '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('data-tr="time"', R.time, "—") + '<em></em></span></div>' :
