@@ -4899,18 +4899,20 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }
     var ppl = P.ppl.filter(function (x) { return !x.me; }), me = P.ppl.filter(function (x) { return x.me; })[0];
     // 3.46.4 (retour testeur) : mail collé dans la mauvaise épreuve (ex. mail des 3S dans les Seniors+)
-    var into = I0.into && tourOf(I0.into);
+    var into = I0.into && tourOf(I0.into), warn = "";
     if (into && !I0.keep && into.kind === "champ" && P.kind === "champ") {
       var ka = insKey(into.name), kb = insKey(P.title || P.name);
       if ((ka.s && kb.s && ka.s !== kb.s) || ((ka.s || ka.plus || kb.s || kb.plus) && ka.plus !== kb.plus && (kb.s || kb.plus))) {
         var alt = toursAll().filter(function (y) { return y !== into && y.kind === "champ" && !tourOver(y) && insSame(y, { name: P.title || P.name }, "champ", null); })[0];
-        s += '<div class="card ti-warn"><b>Ce mail ne semble pas être celui de « ' + esc(into.name) + " »</b><span class=\"small\">Il parle de « " + esc(P.name) + " ».</span>" +
-          (alt ? '<button class="btn primary" data-a="trImpTarget" data-v="' + esc(alt.id) + '">Le mettre dans « ' + esc(alt.name) + " »</button>" : '<button class="btn primary" data-a="trImpTarget" data-v="">En faire une nouvelle épreuve</button>') +
-          '<button class="linkbtn" data-a="trImpTarget" data-v="' + esc(into.id) + '" data-k="keep">Garder ici quand même</button></div>';
+        // 4.21.2 (Yann) : l'avertissement après ce qui a été lu, sans contour, en clair et avec des boutons courts
+        var evS = function (n) { return String(n || "").replace(/^Indivs\s+/i, "").replace(/\s*·\s*Poule.*$/i, "").replace(/\s*\b20\d\d\b/, "").trim() || n; };
+        warn = '<div class="card ti-warn"><div class="ti-wh"><span class="ti-wi" aria-hidden="true">!</span><span class="ti-wt"><b>Ce n\'est pas la bonne épreuve</b><span class="small">Tu l\'as collé dans <b>' + esc(evS(into.name)) + "</b>, mais ce mail parle de ta poule de <b>" + esc(evS(P.name || P.title)) + "</b>.</span></span></div>" +
+          (alt ? '<button class="btn primary" data-a="trImpTarget" data-v="' + esc(alt.id) + '">Le ranger dans les ' + esc(evS(alt.name)) + "</button>" : '<button class="btn primary" data-a="trImpTarget" data-v="">En faire une nouvelle épreuve</button>') +
+          '<button class="linkbtn" data-a="trImpTarget" data-v="' + esc(into.id) + '" data-k="keep">Garder dans les ' + esc(evS(into.name)) + "</button></div>";
       }
     }
     s += '<span class="eyebrow" style="color:var(--gazon)">Lu dans ton mail</span><h1 class="tq-t" style="margin-top:-6px">' + esc(P.name) + "</h1>" +
-      '<p class="lead" style="margin-top:-8px">' + esc([P.kind === "champ" ? "Championnat individuel" : "Tournoi", P.fmt === "poule" ? "poule" : "", P.to ? "jusqu'au " + fdate(P.to) : ""].filter(Boolean).join(" · ")) + "</p>";
+      '<p class="lead" style="margin-top:-8px">' + esc([P.kind === "champ" ? "Championnat individuel" : "Tournoi", P.fmt === "poule" ? "poule" : "", P.to ? "jusqu'au " + fdate(P.to) : ""].filter(Boolean).join(" · ")) + "</p>" + warn;
     if (!ppl.length) return s + '<div class="card"><b>Aucun adversaire trouvé</b><span class="small">Montée cherche des lignes « Prénom Nom - 06 12 34 56 78 ». Vérifie que tu as copié tout le mail.</span></div><button class="btn" data-a="trImpBack">‹ Revenir au mail</button></div>';
     var nBusy = ppl.filter(function (x) { return x.st === "busy"; }).length, nOk = ppl.filter(function (x) { return x.st === "ok"; }).length;
     var nErr = ppl.filter(function (x) { return x.st === "err"; }).length;

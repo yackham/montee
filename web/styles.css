@@ -3646,7 +3646,14 @@ button.ts-t { border: 0; font: inherit; color: var(--ink); text-align: left; }
 .ti-host .tq-pill { display: inline-flex; align-items: center; gap: 4px; padding: 6px 11px; font-size: 12.5px; }
 .ti-host .tq-pill svg { width: 13px; height: 13px; }
 /* 3.46.4 : PDF de la poule */
-.ti-warn { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--terre); }
+.ti-warn { display: flex; flex-direction: column; gap: 14px; }
+.ti-warn .linkbtn { align-self: center; }
+.ti-wh { display: flex; gap: 12px; align-items: flex-start; }
+.ti-wi { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--terre) 20%, transparent); color: var(--terre); font-weight: 800; font-size: 16px; }
+.ti-wt { display: flex; flex-direction: column; gap: 4px; }
+.ti-wt > b { font-size: 17px; }
+.ti-wt .small { color: var(--muted); line-height: 1.4; }
+.ti-wt .small b { color: var(--ink); }
 /* 3.46.4 : import, grille stricte : avatar | nom (prend la place) | classement à droite ; « Qui reçoit » aligné sous le nom */
 .ti-r .grow { flex: 1 1 auto; }
 .ti-r > .tq-rk, .ti-r > .ti-auto, .ti-r > .ti-busy, .ti-r > .linkbtn { margin-left: auto; }
