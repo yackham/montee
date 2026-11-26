@@ -7926,3 +7926,15 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .tq-p.tq-pb { display: inline-flex; align-self: center; margin: -6px 0 -6px 6px; }
 .pa-chb { display: flex; gap: 6px; align-items: center; margin-top: 8px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
 .pa-chb > i { font-style: normal; opacity: .6; }
+/* 4.16.2 : chargement Ten'Up de « Ils montent » (la carte se redessine seule, pas l'écran) */
+.lm-wrap { display: flex; flex-direction: column; gap: 12px; }
+.lm-ld { display: flex; flex-direction: column; gap: 6px; padding: 14px 0 8px; }
+.lm-tu { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; }
+.lm-tu .spin { width: 14px; height: 14px; border-width: 2px; border-color: var(--line); border-top-color: var(--gazon); flex: none; }
+.lm-step { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.lm-sk { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.lm-sk i { display: block; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--ink) 10%, transparent); animation: lmSk 1.4s ease-in-out infinite; animation-delay: calc(var(--i) * .15s); }
+.lm-sk i.a { width: 44px; height: 14px; flex: none; } .lm-sk span { flex: 1; display: flex; flex-direction: column; gap: 7px; } .lm-sk i.b { width: 52%; height: 12px; } .lm-sk i.c { width: 34%; }
+@keyframes lmSk { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .lm-sk i { animation: none; } }
+.lm-upd { display: flex; align-items: center; gap: 8px; } .lm-upd .spin { width: 12px; height: 12px; border-width: 2px; border-color: var(--line); border-top-color: var(--gazon); }

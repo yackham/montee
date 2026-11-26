@@ -3781,25 +3781,36 @@
   function kpJ(c, r) { var k = r.dt || String(r.d).slice(0, 10), j = (c.cal || []).filter(function (x) { return String(x.d).slice(0, 10) === k; })[0]; return j ? j.j : null; }
   // Les feuilles de match : celles déjà lues pour l'écran d'une rencontre (S.fdmCache3), sinon les nôtres (S.kpF, 150 au plus)
   function kpF(rid) { var a = (S.kpF || {})[rid] || (S.fdmCache3 || {})[rid]; return a && a.L; }
+  // 4.16.2 (Yann : « ça mouline et ça se recharge à chaque fois ») : 400 feuilles gardées (avant : 150, moins que les feuilles d'une
+  // saison d'un club de 25 équipes : elles se chassaient l'une l'autre et tout était relu à chaque ouverture). Une feuille que Ten'Up ne
+  // donne pas encore (pas validée) n'est retentée qu'au bout de 2 jours (S.kpMiss), au lieu de chaque ouverture.
+  var KP_FMAX = 400;
+  function kpMissed(rid) { var t = (S.kpMiss || {})[rid]; return !!t && Date.now() - t < 2 * 864e5; }
+  // les feuilles d'une liste d'équipes encore à lire
+  function kpTodo(list) {
+    var T0 = UI.kpTried || {}, todo = [];
+    list.forEach(function (o) { var c = o[0]; if (!c || !c.path || c.path.d == null || c.path.p == null) return; o[1].forEach(function (tid) { kpRenc(c, tid).forEach(function (r) { if (r.st === "T" && !r.f && !kpF(r.id) && !T0[r.id] && !kpMissed(r.id) && !todo.some(function (x) { return x.r === r; })) todo.push({ c: c, r: r }); }); }); });
+    return todo;
+  }
   function kpKeep(rid, L) {
     S.kpF = S.kpF || {};
     var sl = function (p) { return { id: p.id || "", n: p.n || "", r: p.r || "", b: p.b ? 1 : 0 }; };
     S.kpF[rid] = { at: Date.now(), L: L.map(function (m) { return { dbl: !!m.dbl, w: m.w || 0, a: (m.a || []).map(sl), b: (m.b || []).map(sl) }; }) };
-    var ks = Object.keys(S.kpF); if (ks.length > 150) ks.sort(function (x, y) { return S.kpF[x].at - S.kpF[y].at; }).slice(0, ks.length - 150).forEach(function (k) { delete S.kpF[k]; });
+    var ks = Object.keys(S.kpF); if (ks.length > KP_FMAX) ks.sort(function (x, y) { return S.kpF[x].at - S.kpF[y].at; }).slice(0, ks.length - KP_FMAX).forEach(function (k) { delete S.kpF[k]; });
   }
   // Lecture des feuilles (une à la fois, 14 au plus par passage, chaque feuille tentée une fois par ouverture de l'app)
-  function kpLoad(list) {
+  // paint : redessine seulement ce qui montre la progression (sinon tout l'écran est redessiné)
+  function kpLoad(list, paint) {
     if (!NATIVE || !S.tenup || !S.tenup.linked || UI.kpBusy || offline()) return;
-    var T0 = UI.kpTried || (UI.kpTried = {}), todo = [];
-    list.forEach(function (o) { var c = o[0]; if (!c || !c.path || c.path.d == null || c.path.p == null) return; o[1].forEach(function (tid) { kpRenc(c, tid).forEach(function (r) { if (r.st === "T" && !r.f && !kpF(r.id) && !T0[r.id] && !todo.some(function (x) { return x.r === r; })) todo.push({ c: c, r: r }); }); }); });
+    var T0 = UI.kpTried || (UI.kpTried = {}), todo = kpTodo(list);
     if (!todo.length) return;
     UI.kpBusy = true; var rt = route(); todo = todo.slice(0, 14);
     var next = function (i) {
-      if (i >= todo.length) { UI.kpBusy = false; save(); if (route() === rt) render(); return; }
+      if (i >= todo.length) { UI.kpBusy = false; save(); if (route() === rt) (paint || render)(); return; }
       var c = todo[i].c, r = todo[i].r; T0[r.id] = 1;
       tenupQuery("rencontre", { c: c.cid || c.id, d: c.path.d, p: c.path.p, q: c.path.q, r: r.id }).then(function (x) {
-        var L = x && !x.error ? fdmParse(x.data, { a: r.a, b: r.b }) : null; if (L && L.length) kpKeep(r.id, L);
-        if (i % 4 === 3 && route() === rt) render(); next(i + 1);
+        var L = x && !x.error ? fdmParse(x.data, { a: r.a, b: r.b }) : null; if (L && L.length) kpKeep(r.id, L); else if (x && !x.error) { S.kpMiss = S.kpMiss || {}; S.kpMiss[r.id] = Date.now(); }
+        if (route() === rt) { if (paint) paint(); else if (i % 4 === 3) render(); } next(i + 1);
       }, function () { next(i + 1); });
     };
     next(0);
@@ -3935,30 +3946,57 @@
     });
     [L.up, L.dn, L.eu, L.ed].forEach(function (A) { A.sort(function (x, y) { return y.to - x.to || (x.p.n < y.p.n ? -1 : 1); }); });
     L.pre = L.soon && L.eu.length > 0; // la semaine avant la sortie : l'estimation, s'il y a des montées en vue
+    // ce qui reste à lire sur Ten'Up : feuilles de match, puis fiches (un joueur que Ten'Up ne donne pas : retenté au bout de 3 jours)
+    var Tr = UI.lmTried || {};
+    L.sh = (NATIVE && (S.tenup || {}).linked) ? kpTodo(lmTeams().map(function (c) { return [c, [c.me.mine]]; })).length : 0;
+    L.need = !NATIVE || !(S.tenup || {}).linked ? [] : Object.keys(P).filter(function (id) { var q = Q[id]; if (Tr[id]) return false; if (q && q.miss && Date.now() - q.miss < 3 * 864e5) return false; if (!q || !q.at || lmPer(q.at) < relI) return true; return L.soon ? Date.now() - (q.sa || 0) > 2 * 864e5 : Date.now() - q.at > 10 * 864e5; });
+    L.fresh = Object.keys(P).filter(function (id) { return !Q[id] || (!Q[id].at && !Q[id].miss); }).length; // jamais lus
+    L.left = L.sh + L.need.length; UI.lmTot = Math.max(UI.lmTot || 0, L.left); UI.lmShTot = Math.max(UI.lmShTot || 0, L.sh);
+    // 1re lecture (aucun joueur connu, ou un joueur sur 5 jamais lu) : le chargement plutôt qu'une liste qui se remplit sous les yeux
+    L.loading = L.left > 0 && !offline() && (L.n === 0 || L.fresh * 5 >= L.n);
     return L;
   }
   // Lecture : d'abord les feuilles de match des équipes du club (kpLoad), puis les fiches, 10 joueurs par appel ; chaque joueur relu
   // après chaque sortie, sa simulation tous les 2 jours la semaine d'avant, sinon tous les 10 jours
   function lmLoad(L) {
-    try { kpLoad(lmTeams().map(function (c) { return [c, [c.me.mine]]; })); } catch (e) {}
+    // après chaque feuille ou chaque lot de fiches : la carte se redessine, et la lecture continue jusqu'au bout
+    var paint = function () { lmPaint(); if (!UI.kpBusy && !UI.lmBusy) setTimeout(function () { try { lmLoad(lmList()); } catch (e) {} }, 0); };
+    try { kpLoad(lmTeams().map(function (c) { return [c, [c.me.mine]]; }), paint); } catch (e) {}
     if (!NATIVE || !S.tenup || !S.tenup.linked || UI.lmBusy || UI.kpBusy || offline()) return;
-    var relI = E.iso(L.rel), Q = (S.lm && S.lm.P) || {}, Tr = UI.lmTried || (UI.lmTried = {});
-    var need = Object.keys(L.P).filter(function (id) { var q = Q[id]; if (Tr[id]) return false; if (!q || !q.at || lmPer(q.at) < relI) return true; return L.soon ? Date.now() - (q.sa || 0) > 2 * 864e5 : Date.now() - q.at > 10 * 864e5; });
+    var Tr = UI.lmTried || (UI.lmTried = {}), need = L.need || [];
     if (!need.length) return;
-    var ids = need.slice(0, 10), rt = route(); ids.forEach(function (id) { Tr[id] = 1; }); UI.lmBusy = true;
+    var ids = need.slice(0, 10), rt = route(); ids.forEach(function (id) { Tr[id] = 1; }); UI.lmBusy = true; paint();
     tenupQuery("ranks", { ids: ids }).then(function (x) {
       UI.lmBusy = false;
       if (x && !x.error && x.L) {
-        S.lm = S.lm || {}; S.lm.P = S.lm.P || {}; var t = x.at || Date.now(), per = lmPer(t), d = E.iso(new Date(t));
+        S.lm = S.lm || {}; S.lm.P = S.lm.P || {}; var t = x.at || Date.now(), per = lmPer(t), d = E.iso(new Date(t)), got = {};
         x.L.forEach(function (o) {
-          var q = S.lm.P[o.id] || (S.lm.P[o.id] = { h: {} }); q.at = t; if (o.sx) q.sx = o.sx; if (o.age) q.age = o.age; if (o.sim) { q.sim = o.sim; q.sa = t; }
+          got[o.id] = 1; var q = S.lm.P[o.id] || (S.lm.P[o.id] = { h: {} }); q.at = t; delete q.miss; if (o.sx) q.sx = o.sx; if (o.age) q.age = o.age; if (o.sim) { q.sim = o.sim; q.sa = t; }
           if (o.rk) { q.h = q.h || {}; q.h[per] = [d, o.rk]; Object.keys(q.h).sort().slice(0, -3).forEach(function (k) { delete q.h[k]; }); }
         });
-        Object.keys(S.lm.P).forEach(function (k) { if (t - (S.lm.P[k].at || 0) > 400 * 864e5) delete S.lm.P[k]; }); // plus vu depuis plus d'un an
+        ids.forEach(function (id) { if (!got[id]) { var q = S.lm.P[id] || (S.lm.P[id] = { h: {} }); q.miss = t; } }); // pas de fiche : retentée dans 3 jours
+        Object.keys(S.lm.P).forEach(function (k) { if (t - (S.lm.P[k].at || S.lm.P[k].miss || 0) > 400 * 864e5) delete S.lm.P[k]; }); // plus vu depuis plus d'un an
         save();
       }
-      if (route() === rt) render();
-    }, function () { UI.lmBusy = false; });
+      if (route() === rt) paint();
+    }, function () { UI.lmBusy = false; lmPaint(); });
+  }
+  // Redessine seulement la carte (pas tout l'écran) pendant la lecture
+  function lmPaint() {
+    var el = document.querySelector(".lm-wrap"); if (!el) return;
+    if (route() === "montees") { var L = lmList(), c = el.querySelector(".lm-card"); if (!L.loading) { render(); return; } if (c) c.innerHTML = lmLoadHtml(L); return; }
+    var t = document.createElement("div"); t.innerHTML = lmCard(true); var n = t.firstElementChild;
+    if (n && el.innerHTML !== n.innerHTML) el.innerHTML = n.innerHTML;
+  }
+  // Le chargement : Montée va chercher les infos sur Ten'Up (feuilles de match, puis classements), avec une barre qui avance
+  function lmLoadHtml(L) {
+    var tot = Math.max(UI.lmTot || 0, L.left), done = Math.max(0, tot - L.left), pc = tot ? Math.max(6, Math.round(100 * done / tot)) : 6;
+    var step = L.sh ? "Feuilles de match des équipes · " + (UI.lmShTot - L.sh) + "/" + UI.lmShTot : "Classements des joueurs · " + (L.n - L.need.length) + "/" + L.n;
+    var sk = [0, 1, 2].map(function (i) { return '<div class="lm-sk" style="--i:' + i + '"><i class="a"></i><span><i class="b"></i><i class="c"></i></span></div>'; }).join("");
+    return '<div class="lm-ld"><span class="lm-tu"><span class="spin"></span>Montée va chercher les infos sur Ten\'Up</span>' +
+      '<span class="ti-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + tot + '" aria-valuenow="' + done + '"><i style="width:' + pc + '%"></i></span>' +
+      '<span class="lm-step">' + esc(step) + "</span></div>" + sk +
+      '<p class="lm-note">La première fois prend une minute ou deux. Ensuite, tout reste sur ton téléphone et seuls les changements sont relus.</p>';
   }
   function lmDayLab(d) { return JOURS[d.getDay()] + " " + dN(d) + " " + MOIS_L[d.getMonth()]; }
   function lmRow(o, pre, i) {
@@ -3967,10 +4005,14 @@
   }
   function lmHead(t, sub) { return '<h2 class="tm-gh lc-h"><span>' + t + '<svg class="lc-wb" viewBox="0 0 50 14" aria-hidden="true"><circle cx="3" cy="11" r="3" fill="var(--balle)"/></svg></span><small>' + esc(sub) + "</small></h2>"; }
   // La carte de l'onglet Le club
-  function lmCard() {
-    var L = lmList(); setTimeout(function () { try { lmLoad(L); } catch (e) {} }, 0);
+  function lmCard(inner) {
+    var L = lmList(); if (!inner) setTimeout(function () { try { lmLoad(L); } catch (e) {} }, 0);
+    return '<div class="lm-wrap">' + lmCardIn(L) + "</div>";
+  }
+  function lmCardIn(L) {
+    if (L.loading) return lmHead(L.soon ? "Ils devraient monter" : "Ils montent", L.soon ? lmDayLab(L.nx) : "classement du " + dN(L.rel) + " " + MOIS[L.rel.getMonth()]) + '<div class="blk lc-list lm-card">' + lmLoadHtml(L) + "</div>";
     if (!L.n) return "";
-    var busy = UI.lmBusy || UI.kpBusy, prog = L.read < L.n && (S.tenup || {}).linked ? '<p class="lm-note"><span class="spin"></span> Lecture des classements sur Ten\'Up · ' + L.read + "/" + L.n + " joueurs</p>" : "";
+    var busy = (UI.lmBusy || UI.kpBusy) && L.left > 0, prog = busy ? '<p class="lm-note lm-upd"><span class="spin"></span> Mise à jour sur Ten\'Up · ' + (L.n - L.need.length) + "/" + L.n + " joueurs</p>" : "";
     if (L.pre) return lmHead("Ils devraient monter", lmDayLab(L.nx)) + '<div class="blk lc-list lm-card">' + L.eu.slice(0, 3).map(function (o, i) { return lmRow(o, true, i); }).join("") +
       '<p class="lm-note">Estimation d\'après leur simulation Ten\'Up. Le classement officiel tranche ' + JOURS[L.nx.getDay()] + ".</p>" + (busy ? prog : "") +
       '<a class="lc-more" href="#/montees">' + (L.eu.length > 1 ? "Les " + L.eu.length + " montées probables" : "Le détail") + " ›</a></div>";
@@ -3985,7 +4027,8 @@
     var s = '<div class="screen lm-scr">' + topbar("", backLab("Le club")), L = lmList(), nm = tmNm(((S.teams || {}).club || {}).nom || "Le club");
     setTimeout(function () { try { lmLoad(L); } catch (e) {} }, 0);
     var pre = L.pre, U = pre ? L.eu : L.up, D = pre ? L.ed : L.dn, rl = pre ? L.nx : L.rel, G = lmGrp(U), k = 0;
-    s += '<h1 class="tm-h">' + (pre ? "Ils devraient monter" : "Ils montent") + "</h1>";
+    s += '<h1 class="tm-h">' + (pre || (L.loading && L.soon) ? "Ils devraient monter" : "Ils montent") + "</h1>";
+    if (L.loading) return s + '<div class="lm-wrap"><div class="blk lc-list lm-card">' + lmLoadHtml(L) + "</div></div></div>";
     var tile = function (n, lab0, cl) { return '<button data-a="sheet" data-k="lmDef" data-v="' + (pre ? "pre" : "") + '"><b class="' + cl + '">' + n + "</b><small>" + lab0 + "</small></button>"; };
     s += '<div class="card lc-hero lm-hero"><span class="eyebrow">' + esc(nm) + " · " + (pre ? "sortie du " : "classement du ") + dN(rl) + " " + MOIS[rl.getMonth()] + "</span>" +
       '<div class="lc-vnd">' + tile(U.length, pre ? "montées probables" : U.length > 1 ? "montées" : "montée", "v") + tile(D.length, pre ? "descentes probables" : D.length > 1 ? "descentes" : "descente", "d") + tile(L.n, "joueurs du club", "") + "</div></div>";
