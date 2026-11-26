@@ -3646,10 +3646,6 @@ button.ts-t { border: 0; font: inherit; color: var(--ink); text-align: left; }
 .ti-host .tq-pill { display: inline-flex; align-items: center; gap: 4px; padding: 6px 11px; font-size: 12.5px; }
 .ti-host .tq-pill svg { width: 13px; height: 13px; }
 /* 3.46.4 : PDF de la poule */
-.ti-pdf { display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
-.ti-pdf svg { width: 18px; height: 18px; }
-.ti-pdfok { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--gazon); font-weight: 600; }
-.ti-pdfok svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
 .ti-warn { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--terre); }
 /* 3.46.4 : import, grille stricte : avatar | nom (prend la place) | classement à droite ; « Qui reçoit » aligné sous le nom */
 .ti-r .grow { flex: 1 1 auto; }
@@ -3660,10 +3656,6 @@ button.ts-t { border: 0; font: inherit; color: var(--ink); text-align: left; }
 .ti-host .tq-pill { min-width: 92px; justify-content: center; }
 /* 3.46.4 : bouton secondaire lisible dans une carte (contraste) ; compléter un PDF avec le mail */
 .pe-alt { background: transparent; color: var(--ink); border: 1.5px solid var(--line); box-shadow: none; }
-.ti-addm { display: flex; flex-direction: column; gap: 10px; }
-.ti-addm .btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; }
-.ti-addm .btn svg { width: 16px; height: 16px; }
-.ti-addm .ti-t { min-height: 120px; }
 .ti-addm .pe-alt, .pe-c .pe-alt { border-color: color-mix(in srgb, var(--ink) 35%, transparent); }
 /* 3.46.5 : carte Montée compacte (maquette 449 C) */
 .card.hero.h3.h3c { gap: 8px; }

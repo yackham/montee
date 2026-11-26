@@ -74,3 +74,21 @@ test("toi reconnu même avec un numéro international", () => {
   const P = load({ prenom: "Thomas", nom: "Martin" }).mailParse(MAIL);
   assert.ok(P.ppl.find((x) => x.name === "Thomas Martin").me);
 });
+
+test("numéro illisible, incomplet ou absent : le joueur est importé quand même (sans numéro)", () => {
+  const P = load().mailParse(`Simples Messieurs - Poule 4
+Les coordonnées de vos adversaires sont ci-dessous :
+Julien Moreau - 06.12.34.56.78
+Thomas Martin - 06 12 34 56 / thomas.martin@exemple.fr
+Lucas Bernard - lucas.bernard@exemple.fr
+hugo petit - 0612 345 678 9
+Paul Durand : 00.33.6.11.22.33.44
+Date limite : 18 janvier 2027
+Facebook : comitetennis90`);
+  assert.deepStrictEqual(P.ppl.map((x) => x.name), ["Julien Moreau", "Thomas Martin", "Lucas Bernard", "hugo petit", "Paul Durand"]);
+  assert.strictEqual(P.ppl[0].tel, "0612345678");
+  assert.strictEqual(P.ppl[2].tel, "");
+  assert.strictEqual(P.ppl[1].tel, "");
+  assert.strictEqual(P.ppl[3].tel, "");
+  assert.strictEqual(P.ppl[4].tel, "0611223344");
+});

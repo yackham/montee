@@ -3152,7 +3152,7 @@
   // 3.46.3 : en tableau, l'adversaire du mail devient ton 1er tour
   function trR1(x) { return { id: uid(), day: "", time: "", res: null, opp: { name: x.name || "", rank: x.rank || "", club: x.club || "", tid: x.tid || "", hit: x.hit || null }, tel: x.tel || "" }; }
   function poolEmptyHtml(t) {
-    return '<div class="card pe-c"><b>Ta poule n\'est pas encore là</b><span class="small">Le comité l\'envoie par mail (adversaires, téléphones, date limite). Colle-le, et joins son PDF si tu l\'as : Montée remplit ta poule, retrouve tes adversaires sur Ten\'Up et sait qui reçoit.</span>' +
+    return '<div class="card pe-c"><b>Ta poule n\'est pas encore là</b><span class="small">Le comité l\'envoie par mail (adversaires, téléphones, date limite). Colle-le : Montée remplit ta poule, retrouve tes adversaires sur Ten\'Up et sait qui reçoit.</span>' +
       '<button class="btn primary" data-a="trImportInto">' + PASTE_IC + " Coller le mail du comité</button>" +
       '<button class="btn pe-alt" data-a="plEdit">' + I.plus + " Ajouter les joueurs à la main</button>" +
       '<button class="linkbtn pe-probe" data-a="trFmtSet" data-v="tableau">Pas de poule : élimination directe ?</button>' +
@@ -4750,7 +4750,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   var TEL_RX = /((?:\+[\s.]?3[\s.\-]?3[\s.\-]*(?:\(0\)|0)?[\s.\-]*[1-9](?:[\s.\-]?\d){8}|\+[\s.]?[1-9](?:[\s.\-]?\d){7,12}|0[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4}))(?!\d)/;
   // un seul format gardé : « 0612345678 » en France, « +41791234567 » ailleurs
   function telNorm(t) {
-    var d = String(t || "").replace(/\(0\)/, "").replace(/[^\d+]/g, "");
+    var d = String(t || "").replace(/\(0\)/, "").replace(/[^\d+]/g, "").replace(/^00(?=[1-9])/, "+");
     var fr = d.match(/^\+330?([1-9]\d{8})$/); if (fr) return "0" + fr[1];
     return d;
   }
@@ -4789,93 +4789,28 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       return { name: o.prenom.replace(/(^|[\s\-])([a-zà-ÿ])/g, function (m, a, b) { return a + b.toUpperCase(); }) + " " + o.nom, club: o.club || "", rank: o.rank ? (T.normRank(o.rank.replace(/\s/g, "")) || o.rank) : "", tel: t ? telNorm(t[1]) : "" };
     });
   }
-  // 3.46.4 : la feuille de poule en PDF (« A 15/3  Vs  B 15/4 ») : les rencontres, donc qui reçoit (le joueur de gauche, sauf règle contraire)
-  // Feuille de poule : on travaille sur les positions (la page est souvent en paysage, le texte tourné)
-  function pdfPouleItems(items) {
-    var RK = "(NC|N°\\s?\\d{1,3}|-?\\d{1,2}\\/\\d|-?15|30|40|0)", NM = new RegExp("^(.+?)\\s+" + RK + "(?:\\s*\\([^)]*\\))?$");
-    var pairs = [], poule = "", title = "";
-    items.forEach(function (it) { var pm = it.s.match(/^poule\s*n?°?\s*([A-Z0-9]{1,3})$/i); if (pm && !poule) poule = pm[1].toUpperCase(); if (!title && /individuel/i.test(it.s)) title = it.s; });
-    var uv = function (it) { var n = Math.hypot(it.a, it.b) || 1, ca = it.a / n, sb = it.b / n; return { u: it.x * ca + it.y * sb, v: -it.x * sb + it.y * ca }; };
-    var names = items.filter(function (it) { return NM.test(it.s) && !/^\(/.test(it.s); }).map(function (it) { var m = it.s.match(NM), q = uv(it); return { p: it.p, name: m[1].trim(), rank: m[2], u: q.u, v: q.v }; });
-    items.filter(function (it) { return /^vs\.?$/i.test(it.s); }).forEach(function (vs) {
-      var q = uv(vs), row = names.filter(function (n) { return n.p === vs.p && Math.abs(n.v - q.v) < 7; });
-      var L = row.filter(function (n) { return n.u < q.u; }).sort(function (a, b) { return b.u - a.u; })[0], R = row.filter(function (n) { return n.u > q.u; }).sort(function (a, b) { return a.u - b.u; })[0];
-      if (L && R) pairs.push({ a: { name: L.name, rank: L.rank }, b: { name: R.name, rank: R.rank } });
-    });
-    var ppl = []; pairs.forEach(function (p) { [p.a, p.b].forEach(function (x) { if (!ppl.some(function (y) { return samePerson(y.name, x.name); })) ppl.push({ name: x.name, rank: x.rank }); }); });
-    return { pairs: pairs, ppl: ppl, poule: poule, title: title };
-  }
-  function pdfPoule(lines) {
-    var RK = "(NC|N°\\s?\\d{1,3}|-?\\d{1,2}\\/\\d|-?15|30|40|0)";
-    var who = function (x) { var m = String(x || "").split("\t")[0].trim().match(new RegExp("^(.+?)\\s+" + RK + "(?:\\s*\\([^)]*\\))?\\s*$")) || String(x || "").trim().match(new RegExp("^(.+?)\\s+" + RK + "\\b")); return m ? { name: m[1].trim(), rank: m[2] } : null; };
-    var pairs = [], poule = "", title = "";
-    lines.forEach(function (l) {
-      var pm = l.match(/\bpoule\s*n?°?\s*([A-Z0-9]{1,3})\b/i); if (pm && !poule) poule = pm[1].toUpperCase();
-      if (!title && /individuel/i.test(l)) title = l.replace(/\t.*$/, "");
-      var parts = l.split(/\s*\bVs\b\s*/); if (parts.length !== 2) return;
-      var a = who(parts[0].split("\t").pop()), b = who(parts[1]); if (a && b) pairs.push({ a: a, b: b });
-    });
-    var ppl = []; pairs.forEach(function (p) { [p.a, p.b].forEach(function (x) { if (!ppl.some(function (y) { return samePerson(y.name, x.name); })) ppl.push({ name: x.name, rank: x.rank }); }); });
-    return { pairs: pairs, ppl: ppl, poule: poule, title: title };
-  }
-  function pdfNm(n) { var w = String(n || "").split(/\s+/), up = w.filter(function (x) { return x.length > 1 && x === x.toUpperCase() && /[A-ZÀ-Ý]/.test(x); }), lo = w.filter(function (x) { return up.indexOf(x) < 0; }); return (lo.join(" ") + " " + up.join(" ")).trim(); }
-  // Applique la feuille de poule (PDF) à la poule lue : qui reçoit, et les joueurs manquants
-  function applyPdf(P, R) {
-    var me = P.ppl.filter(function (x) { return x.me; })[0], meN = me ? me.name : [(S.tenup.me || {}).prenom, (S.tenup.me || {}).nom].filter(Boolean).join(" ") || S.profile.name || "";
-    var rule = P.hostLeft || 1, n = 0;
-    R.ppl.forEach(function (x) { if (samePerson(meN, x.name)) return; if (!P.ppl.some(function (y) { return samePerson(y.name, x.name); })) P.ppl.push({ name: pdfNm(x.name), rank: T.normRank(x.rank) || x.rank, tel: "", st: NATIVE ? "busy" : "", fromPdf: 1 }); });
-    if (!me && meN) P.ppl.forEach(function (y) { if (samePerson(y.name, meN)) y.me = true; });
-    R.pairs.forEach(function (pr) {
-      var aMe = samePerson(meN, pr.a.name), bMe = samePerson(meN, pr.b.name); if (aMe === bMe) return;
-      var opp = aMe ? pr.b : pr.a, y = P.ppl.filter(function (z) { return !z.me && samePerson(z.name, opp.name); })[0]; if (!y) return;
-      if (!y.rank) y.rank = T.normRank(opp.rank) || opp.rank;
-      y.host = (aMe ? rule > 0 : rule < 0) ? "me" : "him"; n++;
-    });
-    P.pdfN = n; P.hostGuess = !P.hostLeft; P.pdfNoMe = !meN || !R.pairs.some(function (pr) { return samePerson(meN, pr.a.name) || samePerson(meN, pr.b.name); });
-    impMissing(P);
-  }
-  function impMissing(P) { P.missing = [P.ppl.some(function (x) { return !x.me; }) && !P.ppl.some(function (x) { return x.tel; }) ? "les numéros" : "", !P.to ? "la date limite" : "", !P.resUrl ? "le lien des résultats" : ""].filter(Boolean); }
-  // 3.46.4 (Yann) : PDF lu d'abord, puis le mail collé en plus : numéros, club, date limite, lien et règle « qui reçoit »
-  function impMerge(P, txt, R) {
-    var M = mailParse(txt);
-    M.ppl.forEach(function (m) {
-      var y = P.ppl.filter(function (z) { return samePerson(z.name, m.name); })[0];
-      if (y) { if (m.tel) y.tel = m.tel; if (m.club && !y.club) y.club = m.club; if (m.rank && !y.rank) y.rank = m.rank; if (m.me) y.me = true; }
-      else P.ppl.push(Object.assign(m, { st: NATIVE && !m.me ? "busy" : "" }));
-    });
-    if (M.title) { P.title = M.title; P.kind = M.kind; P.name = M.name + (!M.poule && R && R.poule ? " · Poule " + R.poule : ""); }
-    if (M.to) P.to = M.to; if (M.resUrl) P.resUrl = M.resUrl; if (M.hostLeft) P.hostLeft = M.hostLeft;
-    if (R) applyPdf(P, R); else impMissing(P);
-  }
-  function trImpPdf(file) {
-    if (!window.MonteePdf) return;
-    UI.trImp = UI.trImp || { text: "" }; UI.trImp.pdfBusy = true; render();
-    (MonteePdf.itemsFromFile ? MonteePdf.itemsFromFile(file).then(function (it) { var R0 = pdfPouleItems(it); return R0.pairs.length ? R0 : MonteePdf.linesFromFile(file).then(pdfPoule); }) : MonteePdf.linesFromFile(file).then(pdfPoule)).then(function (R) {
-      var I0 = UI.trImp; I0.pdfBusy = false; I0.pdfR = R;
-      if (!R.pairs.length) { render(); toast("Je n'ai pas trouvé de rencontres « A Vs B » dans ce PDF."); return; }
-      var ta = document.querySelector("[data-ti=text]"); if (ta) I0.text = ta.value;
-      if (!I0.p) {
-        I0.p = mailParse(I0.text || "");
-        if (!I0.p.title) { I0.p.name = "Indivs" + (R.poule ? " · Poule " + R.poule : ""); I0.p.kind = "champ"; I0.p.fmt = "poule"; I0.p.missing = (I0.p.missing || []).filter(function (m) { return m !== "le nom de l'épreuve"; }); }
-        else if (R.poule && !I0.p.poule) I0.p.name += " · Poule " + R.poule;
-      }
-      applyPdf(I0.p, R); render(); window.scrollTo(0, 0); impLookup();
-      toast(I0.p.pdfNoMe ? "PDF lu, mais je ne t'y trouve pas : choisis « Qui reçoit » à la main." : "PDF lu : « Qui reçoit » rempli pour " + plural(I0.p.pdfN, "match", "matchs") + ".");
-    }).catch(function () { UI.trImp.pdfBusy = false; render(); toast("Impossible de lire ce PDF."); });
-  }
   function mailParse(txt) {
     var lines = String(txt || "").replace(/\r/g, "").split("\n").map(function (l) { return l.replace(/\s+/g, " ").trim(); }).filter(Boolean);
     var out = { title: "", poule: "", kind: "champ", fmt: "poule", to: "", ppl: [] };
     var TEL = TEL_RX;
+    var STOPW = /\b(vous|votre|vos|nous|le|la|les|des|du|de|pour|poule|simple|simples|messieurs|dames|championnat|individuel|tennis|cordialement|bonjour|attention|date|lien|matchs?|résultats?|comité|club|série|seniors?|jeunes)\b/i;
     var me = S.tenup.me || {}, mt = nameTokens([me.prenom, me.nom].filter(Boolean).join(" ") || S.profile.name || "");
     lines.forEach(function (l) {
       if (!out.title && /championnat|individuel|indiv|tournoi|open|tmc/i.test(l) && l.length < 120) out.title = l;
       var pm = l.match(/\b(?:poule|Poule|POULE)\s*n?°?\s*(\d{1,3}|[A-Z])(?![A-Za-zÀ-ÿ])/); if (pm && !out.poule) out.poule = pm[1].toUpperCase(); // 3.46.4 : pas « poule re(çoit) »
-      var m = l.match(TEL); if (!m) return;
-      var nm = l.slice(0, m.index).replace(/[\s\-–—:,;|•·]+$/, "").replace(/^[\s\-–—•·*\d.)]+/, "").trim();
+      var m = l.match(TEL), nm, tel = "";
+      if (m) { nm = l.slice(0, m.index); tel = telNorm(m[1]); }
+      else {
+        // 4.21.2 (Yann) : numéro illisible ou absent, mais « Prénom Nom - … » avec des chiffres ou un mail : le joueur est importé quand même
+        var sp = l.match(/^(.{3,50}?)\s+[\-–—:|]\s*(.*[\d@].*)$/); if (!sp) return;
+        nm = sp[1]; if (STOPW.test(nm) || !nm.split(" ").every(function (x) { return /^[A-Za-zÀ-ÿ'\-]+\.?$/.test(x.replace(/^[\-–—•·*]+/, "")) || !x; })) return;
+        var dg = telNorm(sp[2].split(/[\/,;]| ou /)[0]); if (/^(0[1-9]\d{8}|\+[1-9]\d{7,13})$/.test(dg)) tel = dg; // sinon, sans numéro
+      }
+      nm = nm.replace(/[\s\-–—:,;|•·]+$/, "").replace(/^[\s\-–—•·*\d.)]+/, "").trim();
       if (!nm || nm.split(" ").length < 2 || /\d/.test(nm) || nm.length > 50) return;
       var tk = nameTokens(nm), mine = mt.length >= 2 && mt.every(function (t) { return tk.indexOf(t) >= 0; });
-      out.ppl.push({ name: nm, tel: telNorm(m[1]), me: mine });
+      if (out.ppl.some(function (y) { return y.name === nm; })) return;
+      out.ppl.push({ name: nm, tel: tel, me: mine });
     });
     var tb = tableParse(txt, TEL);
     if (tb.length >= 2) out.ppl = tb.map(function (x) { var tk = nameTokens(x.name); return Object.assign(x, { me: mt.length >= 2 && mt.every(function (t) { return tk.indexOf(t) >= 0; }) }); });
@@ -4888,7 +4823,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     out.resUrl = out.resUrl.replace(/[.,;:]+$/, "");
     // 3.45.1 : mail copié en partie : sans numéros, on prend les lignes qui ressemblent à « Prénom Nom »
     if (!out.ppl.length) {
-      var STOPW = /\b(vous|votre|vos|nous|le|la|les|des|du|de|pour|poule|simple|simples|messieurs|dames|championnat|individuel|tennis|cordialement|bonjour|attention|date|lien|matchs?|résultats?|comité|club|série|seniors?|jeunes)\b/i;
       lines.forEach(function (l) {
         var w = l.split(" ");
         if (w.length < 2 || w.length > 4 || /\d|@|:|\//.test(l) || STOPW.test(l) || l.length > 40) return;
@@ -4961,9 +4895,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       return s + "<h1>Le mail de ta poule</h1>" + '<p class="lead" style="margin-top:-8px">Copie le mail du comité et colle-le ici. Montée lit le nom de l\'épreuve, tes adversaires, leurs numéros et la date limite.</p>' +
         '<textarea class="ti-t" data-ti="text" placeholder="Touche ici, puis « Coller »" rows="9">' + esc(I0.text || "") + "</textarea>" +
 
-        '<label class="btn soft ti-pdf">' + (I0.pdfBusy ? '<span class="spin"></span> Lecture du PDF…' : CLIP_IC + " Joindre le PDF de la poule (facultatif)") + '<input type="file" accept="application/pdf,.pdf" data-a="trImpPdf" hidden></label>' +
-        '<span class="small">Le PDF du comité donne les rencontres : Montée en déduit qui reçoit.</span>' +
-        '<div class="spacer"></div><button class="btn primary" data-a="trImpRead">Lire le mail</button></div>';
+        '<button class="btn primary" data-a="trImpRead">Lire le mail du comité</button></div>';
     }
     var ppl = P.ppl.filter(function (x) { return !x.me; }), me = P.ppl.filter(function (x) { return x.me; })[0];
     // 3.46.4 (retour testeur) : mail collé dans la mauvaise épreuve (ex. mail des 3S dans les Seniors+)
@@ -4982,8 +4914,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!ppl.length) return s + '<div class="card"><b>Aucun adversaire trouvé</b><span class="small">Montée cherche des lignes « Prénom Nom - 06 12 34 56 78 ». Vérifie que tu as copié tout le mail.</span></div><button class="btn" data-a="trImpBack">‹ Revenir au mail</button></div>';
     var nBusy = ppl.filter(function (x) { return x.st === "busy"; }).length, nOk = ppl.filter(function (x) { return x.st === "ok"; }).length;
     var nErr = ppl.filter(function (x) { return x.st === "err"; }).length;
-    s += (P.fmt === "poule" ? (P.pdfN ? '<div class="ti-pdfok">' + I.check + "<span>PDF lu : « Qui reçoit » rempli pour " + plural(P.pdfN, "match", "matchs") + (P.hostGuess ? " (le joueur de gauche reçoit : règle habituelle, vérifie)" : "") + ".</span></div>" :
-        '<label class="btn soft small ti-pdf">' + (I0.pdfBusy ? '<span class="spin"></span> Lecture du PDF…' : CLIP_IC + " Joindre le PDF de la poule") + '<input type="file" accept="application/pdf,.pdf" data-a="trImpPdf" hidden></label>' + (P.hostLeft ? '<span class="small">Ton mail dit que le joueur de ' + (P.hostLeft > 0 ? "gauche" : "droite") + " de la poule reçoit : avec le PDF, Montée remplit « Qui reçoit » tout seul.</span>" : "")) : "");
     s += '<div class="card ti-l"><span class="eyebrow">' + plural(ppl.length, "adversaire") + (!NATIVE ? "" : nBusy ? " · recherche sur Ten'Up (" + (ppl.length - nBusy) + "/" + ppl.length + ")" : " · " + nOk + " retrouvé" + (nOk > 1 ? "s" : "") + " sur Ten'Up") + "</span>" + (NATIVE && nBusy ? '<span class="ti-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + ppl.length + '" aria-valuenow="' + (ppl.length - nBusy) + '"><i style="width:' + Math.max(6, Math.round(100 * (ppl.length - nBusy) / ppl.length)) + '%"></i></span>' : "") + ppl.map(function (x) {
       var j = P.ppl.indexOf(x), right = x.auto && x.st === "ok" ? '<span class="ti-auto"><span class="tq-rk">' + esc(x.rank || "") + '</span><button class="linkbtn" data-a="trImpOpen" data-v="' + j + '">changer</button></span>' : x.st === "busy" ? '<span class="ti-busy"><i></i>Ten\'Up…</span>' : x.rank ? '<span class="tq-rk">' + esc(x.rank) + "</span>" : x.st === "many" ? '<button class="ti-q" data-a="trImpOpen" data-v="' + j + '">Lequel ? ' + I.next + "</button>" : '<button class="linkbtn ti-w" data-a="trImpOpen" data-v="' + j + '">Choisir ›</button>';
       var open = I0.open === j, sub = (x.auto && x.club ? clubCase(x.club) + " · choisi d'après le club" : "") || (x.club ? clubCase(x.club) : "") || (x.st === "busy" ? "" : x.st === "err" ? (/connecte/.test(x.err || "") ? "Ta session Ten'Up a expiré" : /maintenance/.test(x.err || "") ? "Ten'Up est en maintenance" : "Ten'Up n'a pas répondu") : x.st === "none" ? "Pas trouvé sur Ten'Up : choisis son classement" : x.st === "many" ? x.hits.length + " joueurs à ce nom sur Ten'Up" : NATIVE || x.rank ? "" : "Classement à choisir");
@@ -4995,9 +4925,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (open && x.st !== "many") { var cur = curIdx(), lo = Math.max(0, (cur < 0 ? 0 : cur) - 6); r += '<div class="tq-rks ti-ch">' + ["NC"].concat((E.ECHELONS || []).slice(lo, lo + 13)).map(function (k) { return '<button class="tq-pill' + (x.rank === k ? " on" : "") + '" data-a="trImpRk" data-v="' + j + '" data-k="' + k + '">' + k + "</button>"; }).join("") + "</div>"; }
       return r;
     }).join("") + "</div>" +
-      (P.missing && P.missing.length && I0.pdfR && !String(I0.text || "").trim() ? '<div class="ti-miss ti-addm"><b>Le PDF ne donne pas ' + esc(P.missing.join(", ")) + ".</b> Colle aussi le mail du comité : Montée complète tout." +
-        (I0.addMail ? '<textarea class="ti-t" data-ti="text2" rows="6" placeholder="Touche ici, puis « Coller »"></textarea><button class="btn primary small" data-a="trImpMerge">Lire le mail</button>' : '<button class="btn small pe-alt" data-a="trImpAddMail">' + PASTE_IC + " Coller le mail</button>") + "</div>" :
-      P.missing && P.missing.length ? '<div class="ti-miss"><b>Pas trouvé dans ton texte :</b> ' + esc(P.missing.join(", ")) + ". Rien de grave : tu pourras " + (P.missing.length > 1 ? "les" : "l'") + " ajouter ensuite sur la page de l'épreuve : « Modifier » pour le nom et les dates" + (P.missing.indexOf("le lien des résultats") >= 0 ? ", « Ajouter le lien » pour les résultats" : "") + (P.missing.indexOf("les numéros") >= 0 ? ", et le numéro de chaque joueur en touchant son nom" : "") + ".</div>" : "") +
+      (P.missing && P.missing.length ? '<div class="ti-miss"><b>Pas trouvé dans ton texte :</b> ' + esc(P.missing.join(", ")) + ". Rien de grave : tu pourras " + (P.missing.length > 1 ? "les" : "l'") + " ajouter ensuite sur la page de l'épreuve : « Modifier » pour le nom et les dates" + (P.missing.indexOf("le lien des résultats") >= 0 ? ", « Ajouter le lien » pour les résultats" : "") + (P.missing.indexOf("les numéros") >= 0 ? ", et le numéro de chaque joueur en touchant son nom" : "") + ".</div>" : "") +
       (P.resUrl ? '<div class="card ti-u"><span class="eyebrow">Lien pour envoyer tes résultats</span><span class="ti-uv">' + esc(P.resUrl.replace(/^https?:\/\//, "")) + '</span><span class="small">Montée le garde dans ton épreuve : un tap pour l\'ouvrir après chaque match.</span></div>' : "") +
       (nErr && !nBusy ? '<button class="btn small" data-a="trImpRetry">Relancer la recherche Ten\'Up (' + nErr + ")</button>" : "") +
       (me ? '<span class="small">✓ Toi (' + esc(trNm(me.name)) + ") retiré de la liste. Les numéros restent sur ton téléphone.</span>" : '<span class="small">Les numéros restent sur ton téléphone.</span>') +
@@ -5094,7 +5022,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   function trRoundSheet(t) {
     var R = UI.trR, pool = R.k === "pool", alt = !pool && R.mode === "alt";
-    var lab = pool ? "Match de poule" : trLab(R.i === "new" ? (t.rounds || []).length : +R.i);
+    var addP = pool && R.i === "new"; // 4.21.2 (Yann) : « + Ajouter un adversaire » ajoute un joueur à la poule, pas un match
+    var lab = addP ? "Nouvel adversaire" : pool ? "Match de poule" : trLab(R.i === "new" ? (t.rounds || []).length : +R.i);
     var s = '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="trClose"></div><div class="sheet big tq-sheet" role="dialog" aria-modal="true" aria-label="Ton tour"><span class="sheet-grab"></span>' +
       '<div class="tq-hd"><b>' + esc(lab) + "</b><span>" + esc(t.name || "") + "</span></div>" +
       (pool ? "" : '<div class="tq-seg"><button class="' + (alt ? "" : "on") + '" data-a="trMode" data-v="one">Un adversaire</button><button class="' + (alt ? "on" : "") + '" data-a="trMode" data-v="alt">Le vainqueur de…</button></div>');
@@ -5120,9 +5049,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (pool) s += '<span class="tq-lab">Son numéro · facultatif</span><div class="tq-sb"><span class="tq-mag">' + CALL_IC + '</span><input type="tel" inputmode="tel" data-tr="tel" value="' + esc(telFmt(R.tel || "")) + '" placeholder="06 12 34 56 78" autocomplete="off"></div>';
     // 3.45 (Yann) : en poule (ou épreuve longue), la date se saisit directement, pas de pastilles qui défilent
     var longEv = pool || (t.to && t.from && (E.parseDate(t.to) - E.parseDate(t.from)) / 864e5 > 7);
-    s += '<span class="tq-lab">Quand ?</span>' + (longEv ? '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('data-tr="time"', R.time, "—") + '<em></em></span></div>' :
+    s += '<span class="tq-lab">' + (addP ? "Ton match · si la date est déjà fixée" : "Quand ?") + "</span>" + (longEv ? '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('data-tr="time"', R.time, "—") + '<em></em></span></div>' :
       trDays(t, R) + '<label class="tq-h"><span>Heure · si tu la connais</span>' + hSel('data-tr="time"', R.time, "—") + '</label>') +
-      '<button class="btn primary" data-a="trSave">' + (pool ? "Enregistrer ce match" : "Enregistrer le " + esc(lab.toLowerCase())) + "</button>" +
+      '<button class="btn primary" data-a="trSave">' + (addP ? "Ajouter à ma poule" : pool ? "Enregistrer ce match" : "Enregistrer le " + esc(lab.toLowerCase())) + "</button>" +
       (pool && R.i !== "new" && (t.pool[+R.i] || {}).res ? '<button class="linkbtn" data-a="trUndo" data-k="pool" data-i="' + R.i + '" style="align-self:center">Retirer le résultat (' + t.pool[+R.i].res + ")</button>" : "") +
       (R.i !== "new" && !pool ? '<button class="linkbtn" data-a="trRoundDel" style="align-self:center;color:var(--terre)">Supprimer ce tour</button>' : "") +
       (R.i !== "new" && pool ? '<span class="small" style="text-align:center">Pour retirer ce joueur de la poule : « Modifier la poule ».</span>' : "") + "</div>";
@@ -21032,12 +20961,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     trImpOpen: function (el) { UI.trImp.open = UI.trImp.open === +el.dataset.v ? null : +el.dataset.v; render(); },
     trImpHit: function (el) { var x = UI.trImp.p.ppl[+el.dataset.v], h = x && x.hits && x.hits[+el.dataset.k]; if (!h) return; Object.assign(x, { st: "ok", auto: 0, name: nameCase([h.prenom, h.nom].join(" ")), rank: T.normRank(h.rank) || h.rank || "", club: h.club || "", tid: String(h.id || ""), hit: h }); UI.trImp.open = null; render(); },
     trImpTarget: function (el) { if (!UI.trImp) return; if (el.dataset.k === "keep") UI.trImp.keep = 1; UI.trImp.into = el.dataset.v || null; if (!el.dataset.v) UI.trImp.noAuto = 1; render(); window.scrollTo(0, 0); },
-    trImpAddMail: function () { UI.trImp.addMail = true; render(); setTimeout(function () { var t = document.querySelector("[data-ti=text2]"); if (t) t.focus(); }, 60); },
-    trImpMerge: function () {
-      var I0 = UI.trImp, ta = document.querySelector("[data-ti=text2]"), v = ta ? ta.value : ""; if (!I0 || !I0.p || !v.trim()) { toast("Colle d'abord le mail."); return; }
-      I0.text = v; I0.addMail = false; impMerge(I0.p, v, I0.pdfR); if (document.activeElement) document.activeElement.blur(); render(); window.scrollTo(0, 0); impLookup();
-      var nT = I0.p.ppl.filter(function (x) { return !x.me && x.tel; }).length; toast(nT ? plural(nT, "numéro ajouté", "numéros ajoutés") + "." : "Mail lu.");
-    },
+
     trImpHost: function (el) { var x = UI.trImp && UI.trImp.p && UI.trImp.p.ppl[+el.dataset.v]; if (!x) return; x.host = x.host === el.dataset.k ? "" : el.dataset.k; var y = window.scrollY; render(); window.scrollTo(0, y); haptic("light"); },
     trImpRk: function (el) { var x = UI.trImp.p.ppl[+el.dataset.v]; if (!x) return; x.rank = el.dataset.k; UI.trImp.open = null; render(); },
     trImpCreate: function () {
@@ -21133,7 +21057,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (R.k === "pool") {
         if (!String(R.name || "").trim() && !R.rank) { toast(R.q ? "Choisis-le dans la liste, ou indique son classement." : "Indique ton adversaire, ou au moins son classement."); return; }
         t.pool = t.pool || [];
-        var x = { id: R.i === "new" ? uid() : t.pool[+R.i].id, tel: String(R.tel || "").replace(/[^\d+]/g, ""), name: String(R.name || "").trim(), rank: R.rank || "", club: (R.club || "").trim(), tid: R.tid || "", hit: R.hit || null, day: R.day || "", time: R.time || "", host: R.host || "", res: R.i === "new" ? null : t.pool[+R.i].res };
+        var x = { id: R.i === "new" ? uid() : t.pool[+R.i].id, tel: telNorm(R.tel), name: String(R.name || "").trim(), rank: R.rank || "", club: (R.club || "").trim(), tid: R.tid || "", hit: R.hit || null, day: R.day || "", time: R.time || "", host: R.host || "", res: R.i === "new" ? null : t.pool[+R.i].res };
         if (R.i === "new") t.pool.push(x); else t.pool[+R.i] = Object.assign(t.pool[+R.i], x);
         if (x.day && (!t.to || x.day > t.to)) t.to = x.day;
         trPlan(t, x.tid, x.name, x.rank, x.day); t.poolAt = 0;
@@ -22284,7 +22208,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     } else if (el.dataset.a === "notifSwitch") {
       if (el.checked) { delete S.notifOff; askNotif(); } else { S.notif = false; S.notifOff = 1; save(); if (LN) LN.cancel({ notifications: [1001, 1002, 1003, 1004, 1100, 1101, 1102, 1103, 1200, 1201, 1202, 1400].map(function (i) { return { id: i }; }) }).catch(function () {}); lastPlanKey = ""; lastTimingKey = ""; lastCoachKey = ""; try { syncNative(); } catch (e) {} render(); }
     } else if (el.dataset.a === "pdfFile" && el.files && el.files[0]) { importPdfFile(el.files[0]);
-    } else if (el.dataset.a === "trImpPdf" && el.files && el.files[0]) { trImpPdf(el.files[0]); el.value = "";
     } else if (el.dataset.a === "importFile" && el.files && el.files[0]) {
       var fr = new FileReader();
       fr.onload = function () {
