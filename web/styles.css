@@ -8060,6 +8060,11 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 .ace-cont-x { flex: none; width: 44px; height: 44px; margin: 0 2px 0 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle, rgba(21,23,15,.12) 15px, transparent 16px); color: #15170F; cursor: pointer; }
 .ace-cont-x svg { width: 14px; height: 14px; }
 @media (prefers-reduced-motion: reduce) { .ace-cont { animation: none; } }
+/* 4.21.1 : « Dernier week-end » — partager = pastille d'action en couleur d'accent (fond doux, sans contour) en bas de la carte, séparée des liens de navigation */
+.lc-shw { display: flex; width: fit-content; align-items: center; justify-content: center; gap: 6px; margin: 6px auto 14px; padding: 10px 18px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--acc-ink); background: color-mix(in srgb, var(--acc-ink) 14%, transparent); }
+.lc-shw svg { width: 16px; height: 16px; }
+.lc-list > .lc-r + .lc-more { border-top: 0; } /* 4.21.1 : un seul trait sous le dernier match */
+
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.
@@ -8122,3 +8127,4 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 .card.cap { border-color: transparent !important; }
 .cap-n { border-color: transparent !important; background: color-mix(in srgb, var(--ink) 12%, transparent); }
 /* Garde-fou : tests/sans-contour.test.js refuse tout nouveau trait ou anneau sur un bouton, une tuile ou une puce. */
+

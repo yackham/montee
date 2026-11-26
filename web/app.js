@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.21.0",
+    VERSION: "4.21.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -3527,7 +3527,8 @@
       s += '<h2 class="tm-gh lc-h"><span>Dernier week-end<svg class="lc-wb" viewBox="0 0 50 14" aria-hidden="true"><circle cx="3" cy="11" r="3" fill="var(--balle)"/></svg></span><small>' + lcDay(last) + "</small></h2>" +
         '<div class="blk lc-list">' + WE.map(function (o, i) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
           return '<a class="lc-r lc-w" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '" style="--i:' + i + '"><span class="grow"><b>' + esc(champNm(o.x.c) + (o.x.num ? " · éq. " + o.x.num : "")) + (o.x.mine ? ' <span class="lc-me">toi</span>' : "") + "</b><small>" + (r.dom === me ? "contre " : "chez ") + esc(tmNm(r.a === me ? r.bn : r.an)) + '</small></span><span class="lc-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span></a>"; }).join("") +
-        '<button class="lc-more lc-sh" data-a="lcShare" data-k="we">' + I.share + "Partager les scores du week-end</button>" + '<button class="lc-more" data-a="sheet" data-k="lcRes" data-v="">Toutes les rencontres de la saison ›</button>' + (nxt ? '<button class="lc-more" data-a="sheet" data-k="clubNx" data-v="' + nx7 + '">7 prochains jours : ' + plural(nxt, "rencontre", "rencontres") + " ›</button>" : "") + "</div>";
+        '<button class="lc-more" data-a="sheet" data-k="lcRes" data-v="">Toutes les rencontres de la saison ›</button>' + (nxt ? '<button class="lc-more" data-a="sheet" data-k="clubNx" data-v="' + nx7 + '">7 prochains jours : ' + plural(nxt, "rencontre", "rencontres") + " ›</button>" : "") +
+        '<button class="lc-shw" data-a="lcShare" data-k="we">' + I.share + "Partager les scores du week-end</button>" + "</div>"; /* 4.21.1 (Yann : « séparer visuellement les deux actions ») : partager = pastille d'action en bas, les liens restent des lignes */
     }
     // les équipes, groupées au choix
     if (L.length) {
