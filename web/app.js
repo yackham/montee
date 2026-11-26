@@ -5114,10 +5114,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   // 4.22.0 (Yann) : « Ton résultat » : Victoire / Défaite puis le score set par set (facultatif), le même sélecteur que la saisie d'un match
   // 4.22.0 (Yann : « pas joli la restitution ») : le score fini se lit comme sur Ton chemin (tableau d'arbitre), un seul « Modifier »
-  function trScScore(d) {
+  function trScScore(d, who) {
     var st = d.sets || [], w = st.filter(function (x) { return x[0] > x[1]; }).length, l = st.length - w;
     if (UI.scoreManual || UI.scoreEdit != null || !(w === 2 || l === 2)) return scoreHtml(d);
-    return '<div class="field"><span class="lbl">Score</span><div class="tq-scr">' + msbHtml({ score: d.score }) + '<button class="linkbtn" data-a="trScRe">Modifier</button></div></div>';
+    // 4.22.0 (Yann : « un truc joli, genre un scoreur ») : tableau de score façon écran de court, le vainqueur marqué d'une balle
+    var row = function (me) { var won = me ? w === 2 : l === 2; return '<div class="sbd-r' + (won ? " win" : "") + '"><span class="sbd-n">' + (won ? '<i class="sbd-b" aria-hidden="true"></i>' : "") + esc(me ? "Toi" : who || "Adversaire") + "</span>" +
+      st.map(function (x) { var a = me ? x[0] : x[1], b2 = me ? x[1] : x[0]; return '<span class="sbd-s' + (a > b2 ? " w" : "") + '">' + a + "</span>"; }).join("") + "</div>"; };
+    return '<div class="field"><span class="lbl">Score</span><div class="sbd">' + row(true) + row(false) + '</div><button class="linkbtn sbd-ed" data-a="trScRe">Modifier le score</button></div>';
   }
   function trScSheet(t) {
     var R = UI.trSc, r = t.rounds[R.i], d = UI.draft || {}, rk = r.res ? rkNow(r.opp || {}, true) : trRk(r);
@@ -5127,8 +5130,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       '<div class="tq-hd"><b>Ton ' + esc(trLab(R.i).toLowerCase()) + "</b></div>" +
       '<span class="tq-rs-who">Contre ' + esc(r.opp && r.opp.name ? trNm(r.opp.name) : trWho(r)) + (rk ? ' <span class="rk-tag">' + esc(rk) + "</span>" : "") + (r.day ? " · " + esc(dayLab(r.day)) : "") + "</span>" +
       '<div class="field"><span class="lbl">Résultat</span><div class="seg res"><button data-a="dset" data-k="result" data-v="V" class="rv' + (d.result === "V" ? " on" : "") + '">' + RES_V + 'Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (d.result === "D" ? " on" : "") + '">' + RES_D + "Défaite</button></div></div>" +
-      (d.result ? trScScore(d) : "") +
-      '<div class="tq-rs-b"><button class="btn soft" data-a="trScClose">Plus tard</button><button class="btn primary" data-a="trScSave"' + (d.result ? "" : " disabled") + ">Enregistrer</button></div>" +
+      (d.result ? trScScore(d, r.opp && r.opp.name ? trNm(r.opp.name) : "") : "") +
+      '<div class="tq-rs-b"><button class="btn soft" data-a="trScClose">Annuler</button><button class="btn primary" data-a="trScSave"' + (d.result ? "" : " disabled") + ">Enregistrer</button></div>" +
       '<button class="linkbtn" data-a="trScRound" style="align-self:center">Changer l\'adversaire, le jour ou l\'heure</button>' +
       (r.res ? '<button class="linkbtn" data-a="trScDel" style="align-self:center;color:var(--terre)">Retirer le résultat</button>' : "") + "</div>";
   }
