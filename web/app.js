@@ -14634,8 +14634,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     },
     pdj: function () {
       var P = null; try { P = pointDuJour(ctx()); } catch (e) {} if (!P) return null;
-      return { title: "Ton point du jour", body: '<div class="pdj-hero"><i style="color:' + P.col + ";background:color-mix(in srgb," + P.col + ' 18%,transparent)">' + P.ic + "</i><b>" + esc(P.title) + '</b></div><div class="card pdj-secs">' +
-        P.secs.map(function (x) { return '<div class="pdj-s"><i style="color:' + x.col + ";background:color-mix(in srgb," + x.col + ' 18%,transparent)">' + x.ic + "</i><div><b>" + x.t + "</b><p>" + x.b + "</p></div></div>"; }).join("") + "</div>" };
+      // 4.19.0 (Yann, 26/11) : même sobriété que la carte : Ace devant le titre, rubriques d'une seule couleur, pictos discrets
+      return { title: "Ton point du jour", body: '<div class="pdj-hero pdj-v2">' + coBall("pdjh", P.mood, "sm") + "<b>" + esc(P.title) + '</b></div><div class="card pdj-secs pdj-v2">' +
+        P.secs.map(function (x) { return '<div class="pdj-s"><i>' + x.ic + "</i><div><b>" + x.t + "</b><p>" + x.b + "</p></div></div>"; }).join("") + "</div>" };
     },
     // 3.31 : fiches ouvertes depuis l'accueil (on reste sur l'accueil)
     forme: function () {

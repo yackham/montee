@@ -7569,6 +7569,11 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 /* 4.19.0 (Yann, version E du 26/11) : plus de traits verticaux entre les anneaux, un peu plus d'air entre les anneaux et le texte */
 .card.cr3 .cr3-c + .cr3-c { border-left: 0; }
 .card.cr3 .cr3-row { padding-left: 0; padding-right: 0; padding-bottom: 20px; }
+/* 4.19.0 : la feuille « Ton point du jour » dans le même esprit : Ace devant le titre, pictos discrets sans pastille, texte d'une seule couleur */
+.pdj-hero.pdj-v2 .cbl-b { margin: 0; }
+.pdj-v2 .pdj-s i { width: 22px; height: 22px; background: none; color: var(--muted); font-size: 16px; font-weight: 600; }
+.pdj-v2 .pdj-s p { color: color-mix(in srgb, var(--ink) 80%, transparent); }
+.pdj-v2 .pdj-s p b { font-size: inherit; font-weight: 600; color: inherit; }
 .card.cr3 button.pdj.pdj3 { padding-top: 16px; }
 /* 4.5.1 (Yann : « inconsistant ») : « Tes prochains adversaires » en carte comme les autres blocs de l'accueil, sur une ligne */
 .card.pa-l { background: var(--card); flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px; margin-top: 4px; color: var(--ink); }
