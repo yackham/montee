@@ -363,7 +363,7 @@
   // classement (S.rankLog) et le message de ta simulation Ten'Up (« n'évoluera pas… descente déjà survenue »).
   var PROT_RE = /n.?[ée]voluera pas|ne (bougera|changera) pas|d[ée]j[àa] (survenue|descendu)|maintenu|prot[ée]g/i; // 3.62 : « protégé » aussi (mais pas « pas protégé »)
   function protMsg(m) { m = String(m || ""); return PROT_RE.test(m) && !/(pas|non|plus|n'est) (encore )?prot[ée]g/i.test(m); }
-  function relOnOrBefore(d) { var r = E.nextRelease(new Date(d.getFullYear(), d.getMonth(), 0)); return r <= d ? r : E.nextRelease(new Date(d.getFullYear(), d.getMonth() - 1, 0)); } // 4.11.6 : la sortie d'un mois qui commence un mardi (1er sept. 2026) n'est plus sautée
+  function relOnOrBefore(d) { var r = E.nextRelease(new Date(d.getFullYear(), d.getMonth(), 0)); return r <= d ? r : E.nextRelease(new Date(d.getFullYear(), d.getMonth() - 1, 0)); } // 4.11.8 : la sortie d'un mois qui commence un mardi (1er sept. 2026) n'est plus sautée
   function myProtection() {
     var out = null, lg = S.rankLog || [];
     for (var i = lg.length - 1; i >= 0; i--) {
@@ -2784,7 +2784,7 @@
   // redescendre. Ten'Up ne le dit que pour la sortie qu'il simule ; pour les suivantes, Montée retrouve sa descente : son classement
   // vu le jour de matchs (tes matchs contre lui, les palmarès lus de ses adversaires de poule, ses saisons passées). S'il était mieux
   // classé qu'aujourd'hui à une date, il est descendu après : il reste protégé jusqu'à la même sortie un an plus tard (au plus tôt).
-  // 4.11.6 (Davy, 3e fois sur Anthony : « il descend en janvier » alors qu'il est protégé). Règle FFT (FAQ Classement, Q12 et Q14) :
+  // 4.11.8 (Davy, 3e fois sur Anthony : « il descend en janvier » alors qu'il est protégé). Règle FFT (FAQ Classement, Q12 et Q14) :
   // « Lorsque je descends d'un échelon, je suis assuré de ne pas descendre d'un échelon supplémentaire pendant un an » ; remonter
   // remet le compteur à zéro. On sait qu'il est descendu dans une fenêtre, sans savoir à quelle sortie : on retient la DERNIÈRE
   // sortie possible. Avant, on refaisait son bilan sur son palmarès pour dater la descente, mais un palmarès incomplet (saison
@@ -2801,7 +2801,7 @@
     var me = (S.scout || {})[tid]; ((me && me.past) || []).forEach(function (y) { if (y.y && y.cl) add((y.y - 1) + "-09-01", y.cl, 1); }); // son classement de la saison (sept. → août)
     // 3.62 : son meilleur classement Ten'Up, s'il date de la saison en cours ou de la précédente, montre une descente récente
     var pf = me && me.profil; if (pf && pf.meilleur && pf.meilleurAn && pf.meilleurAn >= seasonY(today()) - 1) add((pf.meilleurAn - 1) + "-09-01", pf.meilleur, 1);
-    // Ten'Up l'a dit protégé pour la sortie pa : il est descendu à une sortie d'avant, dans les 12 mois. 4.11.6 : au plus tard
+    // Ten'Up l'a dit protégé pour la sortie pa : il est descendu à une sortie d'avant, dans les 12 mois. 4.11.8 : au plus tard
     // à la sortie qui précède pa, donc protégé jusqu'à son anniversaire (avant : seulement jusqu'à pa, puis « il descend » à tort).
     var pa = x.protAt && E.parseDate(x.protAt), minU = pa ? protAfter(relOnOrBefore(new Date(pa.getTime() - 864e5))) : null;
     seen.sort(function (a, b) { return a.d < b.d ? -1 : 1; });
@@ -2824,7 +2824,7 @@
       if (end && relI > end) break;
       var o = { today: today(), release: rel }; if (prot) o.protectUntil = prot;
       var pr = E.project(all, cur, sx, o), nx = pr.status === "top" ? cur : pr.projected;
-      if (nx < cur && !prot) prot = protAfter(rel); else if (nx > cur) prot = null; // 4.11.6 : une seule règle (protAfter) ; remonter remet le compteur à zéro (FFT, Q14)
+      if (nx < cur && !prot) prot = protAfter(rel); else if (nx > cur) prot = null; // 4.11.8 : une seule règle (protAfter) ; remonter remet le compteur à zéro (FFT, Q14)
       var prevI = i ? out[i - 1].relI : z.relI, lost = all.filter(function (m) { if (m.result !== "V") return false; var d = E.parseDate(m.date); d.setFullYear(d.getFullYear() + 1); var x = E.iso(d); return x > prevI && x <= relI; }).length;
       out.push({ rel: rel, relI: relI, from: cur, rank: nx, dir: nx > cur ? "up" : nx < cur ? "down" : "same", kept: !!pr.kept, gain: gainVs(nx), lost: lost });
       cur = nx;
