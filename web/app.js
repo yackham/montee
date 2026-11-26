@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.1",
+    VERSION: "4.18.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -353,7 +353,7 @@
     document.body.appendChild(t);
     UI.toastT = setTimeout(function () { t.remove(); }, msg.length > 60 ? 4500 : 2800);
   }
-  // 4.18.1 (Yann : « Annuler ne fonctionne pas ») : un seul toast avec « Annuler », laissé 6 s ; le bouton est branché par l'écouteur des toasts (le toast vit hors de #app)
+  // 4.18.2 (Yann : « Annuler ne fonctionne pas ») : un seul toast avec « Annuler », laissé 6 s ; le bouton est branché par l'écouteur des toasts (le toast vit hors de #app)
   function toastUndo(msg, act) {
     toast(msg); var tk = document.querySelector(".toast"); if (!tk) return;
     clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000);
@@ -21992,7 +21992,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (shK && UI.sheet && JSON.stringify(UI.sheet) === shK) { var shN = document.querySelectorAll(".sheet"); shN = shN[shN.length - 1]; if (shN && shN.getBoundingClientRect().height < shH) shN.style.minHeight = Math.round(shH) + "px"; }
     }
   });
-  // 4.18.1 : les toasts sont posés sur <body>, hors de #app : leurs boutons (« Annuler ») passent par ici
+  // 4.18.2 : les toasts sont posés sur <body>, hors de #app : leurs boutons (« Annuler ») passent par ici
   document.addEventListener("click", function (ev) {
     var el = ev.target.closest && ev.target.closest(".toast [data-a]"); if (!el) return;
     var a = el.dataset.a; if (!A[a]) return;

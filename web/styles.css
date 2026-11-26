@@ -182,7 +182,7 @@ button.row, a.row { border: none; background: none; width: 100%; text-align: lef
 .menu-item.don { background: var(--balle); }
 .menu-item.don .ic { background: rgba(255,255,255,.55); color: var(--ink); }
 
-.toast { position: fixed; left: 50%; bottom: calc(110px + var(--sab)); transform: translateX(-50%); background: var(--solid); color: var(--on-solid); padding: 12px 18px; border-radius: 22px; font-size: 15px; z-index: 90; /* 4.18.1 : au-dessus des feuilles (81) et d’Ace (40), sinon « Annuler » était caché dessous */ animation: in .2s ease-out; width: max-content; max-width: calc(100% - 40px); box-sizing: border-box; text-align: center; }
+.toast { position: fixed; left: 50%; bottom: calc(110px + var(--sab)); transform: translateX(-50%); background: var(--solid); color: var(--on-solid); padding: 12px 18px; border-radius: 22px; font-size: 15px; z-index: 90; /* 4.18.2 : au-dessus des feuilles (81) et d’Ace (40), sinon « Annuler » était caché dessous */ animation: in .2s ease-out; width: max-content; max-width: calc(100% - 40px); box-sizing: border-box; text-align: center; }
 
 /* Graphiques */
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
