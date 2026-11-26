@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.19.1",
+    VERSION: "4.19.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -11702,7 +11702,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!ask) {
       var h = coHomeTip(c), hot = h.tip ? h.tip.v : "";
       var g = c.proj.status !== "top" && c.proj.next ? (c.proj.status === "montee" ? "Tu montes " + esc(lab(c.proj.projected)) + " à la prochaine sortie." : "Il te manque " + plural(Math.max(0, c.proj.next.norme - c.proj.next.total), "pt") + " pour " + esc(c.proj.next.label) + ".") : "";
-      s += top('<span class="small ace-pv">' + (isSup() ? '<span class="ace-plt">Montée+</span> tout reste dans ton téléphone' : "Gratuit · tout reste dans ton téléphone") + "</span>") + '<div class="ace-hero"><span class="ace-tk' + (isSup() ? " plus" : "") + '" data-a="aceTickle" aria-hidden="true">' + coBall("ace:hero", h.mood, "xl") + (isSup() ? '<i class="ace-plb">+</i>' : "") + "</span><span><b>Salut" + (name ? " " + esc(name) : "") + " !</b><small>" + g + " On parle de quoi ?</small></span></div>";
+      s += top('<span class="small ace-pv">' + (isSup() ? '<span class="ace-plt">Montée+</span> tout reste dans ton téléphone' : "Gratuit · tout reste dans ton téléphone") + "</span>") + '<div class="ace-hero"><span class="ace-tk" data-a="aceTickle" aria-hidden="true">' + coBall("ace:hero", h.mood, "xl") + "</span><span><b>Salut" + (name ? " " + esc(name) : "") + " !</b><small>" + g + " On parle de quoi ?</small></span></div>";
       // 3.75 : « Pour toi, maintenant », les vraies cartes du moment avant les sujets (un sujet en carte n'est pas répété en tuile)
       var fd = []; try { fd = coFeed(c); } catch (e) {}
       var inFd = {}; fd.forEach(function (x) { inFd[x.q] = 1; if (x.q2) inFd[x.q2] = 1; }); // 4.4 : le coup d'Ace dit déjà ce qui sort

@@ -7362,12 +7362,11 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .acl { gap: 10px; }
 .acl-r { display: flex; align-items: center; gap: 12px; }
 .acl-av { position: relative; flex: none; }
-.acl-av > i, .ace-plb { position: absolute; right: -4px; top: -4px; width: 18px; height: 18px; border-radius: 50%; background: #D4E64A; color: #15170F; font: 800 14px/18px system-ui, sans-serif; font-style: normal; text-align: center; }
+.acl-av > i { position: absolute; right: -4px; top: -4px; width: 18px; height: 18px; border-radius: 50%; background: #D4E64A; color: #15170F; font: 800 14px/18px system-ui, sans-serif; font-style: normal; text-align: center; }
 .acl-t { flex: 1; min-width: 0; font-size: 14px; line-height: 1.4; color: var(--muted); } .acl-t b { color: var(--ink); }
 .acd-p { margin: 2px 0 6px; font-size: 15px; line-height: 1.45; color: var(--ink); }
 /* Ace plus vivant : on le touche, il rit ; abonné, son « + » ; sa réponse s'écrit mot à mot */
 .ace-tk { position: relative; flex: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.ace-tk .ace-plb { width: 24px; height: 24px; font-size: 18px; line-height: 24px; right: -2px; top: 0; }
 .ace-fresh .aw { animation: awIn .26s var(--ease-out) both; animation-delay: calc(.95s + var(--i) * 28ms); }
 @keyframes awIn { from { opacity: 0; } }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on .ds-ic.v { background: #fff; color: var(--today); }
