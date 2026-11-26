@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.16.6",
+    VERSION: "4.16.7",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1495,9 +1495,10 @@
     var r = route().split("/")[0];
     if ((r === "match" || r === "entrainement") && UI.draft) return { d: UI.draft, save: r === "match" ? "saveMatch" : "saveTraining" };
     if (r === "raquette" && UI.racketDraft) return { d: UI.racketDraft, save: "saveRacket" };
+    if (r === "dispos") { var t = (S.tours || []).filter(function (x) { return x.id === route().split("/")[1]; })[0]; if (t) return { dz: t, save: "dzSaveHere" }; } // 4.16.7 (Yann) : jours changés pas encore envoyés
     return null;
   }
-  function isDirty() { var e = editCtx(); return !!(e && UI.origKey === e.save + (e.d._for || "") && snap(e.d) !== UI.orig); }
+  function isDirty() { var e = editCtx(); if (e && e.dz) return Object.keys(dzEd(e.dz)).length > 0; return !!(e && UI.origKey === e.save + (e.d._for || "") && snap(e.d) !== UI.orig); }
   function saveBar(action, draft, isNew) {
     var key = action + (draft._for || "");
     if (UI.origKey !== key) { UI.origKey = key; UI.orig = snap(draft); }
@@ -1512,8 +1513,10 @@
     if (btn && d) btn.disabled = false;
   }
   function leaveSheet() {
-    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="leaveStay"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Modifications non enregistrées"><b>Enregistrer tes modifications ?</b>' +
-      '<span class="small">Tu as changé des choses sur cette page.</span>' +
+    var e = editCtx(), ed = e && e.dz ? dzEd(e.dz) : null, D = e && e.dz && (e.dz.ins.more || {}).dz, k = ed ? Object.keys(ed).sort() : [];
+    var why = ed && D ? k.map(function (iso) { var hab = dzHab(D, iso); return esc(cap1(dzDayName(iso))) + " : " + esc(ed[iso].length ? ed[iso].map(dzSl).join(" · ") : "pas dispo") + " au lieu de " + esc(hab.length ? hab.map(dzSl).join(" · ") : "pas dispo"); }).join("<br>") + "<br>Si tu quittes maintenant, Ten'Up et le juge-arbitre ne le sauront pas." : "Tu as changé des choses sur cette page.";
+    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="leaveStay"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Modifications non enregistrées"><b>' + (ed ? "Tu n'as pas enregistré" : "Enregistrer tes modifications ?") + "</b>" +
+      '<span class="small">' + why + "</span>" +
       '<button class="btn primary" data-a="leaveSave">Enregistrer</button><button class="btn soft" data-a="leaveDiscard">Ne pas enregistrer</button><button class="linkbtn" data-a="leaveStay">Rester sur la page</button></div>';
   }
   // 3.46.2 : le libellé du retour dit où il mène
@@ -2267,7 +2270,12 @@
     pos.forEach(function (k, i) { if (i && k === pos[i - 1] + 1) run.push(k); else { if (run.length) out.push(run); run = [k]; } }); if (run.length) out.push(run);
     return out.map(function (r) { return r.length > 2 ? N[o[r[0]]] + " au " + N[o[r[r.length - 1]]] : r.map(function (k) { return N[o[k]]; }).join(", "); }).join(", "); }
   function dzEd(t) { UI.dzEd = UI.dzEd || {}; return (UI.dzEd[t.id] = UI.dzEd[t.id] || {}); }
-  function dzHab(D, iso) { return D.map ? T.dzGenSlots(D.gen || [], iso, D.map) : []; }
+  // 4.16.7 (Yann, 26/11 : « je m'en fous des horaires du tournoi, je veux voir mes horaires à moi ») : « d'habitude » = TES créneaux (profil Ten'Up).
+  // La copie que Ten'Up garde pour le tournoi (prise à l'inscription) ne sert qu'à reconnaître ses jours habituels ; à l'envoi, le tournoi reprend tes créneaux.
+  function dzHabT(D, iso) { return D.map ? T.dzGenSlots(D.gen || [], iso, D.map) : []; }
+  function dzWant(D) { var H = UI.hb; return H && H.prof ? T.weekGen(H.prof.week) : D.pgen || null; } // jours ISO
+  function dzHab(D, iso) { var w = dzWant(D); return w ? T.dzGenSlots(w, iso, "iso") : dzHabT(D, iso); }
+  function dzStale(D) { var w = dzWant(D); return !!w && !!D.map && [1, 2, 3, 4, 5, 6, 7].some(function (wd) { var iso = "2026-11-" + (22 + wd); return !T.dzSame(dzHabT(D, iso), T.dzGenSlots(w, iso, "iso")); }); }
   // 4.11.2 (Yann, samedi 13) : Ten'Up renvoie parfois un jour VIDE, sans « particuliere », alors que sa page l'affiche dispo. Vide = pas clair :
   // on ne l'affiche pas « Pas dispo » et on n'envoie rien tant que tu n'as pas dit ce que tu veux pour ce jour-là.
   // 4.11.2 : relevé caché (demandé par Yann le 25/11 pour le samedi 13, À RETIRER une fois le bug compris) : ce que Ten'Up renvoie
@@ -2284,9 +2292,14 @@
   function dzDay(t, D, iso) { // ce jour-là : { slots: [{from, to}] où tu es dispo, ex: exception, ed: changé dans Montée }
     var ed = dzEd(t)[iso], hab = dzHab(D, iso);
     if (ed) return { slots: ed, ex: !T.dzSame(ed, hab), ed: true };
-    var g = (D.days || []).filter(function (x) { return x.date === iso; })[0], sl = g ? g.slots.map(function (z) { return { from: z.from, to: z.to }; }) : hab;
-    if (dzAmb(g, t)) return { slots: hab, ex: false, ed: false, amb: true };
-    return { slots: sl, ex: !T.dzSame(sl, hab), ed: false };
+    var b = dzBase(t, D, iso); b.ed = false; return b;
+  }
+  function dzBase(t, D, iso) { // ce jour-là sur Ten'Up, sans tes changements pas encore enregistrés
+    var hab = dzHab(D, iso), g = (D.days || []).filter(function (x) { return x.date === iso; })[0];
+    if (dzAmb(g, t)) return { slots: hab, ex: false, amb: true };
+    var sl = g ? g.slots.map(function (z) { return { from: z.from, to: z.to }; }) : hab;
+    if (!g || T.dzSame(sl, dzHabT(D, iso))) return { slots: hab, ex: false }; // un jour habituel du tournoi suit tes créneaux
+    return { slots: sl, ex: !T.dzSame(sl, hab) };
   }
   function dzLoad(t, force) {
     var m = t.ins.more = t.ins.more || {}; if (!NATIVE || !S.tenup.linked || UI.dzBusy) return;
@@ -2309,11 +2322,9 @@
     var can = Dl.ok && !!D.map, E1 = dzEd(t), n = Object.keys(E1).length;
     var hbOk = NATIVE && S.tenup.linked; // 4.10 : les créneaux habituels se changent depuis Montée, pour tous les tournois
     if (hbOk) hbLoad(); // 4.11.1 (Yann : « j'ai modifié mes horaires habituels, rien n'a changé ») : comparer au profil tel qu'il est maintenant
-    var pGen = UI.hb && UI.hb.prof ? T.weekGen(UI.hb.prof.week) : D.pgen;
-    var pDiff = pGen && [1, 2, 3, 4, 5, 6, 7].some(function (wd) { var iso = "2026-11-" + (22 + wd); return !T.dzSame(T.dzGenSlots(D.gen || [], iso, "iso"), T.dzGenSlots(pGen, iso, "iso")); }); // 4.9.3 : le tournoi garde la copie prise à l'inscription
-    s += '<h2>Tu es dispo, d\'habitude</h2>' + (hbOk ? '<p class="small" style="margin-top:-6px">Touche une ligne pour changer tes créneaux, pour tous tes tournois.</p>' : "") + '<div class="blk tz-blk tz-c' + (hbOk ? ' hb-open" role="button" tabindex="0" data-a="hbOpen' : "") + '">' + ((D.gen || []).length ? D.gen.map(function (g) {
-      return tzLine1(esc(cap1(dzJours(g.jours, D.map || "iso"))), esc(dzH(g.hd) + " – " + dzH(g.hf)), hbOk ? I.next : ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>" + (pDiff ? '<p class="small dz-pd">Pour ce tournoi, Ten\'Up garde tes créneaux du moment de ton inscription : ils ont changé depuis sur ton profil.</p>' +
-      (can ? '<button class="btn primary dz-pdb" data-a="hbTourOne" data-v="' + esc(t.id) + '"' + (UI.hbRun1 ? " disabled" : "") + ">" + (UI.hbRun1 ? "Mise à jour…" : "Mettre ce tournoi à jour") + "</button>" : "") : "");
+    var pGen = dzWant(D), cg = pGen || D.gen || [], cm = pGen ? "iso" : D.map || "iso", stale = dzStale(D);
+    s += '<h2>Tu es dispo, d\'habitude</h2>' + (hbOk ? '<p class="small" style="margin-top:-6px">Tes horaires à toi, pour tous tes tournois. Touche pour les changer.</p>' : "") + '<div class="blk tz-blk tz-c' + (hbOk ? ' hb-open" role="button" tabindex="0" data-a="hbOpen' : "") + '">' + (cg.length ? cg.map(function (g) {
+      return tzLine1(esc(cap1(dzJours(g.jours, cm))), esc(dzH(g.hd) + " – " + dzH(g.hf)), hbOk ? I.next : ""); }).join("") : tzLine1("Aucun créneau", "Tu n'as pas de créneau habituel sur Ten'Up.", "")) + "</div>";
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from);
     for (var d = new Date(d0); d <= d1 && days.length < 31; d = new Date(d.getTime() + 864e5)) days.push(E.iso(d));
     var exs = days.filter(function (iso) { return dzDay(t, D, iso).ex; }); // 4.10 (Yann) : voir et ajouter les indispos propres à ce tournoi
@@ -2326,21 +2337,21 @@
         '<span class="s">' + (x.amb ? "Ten'Up ne le dit pas clairement à Montée : touche pour choisir" : x.ed ? "Changé, pas encore enregistré" : x.ex ? "Juste ce jour-là" : "Comme d'habitude") + "</span></span>" + (can ? I.next : "") + "</button>"; }).join("") + "</div>";
     if (!Dl.ok) { var J = m.ja; s += '<h2>Un souci ?</h2><div class="blk tz-blk tz-c">' + (J && (J.tel || J.mail) ? tzLine1("Juge-arbitre", esc(J.name ? nameCase(J.name) : "Le juge-arbitre du tournoi"), (J.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(J.tel) + '"') : "") + (J.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(J.mail) + '"') : "")) : tzLine1("Juge-arbitre", "Ses coordonnées sont sur la page du tournoi", "")) + '</div><p class="small">Les indispos ne se changent plus dans l\'app : le juge-arbitre peut encore en tenir compte si tu le préviens.</p>'; }
     if (Dl.ok && !D.map) s += '<p class="small">Montée ne reconnaît pas encore tes créneaux habituels. Pour ne rien abîmer, change tes dispos sur Ten\'Up.</p><button class="btn" data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos">Ouvrir sur Ten\'Up</button>';
-    if (can) s += '<button class="btn primary" data-a="dzSave" data-v="' + esc(t.id) + '"' + (n && !UI.dzSaving ? "" : " disabled") + ">" + (UI.dzSaving ? "Envoi à Ten'Up…" : n ? "Enregistrer sur Ten'Up" : "Rien à enregistrer") + '</button><p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion, puis relu pour vérifier. Le juge-arbitre les voit comme d\'habitude.</p>';
+    if (can) s += '<p class="small tz-foot">Envoyé directement à Ten\'Up avec ta connexion, puis relu pour vérifier. Le juge-arbitre les voit comme d\'habitude.</p>';
+    if (can && (n || stale)) s += '<div class="savebar-space"></div><div class="savebar dirty"><span class="sb-state">' + (n ? plural(n, "jour") + " " + (n > 1 ? "changés" : "changé") + ", pas encore sur Ten'Up" : "Ce tournoi n'a pas encore tes horaires sur Ten'Up") + '</span><button class="btn primary" data-a="dzSave" data-v="' + esc(t.id) + '"' + (UI.dzSaving ? " disabled" : "") + ">" + (UI.dzSaving ? "Envoi…" : "Enregistrer") + "</button></div>"; // 4.16.7 (Yann) : le bouton reste visible dès qu'il y a quelque chose à envoyer
     return s + "</div>";
   };
-  var DET_DZ = function (v) { // un jour du tournoi : comme d'habitude, pas dispo, ou un autre horaire
+  var DET_DZ = function (v) { // un jour du tournoi : la même frise que tes créneaux habituels (4.16.7, maquette validée par Yann le 26/11)
     var a = String(v || "").split("|"), t = (S.tours || []).filter(function (x) { return x.id === a[0]; })[0]; if (!t || !(t.ins.more || {}).dz) return null;
-    var D = t.ins.more.dz, iso = a[1], d = E.parseDate(iso), x = dzDay(t, D, iso), hab = dzHab(D, iso);
-    var cur = UI.dzPk || (!x.ex ? "hab" : !x.slots.length ? "off" : "autre"), z = x.slots[0] || hab[0] || { from: "14:00", to: "18:00" };
-    var opt = function (k, lbl, sub) { return '<button class="dz-o' + (cur === k ? " on" : "") + '" data-a="dzPick" data-v="' + k + '"><span class="grow"><span class="t">' + lbl + '</span><span class="s">' + sub + '</span></span>' + (cur === k ? '<span class="dz-ck">✓</span>' : "") + "</button>"; };
-    var b = opt("hab", "Comme d'habitude", hab.length ? esc(hab.map(dzSl).join(" · ")) : "Pas de créneau ce jour-là") + opt("off", "Pas dispo ce jour-là", "Toute la journée") +
-      opt("autre", "Un autre horaire", "Dispo seulement sur ce créneau");
-    if (cur === "autre") b += '<div class="dz-hh"><label>De' + hSel('id="dz-f"', z.from) + '</label><label>À' + hSel('id="dz-t"', z.to) + '</label></div>';
-    if (x.amb) b = '<p class="small">Ten\'Up ne dit pas clairement à Montée si tu es dispo ce jour-là. Regarde sur Ten\'Up et choisis : rien n\'est envoyé avant.</p>' + b;
-    return { title: cap1(JOURS[d.getDay()]) + " " + dN(d) + " " + MOIS[d.getMonth()], sub: t.name, body: '<div class="tz-sh dz-sh">' + b + '</div><button class="btn primary" data-a="dzOk" data-v="' + esc(cur) + '">OK</button>' };
+    var D = t.ins.more.dz, iso = a[1], dt = E.parseDate(iso), x = dzDay(t, D, iso), hab = dzHab(D, iso), d = UI.hbd;
+    if (!d || d.dz !== t.id || d.iso !== iso) d = UI.hbd = { dz: t.id, iso: iso, hab: hab, play: !!x.slots.length, slots: JSON.parse(JSON.stringify(x.slots)), also: {} };
+    var b = x.amb ? '<p class="small">Ten\'Up ne dit pas clairement à Montée si tu es dispo ce jour-là. Regarde sur Ten\'Up et choisis : rien n\'est envoyé avant.</p>' : "";
+    b += '<div class="seg hb-seg2"><button data-a="hbPlay" data-v="1" class="' + (d.play ? "on" : "") + '">Je joue</button><button data-a="hbPlay" data-v="0" class="' + (d.play ? "" : "on") + '">Je ne joue pas</button></div>';
+    b += d.play ? hbFrise(d.slots, true, null, hab) + hbChrono(d.slots, true) + '<button class="dz-add" data-a="hbAdd">+ Ajouter un créneau</button>' : hbFrise([], false, null, hab) + hbChrono([], false);
+    if (!T.dzSame(d.play ? d.slots : [], hab)) b += '<button class="dz-add dz-back" data-a="dzHabGo">↺ Revenir à d\'habitude (' + esc(hab.length ? hab.map(dzSl).join(" · ") : "pas dispo") + ")</button>";
+    return { title: cap1(JOURS[dt.getDay()]) + " " + dN(dt) + " " + MOIS[dt.getMonth()], sub: t.name + " · d'habitude : " + (hab.length ? hab.map(dzSl).join(" · ") : "pas dispo"), body: '<div class="tz-sh dz-sh hb-day">' + b + '</div><button class="btn primary" data-a="dzOk">OK</button>' };
   };
-  function dzSaveRun(t) {
+  function dzSaveRun(t, done) {
     var m = t.ins.more, D = m.dz, ed = dzEd(t); if (!D || !D.map || UI.dzSaving) return;
     if (Date.now() - D.at > 10 * 6e4) { toast("Je relis d'abord tes dispos sur Ten'Up, réessaie dans un instant."); dzLoad(t, true); return; }
     var days = [], d0 = E.parseDate(t.from), d1 = E.parseDate(t.to || t.from), ex = {}, want = {};
@@ -2348,13 +2359,15 @@
     var amb = dzAmbDays(t, D, days); if (amb.length) { dzLog("refus", { t: t.tuid, amb: amb }); toast("Ten'Up ne dit pas clairement si tu es dispo le " + amb.map(dzDayName).join(", le ") + ". Touche ce jour et choisis, puis enregistre : rien n'est envoyé avant."); return; }
     days.forEach(function (iso) { var x = dzDay(t, D, iso); want[iso] = x.slots; if (x.ex) ex[iso] = x.slots; });
     var uuid = function () { try { return crypto.randomUUID(); } catch (e) { return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === "x" ? r : (r & 3 | 8)).toString(16); }); } };
-    var body = T.dzBody(D.gen, ex, D.map, uuid); UI.dzSaving = true; render(); dzLog("envoi", { t: t.tuid, ed: JSON.parse(JSON.stringify(ed)), body: body });
+    var stale = dzStale(D), gen = stale ? dzWant(D) : D.gen, map = stale ? "iso" : D.map; // 4.16.7 : un tournoi en retard reprend tes créneaux
+    var body = T.dzBody(gen, ex, map, uuid); UI.dzSaving = true; render(); dzLog("envoi", { t: t.tuid, ed: JSON.parse(JSON.stringify(ed)), body: body });
     tenupQuery("dispoSave", { t: t.tuid, body: body, from: t.from, to: t.to || t.from }).then(function (r) {
       UI.dzSaving = false; dzLog("relu", { t: t.tuid, err: r && r.error || null, days: r && r.days, raw: r && r.raw });
-      if (!r || r.error) { toast(dzRefus(r) + " Rien n'a changé dans Montée."); render(); return; }
+      if (!r || r.error) { toast(dzRefus(r) + " Rien n'a changé dans Montée."); render(); if (done) done(false); return; }
       var bad = days.filter(function (iso) { var g = (r.days || []).filter(function (x) { return x.date === iso; })[0]; return !T.dzSame(g ? g.slots : [], want[iso]); });
-      dzOffNote(t, days, want, r.days); D.days = r.days; D.src = r.src; D.at = Date.now(); UI.dzEd[t.id] = {}; save(); render();
+      dzOffNote(t, days, want, r.days); D.days = r.days; D.src = r.src; D.at = Date.now(); if (stale) { D.gen = gen; D.map = "iso"; D.pgen = gen; } UI.dzEd[t.id] = {}; save(); render();
       toast(bad.length ? "Ten'Up n'a pas pris tes horaires du " + bad.map(dzDayName).join(", du ") + " : règle ce jour directement sur Ten'Up." : "Tes dispos sont enregistrées sur Ten'Up.", !bad.length);
+      if (done) done(!bad.length);
     });
   }
   // ---- 4.10 (maquettes validées par Yann, 25/11) : créneaux habituels du profil, « Et tes tournois ? », ajouter une indispo ----
@@ -2374,11 +2387,13 @@
   }
   function hbOffCount(w) { var n = 0; for (var wd = 1; wd <= 7; wd++) if (!(w[wd] || []).length) n++; return n; }
   // La frise : créneaux en vert sur fond hachuré ; drag : des ronds à glisser ; off : un moment retiré, en orange
-  function hbFrise(slots, drag, off) {
+  function hbFrise(slots, drag, off, hab) { // hab (4.16.7) : tes créneaux habituels, en trait gris sous la frise
     var t = ""; for (var h = HB_A; h <= HB_B; h++) t += '<i class="hb-tk' + (h % 4 === 0 ? " hb-tk4" : "") + '" style="left:' + hbPc(h + ":00") + '"></i>';
     var seg = function (x, i, k) { return '<span class="hb-seg' + (k ? " " + k : "") + '" data-i="' + i + '" style="left:' + hbPc(x.from) + ";width:calc(" + hbPc(x.to) + " - " + hbPc(x.from) + ')">' + (drag ? '<b class="hb-h" data-hbh="' + i + '|s"></b><b class="hb-h hb-he" data-hbh="' + i + '|e"></b>' : "") + "</span>"; };
     var lab = [HB_A, 12, 16, 20, HB_B].map(function (h) { return '<span style="left:' + hbPc(h + ":00") + '"' + (h === HB_A ? ' class="hb-l0"' : h === HB_B ? ' class="hb-l1"' : "") + ">" + h + " h</span>"; }).join("");
-    return '<div class="hb-fr"><div class="hb-bar' + (drag ? ' hb-drag" data-a="hbBar' : "") + '">' + t + (off ? seg(off, -1, "hb-off") : "") + slots.map(function (x, i) { return seg(x, i); }).join("") + '</div><div class="hb-lab">' + lab + "</div>" +
+    var gh = hab ? '<div class="hb-gh">' + hab.map(function (x) { return '<i style="left:' + hbPc(x.from) + ";width:calc(" + hbPc(x.to) + " - " + hbPc(x.from) + ')"></i>'; }).join("") + "</div>" : "";
+    return '<div class="hb-fr"><div class="hb-bar' + (drag ? ' hb-drag" data-a="hbBar' : "") + '">' + t + (off ? seg(off, -1, "hb-off") : "") + slots.map(function (x, i) { return seg(x, i); }).join("") + "</div>" + gh + '<div class="hb-lab">' + lab + "</div>" +
+      (hab ? '<p class="small hb-ghl"><i></i>' + (hab.length ? "Ton horaire habituel" : "D'habitude, tu ne joues pas ce jour-là") + "</p>" : "") +
       (drag ? '<p class="small hb-hint">Glisse les ronds pour changer les heures · touche un vide pour ajouter un créneau.</p>' : "") + "</div>";
   }
   // La journée lue dans l'ordre des heures : avant…, créneaux, trous, après…
@@ -20359,7 +20374,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       UI.draft = null; UI.racketDraft = null; UI.rkMenu = false; back();
     },
     leaveStay: function () { UI.leaveAsk = false; render(); },
-    leaveDiscard: function () { UI.leaveAsk = false; UI.draft = null; UI.racketDraft = null; UI.rkMenu = false; UI.origKey = null; back(); },
+    leaveDiscard: function () { var e = editCtx(); if (e && e.dz) UI.dzEd[e.dz.id] = {}; UI.leaveAsk = false; UI.draft = null; UI.racketDraft = null; UI.rkMenu = false; UI.origKey = null; back(); },
     leaveSave: function () { var e = editCtx(); UI.leaveAsk = false; if (e) A[e.save](); },
     rkMenu: function () { UI.rkMenu = !UI.rkMenu; render(); },
     bilanSel: function (el) { UI.bilanSel = +el.dataset.v; render(); },
@@ -21660,21 +21675,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     tzOpen: function (el) { UI.sheet = { k: "tz", v: el.dataset.v }; render(); },
     tzTab: function (el) { if (el.dataset.v === "rec" && !isSup()) { UI.supFrom = "trouver"; UI.sheet = { k: "plusPrev", v: "cap" }; render(); return; } UI.tzTab = el.dataset.v; render(); },
     tzCp: function () { var v = (document.getElementById("tz-cp") || {}).value; tzHome(v).then(function (P) { if (!P) { toast("Code postal introuvable."); return; } if (!UI.sheet) tzSearch(true); render(); }); },
-    dzDay: function (el) { UI.dzPk = null; UI.sheet = { k: "dz", v: location.hash.split("/")[2] + "|" + el.dataset.v }; render(); },
-    dzPick: function (el) { UI.dzPk = el.dataset.v; render(); },
-    dzOk: function (el) {
-      var a = String(UI.sheet && UI.sheet.v || "").split("|"), t = (S.tours || []).filter(function (x) { return x.id === a[0]; })[0], k = el.dataset.v;
-      if (t && t.ins.more && t.ins.more.dz) { var ed = dzEd(t), hab = dzHab(t.ins.more.dz, a[1]);
-        if (k === "hab") ed[a[1]] = hab; else if (k === "off") ed[a[1]] = [];
-        else { var f = (document.getElementById("dz-f") || {}).value, to = (document.getElementById("dz-t") || {}).value;
-          if (!f || !to || to <= f) { toast("L'heure de fin doit être après l'heure de début."); return; } ed[a[1]] = [{ from: f.slice(0, 5), to: to.slice(0, 5) }]; }
-        var g = (t.ins.more.dz.days || []).filter(function (x) { return x.date === a[1]; })[0]; if (g && !dzAmb(g, t) && T.dzSame(g.slots, ed[a[1]])) delete ed[a[1]]; }
-      UI.dzPk = null; UI.sheet = null; render(); },
+    dzDay: function (el) { UI.hbd = null; UI.sheet = { k: "dz", v: location.hash.split("/")[2] + "|" + el.dataset.v }; render(); },
+    dzHabGo: function () { var d = UI.hbd; if (!d || !d.dz) return; d.slots = JSON.parse(JSON.stringify(d.hab)); d.play = !!d.hab.length; render(); },
+    dzOk: function () { var d = UI.hbd, t = d && d.dz && (S.tours || []).filter(function (x) { return x.id === d.dz; })[0];
+      if (t && t.ins.more && t.ins.more.dz) { var ed = dzEd(t), nx = d.play ? T.slotsMerge(d.slots).slots.map(function (x) { return { from: x.from, to: x.to }; }) : [], b = dzBase(t, t.ins.more.dz, d.iso);
+        if (!b.amb && T.dzSame(nx, b.slots)) delete ed[d.iso]; else ed[d.iso] = nx; } // revenu à ce que Ten'Up a déjà : plus rien à envoyer pour ce jour
+      UI.hbd = null; UI.sheet = null; render(); },
     // 4.10 : créneaux habituels (profil Ten'Up) et indispo d'un tournoi
     hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
     hbDay: function (el) { UI.hbd = null; UI.sheet = { k: "hbd", v: el.dataset.v, back: "hb" }; render(); },
     hbPlay: function (el) { var d = UI.hbd; if (!d) return; d.play = el.dataset.v === "1";
-      if (d.play && !d.slots.length) { var h = (UI.hb.prof.week[d.wd] || []); d.slots = h.length ? JSON.parse(JSON.stringify(h)) : [{ from: "18:00", to: "22:00" }]; } render(); },
+      if (d.play && !d.slots.length) { var h = d.dz ? d.hab : (UI.hb.prof.week[d.wd] || []); d.slots = h.length ? JSON.parse(JSON.stringify(h)) : [{ from: "18:00", to: "22:00" }]; } render(); },
     hbDel: function (el) { var d = UI.hbd; if (!d) return; d.slots.splice(+el.dataset.v, 1); if (!d.slots.length) d.play = false; render(); },
     hbAdd: function () { var d = UI.hbd; if (!d) return; var A0 = HB_A * 60, B0 = HB_B * 60, cur = A0, best = null;
       d.slots.concat([{ from: hbHM(B0), to: hbHM(B0) }]).forEach(function (x) { var a = Math.max(cur, A0), b = Math.min(hbMin(x.from), B0); if (b - a >= 30 && (!best || b - a > best.b - best.a)) best = { a: a, b: b }; cur = Math.max(cur, hbMin(x.to)); });
@@ -21698,12 +21709,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         toast(ok ? "Tes créneaux habituels sont enregistrés sur Ten'Up." : "Ten'Up n'a pas tout pris : vérifie tes créneaux.", ok);
         // 4.11.1 : « Et tes tournois ? » dès que Ten'Up a changé quelque chose, même s'il n'a pas tout pris
         UI.hbSel = {}; UI.sheet = !T.weekSame(r.week, before) && hbTours().length ? { k: "hbt" } : UI.sheet; render(); }); },
-    hbTourOne: function (el) { var t = (S.tours || []).filter(function (x) { return x.id === el.dataset.v; })[0], H = UI.hb, D = t && (t.ins.more || {}).dz;
-      var gen = H && H.prof ? T.weekGen(H.prof.week) : D && D.pgen; if (!t || !gen || UI.hbRun1) return;
-      UI.hbRun1 = true; render();
-      hbTourRun(t, gen).then(function (ok) { return ok; }, function () { return false; }).then(function (ok) { UI.hbRun1 = false; save(); render();
-        if (ok && ok.amb) { toast("Rien n'est envoyé : Ten'Up ne dit pas clairement si tu es dispo le " + ok.amb.map(dzDayName).join(", le ") + ". Touche ce jour dans la liste et choisis d'abord."); return; }
-        toast(ok ? "Ton tournoi a tes créneaux habituels. Tes indispos juste pour lui sont gardées." : "Ten'Up n'a pas tout pris : vérifie les jours du tournoi.", ok); }); },
     hbTourTog: function (el) { UI.hbSel = UI.hbSel || {}; UI.hbSel[el.dataset.v] = UI.hbSel[el.dataset.v] === false; render(); },
     hbToursGo: function () { var H = UI.hb, sel = UI.hbSel || {}, L = hbTours().filter(function (t) { return sel[t.id] !== false; }); if (!H || !H.prof || UI.hbRun || !L.length) return;
       var gen = T.weekGen(H.prof.week), bad = 0; UI.hbRun = true; render();
@@ -21721,6 +21726,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (!a.all && (!a.from || !a.to || a.to <= a.from)) { toast("L'heure de fin doit être après l'heure de début."); return; }
       var cur = dzDay(t, t.ins.more.dz, a.iso).slots, nx = a.all ? [] : T.slotsMinus(cur, a.from, a.to); if (!a.all && T.dzSame(nx, cur)) { toast("Tu ne joues déjà pas à ce moment-là : rien à changer."); return; } dzEd(t)[a.iso] = nx; UI.dza = null; UI.sheet = null; render(); },
     dzSave: function (el) { var t = (S.tours || []).filter(function (x) { return x.id === el.dataset.v; })[0]; if (t) dzSaveRun(t); },
+    dzSaveHere: function () { var e = editCtx(); if (e && e.dz) dzSaveRun(e.dz, function (ok) { if (ok) back(); }); }, // depuis « Tu n'as pas enregistré » : on part une fois enregistré
     tzWhere: function () { UI.sheet = { k: "tzf" }; render(); },
     tzSet: function (el) { var P = tzPrefs(); P[el.dataset.k] = +el.dataset.v; save(); render(); },
     tzGo: function () { UI.sheet = null; tzSearch(true); render(); },

@@ -7659,6 +7659,12 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .hb-lab span { position: absolute; white-space: nowrap; transform: translateX(-50%); }
 .hb-lab .hb-l0 { transform: none; } .hb-lab .hb-l1 { transform: translateX(-100%); }
 .hb-hint { margin: 6px 0 0; }
+/* 4.16.7 : un jour de tournoi : tes créneaux habituels en trait gris sous la frise */
+.hb-gh { position: relative; height: 5px; margin-top: 5px; }
+.hb-gh i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: color-mix(in srgb, var(--ink) 26%, transparent); }
+.hb-ghl { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; }
+.hb-ghl i { width: 18px; height: 5px; border-radius: 3px; flex: none; background: color-mix(in srgb, var(--ink) 26%, transparent); }
+.dz-add.dz-back { border-top: 0; }
 .hb-ch { margin-top: 4px; }
 .hb-r { display: flex; align-items: center; gap: 10px; padding: 9px 0; min-height: 44px; }
 .hb-r + .hb-r { border-top: 1px solid var(--line); }
