@@ -3196,6 +3196,7 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-p { flex: none; font-size: 18px; }
 .tq-alt { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); } .tq-alt b { color: var(--ink); }
 .tq-g { align-self: flex-start; font-size: 11.5px; font-weight: 800; padding: 3px 8px; border-radius: 99px; background: color-mix(in srgb, var(--gazon) 16%, transparent); color: var(--gazon); margin-top: 2px; }
+.tq-upo { color: var(--gazon); font-weight: 700; }
 .tq-res { display: flex; gap: 8px; margin-top: 6px; } .tq-edl { align-self: flex-start; padding: 4px 0; font-size: 13px; }
 .tq-sheet { gap: 12px; } .tq-sheet .seg { display: flex; } .tq-sheet .seg button { flex: 1; }
 .tq-q { display: flex; gap: 8px; } .tq-q input { flex: 1; }

@@ -1696,7 +1696,7 @@
   function trWhen(r) { return r.day ? dayLab(r.day) + (r.time ? " · " + r.time : "") : "date à venir"; }
   function trNm(n) { n = String(n || "").trim(); return /^q\d+$/i.test(n) ? "qualifié " + n.toLowerCase() : /(^|\s)[A-Za-zÀ-ÿ]\.?(\s|$)/.test(n) ? n.toUpperCase() : nameCase(n); }
   function trWho(r) {
-    var rk = r.opp ? rkNow(r.opp, !!r.res) : "";
+    var rk = r.opp ? (r.res ? rkNow(r.opp, true) : rkShow(r.opp, r.day)) : "";
     if (r.opp && r.opp.name) return trNm(r.opp.name) + (rk ? " · " + rk : "");
     if (rk) return "Un " + rk;
     if (r.alt && r.alt.length) return "Vainqueur de " + r.alt.map(function (a) { return trNm(a.name) || ("un " + rkNow(a, !!r.res)); }).join(" / ");
@@ -1712,8 +1712,8 @@
     return { a: a, b: b, pa: Math.round(pa * 100), fav: pa >= 0.5 ? a : b, wait: oppWait(a.tid) || oppWait(b.tid), rA: ra, rB: rb, pA: trP(ra, a.tid, a.name), pB: trP(rb, b.tid, b.name), pExp: (function () { var x = trP(ra, a.tid, a.name), y = trP(rb, b.tid, b.name); return x == null || y == null ? (x != null ? x : y) : Math.round(x * pa + y * (1 - pa)); })() };
   }
   // 4.21.1 : le classement d'un tour à venir (son adversaire, ou le favori de « vainqueur de A / B »), officiel du jour : rkNow
-  function trRk(r) { if (!r) return ""; if (r.opp) return rkNow(r.opp, !!r.res); var A = trAlt(r); return A ? (A.fav === A.a ? A.rA : A.rB) : ""; }
-  function trRoundP(r) { var rk = r.opp ? rkNow(r.opp, !!r.res) : ""; if (rk) return trP(rk, r.opp.tid, r.opp.name); var A2 = trAlt(r); return A2 ? A2.pExp : null; }
+  function trRk(r) { if (!r) return ""; if (r.opp) return r.res ? rkNow(r.opp, true) : rkOn(r.opp, r.day); var A = trAlt(r); return A ? (A.fav === A.a ? A.rA : A.rB) : ""; }
+  function trRoundP(r) { var rk = r.opp ? trRk(r) : ""; if (rk) return trP(rk, r.opp.tid, r.opp.name); var A2 = trAlt(r); return A2 ? A2.pExp : null; }
   var TOUR_IC = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h4v4H3zM3 16h4v4H3z"/><path d="M7 6h3v12H7M10 12h4"/><circle cx="18" cy="12" r="3.2"/></svg>';
   // 3.46 (Yann) : « Ce qui arrive » : une frise horizontale de tout ce qui vient (tours, poule, matchs prévus, sortie du classement)
   var FR_REL = svg('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>', 2.2);
@@ -1724,7 +1724,7 @@
       if (t.wait) { if (t.from && t.from >= td) out.push({ d: t.from, t: t, href: href, title: short, sub: "liste d'attente", dim: 1 }); return; }
       (t.rounds || []).forEach(function (r, i) { if (r.res || !r.day || r.day < td) return; var rk = trRk(r);
         out.push({ d: r.day, time: r.time, t: t, oid: r.opp && r.opp.tid || "", href: href, title: trWho(r), sub: trLab(i) + " · " + short, st: stake(t, rk, r.opp && r.opp.rank ? r.opp.tid : "", r.opp && r.opp.name), wait: r.opp && r.opp.rank ? oppWait(r.opp.tid) : !!(trAlt(r) && trAlt(r).wait) }); });
-      (t.pool || []).forEach(function (x) { if (x.res || !x.day || x.day < td) return; out.push({ d: x.day, time: x.time, t: t, oid: x.tid || "", href: href, title: trNm(x.name) + (rkNow(x) ? " · " + rkNow(x) : ""), sub: "Poule" + (hostLab(x) ? " · " + hostLab(x) : "") + " · " + short, st: stake(t, x.rankNow || x.rank, x.tid, x.name), wait: oppWait(x.tid) }); });
+      (t.pool || []).forEach(function (x) { if (x.res || !x.day || x.day < td) return; out.push({ d: x.day, time: x.time, t: t, oid: x.tid || "", href: href, title: trNm(x.name) + (rkNow(x) ? " · " + rkShow(x, x.day) : ""), sub: "Poule" + (hostLab(x) ? " · " + hostLab(x) : "") + " · " + short, st: stake(t, x.rankNow || x.rank, x.tid, x.name), wait: oppWait(x.tid) }); });
       var left = (t.pool || []).filter(function (x) { return !x.res && !x.day; }).length;
       if (left) out.push({ d: td, t: t, href: href, title: plural(left, "match", "matchs") + " à programmer", sub: short, todo: 1 });
       if (out.length === n0) {
@@ -3264,6 +3264,7 @@
         '<span class="tq-k">' + esc(trLab(i) + " · " + trWhen(r)) + "</span>" +
         '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + esc(trWho(r)) + "</a>" : esc(trWho(r))) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<span class="tq-p tq-pb">' + oddsBall(p / 100, 30) + "</span>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
         (r.opp && r.opp.club && !done ? '<span class="small">' + esc(r.opp.club) + "</span>" : "") +
+        (r.opp && !r.res && rkUp(r.opp, r.day) ? '<span class="small tq-upo">Si tu le bats, c\'est officiellement un ' + esc(rkUp(r.opp, r.day)) + " : sa montée compte depuis le " + (function () { var d = E.nextRelease(today()); return (d.getDate() === 1 ? "1er" : d.getDate()) + " " + MOIS[d.getMonth()].replace(/\.$/, ""); })() + ".</span>" : "") +
         (r.beat && !r.res ? '<span class="small">Il a battu ' + esc(trNm(r.beat.name)) + (r.beat.score ? " " + esc(r.beat.score) : "") + "</span>" : "") +
         (A2 && !r.res ? '<span class="small">' + esc(trNm(A2.fav.name) || "Le " + (A2.fav === A2.a ? A2.rA : A2.rB)) + " devrait passer (" + Math.max(A2.pa, 100 - A2.pa) + " %)</span>" +
           [[A2.a, A2.pA, A2.rA], [A2.b, A2.pB, A2.rB]].map(function (z) { return '<span class="tq-alt"><span>' + esc((trNm(z[0].name) || "Un joueur") + (z[2] ? " · " + z[2] : "")) + "</span><b>" + (z[1] != null ? z[1] + " %" : "–") + "</b></span>"; }).join("") : "") +
@@ -5132,7 +5133,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 3.47 (doublons) : ce match est déjà dans ton palmarès (saisi à la main, à la montre ou venu de Ten'Up) : on ne le recrée pas
     if (i < 0 && o.name) { var d0 = r.day && dGap(r.day) <= 0 ? r.day : E.iso(today()); var tw = S.matches.filter(function (x) { return !/^tr/.test(x.id) && x.date && Math.abs(E.parseDate(x.date) - E.parseDate(d0)) <= 2 * 864e5 && x.opp && samePerson(x.opp, trNm(o.name)); })[0]; if (tw) { r.mx = 1; r.twin = tw.id; return; } }
     var m = i >= 0 ? S.matches[i] : { id: id, surface: "", indoor: null, racketId: "", string: "", tension: null, tensionCross: null, feel: null, note: "", score: "" };
-    Object.assign(m, { date: r.day && dGap(r.day) <= 0 ? r.day : E.iso(today()), opp: o.name ? trNm(o.name) : "", oppRank: T.normRank(o.rank) || o.rank, result: r.res, wo: false, kind: t.kind === "champ" ? "champ" : "tournoi", comp: t.name || "", source: "tournoi", oid: o.tid || "", oclub: o.club || "" });
+    Object.assign(m, { date: r.day && dGap(r.day) <= 0 ? r.day : E.iso(today()), opp: o.name ? trNm(o.name) : "", oppRank: (function () { var d = r.day && dGap(r.day) <= 0 ? r.day : E.iso(today()), k = (o.tid || o.oid) && Math.abs(dGap(d)) <= 3 ? rkOn(o, d) : ""; return T.normRank(k || o.rank) || k || o.rank; })(), result: r.res, wo: false, kind: t.kind === "champ" ? "champ" : "tournoi", comp: t.name || "", source: "tournoi", oid: o.tid || "", oclub: o.club || "" });
     if (i < 0) S.matches.push(m);
     r.mx = 1;
   }
@@ -6310,6 +6311,23 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var id = x.tid || x.oid, n = id ? oppNowIdx({ oid: String(id), opp: x.name }).r : null;
     return n != null ? lab(n) : (x.rankNow || x.rank || "");
   }
+  // 4.21.1 (Yann) : sa montée déjà VALIDÉE par Ten'Up (simulation, ligne « atteinte »), qui compte au plus tard le jour du match :
+  // ce jour-là il joue officiellement à ce classement (les tableaux écrivent « 15/5 (15/4) »). Jamais un niveau estimé.
+  // Rend le nouveau classement, ou "" (pas de montée validée, simulation d'une autre période, ou sortie après le match).
+  function rkUp(x, day) {
+    if (!x || !day) return "";
+    var id = x.tid || x.oid, sc = id && (S.scout || {})[String(id)], sim = (sc && sc.sim) || x.sim, at = sc && sc.sim ? (sc.got || sc.ts) : x.simAt;
+    if (!sim || !at) return "";
+    var rel = E.nextRelease(today()), relAt = E.nextRelease(new Date(typeof at === "number" ? at : E.parseDate(at)));
+    if (E.iso(relAt) !== E.iso(rel) || String(day) < E.iso(rel)) return "";
+    var cur = E.idx(T.normRank(rkNow(x))), ok = (sim.res || []).filter(function (l) { return l.ok === true; }).map(function (l) { return E.idx(T.normRank(l.c)); }).filter(function (i) { return i != null; });
+    if (cur == null || !ok.length) return "";
+    var up = Math.max.apply(null, ok); return up > cur ? lab(up) : "";
+  }
+  // son classement officiel le jour du match (montée validée comprise) : sert au match enregistré, aux points et aux chances
+  function rkOn(x, day) { return rkUp(x, day) || rkNow(x); }
+  // à l'écran, comme dans les tableaux : « 15/5 (15/4) » quand il joue déjà officiellement au-dessus ce jour-là
+  function rkShow(x, day) { var r = rkNow(x), u = rkUp(x, day); return u ? r + " (" + u + ")" : r; }
   // vraiment monté au classement depuis le match (pas seulement « joue au-dessus » d'après son niveau réel)
   function oppRose(m) { var o = E.idx(T.normRank(m.oppRank0 || m.oppRank)), r = oppNowIdx(m).r; return o != null && r != null && r > o; }
   function oppEffIdx(m) {
@@ -11175,8 +11193,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function coUpMatches(days) {
     var td = E.iso(today()), lim = E.iso(new Date(today().getTime() + (days || 7) * 864e5)), out = [];
     toursAll().filter(function (t) { return !tourOver(t) && !t.wait; }).forEach(function (t) {
-      (t.rounds || []).forEach(function (r) { if (r.res || !r.day || r.day < td || r.day > lim || !r.opp || !r.opp.rank) return; out.push({ d: r.day, time: r.time || "", name: r.opp.name ? trNm(r.opp.name) : "", rank: rkNow(r.opp), tid: r.opp.tid || "", t: t, comp: t.name || "Tournoi", href: "#/tournoi/" + t.id }); });
-      (t.pool || []).forEach(function (x) { if (x.res || !x.day || x.day < td || x.day > lim || !x.name) return; out.push({ d: x.day, time: x.time || "", name: trNm(x.name), rank: rkNow(x), tid: x.tid || "", t: t, comp: "Poule · " + (t.name || "Épreuve"), href: "#/tournoi/" + t.id }); });
+      (t.rounds || []).forEach(function (r) { if (r.res || !r.day || r.day < td || r.day > lim || !r.opp || !r.opp.rank) return; out.push({ d: r.day, time: r.time || "", name: r.opp.name ? trNm(r.opp.name) : "", rank: rkShow(r.opp, r.day), tid: r.opp.tid || "", t: t, comp: t.name || "Tournoi", href: "#/tournoi/" + t.id }); });
+      (t.pool || []).forEach(function (x) { if (x.res || !x.day || x.day < td || x.day > lim || !x.name) return; out.push({ d: x.day, time: x.time || "", name: trNm(x.name), rank: rkShow(x, x.day), tid: x.tid || "", t: t, comp: "Poule · " + (t.name || "Épreuve"), href: "#/tournoi/" + t.id }); });
     });
     plans().forEach(function (pl) { if (pl.day < td || pl.day > lim || (pl.tour && tourOf(pl.tour))) return; out.push({ d: pl.day, time: pl.time || "", name: pl.name ? nameCase(pl.name) : "", rank: pl.rank || "", tid: pl.id || "", pl: pl, comp: pl.hom ? "Match homologué" : "Match libre", href: "#/joueur/" + encodeURIComponent(pl.id || "") }); });
     out.forEach(function (o) { o.key = o.name ? nameKey(o.name) : ""; o.id = "next:" + o.d + ":" + (o.key || o.rank); });
@@ -13828,7 +13846,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var kind = t.kind === "champ" ? "champ" : "tournoi", end = t.dl || t.to || "";
       (t.pool || []).forEach(function (x) { if (x.res) return; var d = x.day || end; if (d && d >= td && d <= relI) add({ name: trNm(x.name), rank: x.rankNow || x.rank, tid: x.tid || "", day: d, kind: kind, where: "Poule" + (t.name ? " · " + t.name : ""), p: trP(x.rankNow || x.rank, x.tid, x.name), wait: oppWait(x.tid) }); });
       var r = (t.rounds || []).filter(function (y) { return !y.res; })[0];
-      if (r && r.opp && r.opp.rank) { var d2 = r.day || end; if (d2 && d2 >= td && d2 <= relI) add({ name: trNm(r.opp.name) || "Ton adversaire", rank: rkNow(r.opp), tid: r.opp.tid || "", day: d2, kind: kind, where: "Tableau" + (t.name ? " · " + t.name : ""), p: trP(rkNow(r.opp), r.opp.tid, r.opp.name), wait: oppWait(r.opp.tid) }); }
+      if (r && r.opp && r.opp.rank) { var d2 = r.day || end; if (d2 && d2 >= td && d2 <= relI) add({ name: trNm(r.opp.name) || "Ton adversaire", rank: rkShow(r.opp, d2), tid: r.opp.tid || "", day: d2, kind: kind, where: "Tableau" + (t.name ? " · " + t.name : ""), p: trP(rkOn(r.opp, d2), r.opp.tid, r.opp.name), wait: oppWait(r.opp.tid) }); }
     }); } catch (e) {}
     plans().forEach(function (pl) { if (pl.day >= td && pl.day <= relI) add({ name: pl.name || "Ton adversaire", rank: pl.rank, tid: pl.id || "", day: pl.day, kind: "tournoi", where: "Match prévu", p: planP(pl), wait: oppWait(pl.id) }); });
     return out.filter(function (o) { return o.p != null; }).sort(function (a, b) { return a.day < b.day ? -1 : 1; }).slice(0, 8);
