@@ -6381,7 +6381,7 @@ button.acr, a.acr { cursor: pointer; }
 .acf-k { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 6px; margin-bottom: -6px; }
 .acf-k .ace-k { margin-top: 0; }
 .acf-k small { font-size: 12.5px; font-weight: 700; color: var(--acc-ink); }
-.acf { display: flex; gap: 10px; overflow-x: auto; margin: 0 -18px; padding: 2px 18px 4px; scroll-snap-type: x mandatory; scroll-padding: 0 18px; scrollbar-width: none; }
+.acf { display: flex; gap: 10px; overflow-x: auto; margin: 0 calc(-1 * var(--s4)); padding: 2px var(--s4) 4px; scroll-snap-type: x mandatory; scroll-padding: 0 var(--s4); /* 4.19.1 : suit la marge d'Ace (16 px), plus de défilement de côté */ scrollbar-width: none; }
 .acf::-webkit-scrollbar { display: none; }
 .acf > .acd { flex: none; width: 82%; scroll-snap-align: start; }
 .acf.one > .acd { width: 100%; }
