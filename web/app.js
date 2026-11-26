@@ -3511,7 +3511,7 @@
     var row = function (o) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
       return '<a class="row ce-lr" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '"><span class="grow"><span class="t">' + esc((r.dom === me ? "Contre " : "Chez ") + tmNm(r.a === me ? r.bn : r.an)) + '</span><span class="s">' + esc(lcDay(String(r.d).slice(0, 10))) + '</span></span><span class="ce-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span>" + I.next + "</a>"; };
     var body = K.map(function (c) { var T = Object.keys(C[c]).sort(function (a, b) { return (+a || 99) - (+b || 99); }), all = [].concat.apply([], T.map(function (t) { return C[c][t]; }));
-      return '<div class="card lc-blk lc-rb"><div class="tg-h"><b>' + esc(c) + '</b></div><span class="small">' + (T.length > 1 ? plural(T.length, "équipe", "équipes") + " · " : "") + plural(all.length, "rencontre", "rencontres") + (k ? "" : " · " + bil(all)) + "</span>" +
+      return '<div class="lc-rb"><div class="tg-h"><b>' + esc(c) + '</b></div><span class="small">' + (T.length > 1 ? plural(T.length, "équipe", "équipes") + " · " : "") + plural(all.length, "rencontre", "rencontres") + (k ? "" : " · " + bil(all)) + "</span>" +
         T.map(function (t) { var R = C[c][t]; return '<div class="lc-sub">' + (+t ? "Équipe " + t : "L'équipe") + (k || T.length < 2 ? "" : "<small>" + bil(R) + "</small>") + '</div><div class="ce-list">' + R.map(row).join("") + "</div>"; }).join("") + "</div>"; }).join("");
     return { title: k === "v" ? "Les victoires du club" : k === "n" ? "Les nuls du club" : k === "d" ? "Les défaites du club" : "Les rencontres de la saison", sub: plural(X.length, "rencontre", "rencontres") + " · " + plural(K.length, "championnat", "championnats") + ", du point de vue du club", body: body || '<span class="small">Rien pour l\'instant.</span>' };
   }
@@ -7192,7 +7192,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!BALL_TC[k]) { var cs = getComputedStyle(r); BALL_TC[k] = { t: cs.getPropertyValue("--terre").trim(), g: cs.getPropertyValue("--gazon").trim() }; }
     return BALL_TC[k];
   }
-  function oddsBall(p, S) { var W = window.MonteeWidgetArt, c = ballTheme(); return W && W.ballSvg ? W.ballSvg(p, S, { col: W.ballCol(p, c.t, c.g) }) : "<b>" + Math.round(p * 100) + " %</b>"; }
+  // 4.16.2 (Yann) : les balles un « mini chouille » plus petites, partout dans l'appli (×0,9)
+  function oddsBall(p, S) { var W = window.MonteeWidgetArt, c = ballTheme(); S = Math.round(S * 0.9); return W && W.ballSvg ? W.ballSvg(p, S, { col: W.ballCol(p, c.t, c.g) }) : "<b>" + Math.round(p * 100) + " %</b>"; }
   // une mini-balle dans une ligne (pc en %)
   function oddsBallI(pc, S) { return '<span class="obq-i">' + oddsBall(pc / 100, S || 22) + "</span>"; }
   // la couleur de la balle pour la montre (toujours sur fond sombre : couleurs de Nuit)
