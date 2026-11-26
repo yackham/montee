@@ -5114,13 +5114,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   // 4.22.0 (Yann) : « Ton résultat » : Victoire / Défaite puis le score set par set (facultatif), le même sélecteur que la saisie d'un match
   // 4.22.0 (Yann : « pas joli la restitution ») : le score fini se lit comme sur Ton chemin (tableau d'arbitre), un seul « Modifier »
-  function trScScore(d, who) {
+  function trScScore(d, who, played) {
     var st = d.sets || [], w = st.filter(function (x) { return x[0] > x[1]; }).length, l = st.length - w;
-    if (UI.scoreManual || UI.scoreEdit != null || !(w === 2 || l === 2)) return scoreHtml(d);
+    // 4.22.0 (Yann) : en modifiant le score d'un match déjà saisi, on peut aussi le remettre en « pas encore joué »
+    if (UI.scoreManual || UI.scoreEdit != null || !(w === 2 || l === 2)) return scoreHtml(d) + (played ? '<button class="linkbtn sbd-nj" data-a="trScDel">Le match n\'a pas encore été joué</button>' : "");
     // 4.22.0 (Yann : « un truc joli, genre un scoreur ») : tableau de score façon écran de court, le vainqueur marqué d'une balle
     var row = function (me) { var won = me ? w === 2 : l === 2; return '<div class="sbd-r' + (won ? " win" : "") + '"><span class="sbd-n">' + (won ? '<i class="sbd-b" aria-hidden="true"></i>' : "") + esc(me ? "Toi" : who || "Adversaire") + "</span>" +
       st.map(function (x) { var a = me ? x[0] : x[1], b2 = me ? x[1] : x[0]; return '<span class="sbd-s' + (a > b2 ? " w" : "") + '">' + a + "</span>"; }).join("") + "</div>"; };
-    return '<div class="field"><span class="lbl">Score</span><div class="sbd">' + row(true) + row(false) + '</div><button class="linkbtn sbd-ed" data-a="trScRe">Modifier le score</button></div>';
+    return '<div class="field"><span class="sbd-h"><span class="lbl">Score</span><button class="linkbtn sbd-ed" data-a="trScRe">Modifier</button></span><div class="sbd">' + row(true) + row(false) + "</div></div>";
   }
   function trScSheet(t) {
     var R = UI.trSc, r = t.rounds[R.i], d = UI.draft || {}, rk = r.res ? rkNow(r.opp || {}, true) : trRk(r);
@@ -5129,10 +5130,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="trScClose"></div><div class="sheet big tq-sheet" role="dialog" aria-modal="true" aria-label="Ton résultat"><span class="sheet-grab"></span>' +
       '<div class="tq-hd"><b>Ton ' + esc(trLab(R.i).toLowerCase()) + '</b><button class="linkbtn tq-hm" data-a="trScRound" aria-label="Changer l\'adversaire, le jour ou l\'heure">' + PEN_IC + "Modifier</button></div>" +
       '<span class="tq-rs-who">Contre ' + esc(r.opp && r.opp.name ? trNm(r.opp.name) : trWho(r)) + (rk ? ' <span class="rk-tag">' + esc(rk) + "</span>" : "") + (r.day ? " · " + esc(dayLab(r.day)) : "") + "</span>" +
-      '<div class="field"><span class="lbl">Résultat</span><div class="seg res"><button data-a="dset" data-k="result" data-v="V" class="rv' + (d.result === "V" ? " on" : "") + '">' + RES_V + 'Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (d.result === "D" ? " on" : "") + '">' + RES_D + "Défaite</button></div></div>" +
-      (d.result ? trScScore(d, r.opp && r.opp.name ? trNm(r.opp.name) : "") : "") +
+      '<div class="field"><div class="seg res" aria-label="Résultat"><button data-a="dset" data-k="result" data-v="V" class="rv' + (d.result === "V" ? " on" : "") + '">' + RES_V + 'Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (d.result === "D" ? " on" : "") + '">' + RES_D + "Défaite</button></div></div>" +
+      (d.result ? trScScore(d, r.opp && r.opp.name ? trNm(r.opp.name) : "", !!r.res) : "") +
       '<div class="tq-rs-b"><button class="btn soft" data-a="trScClose">Annuler</button><button class="btn primary" data-a="trScSave"' + (d.result ? "" : " disabled") + ">Enregistrer</button></div>" +
-      (r.res ? '<button class="linkbtn" data-a="trScDel" style="align-self:center;color:var(--terre)">Remettre en « pas encore joué »</button>' : "") + "</div>";
+      "</div>";
   }
   function trRoundSheet(t) {
     var R = UI.trR, pool = R.k === "pool", alt = !pool && R.mode === "alt";
@@ -13165,7 +13166,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (official) s += revHint(m.opp, m.id);
     if (!official && (isNew || UI.mEdit) && !m.tourSet && toursOpen(m.date).length) { m.tour = tourGuess(m); var tt1 = m.tour && tourOf(m.tour); if (tt1 && !m.kindSet) m.kind = tt1.kind === "champ" ? "champ" : "tournoi"; }
     if (!official && (isNew || UI.mEdit)) s += '<div class="form">' +
-      '<div class="field"><span class="lbl">Résultat</span><div class="seg res"><button data-a="dset" data-k="result" data-v="V" class="rv' + (m.result === "V" ? " on" : "") + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (m.result === "D" ? " on" : "") + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>Défaite</button></div>' +
+      '<div class="field"><div class="seg res" aria-label="Résultat"><button data-a="dset" data-k="result" data-v="V" class="rv' + (m.result === "V" ? " on" : "") + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (m.result === "D" ? " on" : "") + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>Défaite</button></div>' +
       '<label class="check"><input type="checkbox" data-d="wo"' + (m.wo ? " checked" : "") + "> Par forfait (WO)</label></div>" +
       '<div class="field"><label for="m-opp">Adversaire</label>' + (mTuOn() ? '<div class="sbar sbf">' + svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 2.2) + '<input id="m-opp" type="search" data-d="opp" list="opp-list" value="' + esc(m.opp) + '" placeholder="Prénom et nom" autocomplete="off" autocapitalize="words" enterkeyhint="search"><button class="sb-clr" data-a="mOppClr" aria-label="Effacer"' + (m.opp ? "" : " hidden") + ">" + I.cross + '</button><button class="sb-go' + (nameSplits(m.opp || "").length ? " ready" : "") + '" data-a="mTuFind"' + (UI.mBusy ? " disabled" : "") + ">" + (UI.mBusy ? "…" : "Chercher") + "</button></div>" : '<input id="m-opp" type="text" data-d="opp" list="opp-list" value="' + esc(m.opp) + '" placeholder="Prénom et nom, ex. : Julien Moreau" autocomplete="off" autocapitalize="words">') + oppDatalist() +
         mTuHtml(m) + revHint(m.opp, m.id) + "</div>" +
