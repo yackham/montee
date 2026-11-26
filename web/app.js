@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.3",
+    VERSION: "4.18.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1830,11 +1830,15 @@
     }
     if (ri != null && ro != null && ri !== ro) return { k: ri > ro ? "up" : "dn", now: now, n: fresh.length, t: "<b>" + (ri > ro ? "Monté " : "Descendu ") + esc(now.rank) + "</b> (était " + esc(b.snap.rank) + ")." + (fx ? " " + fx.replace(/<\/?b>/g, "") : "") };
     if (fresh.length) return { k: "nw", now: now, n: fresh.length, t: fx, m0: fresh[0] };
-    return { k: "calm", now: now, t: ms[0] ? "Rien de neuf : pas de match depuis le " + fdate(ms[0].date) + "." : "Rien de neuf : pas de match cette saison." };
+    var dt = ms[0] ? fdate(ms[0].date) : "", dtx = dt ? dt + (/\.$/.test(dt) ? "" : ".") : "";
+    // 4.18.1 (Yann, maquette validée le 26/11/2026) : lui n'a pas rejoué mais tes chances ont bougé (même calcul que la feuille : paChance), c'est du neuf
+    var p = null; try { p = oppWait(o.id) ? null : paChance(o); } catch (e) {}
+    if (b.p != null && p != null && p !== b.p) return { k: "ch", now: now, p: p, p0: b.p, t: (dt ? "Pas de nouveau match pour lui depuis le " + dtx : "Pas encore de match pour lui cette saison.") + " Ce sont tes chances qui ont bougé :" };
+    return { k: "calm", now: now, t: dt ? "Rien de neuf : pas de match depuis le " + dtx : "Rien de neuf : pas de match cette saison." };
   }
-  function paIsNew(n) { return n.k === "up" || n.k === "dn" || n.k === "nw"; }
+  function paIsNew(n) { return n.k === "up" || n.k === "dn" || n.k === "nw" || n.k === "ch"; }
   // Une phrase courte pour la ligne de l'accueil
-  function paShort(o, n) { var nm = paName(o); return n.k === "up" ? nm + " est monté " + n.now.rank : n.k === "dn" ? nm + " est descendu " + n.now.rank : n.m0 ? nm + " a joué " + paAgo(n.m0.date) : nm + " a joué " + n.n + " matchs"; }
+  function paShort(o, n) { var nm = paName(o); return n.k === "up" ? nm + " est monté " + n.now.rank : n.k === "dn" ? nm + " est descendu " + n.now.rank : n.k === "ch" ? nm + " : tes chances à " + n.p + " %" : n.m0 ? nm + " a joué " + paAgo(n.m0.date) : nm + " a joué " + n.n + " matchs"; }
   // La ligne sous « Ce qui arrive » : la nouvelle du moment (gratuit : seulement ton prochain adversaire), sinon qui arrive
   // 4.5.1 : les nouvelles du moment (gratuit : ton prochain adversaire seulement), un seul calcul pour la carte et la bulle d'Ace
   function paHot() {
@@ -1846,6 +1850,7 @@
     var o = x.o, n = x.n, nm = paName(o), b = (S.paSeen || {})[o.id], p = null; try { p = oppWait(o.id) ? null : paChance(o); } catch (e) {}
     var t = n.k === "up" ? nm + " est monté " + n.now.rank : n.k === "dn" ? nm + " est descendu " + n.now.rank : n.m0 ? nm + (n.m0.result === "V" ? " a gagné " : " a perdu ") + paAgo(n.m0.date) : nm + " a joué " + n.n + " matchs";
     var g = o.day ? dGap(o.day) : null, when = g == null ? "" : g === 0 ? " aujourd'hui" : g === 1 ? " demain" : g < 7 ? " " + JOURS[E.parseDate(o.day).getDay()] : " le " + fdate(o.day);
+    if (n.k === "ch") return "Tes chances contre " + nm + when + " " + (n.p > n.p0 ? "montent" : "baissent") + " à " + n.p + " %.";
     return t + (b && b.p != null && p != null && p !== b.p ? " : tes chances" + when + " passent à " + p + " %." : ".");
   }
   function paLineHtml() {
@@ -11317,7 +11322,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (hier && hier.result === "D") tips.push({ id: "home:loss:" + hier.id, t: "Défaite " + hj + ", ça arrive. On regarde ce qui vient ensuite ?", v: "loss" });
     if (hier && hier.result === "V") tips.push({ id: "home:win:" + hier.id, t: "Bien joué " + hj + " ! Tu veux savoir ce que ça t'a rapporté ?", v: "win" });
     // 4.5.1 (Yann) : Ace pousse les nouvelles de tes prochains adversaires ; sa bulle ouvre la feuille
-    try { var PH = paHot(); if (PH.N.length) { var px = PH.N[0], ps = px.n.now || {}; tips.push({ id: "pa:" + px.o.id + ":" + (ps.last || "") + ":" + (ps.rank || ""), hot: 1, t: paAceLine(px), v: "pa" }); } } catch (e) {}
+    try { var PH = paHot(); if (PH.N.length) { var px = PH.N[0], ps = px.n.now || {}; tips.push({ id: "pa:" + px.o.id + ":" + (ps.last || "") + ":" + (ps.rank || "") + (px.n.k === "ch" ? ":" + px.n.p : ""), hot: 1, t: paAceLine(px), v: "pa" }); } } catch (e) {}
     var oW = null; try { oW = c.proj.status !== "top" ? coNextOut(c) : null; } catch (e) {}
     if (oW && oW.days <= 21) tips.push({ id: "when:" + oW.iso, hot: 1, t: "Ta victoire contre un " + oW.rank + " sort de ton bilan le " + oW.dt + " : une victoire d'ici là la compense.", v: "when" });
     toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
