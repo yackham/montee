@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.21.1",
+    VERSION: "4.21.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -4745,6 +4745,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.46.4 (Yann) : le tableau du comité, en colonnes (Nom / Prénom / Club / Classt / Tél / eMail) : une valeur par ligne, ou une ligne par joueur avec des tabulations
   var RK_RX = /^(NC|N°\s?\d{1,3}|-?\d{1,2}\/\d|-?15|30|40|0)$/i;
   function samePerson(a, b) { var ta = nameTokens(a), tb = nameTokens(b), n = ta.filter(function (t) { return tb.indexOf(t) >= 0; }).length; return n >= Math.min(2, ta.length, tb.length) && n > 0; }
+  // 4.21.2 (Yann) : un numéro de mail de poule, quelle que soit sa ponctuation : « 06.12.34.56.78 », « +33 6 12 34 56 78 »,
+  // « +33 (0)6 12… », « +3.36.12.34.56.78 » (points mal placés), ou un autre pays (« +41 79 123 45 67 »). Suivi ou non de « / mail ».
+  var TEL_RX = /((?:\+[\s.]?3[\s.\-]?3[\s.\-]*(?:\(0\)|0)?[\s.\-]*[1-9](?:[\s.\-]?\d){8}|\+[\s.]?[1-9](?:[\s.\-]?\d){7,12}|0[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4}))(?!\d)/;
+  // un seul format gardé : « 0612345678 » en France, « +41791234567 » ailleurs
+  function telNorm(t) {
+    var d = String(t || "").replace(/\(0\)/, "").replace(/[^\d+]/g, "");
+    var fr = d.match(/^\+330?([1-9]\d{8})$/); if (fr) return "0" + fr[1];
+    return d;
+  }
   function tableParse(raw, TEL) {
     var L = String(raw || "").replace(/\r/g, "").split("\n").map(function (x) { return x.replace(/[  ]+/g, " ").trim(); });
     var KEY = function (x) { x = String(x || "").trim(); return /^nom$/i.test(x) ? "nom" : /^pr[ée]nom$/i.test(x) ? "prenom" : /^club$/i.test(x) ? "club" : /^class/i.test(x) ? "rank" : /^t[ée]l/i.test(x) ? "tel" : /^(e-?mail|courriel|mail)$/i.test(x) ? "mail" : /^(licence|n°|age|âge|cat)/i.test(x) ? "skip" : ""; };
@@ -4777,7 +4786,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }
     return out.filter(function (o) { return o.nom && o.prenom; }).map(function (o) {
       var t = (o.tel || "").match(TEL);
-      return { name: o.prenom.replace(/(^|[\s\-])([a-zà-ÿ])/g, function (m, a, b) { return a + b.toUpperCase(); }) + " " + o.nom, club: o.club || "", rank: o.rank ? (T.normRank(o.rank.replace(/\s/g, "")) || o.rank) : "", tel: t ? t[1].replace(/[^\d+]/g, "") : "" };
+      return { name: o.prenom.replace(/(^|[\s\-])([a-zà-ÿ])/g, function (m, a, b) { return a + b.toUpperCase(); }) + " " + o.nom, club: o.club || "", rank: o.rank ? (T.normRank(o.rank.replace(/\s/g, "")) || o.rank) : "", tel: t ? telNorm(t[1]) : "" };
     });
   }
   // 3.46.4 : la feuille de poule en PDF (« A 15/3  Vs  B 15/4 ») : les rencontres, donc qui reçoit (le joueur de gauche, sauf règle contraire)
@@ -4857,7 +4866,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function mailParse(txt) {
     var lines = String(txt || "").replace(/\r/g, "").split("\n").map(function (l) { return l.replace(/\s+/g, " ").trim(); }).filter(Boolean);
     var out = { title: "", poule: "", kind: "champ", fmt: "poule", to: "", ppl: [] };
-    var TEL = /((?:\+33\s?|0)\s?[1-9](?:[\s.\-]?\d{2}){4})/;
+    var TEL = TEL_RX;
     var me = S.tenup.me || {}, mt = nameTokens([me.prenom, me.nom].filter(Boolean).join(" ") || S.profile.name || "");
     lines.forEach(function (l) {
       if (!out.title && /championnat|individuel|indiv|tournoi|open|tmc/i.test(l) && l.length < 120) out.title = l;
@@ -4866,7 +4875,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var nm = l.slice(0, m.index).replace(/[\s\-–—:,;|•·]+$/, "").replace(/^[\s\-–—•·*\d.)]+/, "").trim();
       if (!nm || nm.split(" ").length < 2 || /\d/.test(nm) || nm.length > 50) return;
       var tk = nameTokens(nm), mine = mt.length >= 2 && mt.every(function (t) { return tk.indexOf(t) >= 0; });
-      out.ppl.push({ name: nm, tel: m[1].replace(/[^\d+]/g, ""), me: mine });
+      out.ppl.push({ name: nm, tel: telNorm(m[1]), me: mine });
     });
     var tb = tableParse(txt, TEL);
     if (tb.length >= 2) out.ppl = tb.map(function (x) { var tk = nameTokens(x.name); return Object.assign(x, { me: mt.length >= 2 && mt.every(function (t) { return tk.indexOf(t) >= 0; }) }); });
