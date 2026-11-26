@@ -8036,3 +8036,6 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .kp-jlk { border-top: 0; margin-top: 8px; }
 /* 4.16.6 : les ronds de dispo, fond doux au lieu du contour (règle du 26/11) */
 .kp-c i, .kp-c i.y, .kp-c i.n { box-shadow: none; background: color-mix(in srgb, currentColor 16%, transparent); }
+
+/* 4.19 : « À découvrir dans Montée » (écran d’Ace) : même tuile, un › dit que ça ouvre un écran */
+.ace-tile .dv-go { position: absolute; top: 12px; right: 14px; font-size: 20px; line-height: 1; color: var(--muted); }
