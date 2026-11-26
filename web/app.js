@@ -5018,13 +5018,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function plSchedSheet(t) {
     var x = t.pool[UI.plSched];
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="plSchedClose"></div><div class="sheet tq-sheet" role="dialog" aria-modal="true" aria-label="Programmer le match"><span class="sheet-grab"></span>' +
-      '<div class="tq-hd"><b>Programmer le match</b><span>' + esc(trNm(x.name)) + "</span></div>" +
+      tqHead("Programmer le match", trNm(x.name), "plSchedClose") +
       '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (x.day ? " v" : "") + '"><input type="date" id="ps-day" data-tn="psday" value="' + esc(x.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('id="ps-time"', x.time, "Heure") + '<em></em></span></div>' +
       hostSeg(UI.plHost != null ? UI.plHost : x.host || "", "plHost") +
       '<span class="small">Montée te le rappelle la veille au soir' + (x.tid ? ", avec ton plan de jeu" : "") + ".</span>" +
       '<button class="btn primary" data-a="plSchedSave">Enregistrer</button>' +
       (x.day ? '<button class="linkbtn" data-a="plSchedClear" style="align-self:center">Retirer la date</button>' : "") + "</div>";
   }
+  // 4.21.2 (Yann) : même en-tête que les autres feuilles (titre à gauche, croix à droite), l'épreuve en petit dessous
+  function tqHead(title, sub, close) { return '<div class="sh-head tq-hd"><b>' + esc(title) + '</b><button class="iconbtn sm" data-a="' + close + '" aria-label="Fermer">' + I.cross + "</button></div>" + (sub ? '<span class="small tq-sub">' + esc(sub) + "</span>" : ""); }
   function trPoolFoot(t, R) {
     return (R.i !== "new" && (t.pool[+R.i] || {}).res ? '<button class="linkbtn" data-a="trUndo" data-k="pool" data-i="' + R.i + '" style="align-self:center">Retirer le résultat (' + t.pool[+R.i].res + ")</button>" : "") +
       (R.i !== "new" ? '<span class="small" style="text-align:center">Pour retirer ce joueur de la poule : « Modifier la poule ».</span>' : "");
@@ -5034,7 +5036,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var addP = pool && R.i === "new"; // 4.21.2 (Yann) : « + Ajouter un adversaire » ajoute un joueur à la poule, pas un match
     var lab = addP ? "Nouvel adversaire" : pool ? "Match de poule" : trLab(R.i === "new" ? (t.rounds || []).length : +R.i);
     var s = '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="trClose"></div><div class="sheet big tq-sheet" role="dialog" aria-modal="true" aria-label="Ton tour"><span class="sheet-grab"></span>' +
-      '<div class="tq-hd"><b>' + esc(lab) + "</b><span>" + esc(t.name || "") + "</span></div>" +
+      tqHead(lab, t.name, "trClose") +
       (pool ? "" : '<div class="tq-seg"><button class="' + (alt ? "" : "on") + '" data-a="trMode" data-v="one">Un adversaire</button><button class="' + (alt ? "on" : "") + '" data-a="trMode" data-v="alt">Le vainqueur de…</button></div>');
     if (!alt) {
       if (R.name || R.rank) {

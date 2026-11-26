@@ -3271,9 +3271,7 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 
 /* 3.44.2 : saisie d'un tour (tq-) */
 .tq-sheet { gap: 14px; }
-.tq-hd { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 3px; } /* 4.21.2 (Yann) : titre puis nom de l'épreuve dessous, centrés */
-.tq-hd b { font-size: 21px; }
-.tq-hd span { font-size: 13px; color: var(--muted); line-height: 1.35; overflow-wrap: anywhere; }
+.tq-hd + .tq-sub { color: var(--muted); line-height: 1.4; margin: -8px 0 12px; overflow-wrap: anywhere; } /* 4.21.2 (Yann) : l'épreuve sous le titre, puis de l'air avant le contenu */
 .tq-seg { display: flex; background: var(--chip); border-radius: 99px; padding: 3px; }
 .tq-seg button { flex: 1; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 700; padding: 9px 6px; border-radius: 99px; white-space: nowrap; }
 .tq-seg button.on { background: var(--ink); color: var(--bg); }
