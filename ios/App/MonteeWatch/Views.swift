@@ -597,7 +597,7 @@ struct OppDetail: View {
                 if !nx.rank.isEmpty {
                     HStack(spacing: 5) {
                         RankTag(r: nx.rank, size: 12).foregroundColor(.secondary)
-                        if let p = nx.p { Text("·").font(.system(size: 12, weight: .bold)).foregroundColor(.secondary); Text("\(p) % de chances").font(.system(size: 12, weight: .bold)).foregroundColor(.bleuDur) }
+                        if let p = nx.p { OddsBall(p: p, hex: nx.pc, size: 24) } // 4.14 : la balle des chances
                     }
                 }
                 // 3.49 (maquette validée) : votre face-à-face en tête
@@ -607,7 +607,7 @@ struct OppDetail: View {
                     let imp = nx.mode == "impossible", col: Color = imp ? Color(red: 0.71, green: 0.61, blue: 1) : Color(red: 0.95, green: 0.82, blue: 0.29)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(imp ? "MISSION IMPOSSIBLE" : "L'ÉCART ABYSSAL").font(.system(size: 10, weight: .heavy)).kerning(0.8).foregroundColor(col)
-                        Text(imp ? "≈ 0 %" : "\(nx.gap ?? 5) échelons").font(.system(size: 26, weight: .heavy))
+                        Text(imp ? "< 5 %" : "\(nx.gap ?? 5) échelons") // 4.14 : jamais « 0 % ».font(.system(size: 26, weight: .heavy))
                         Text(imp ? "Sur un malentendu, ça peut marcher." : "Le seul qui peut te battre aujourd'hui, c'est toi.")
                             .font(.system(size: 12, weight: .bold)).fixedSize(horizontal: false, vertical: true)
                     }
@@ -619,7 +619,7 @@ struct OppDetail: View {
                     }
                 } else {
                     HStack(spacing: 6) {
-                        if let p = nx.p, nx.fv == nil { StatTile(k: "Chances", v: "\(p) %", color: .balle) }
+                        if let p = nx.p, nx.fv == nil { OddsBall(p: p, hex: nx.pc, size: 46) } // 4.14 : la balle des chances
                         if !nx.h2h.isEmpty, nx.fv == nil { StatTile(k: "Face-à-face", v: nx.h2h) }
                     }
                     OppCoach(nx: nx)
@@ -844,8 +844,9 @@ struct MetricCards: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(nx.name).font(.system(size: 15, weight: .heavy)).lineLimit(1)
-                                    Text(nx.rank + (nx.p.map { " · tes chances \($0) %" } ?? "")).font(.system(size: 11.5, weight: .bold)).foregroundColor(.secondary).lineLimit(1)
+                                    Text(nx.rank).font(.system(size: 11.5, weight: .bold)).foregroundColor(.secondary).lineLimit(1)
                                 }
+                                if let p = nx.p { OddsBall(p: p, hex: nx.pc, size: 30) } // 4.14 : la balle des chances
                                 Spacer(minLength: 2)
                                 Image(systemName: "chevron.right").font(.system(size: 12, weight: .heavy)).foregroundColor(.secondary)
                             }

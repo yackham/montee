@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.12.0",
+    VERSION: "4.14.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1370,11 +1370,12 @@
         mxQ(".pl-trk2 .e", scr).forEach(function (e, i) { e.style.setProperty("--d", (i ? 1100 : 150) + "ms"); mxRe(e, "mx-in"); });
       }
     }
-    // Plan de jeu : l'anneau de tes chances se remplit et le % défile
-    var rg = scr.querySelector(".ff-ring"), arc = rg && rg.querySelectorAll("circle")[1], da = arc && (arc.getAttribute("stroke-dasharray") || "").split(" ");
-    if (da && da.length === 2) {
-      var L = +da[0], C = da[1]; arc.setAttribute("stroke-dasharray", "0 " + C);
-      mxIo([rg], function () { mTw(900, 150, function (k) { arc.setAttribute("stroke-dasharray", (L * k).toFixed(1) + " " + C); }, function () { arc.setAttribute("stroke-dasharray", L + " " + C); }); pct(rg.querySelector("b"), 150); }, 0.5);
+    // Plan de jeu : la balle de tes chances se remplit et le % défile (4.14 : la balle remplace l'anneau)
+    var rg = scr.querySelector(".ff-ball"), bf = rg && rg.querySelector(".obq-f");
+    if (bf) {
+      var dY = 100 - parseFloat((/^M-5 ([\d.]+)/.exec(bf.getAttribute("d")) || [0, 100])[1]) + 4;
+      bf.style.transform = "translateY(" + dY + "px)";
+      mxIo([rg], function () { mTw(900, 150, function (k) { bf.style.transform = "translateY(" + (dY * (1 - k)).toFixed(1) + "px)"; }, function () { bf.style.transform = ""; }); pct(rg.querySelector("text"), 150); }, 0.5);
       var oh = scr.querySelector(".ff-odds .row1 .h"); if (oh) { oh.style.setProperty("--d", "350ms"); mxRe(oh, "mx-in"); }
     }
     // Ce qui se joue : « Si tu gagnes » puis « Si tu perds » arrivent, les points défilent, la barre du bilan se remplit
@@ -1697,7 +1698,7 @@
       if (z.bot) {}
       else if (z.rel && (m = st.match(/(\d+) \/ (\d+)/))) bot = '<span class="ft-bar"><i style="width:' + Math.min(100, Math.round(100 * m[1] / m[2])) + '%"></i></span><b>' + m[1] + "</b>/ " + m[2];
       else if (st || z.wait) { var p = st.match(/(\d+) %/), g = st.match(/\+\d+ pts/);
-        bot = p || g || z.wait ? (p ? "<b>" + p[1] + " %</b> de chances" : z.wait ? WAIT_P : "") + '<span class="grow"></span>' + (g ? "<b>" + g[0] + "</b> si tu gagnes" : "") : '<span class="grow">' + esc(st) + "</span>"; }
+        bot = p || g || z.wait ? (p ? '<span class="obq-m">' + oddsBall(+p[1] / 100, 36) + "</span>" : z.wait ? WAIT_P : "") + '<span class="grow"></span>' + (g ? "<b>" + g[0] + "</b> si tu gagnes" : "") : '<span class="grow">' + esc(st) + "</span>"; }
       // 3.60.1 (Yann) : « Propose-leur une date » seulement pour des matchs de poule à programmer ; un tableau attend ton 1er tour
       else if (z.todo) bot = '<span class="grow">' + (/à programmer$/.test(z.title || "") ? "Propose-leur une date" : /arrive$/.test(z.title || "") ? "Colle le mail du comité dès qu'il arrive" : "Note ton adversaire et l'heure") + "</span><b>›</b>";
       // 3.59 (Yann, piste B) : le type se lit au surtitre : son picto devant, et sa couleur (texte seulement)
@@ -1794,7 +1795,7 @@
   }
   function paRowHtml(o, n, p, lock) {
     var b = (S.paSeen || {})[o.id], p0 = b ? b.p : null, nw = paIsNew(n);
-    var ch = p0 != null && p != null && p !== p0 ? '<span class="pa-ch2' + (p < p0 ? " dn" : "") + '">Tes chances : ' + p0 + " % → " + p + " %</span>" : "";
+    var ch = p0 != null && p != null && p !== p0 ? '<span class="pa-chb">' + oddsBall(p0 / 100, 30) + '<i aria-hidden="true">→</i>' + oddsBall(p / 100, 30) + "<span>Tes chances " + (p < p0 ? "baissent" : "montent") + "</span></span>" : "";
     var tx = n.k === "wait" ? (oppWait(o.id) ? WAIT_P : "Sa fiche Ten'Up n'est pas encore lue.") : n.t;
     return '<a class="pa-r" href="#/joueur/' + encodeURIComponent(o.id) + '"><i aria-hidden="true">' + esc(initials(paName(o))) + "</i><div><b>" + (o.rank ? '<span class="rk-tag">' + esc(o.rank) + "</span> " : "") + esc(paName(o)) + "</b>" + (nw ? '<span class="pa-new">Nouveau</span>' : "") +
       "<small>" + esc(paWhen(o)) + (p != null && !ch ? " · " + p + " % de chances" : "") + '</small><p class="' + (nw ? "" : "pa-calm") + '">' + tx + "</p>" + ch + (lock ? "" : paMoveHtml(o)) + '</div><span class="pa-ch" aria-hidden="true">›</span></a>';
@@ -3105,8 +3106,7 @@
     var CAL_IC = svg('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>', 2);
     var prow = function (z) {
       var wt = oppWait(z.x.tid), p = wt ? null : trP(z.x.rankNow || z.x.rank, z.x.tid, z.x.name), g = trGain(z.x.rankNow || z.x.rank), past = z.x.day && dGap(z.x.day) <= 0;
-      var col = p == null ? "var(--muted)" : p >= 55 ? "var(--gazon)" : p < 45 ? "var(--terre)" : "var(--ink)";
-      var sub = [p != null ? '<b style="color:' + col + '">' + p + " % de chances</b>" : wt ? WAIT_P : "", g > 0 ? "+" + g + " pts" : "", hostLab(z.x)].filter(Boolean).join(" · ");
+      var sub = [p != null ? '<span class="obq-i">' + oddsBall(p / 100, 26) + "</span>" : wt ? WAIT_P : "", g > 0 ? "+" + g + " pts" : "", hostLab(z.x)].filter(Boolean).join(" · ");
       var when = z.x.day ? '<button class="pl-when' + (past ? " past" : "") + '" data-a="plSched" data-i="' + z.i + '">' + CAL_IC + esc(trWhen(z.x)) + "</button>" : "";
       return '<div class="pl-u2"><button class="pl-ub" data-a="trRound" data-k="pool" data-i="' + z.i + '"><b>' + esc(trNm(z.x.name)) + (z.x.rank ? ' <span class="muted">· ' + esc(z.x.rank) + "</span>" : "") + "</b><small>" + sub + "</small></button>" +
         '<span class="pl-tel">' + (z.x.day ? "" : '<button class="pl-ic pl-cal" data-a="plSched" data-i="' + z.i + '" aria-label="Programmer le match">' + CAL_IC + "</button>") +
@@ -3163,7 +3163,7 @@
       var col = r.res === "V" ? "v" : r.res === "D" ? "d" : "", nxt = !r.res && !done && rs.filter(function (x) { return !x.res; })[0] === r;
       s += '<div class="tq-r ' + col + (nxt ? " nx" : "") + (i === rs.length - 1 ? " last" : "") + '"><span class="tq-n"><span class="tq-b">' + (r.res || i + 1) + '</span></span><span class="grow">' +
         '<span class="tq-k">' + esc(trLab(i) + " · " + trWhen(r)) + "</span>" +
-        '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + esc(trWho(r)) + "</a>" : esc(trWho(r))) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<b class="tq-p" style="color:' + (p >= 55 ? "var(--gazon)" : p < 45 ? "var(--terre)" : "var(--ink)") + '">' + p + " %</b>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
+        '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + esc(trWho(r)) + "</a>" : esc(trWho(r))) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<span class="tq-p tq-pb">' + oddsBall(p / 100, 30) + "</span>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
         (r.opp && r.opp.club && !done ? '<span class="small">' + esc(r.opp.club) + "</span>" : "") +
         (r.beat && !r.res ? '<span class="small">Il a battu ' + esc(trNm(r.beat.name)) + (r.beat.score ? " " + esc(r.beat.score) : "") + "</span>" : "") +
         (A2 && !r.res ? '<span class="small">' + esc(trNm(A2.fav.name) || "Le " + A2.fav.rank) + " devrait passer (" + Math.max(A2.pa, 100 - A2.pa) + " %)</span>" +
@@ -6477,6 +6477,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   function ffRate(x) { return x && x.n ? x.v / x.n : null; }
   function ffPct(x) { return Math.round(x * 100) + " %"; }
+  // 4.14 (Yann, 26/11) : tes chances contre un adversaire = une balle de tennis qui se remplit, aux couleurs du thème.
+  // Une seule fonction de dessin et de couleur (widgets.js : ballSvg / ballCol), partagée avec les widgets et la montre.
+  var BALL_TC = {};
+  function ballTheme() {
+    var r = document.documentElement, k = (r.getAttribute("data-theme") || "") + "|" + (r.getAttribute("data-skin") || "");
+    if (!BALL_TC[k]) { var cs = getComputedStyle(r); BALL_TC[k] = { t: cs.getPropertyValue("--terre").trim(), g: cs.getPropertyValue("--gazon").trim() }; }
+    return BALL_TC[k];
+  }
+  function oddsBall(p, S) { var W = window.MonteeWidgetArt, c = ballTheme(); return W && W.ballSvg ? W.ballSvg(p, S, { col: W.ballCol(p, c.t, c.g) }) : "<b>" + Math.round(p * 100) + " %</b>"; }
+  // la couleur de la balle pour la montre (toujours sur fond sombre : couleurs de Nuit)
+  function ballHexWatch(pc) { var W = window.MonteeWidgetArt; if (!W || !W.ballCol || pc == null) return null; var P = W.palette("nuit"); return W.ballCol(pc / 100, P.terre, P.gazon); }
   function ffFirst(pr) { return pr.prenom ? String(pr.prenom).split(/[\s-]/)[0].charAt(0).toUpperCase() + String(pr.prenom).split(/[\s-]/)[0].slice(1).toLowerCase() : "Lui"; }
   function ffMyIni() { var me = S.tenup.me || {}; return initials([me.prenom || S.profile.name || "", me.nom || ""].join(" ").trim() || "Moi"); }
   function ffMonth(d) { return d ? MOIS[E.parseDate(d).getMonth()] : ""; }
@@ -6949,15 +6960,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function ffOddsCard(D) {
     var od = D.od; if (!od) return "";
     if (od.k === "impossible" || od.k === "abyssal") {
-      // 3.34 : l'écart en vedette, une échelle (un barreau par échelon), puis l'ironie
+      // 4.14 (maquette validée le 26/11) : les écarts énormes dans la même carte que les autres matchs, avec la même balle ; l'écart et l'ironie en texte
       var imp = od.k === "impossible", n = Math.max(5, Math.min(12, Math.abs(od.gap || (D.hi - D.me) || 5)));
-      var rungs = ""; for (var ri = 0; ri <= n; ri++) rungs += '<line x1="12" x2="40" y1="' + (8 + ri * 96 / n).toFixed(1) + '" y2="' + (8 + ri * 96 / n).toFixed(1) + '" stroke="var(--line)" stroke-width="2.4" stroke-linecap="round"/>';
-      var topC = imp ? "var(--terre)" : "var(--gazon)", botC = imp ? "var(--gazon)" : "var(--terre)";
-      var ladder = '<svg class="ff-lad" width="84" height="112" viewBox="0 0 84 112" aria-hidden="true"><line x1="12" y1="4" x2="12" y2="108" stroke="var(--muted)" stroke-width="2.6" stroke-linecap="round"/><line x1="40" y1="4" x2="40" y2="108" stroke="var(--muted)" stroke-width="2.6" stroke-linecap="round"/>' + rungs +
-        '<circle cx="26" cy="8" r="6.5" fill="' + topC + '"/><text x="50" y="12" font-size="11" font-weight="800" fill="' + topC + '">' + (imp ? "lui" : "toi") + '</text><circle cx="26" cy="104" r="6.5" fill="' + botC + '"/><text x="50" y="108" font-size="11" font-weight="800" fill="' + botC + '">' + (imp ? "toi" : "lui") + "</text></svg>";
       var JOKES = imp ? ["Il faudrait qu'il ait oublié ses raquettes. Toutes.", "Statistiquement, il faudrait qu'il joue de la main gauche. Et qu'il ne soit pas gaucher.", "À moins d'un orage pile sur ses jeux de service…"] : ["Et franchement, tu en es capable.", "Sur le papier c'est plié. Sur le court, il faut quand même le jouer.", "Le piège, c'est de croire que c'est déjà fini."];
-      return '<div class="card ff-imp ' + od.k + '"><div class="ff-imp-t"><span class="eyebrow">' + (imp ? "Mission impossible" : "L'écart abyssal") + '</span><b class="ff-imp-p">' + (imp ? "≈ 0 %" : plural(n, "échelon")) + "</b>" +
-        (imp ? "" : '<span class="small">entre vous · tes chances ≈ 100 %</span>') + "<b>" + (imp ? "Sur un malentendu, ça peut marcher." : "Le seul qui peut te battre aujourd'hui, c'est toi.") + '</b><span class="small">' + JOKES[(D.hi || 0) % JOKES.length] + "</span></div>" + ladder + "</div>";
+      return '<div class="card ff-odds ff-x ' + od.k + '"><span class="eyebrow id-pill c-dur">Le match</span><div class="row1"><div class="ff-ring ff-ball">' + oddsBall(od.p, 92) + '</div><div><span class="h">' + esc(od.head) + '</span><span class="small">' +
+        (imp ? "Il est " + plural(n, "échelon") + " au-dessus. Sur un malentendu, ça peut marcher." : plural(n, "échelon") + " entre vous. Le seul qui peut te battre aujourd'hui, c'est toi.") + '</span></div></div><span class="p">' + JOKES[(D.hi || 0) % JOKES.length] + "</span></div>";
     }
     var parts = [], paper = D.me - D.hi;
     parts.push(paper > 0 ? plural(paper, "échelon") + " d'écart en ta faveur" : paper < 0 ? "il est " + plural(-paper, "échelon") + " au-dessus" : "même classement");
@@ -6977,7 +6984,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var lm = D.mine[0]; if (lm) parts.push((lm.result === "V" ? "tu l'as battu" : "il t'a battu") + " en " + MOIS_L[E.parseDate(lm.date).getMonth()]);
     // 3.47 : « …, mais … » ne prend jamais de « et » devant (plus de « et mais »)
     parts = parts.slice(0, 3); var why = parts.reduce(function (acc, t, i) { return !i ? t : acc + (/^mais /.test(t) ? ", " : i === parts.length - 1 ? " et " : ", ") + t; }, ""); why = why.charAt(0).toUpperCase() + why.slice(1) + ".";
-    var p = Math.round(od.p * 100), ring = '<div class="ff-ring"><svg viewBox="0 0 36 36" width="92" height="92"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--line)" stroke-width="4"/><circle cx="18" cy="18" r="15.5" fill="none" stroke="' + (od.p >= 0.5 ? "var(--gazon)" : "var(--terre)") + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + (97.4 * od.p).toFixed(1) + ' 97.4"/></svg><b>' + p + " %</b></div>";
+    var p = Math.round(od.p * 100), ring = '<div class="ff-ring ff-ball">' + oddsBall(od.p, 92) + "</div>";
     // D'où vient le chiffre : chaque ingrédient en points, avec ses données
     var rl = function (L) { L = Math.round(L); return L < 0 ? "NC" : lab(L); };
     // Niveaux réels sans arrondi trompeur : « entre 15/4 et 15/3 » quand c'est entre les deux, puis l'écart réel
@@ -6991,7 +6998,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var d = x.d, sg = d > 0 ? "+" + d : d < 0 ? "−" + (-d) : "0", ex = det[x.l] != null ? det[x.l] : (D.mine || []).map(function (m) { return (m.result === "V" ? "V " : "D ") + (m.score || "") + (m.date ? " (" + MOIS[E.parseDate(m.date).getMonth()] + " " + E.parseDate(m.date).getFullYear() + ")" : ""); }).slice(0, 3).join(" · ");
       return '<div class="bd"><span class="grow"><b>' + esc(x.l) + "</b>" + (ex ? '<span class="small">' + esc(ex) + "</span>" : "") + '</span><span class="pt ' + (d > 0 ? "up" : d < 0 ? "dn" : "") + '">' + sg + "</span></div>";
     }).join("");
-    if (bd) bd = '<details class="ff-bdd"><summary>D\'où vient ce ' + p + ' %</summary><div class="ff-bd"><span class="bh">On part de 50 %</span>' + bd + "</div></details>";
+    if (bd) bd = '<details class="ff-bdd"><summary>D\'où vient ce ' + (od.p < 0.05 || od.p > 0.95 ? window.MonteeWidgetArt.ballLab(od.p, true) : p + " %") + '</summary><div class="ff-bd"><span class="bh">On part de 50 %</span>' + bd + "</div></details>";
     // 3.50 (Davy : « tourne autour de son revers » → « va l'embêter revers ») : ce que tes notes disent, en tête du match
     var nd = (D.noteDer || []).filter(function (x) { return x.p && !x.own; })[0], ndH = nd ? '<div class="ff-nd"><span class="nk">D\'après ta note</span><b>' + esc(nd.p.t) + '</b>' + noteHtml(nd.q) + "</div>" : "";
     return '<div class="card ff-odds"><span class="eyebrow id-pill c-dur">Le match</span><div class="row1">' + ring + '<div><span class="h">' + esc(od.head) + '</span><span class="small">' + esc(why) + '</span></div></div><span class="p">' + esc(od.txt) + "</span>" + ndH + bd + "</div>";
@@ -17733,7 +17740,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var d = {}; try { d = widgetData(); } catch (e) {}
     try { d.hrThr = hrThr(); } catch (e) {} // 3.55.3 (Yann) : la montre colore avec TES zones
     var o = [], seen = {};
-    var add = function (x) { if (!x.name || seen[x.id]) return; seen[x.id] = 1; o.push(Object.assign(x, watchCoach(x.name))); };
+    var add = function (x) { if (!x.name || seen[x.id]) return; seen[x.id] = 1; if (x.p != null && x.pc == null) x.pc = ballHexWatch(x.p); o.push(Object.assign(x, watchCoach(x.name))); };
     plans().filter(function (x) { return dGap(x.day) >= 0; }).forEach(function (pl) { add({ id: pl.id, name: pl.name, rank: pl.rank || "", p: pl.p, tag: "Prévu " + dayLab(pl.day), hom: pl.hom, fmt: pl.fmt }); });
     Object.keys(S.scout || {}).map(function (k) { return { k: k, sc: S.scout[k] }; }).filter(function (x) { return x.sc && x.sc.profil; })
       .sort(function (a, b) { return (b.sc.ts || 0) - (a.sc.ts || 0); }).slice(0, 6).forEach(function (x) {
@@ -17753,6 +17760,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (plN) nx = { id: plN.id, name: plN.name, rank: plN.rank || "", when: dayLab(plN.day), p: plN.p != null ? plN.p : null, h2h: ls.id === plN.id ? ls.h2h || "" : "", tip: ls.id === plN.id ? ls.tip || "" : "", tipS: ls.id === plN.id ? ls.tipS || "" : "", mode: ls.id === plN.id && ls.k ? ls.k : null, gap: ls.id === plN.id ? ls.gap : null };
     else if (ls.name) nx = { id: ls.id || "", name: nameCase(ls.name), rank: ls.rank || "", when: "", p: ls.p != null ? ls.p : null, h2h: ls.h2h || "", tip: ls.tip || "", tipS: ls.tipS || "", mode: ls.k || null, gap: ls.gap != null ? ls.gap : null };
     if (nx) Object.assign(nx, watchCoach(nx.name));
+    if (nx && nx.p != null) nx.pc = ballHexWatch(nx.p); // 4.14 : couleur de la balle des chances (même calcul que l'iPhone)
     var last = null; try { var pm = sortedMatches().filter(function (m) { return m.date && !m.wo && (m.result === "V" || m.result === "D"); })[0]; if (pm) last = pm.result + " " + (pm.score || "") + " · " + (pm.opp || "") ; } catch (e) {}
     var day = null; try { var dz = friseItems().filter(function (z) { return !z.dim && dGap(z.d) === 0 && (z.pl || z.t || z.team) && !z.todo && !z.rel && !z.bd; })[0];
       if (dz) { var dn = String(dz.title || "").replace(/<[^>]+>/g, "").split(" · "), oid = dz.pl ? String(dz.pl.id) : dz.oid ? String(dz.oid) : null;
@@ -18846,8 +18854,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.12",
+    v: "4.14",
     pages: [
+      // 4.14 (Yann, 26/11/2026) : tes chances = une balle de tennis qui se remplit, aux couleurs de ton thème (fiche, accueil, tournois, widgets, montre)
+      { hero: true, title: "Montée 4.14", text: "Tes chances contre un adversaire se lisent d'un coup d'œil : une balle de tennis qui se remplit, aux couleurs de ton thème." },
+      { tag: "Nouveau", tone: "rose", title: "Tes chances, en balle", vis: "bal414", text: IOS ? "Plus elle est pleine, plus le match est pour toi. Sur sa fiche, dans Ce qui arrive, tes tournois, tes widgets et ta montre. Touche « D'où vient » pour le détail du calcul." : "Plus elle est pleine, plus le match est pour toi. Sur sa fiche, dans Ce qui arrive, tes tournois et tes widgets. Touche « D'où vient » pour le détail du calcul." },
       // 4.12 (Yann, 26/11/2026) : l'adversaire qui va monter ou descendre, ses points au jour du match (règle FFT)
       { hero: true, title: "Montée 4.12", text: "Ton adversaire va monter ou descendre ? Montée te dit ce que vaudra ta victoire le jour du match, avant même que le tableau change." },
       { tag: "Nouveau", tone: "rose", title: "Il monte ou il descend ?", vis: "rkm412", text: "Sur sa fiche, dans « Je le joue » et dans tes prochains adversaires : son classement le jour du match et ce que vaut ta victoire. Règle FFT : c'est ce classement-là qui compte." },
@@ -18992,7 +19003,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-    var PHARES = ["rkm412", "tz411", "fav411", "why411", "free411"]; // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
+    var PHARES = ["bal414", "rkm412", "tz411", "fav411", "free411"]; // 4.14 : la balle des chances en tête (why411 sort) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -19014,6 +19025,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.5 : visuels des nouveautés (couleurs fixes : l'écran est toujours sombre ; noms d'exemple génériques)
     var nvAv = function (t, c) { return '<span style="width:34px;height:34px;flex:none;border-radius:17px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:' + (c || "#3A3F49") + ';color:#F2F3F5">' + t + "</span>"; };
     var nvPill = '<em style="font-style:normal;font-size:11.5px;font-weight:800;border-radius:99px;padding:2px 8px;background:#D4E64A;color:#121212;margin-right:6px">Nouveau</em>';
+    if (k === "bal414") { var WA = window.MonteeWidgetArt, PN = WA.palette("nuit"); return nvc('<span class="nv-k" style="color:#D4E64A">TES CHANCES</span><span style="display:flex;justify-content:space-around;align-items:flex-end;gap:6px">' + [[0.18, "Gros défi"], [0.47, "Match ouvert"], [0.72, "À ta portée"], [0.92, "Large favori"]].map(function (x) { return '<span style="display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;font-weight:700;text-align:center">' + WA.ballSvg(x[0], 60, { col: WA.ballCol(x[0], PN.terre, PN.gazon), empty: "#2E323B", ring: "rgba(255,255,255,.22)", ink: "#F2F3F5", halo: "#24272E" }) + x[1] + "</span>"; }).join("") + "</span>"); }
     if (k === "rkm412") return nvc('<span class="nv-k" style="color:#D4E64A">JE LE JOUE · JOUR</span><span style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' + [["SAM.", "28", 0, 0], ["DIM.", "29", 0, 0], ["LUN.", "30", 0, 0], ["MAR.", "1", 1, 0], ["MER.", "2", 1, 1]].slice(1).map(function (d) { return '<span style="position:relative;display:flex;flex-direction:column;align-items:center;padding:6px 0;border-radius:12px;background:' + (d[3] ? "#D4E64A;color:#121212" : "rgba(255,255,255,.08)") + '"><small style="font-size:9.5px;font-weight:800;opacity:.75">' + d[0] + '</small><b style="font-size:17px">' + d[1] + '</b>' + (d[2] ? '<i style="position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:#E88A5E"></i>' : "") + "</span>"; }).join("") + '</span><span style="display:flex;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);font-size:12.5px;line-height:1.4"><b style="flex:none;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1.5px #E88A5E;color:#E88A5E;display:grid;place-items:center">↓</b><span><b style="display:block;color:#E88A5E;font-size:13.5px">Mer. 2 déc. : il sera 15/2 ce jour-là</b>Ta victoire vaudra +30 pts au lieu de +45.</span></span>');
     if (k === "pa45") return nvc('<span class="nv-k" style="color:#D4E64A">TES PROCHAINS ADVERSAIRES</span>' + [["MC", "M. Caron · 15/2", nvPill + "a perdu lundi", "47 % → 57 %", 1], ["TD", "T. Durand · 15/3", "Rien de neuf", "61 %", 0], ["JM", "J. Moreau · 15/1", "a gagné samedi", "38 % → 34 %", 0]].map(function (r) { return '<span style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)">' + nvAv(r[0]) + '<span style="flex:1;display:flex;flex-direction:column;min-width:0"><b style="font-size:14px">' + r[1] + '</b><span style="font-size:12.5px;opacity:' + (r[4] ? 1 : 0.7) + '">' + r[2] + '</span></span><b style="font-size:13px;color:' + (r[4] ? "#6FC28F" : "#F2F3F5") + ';white-space:nowrap">' + r[3] + "</b></span>"; }).join(""));
     if (k === "aw47") return nvc(watchBox('<span style="display:flex;gap:7px;align-items:flex-start"><span style="flex:none">' + coBall("nv47", "joie", "xs") + '</span><b style="font-size:12px;line-height:1.25">Il te manque <span style="color:#D4E64A">30 pts</span> pour 15/1. Tu veux savoir quoi ?</b></span>' + '<span style="display:flex;align-items:center;gap:7px;background:#22252B;border-radius:13px;padding:6px 8px"><i style="width:20px;height:20px;border-radius:10px;flex:none;background:#8FA8FF33;display:block"></i><span style="display:flex;flex-direction:column;line-height:1.2"><b style="font-size:11.5px">Ton match de demain</b><span style="font-size:10px;font-weight:700;color:#8FA8FF">Thomas M. · 53 %</span></span></span>' + '<span style="display:flex;align-items:center;gap:7px;background:#22252B;border-radius:13px;padding:6px 8px"><i style="width:20px;height:20px;border-radius:10px;flex:none;background:#D4E64A33;display:block"></i><span style="display:flex;flex-direction:column;line-height:1.2"><b style="font-size:11.5px">Monter 15/1</b><span style="font-size:10px;font-weight:700;color:#D4E64A">30 pts à prendre</span></span></span>' + '<span style="display:flex;align-items:center;gap:7px;background:#22252B;border-radius:13px;padding:6px 8px"><i style="width:20px;height:20px;border-radius:10px;flex:none;background:#E88A5E33;display:block"></i><span style="display:flex;flex-direction:column;line-height:1.2"><b style="font-size:11.5px">Ce qui sort</b><span style="font-size:10px;font-weight:700;color:#E88A5E">Rien d\'ici 3 mois</span></span></span>'));

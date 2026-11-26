@@ -335,3 +335,47 @@ enum AceDraw {
     }
 }
 
+
+// MARK: - 4.14 : tes chances = une balle de tennis qui se remplit (comme l'iPhone et ses widgets)
+
+/// La couleur vient de l'iPhone (« pc », même calcul que l'appli, couleurs de Nuit) ; jaune balle si elle manque
+struct OddsBall: View {
+    let p: Int
+    var hex: String? = nil
+    var size: CGFloat = 40
+    static func color(_ hex: String?) -> Color {
+        guard let h = hex?.replacingOccurrences(of: "#", with: ""), h.count == 6, let v = UInt32(h, radix: 16) else { return Color(red: 0.831, green: 0.902, blue: 0.290) }
+        return Color(red: Double((v >> 16) & 255) / 255, green: Double((v >> 8) & 255) / 255, blue: Double(v & 255) / 255)
+    }
+    /// Jamais 0, 3, 97 ni 100 : « <5 », « >95 »
+    var label: String { p < 5 ? "<5" : p > 95 ? ">95" : "\(p)" }
+    var body: some View {
+        let f = CGFloat(max(0, min(100, p))) / 100
+        ZStack {
+            Circle().fill(Color.white.opacity(0.1))
+            GeometryReader { g in
+                Rectangle().fill(OddsBall.color(hex))
+                    .frame(height: g.size.height * (0.02 + 0.96 * f))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            }
+            .clipShape(Circle())
+            OddsSeams().stroke(Color.white.opacity(0.6), lineWidth: max(1, size * 0.04)).clipShape(Circle())
+            Circle().stroke(Color.white.opacity(0.22), lineWidth: max(1, size * 0.025))
+            Text(label).font(.system(size: size * (label.count > 2 ? 0.3 : 0.38), weight: .heavy)).foregroundColor(.white)
+                .shadow(color: .black.opacity(0.7), radius: 1.2)
+        }
+        .frame(width: size, height: size)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(p < 5 ? "moins de 5 % de chances" : p > 95 ? "plus de 95 % de chances" : "\(p) % de chances")
+    }
+}
+
+/// Les deux coutures de la balle
+struct OddsSeams: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path(); let w = r.width, h = r.height
+        p.move(to: CGPoint(x: r.minX + 0.14 * w, y: r.minY + 0.08 * h)); p.addQuadCurve(to: CGPoint(x: r.minX + 0.14 * w, y: r.minY + 0.92 * h), control: CGPoint(x: r.minX + 0.46 * w, y: r.midY))
+        p.move(to: CGPoint(x: r.minX + 0.86 * w, y: r.minY + 0.08 * h)); p.addQuadCurve(to: CGPoint(x: r.minX + 0.86 * w, y: r.minY + 0.92 * h), control: CGPoint(x: r.minX + 0.54 * w, y: r.midY))
+        return p
+    }
+}

@@ -7798,3 +7798,12 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .jj-d.on.rkm-af::after { box-shadow: 0 0 0 2px var(--balle); }
 .rkm-pa { display: block; margin-top: 8px; padding: 9px 0 0; border-top: 1px solid var(--line); font-size: 13.5px; line-height: 1.45; color: var(--ink); }
 .rkm-pa b { font-weight: 800; } .rkm-pa b.dn { color: color-mix(in srgb, var(--terre) 78%, var(--ink)); } .rkm-pa b.up { color: var(--gazon); }
+
+/* 4.14 (Yann, 26/11) : tes chances = une balle de tennis qui se remplit (widgets.js ballSvg), aux couleurs du thème */
+.ff-ring.ff-ball { width: 92px; height: 92px; } .ff-ring.ff-ball svg { transform: none; }
+.ff-ball .obq-f { transform-box: view-box; }
+.obq-m { display: inline-flex; margin: -8px 0; }
+.obq-i { display: inline-flex; vertical-align: middle; margin: -4px 0; }
+.tq-p.tq-pb { display: inline-flex; align-self: center; margin: -6px 0 -6px 6px; }
+.pa-chb { display: flex; gap: 6px; align-items: center; margin-top: 8px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.pa-chb > i { font-style: normal; opacity: .6; }
