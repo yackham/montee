@@ -14045,6 +14045,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var B = function (x) { return "<b>" + x + "</b>"; };
     var ic = "=", col = "var(--bleu3)", title;
     if (F && F.streak.n >= 3) { ic = F.streak.r === "V" ? "🔥" : "↓"; col = F.streak.r === "V" ? "var(--balle)" : "var(--terre)"; title = F.streak.r === "V" ? plural(F.streak.n, "victoire") + " d'affilée" + (F.streak.n >= F.best ? " : ta meilleure série" : "") : plural(F.streak.n, "défaite") + " d'affilée" + (lvl != null ? " · tu joues " + lab(lvl) + " en ce moment" : ""); } // 3.57 (audit parcours M1) : le réconfort est dans la carte « Passage à vide », ici on reste factuel
+    else if (p.margin != null && p.margin < 0 && !p.kept && cur > 0) { ic = "⛨"; col = "var(--terre)"; title = "Maintien menacé : " + plural(-p.margin, "pt") + " de retard"; } // 4.19.0 : jamais « vise plus haut » quand le maintien est menacé
     else if (lvl != null && lvl > cur) { ic = "↑"; col = "var(--gazon)"; title = up ? "En forme, la montée approche" : "Tu joues au-dessus de ton " + lab(cur); }
     else if (lvl != null && lvl < cur) { ic = "↓"; col = "var(--terre)"; title = (cur - lvl === 1 ? "Un cran" : crans(cur - lvl).replace(/^./, function (x) { return x.toUpperCase(); })) + " sous ton " + lab(cur) + " : vigilance"; }
     else if (lvl != null) { ic = up ? "↑" : dn ? "↓" : "="; col = up ? "var(--gazon)" : dn ? "var(--terre)" : "var(--bleu3)"; title = up ? "En forme : c'est le moment de viser " + nextL : dn ? "Stable à " + lab(cur) + ", mais la forme baisse" : "Stable à " + lab(cur) + ", une perf pour viser " + nextL; }
@@ -14053,6 +14054,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // le détail (cran, série, maintien) passe dans le texte ; la feuille « Ton point du jour » garde le titre complet
     var head;
     if (F && F.streak.n >= 3) head = F.streak.r === "V" ? (F.streak.n >= F.best ? "Ta meilleure série" : F.streak.n + " victoires d'affilée") : F.streak.n + " défaites d'affilée";
+    else if (p.margin != null && p.margin < 0 && !p.kept && cur > 0) head = "Vigilance au maintien"; // le titre ne dit jamais « vise plus haut » quand le texte dit « maintien menacé »
     else if (lvl != null && lvl > cur) head = up ? "La montée approche" : "Tu joues au-dessus";
     else if (lvl != null && lvl < cur) head = "Vigilance au maintien";
     else if (lvl != null) head = up ? "En forme, vise " + nextL : dn ? "La forme baisse" : "Stable à " + lab(cur);
