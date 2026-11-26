@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.19.0",
+    VERSION: "4.20.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -11432,6 +11432,25 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function acTone(pc) { return pc == null ? "" : pc >= 50 ? "g" : pc >= 25 ? "y" : "r"; }
   // une ligne : [carré V/D] libellé + sous-titre · barre · valeur ; touchable (feuille de détail ou page)
   // 4.4 : le picto et la couleur de chaque type, les mêmes que les billets de « Ce qui arrive » (poule, tournoi, sortie, équipe)
+  // 4.19 (Yann, 26/11/2026) : « À découvrir dans Montée », en bas de l'écran d'Ace. Des tuiles qui ouvrent les vraies fonctions,
+  // seulement quand elles te servent (4 au plus). Rien de nouveau à calculer : mêmes listes que les écrans qu'elles ouvrent (hbTours, myTeams, tmNext, matNeed).
+  var DV_CAL = svg('<rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M8 2.5v4M16 2.5v4M3 10h18M8.5 15l2 2 4-4"/>'), DV_PIN = svg('<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>');
+  function acDiscover() {
+    var L = [], tu = NATIVE && S.tenup.linked, td = E.iso(today()), in30 = E.iso(new Date(today().getTime() + 30 * 864e5));
+    if (tu) {
+      var t = hbTours().slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; })[0];
+      if (t) { var lim = (t.ins.more || {}).dispoLim; L.push({ h: "#/dispos/" + t.id, ic: DV_CAL, t: "Tes dispos", s: (t.name || "Ton tournoi").trim() + (lim ? " · à changer avant le " + fdate(lim) : " · " + fdate(t.from)) }); }
+      if (!S.hbSeen) L.push({ h: "hb", ic: I.clock, t: "Tes créneaux habituels", s: "Tes heures, pour tous tes tournois" });
+      if (!(S.tours || []).some(function (x) { return (x.to || x.from) >= td && x.from <= in30; })) L.push({ h: "#/trouver", ic: DV_PIN, t: "Trouver un tournoi", s: "Près de chez toi, sans collision" });
+    }
+    if (teamsOn()) {
+      var tn = myTeams().map(function (c) { return { c: c, nx: tmNext(c) }; }).sort(function (a, b) { return (a.nx ? 0 : 1) - (b.nx ? 0 : 1) || (a.nx && b.nx && a.nx.d < b.nx.d ? -1 : 0); })[0];
+      if (tn) L.push({ h: "#/equipe/" + tn.c.id, ic: TEAM_IC, t: "Ton équipe", s: tn.nx ? "Prochaine rencontre le " + fdate(tn.nx.d) : "Rencontres, compo et classement" });
+    }
+    var rk = bag(); if (!rk.length) L.push({ h: "#/materiel", ic: I.racket, t: "Ton matériel", s: "Tes raquettes et tes cordages" });
+    else if (rk.some(function (r) { try { return matNeed(r).now; } catch (e) { return false; } })) L.push({ h: "#/materiel", ic: I.racket, t: "Ton matériel", s: "Un recordage à prévoir" });
+    return L.slice(0, 4);
+  }
   function acSvg(k) { return { po: FT_IC.po, to: FT_IC.to, li: FT_IC.li, so: FR_REL, eq: TEAM_IC }[k] || ""; }
   // 4.4 (Yann, 24/11) : UN seul modèle Montée+ dans Ace : ce qui s'ouvre (lisible), Ace avec son « + » jaune, le bouton d'essai de partout (plusCta)
   function acLock(t, id) { if (isSup()) return ""; return '<div class="acd acl"><div class="acl-r"><span class="acl-av">' + coBall("lk:" + (id || ""), "joie", "xs") + '<i aria-hidden="true">+</i></span><span class="acl-t">' + t + "</span></div>" + plusCta() + "</div>"; }
@@ -11713,6 +11732,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         var qs = Q.filter(function (x) { return x[0] === gr[0]; }); if (!qs.length) return;
         s += '<span class="ace-k">' + gr[1] + '</span><div class="ace-grid">' + qs.map(function (x) { return '<button class="ace-tile' + (x[1] === hot ? " hot" : "") + '" data-a="aceQ" data-v="' + esc(x[1]) + '"><i' + (x[6] ? ' class="aci-' + x[6] + '"' : "") + (x[8] ? ' style="color:' + x[8] + '"' : "") + ">" + (x[6] ? acSvg(x[6]) : I[x[5]] || I.spark) + "</i><b>" + esc(x[3]) + "</b><small>" + esc(x[4]) + "</small>" + (x[7] && !isSup() ? '<span class="ace-plt">Montée+</span>' : "") + "</button>"; }).join("") + "</div>";
       });
+      var dv = []; try { dv = acDiscover(); } catch (e) {}
+      if (dv.length) s += '<span class="ace-k">À découvrir dans Montée</span><div class="ace-grid">' + dv.map(function (x) { return '<button class="ace-tile dv-t" data-a="aceGo" data-h="' + esc(x.h) + '"><i>' + x.ic + "</i><b>" + esc(x.t) + "</b><small>" + esc(x.s) + '</small><span class="dv-go" aria-hidden="true">›</span></button>'; }).join("") + "</div>";
     } else {
       var an = coAnswer(c, q);
       s += top('<span class="ace-ctx"><span>' + esc(ask[3]) + " · " + esc(ask[4]) + "</span></span>"); // 4.3 : Ace passe à côté de sa réponse (une seule fois par écran)
@@ -21149,6 +21170,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       }).catch(function () { askNotif(); });
     },
     aceIntro: function (el) { S.aceSeen = 1; save(); if (el.dataset.v === "go") UI.ace = { q: "" }; render(); },
+    aceGo: function (el) { var h = el.dataset.h || ""; UI.ace = null; haptic("light"); if (h === "hb") return A.hbOpen(); if (location.hash === h) render(); else location.hash = h; }, // 4.19 : les tuiles « À découvrir »
     coachGo: function (el) { var h = el.dataset.h || "", q = h.split("?")[1]; if (q) UI.mmTab = q; if (UI.ace && UI.ace.q) UI.aceBack = { q: UI.ace.q, h: h.split("?")[0] }; UI.sheet = null; UI.ace = null; if (location.hash === h.split("?")[0]) render(); else location.hash = h.split("?")[0]; },
     goSeasonCard: function (ev) { UI.cardWhich = "season"; UI.cardStyle = null; go("carte"); },
     cardWhich: function (el) { UI.cardWhich = el.dataset.v; UI.cardStyle = null; render(); },
@@ -21883,7 +21905,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         if (!b.amb && T.dzSame(nx, b.slots)) delete ed[d.iso]; else ed[d.iso] = nx; } // revenu à ce que Ten'Up a déjà : plus rien à envoyer pour ce jour
       UI.hbd = null; UI.sheet = null; render(); },
     // 4.10 : créneaux habituels (profil Ten'Up) et indispo d'un tournoi
-    hbOpen: function () { UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
+    hbOpen: function () { if (!S.hbSeen) { S.hbSeen = 1; save(); } UI.hbd = null; UI.sheet = { k: "hb" }; hbLoad(!!(UI.hb && UI.hb.err)); render(); },
     hbDay: function (el) { UI.hbd = null; UI.sheet = { k: "hbd", v: el.dataset.v, back: "hb" }; render(); },
     hbPlay: function (el) { var d = UI.hbd; if (!d) return; d.play = el.dataset.v === "1";
       if (d.play && !d.slots.length) { var h = d.dz ? d.hab : (UI.hb.prof.week[d.wd] || []); d.slots = h.length ? JSON.parse(JSON.stringify(h)) : [{ from: "18:00", to: "22:00" }]; } render(); },
