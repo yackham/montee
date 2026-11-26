@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.21.0",
+    VERSION: "4.21.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1696,21 +1696,24 @@
   function trWhen(r) { return r.day ? dayLab(r.day) + (r.time ? " · " + r.time : "") : "date à venir"; }
   function trNm(n) { n = String(n || "").trim(); return /^q\d+$/i.test(n) ? "qualifié " + n.toLowerCase() : /(^|\s)[A-Za-zÀ-ÿ]\.?(\s|$)/.test(n) ? n.toUpperCase() : nameCase(n); }
   function trWho(r) {
-    if (r.opp && r.opp.name) return trNm(r.opp.name) + (r.opp.rank ? " · " + r.opp.rank : "");
-    if (r.opp && r.opp.rank) return "Un " + r.opp.rank;
-    if (r.alt && r.alt.length) return "Vainqueur de " + r.alt.map(function (a) { return trNm(a.name) || ("un " + a.rank); }).join(" / ");
+    var rk = r.opp ? rkNow(r.opp, !!r.res) : "";
+    if (r.opp && r.opp.name) return trNm(r.opp.name) + (rk ? " · " + rk : "");
+    if (rk) return "Un " + rk;
+    if (r.alt && r.alt.length) return "Vainqueur de " + r.alt.map(function (a) { return trNm(a.name) || ("un " + rkNow(a, !!r.res)); }).join(" / ");
     return "Adversaire à venir";
   }
   // Pour « le vainqueur de A / B » : qui devrait passer, et tes chances contre chacun
   function trAlt(r) {
     if (!r.alt || r.alt.length < 2) return null;
-    var a = r.alt[0], b = r.alt[1], ia = E.idx(T.normRank(a.rank || "")), ib = E.idx(T.normRank(b.rank || ""));
+    var a = r.alt[0], b = r.alt[1], ra = rkNow(a), rb = rkNow(b), ia = E.idx(T.normRank(ra)), ib = E.idx(T.normRank(rb));
     // 4.2.3 : qui devrait passer, selon leurs vrais niveaux (oppRealOf, le calcul de leur fiche) quand on les a lus
     var la = a.tid ? oppRealOf(String(a.tid)) : null, lb = b.tid ? oppRealOf(String(b.tid)) : null; if (la != null) ia = la; if (lb != null) ib = lb;
     var pa = ia != null && ib != null ? expWin(ib, ia) : 0.5;
-    return { a: a, b: b, pa: Math.round(pa * 100), fav: pa >= 0.5 ? a : b, wait: oppWait(a.tid) || oppWait(b.tid), pA: trP(a.rank, a.tid, a.name), pB: trP(b.rank, b.tid, b.name), pExp: (function () { var x = trP(a.rank, a.tid, a.name), y = trP(b.rank, b.tid, b.name); return x == null || y == null ? (x != null ? x : y) : Math.round(x * pa + y * (1 - pa)); })() };
+    return { a: a, b: b, pa: Math.round(pa * 100), fav: pa >= 0.5 ? a : b, wait: oppWait(a.tid) || oppWait(b.tid), rA: ra, rB: rb, pA: trP(ra, a.tid, a.name), pB: trP(rb, b.tid, b.name), pExp: (function () { var x = trP(ra, a.tid, a.name), y = trP(rb, b.tid, b.name); return x == null || y == null ? (x != null ? x : y) : Math.round(x * pa + y * (1 - pa)); })() };
   }
-  function trRoundP(r) { if (r.opp && r.opp.rank) return trP(r.opp.rank, r.opp.tid, r.opp.name); var A2 = trAlt(r); return A2 ? A2.pExp : null; }
+  // 4.21.1 : le classement d'un tour à venir (son adversaire, ou le favori de « vainqueur de A / B »), officiel du jour : rkNow
+  function trRk(r) { if (!r) return ""; if (r.opp) return rkNow(r.opp, !!r.res); var A = trAlt(r); return A ? (A.fav === A.a ? A.rA : A.rB) : ""; }
+  function trRoundP(r) { var rk = r.opp ? rkNow(r.opp, !!r.res) : ""; if (rk) return trP(rk, r.opp.tid, r.opp.name); var A2 = trAlt(r); return A2 ? A2.pExp : null; }
   var TOUR_IC = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h4v4H3zM3 16h4v4H3z"/><path d="M7 6h3v12H7M10 12h4"/><circle cx="18" cy="12" r="3.2"/></svg>';
   // 3.46 (Yann) : « Ce qui arrive » : une frise horizontale de tout ce qui vient (tours, poule, matchs prévus, sortie du classement)
   var FR_REL = svg('<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>', 2.2);
@@ -1719,9 +1722,9 @@
     toursAll().filter(function (t) { return !tourOver(t); }).forEach(function (t) {
       var href = "#/tournoi/" + t.id, short = t.name || "Épreuve", n0 = out.length;
       if (t.wait) { if (t.from && t.from >= td) out.push({ d: t.from, t: t, href: href, title: short, sub: "liste d'attente", dim: 1 }); return; }
-      (t.rounds || []).forEach(function (r, i) { if (r.res || !r.day || r.day < td) return; var rk = r.opp && r.opp.rank || (trAlt(r) ? trAlt(r).fav.rank : "");
+      (t.rounds || []).forEach(function (r, i) { if (r.res || !r.day || r.day < td) return; var rk = trRk(r);
         out.push({ d: r.day, time: r.time, t: t, oid: r.opp && r.opp.tid || "", href: href, title: trWho(r), sub: trLab(i) + " · " + short, st: stake(t, rk, r.opp && r.opp.rank ? r.opp.tid : "", r.opp && r.opp.name), wait: r.opp && r.opp.rank ? oppWait(r.opp.tid) : !!(trAlt(r) && trAlt(r).wait) }); });
-      (t.pool || []).forEach(function (x) { if (x.res || !x.day || x.day < td) return; out.push({ d: x.day, time: x.time, t: t, oid: x.tid || "", href: href, title: trNm(x.name) + (x.rank ? " · " + x.rank : ""), sub: "Poule" + (hostLab(x) ? " · " + hostLab(x) : "") + " · " + short, st: stake(t, x.rankNow || x.rank, x.tid, x.name), wait: oppWait(x.tid) }); });
+      (t.pool || []).forEach(function (x) { if (x.res || !x.day || x.day < td) return; out.push({ d: x.day, time: x.time, t: t, oid: x.tid || "", href: href, title: trNm(x.name) + (rkNow(x) ? " · " + rkNow(x) : ""), sub: "Poule" + (hostLab(x) ? " · " + hostLab(x) : "") + " · " + short, st: stake(t, x.rankNow || x.rank, x.tid, x.name), wait: oppWait(x.tid) }); });
       var left = (t.pool || []).filter(function (x) { return !x.res && !x.day; }).length;
       if (left) out.push({ d: td, t: t, href: href, title: plural(left, "match", "matchs") + " à programmer", sub: short, todo: 1 });
       if (out.length === n0) {
@@ -1799,7 +1802,7 @@
     var hitOf = function (id, name, rank) { var sc = (S.scout || {})[id]; return sc && sc.hit ? sc.hit : poolHit({ tid: id, name: name, rank: rank }); };
     try { toursAll().filter(function (t) { return !tourOver(t) && !t.wait; }).forEach(function (t) {
       (t.rounds || []).forEach(function (r, i) { if (r.res || !r.opp || !r.opp.tid || (r.day && r.day < td)) return; var id = String(r.opp.tid);
-        add({ id: id, name: r.opp.name, rank: r.opp.rank, hit: r.opp.hit || hitOf(id, r.opp.name, r.opp.rank), day: r.day || "", time: r.time || "", lab: trLab(i) }); });
+        add({ id: id, name: r.opp.name, rank: rkNow(r.opp), hit: r.opp.hit || hitOf(id, r.opp.name, r.opp.rank), day: r.day || "", time: r.time || "", lab: trLab(i) }); });
       (t.pool || []).forEach(function (x) { if (x.res || !x.tid || (x.day && x.day < td)) return; var id = String(x.tid);
         add({ id: id, name: x.name, rank: x.rankNow || x.rank, hit: x.hit || hitOf(id, x.name, x.rank), day: x.day || "", time: x.time || "", lab: "Poule", sim: x.sim || null }); });
     }); } catch (e) {}
@@ -3255,15 +3258,15 @@
   function trPath(t, done) {
     var rs = t.rounds || [], s = "";
     rs.forEach(function (r, i) {
-      var p = trRoundP(r), g = r.res ? null : (function () { var A3 = trAlt(r), rk = r.opp && r.opp.rank ? r.opp.rank : A3 ? A3.fav.rank : ""; return rk ? trGain(rk) : null; })(), A2 = trAlt(r), past = r.day && dGap(r.day) <= 0;
+      var p = trRoundP(r), g = r.res ? null : (function () { var rk = trRk(r); return rk ? trGain(rk) : null; })(), A2 = trAlt(r), past = r.day && dGap(r.day) <= 0;
       var col = r.res === "V" ? "v" : r.res === "D" ? "d" : "", nxt = !r.res && !done && rs.filter(function (x) { return !x.res; })[0] === r;
       s += '<div class="tq-r ' + col + (nxt ? " nx" : "") + (i === rs.length - 1 ? " last" : "") + '"><span class="tq-n"><span class="tq-b">' + (r.res || i + 1) + '</span></span><span class="grow">' +
         '<span class="tq-k">' + esc(trLab(i) + " · " + trWhen(r)) + "</span>" +
         '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + esc(trWho(r)) + "</a>" : esc(trWho(r))) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<span class="tq-p tq-pb">' + oddsBall(p / 100, 30) + "</span>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
         (r.opp && r.opp.club && !done ? '<span class="small">' + esc(r.opp.club) + "</span>" : "") +
         (r.beat && !r.res ? '<span class="small">Il a battu ' + esc(trNm(r.beat.name)) + (r.beat.score ? " " + esc(r.beat.score) : "") + "</span>" : "") +
-        (A2 && !r.res ? '<span class="small">' + esc(trNm(A2.fav.name) || "Le " + A2.fav.rank) + " devrait passer (" + Math.max(A2.pa, 100 - A2.pa) + " %)</span>" +
-          [[A2.a, A2.pA], [A2.b, A2.pB]].map(function (z) { return '<span class="tq-alt"><span>' + esc((trNm(z[0].name) || "Un joueur") + (z[0].rank ? " · " + z[0].rank : "")) + "</span><b>" + (z[1] != null ? z[1] + " %" : "–") + "</b></span>"; }).join("") : "") +
+        (A2 && !r.res ? '<span class="small">' + esc(trNm(A2.fav.name) || "Le " + (A2.fav === A2.a ? A2.rA : A2.rB)) + " devrait passer (" + Math.max(A2.pa, 100 - A2.pa) + " %)</span>" +
+          [[A2.a, A2.pA, A2.rA], [A2.b, A2.pB, A2.rB]].map(function (z) { return '<span class="tq-alt"><span>' + esc((trNm(z[0].name) || "Un joueur") + (z[2] ? " · " + z[2] : "")) + "</span><b>" + (z[1] != null ? z[1] + " %" : "–") + "</b></span>"; }).join("") : "") +
         (g != null && !r.res ? '<span class="tq-g">' + (g > 0 ? "+" + g + " pts si tu gagnes" : "Une victoire ne changerait pas ton bilan") + "</span>" : "") +
         (!r.res && past && !done ? '<span class="tq-res"><button class="chip" data-a="trRes" data-v="V" data-i="' + i + '">J\'ai gagné</button><button class="chip" data-a="trRes" data-v="D" data-i="' + i + '">J\'ai perdu</button></span>' : "") +
         (!r.res && !done ? '<button class="linkbtn tq-edl" data-a="trRound" data-i="' + i + '">Modifier ce tour</button>' : "") +
@@ -4712,7 +4715,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         (t.kind === "champ" ? '<label class="tq-el">Format</label><div class="tq-seg"><button class="' + (t.fmt === "poule" ? "on" : "") + '" data-a="trFmtSet" data-v="poule">Poule</button><button class="' + (t.fmt !== "poule" ? "on" : "") + '" data-a="trFmtSet" data-v="tableau">Élimination directe</button></div>' : "") +
         '<div class="tq-eb"><button class="btn soft" data-a="trEdit">Annuler</button><button class="btn primary" data-a="trRenSave">Enregistrer</button></div></div>' : '<span class="eyebrow tk-l">' + tkBadge(t) + tkLab(t) + '</span><h1 class="tq-t">' + esc(t.name || "Épreuve") + "</h1>") +
         '<p class="lead" style="margin-top:-8px">' + esc([t.kind === "champ" ? "Championnat individuel" : "Tournoi", poule ? "poule" : "", t.from ? fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : "") : ""].filter(Boolean).join(" · ")) + "</p>";
-      var pot = rs.reduce(function (a, r) { if (r.res) return a; var A3 = trAlt(r), rk = r.opp && r.opp.rank ? r.opp.rank : A3 ? A3.fav.rank : ""; var g = rk ? trGain(rk) : null; return a + (g || 0); }, 0) +
+      var pot = rs.reduce(function (a, r) { if (r.res) return a; var rk = trRk(r); var g = rk ? trGain(rk) : null; return a + (g || 0); }, 0) +
         (poule ? (t.pool || []).reduce(function (a, x) { return a + (x.res ? 0 : (trGain(x.rank) || 0)); }, 0) : 0);
       var c = ctx(), tgtI = Math.min((c.cur < 0 ? 0 : c.cur) + 1, E.MAX_CALC);
       // 4.2.4 (passe 2, Yann 23/11/2026) : le conseil d'Ace garde tout son texte ; Ace se pose sur la carte du bilan quand elle existe
@@ -6300,6 +6303,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     });
     return { r: r, p: p };
   }
+  // 4.21.1 (Yann : « pk tu me mets 15/4 ? ») : le classement AFFICHÉ d'un adversaire à venir = son classement OFFICIEL du jour (oppNowIdx :
+  // palmarès lu, fiche, suivi), jamais celui de votre dernier match ni son niveau estimé. Match déjà joué : son classement au jour du match.
+  function rkNow(x, played) {
+    if (!x) return ""; if (played) return x.rank || "";
+    var id = x.tid || x.oid, n = id ? oppNowIdx({ oid: String(id), opp: x.name }).r : null;
+    return n != null ? lab(n) : (x.rankNow || x.rank || "");
+  }
   // vraiment monté au classement depuis le match (pas seulement « joue au-dessus » d'après son niveau réel)
   function oppRose(m) { var o = E.idx(T.normRank(m.oppRank0 || m.oppRank)), r = oppNowIdx(m).r; return o != null && r != null && r > o; }
   function oppEffIdx(m) {
@@ -6688,7 +6698,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (m.oid && (!x.oid || (m.date || "") >= (x.oidAt || ""))) { x.oid = m.oid; x.oidAt = m.date || ""; }
       if (m.olic) x.olic = m.olic; if (m.oclub) x.oclub = m.oclub; if (m.oyear) x.oyear = m.oyear;
     });
-    return Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return a.last < b.last ? 1 : -1; });
+    return Object.keys(g).map(function (k) { var x = g[k]; x.rank0 = x.rank; x.rank = rkNow(x); return x; }).sort(function (a, b) { return a.last < b.last ? 1 : -1; });
   }
   // Suggestions à la saisie : tes adversaires connus, écrits comme Ten'Up les écrit
   function oppDatalist() {
@@ -11151,7 +11161,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       return [{ id: "pl:" + t.id + ":" + pos + ":" + left.length, mood: pos === 1 && played ? "joie" : "concentree", fresh: true, t: "<b>" + top + esc(who) + "</b>" + gain, act: { l: "Je joue qui d'abord ?", a: "ace", v: "poule:" + t.id } }];
     }
     var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (!r) return [];
-    var A3 = trAlt(r), rk = r.opp && r.opp.rank ? r.opp.rank : A3 ? A3.fav.rank : "", nmO = r.opp && r.opp.name ? trNm(r.opp.name) : "", g = rk ? trGain(rk) : null, pr = trRoundP(r);
+    var A3 = trAlt(r), rk = trRk(r), nmO = r.opp && r.opp.name ? trNm(r.opp.name) : "", g = rk ? trGain(rk) : null, pr = trRoundP(r);
     if (!rk) return [];
     var when = r.day ? "Le " + fdate(r.day) + ", " : "Prochain tour, ";
     var odds = pr == null ? "" : (pr >= 60 ? " : tu pars favori" : pr <= 40 ? (jk("t-fav", true) ? " : il part favori. Personne ne lui a dit que tu venais" : " : il part favori, rien d'impossible") : " : du 50/50") + " (" + pr + " %)"; // 4.4 : le même % que la carte du match
@@ -11165,8 +11175,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function coUpMatches(days) {
     var td = E.iso(today()), lim = E.iso(new Date(today().getTime() + (days || 7) * 864e5)), out = [];
     toursAll().filter(function (t) { return !tourOver(t) && !t.wait; }).forEach(function (t) {
-      (t.rounds || []).forEach(function (r) { if (r.res || !r.day || r.day < td || r.day > lim || !r.opp || !r.opp.rank) return; out.push({ d: r.day, time: r.time || "", name: r.opp.name ? trNm(r.opp.name) : "", rank: r.opp.rank, tid: r.opp.tid || "", t: t, comp: t.name || "Tournoi", href: "#/tournoi/" + t.id }); });
-      (t.pool || []).forEach(function (x) { if (x.res || !x.day || x.day < td || x.day > lim || !x.name) return; out.push({ d: x.day, time: x.time || "", name: trNm(x.name), rank: x.rank || "", tid: x.tid || "", t: t, comp: "Poule · " + (t.name || "Épreuve"), href: "#/tournoi/" + t.id }); });
+      (t.rounds || []).forEach(function (r) { if (r.res || !r.day || r.day < td || r.day > lim || !r.opp || !r.opp.rank) return; out.push({ d: r.day, time: r.time || "", name: r.opp.name ? trNm(r.opp.name) : "", rank: rkNow(r.opp), tid: r.opp.tid || "", t: t, comp: t.name || "Tournoi", href: "#/tournoi/" + t.id }); });
+      (t.pool || []).forEach(function (x) { if (x.res || !x.day || x.day < td || x.day > lim || !x.name) return; out.push({ d: x.day, time: x.time || "", name: trNm(x.name), rank: rkNow(x), tid: x.tid || "", t: t, comp: "Poule · " + (t.name || "Épreuve"), href: "#/tournoi/" + t.id }); });
     });
     plans().forEach(function (pl) { if (pl.day < td || pl.day > lim || (pl.tour && tourOf(pl.tour))) return; out.push({ d: pl.day, time: pl.time || "", name: pl.name ? nameCase(pl.name) : "", rank: pl.rank || "", tid: pl.id || "", pl: pl, comp: pl.hom ? "Match homologué" : "Match libre", href: "#/joueur/" + encodeURIComponent(pl.id || "") }); });
     out.forEach(function (o) { o.key = o.name ? nameKey(o.name) : ""; o.id = "next:" + o.d + ":" + (o.key || o.rank); });
@@ -13818,7 +13828,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var kind = t.kind === "champ" ? "champ" : "tournoi", end = t.dl || t.to || "";
       (t.pool || []).forEach(function (x) { if (x.res) return; var d = x.day || end; if (d && d >= td && d <= relI) add({ name: trNm(x.name), rank: x.rankNow || x.rank, tid: x.tid || "", day: d, kind: kind, where: "Poule" + (t.name ? " · " + t.name : ""), p: trP(x.rankNow || x.rank, x.tid, x.name), wait: oppWait(x.tid) }); });
       var r = (t.rounds || []).filter(function (y) { return !y.res; })[0];
-      if (r && r.opp && r.opp.rank) { var d2 = r.day || end; if (d2 && d2 >= td && d2 <= relI) add({ name: trNm(r.opp.name) || "Ton adversaire", rank: r.opp.rank, tid: r.opp.tid || "", day: d2, kind: kind, where: "Tableau" + (t.name ? " · " + t.name : ""), p: trP(r.opp.rank, r.opp.tid, r.opp.name), wait: oppWait(r.opp.tid) }); }
+      if (r && r.opp && r.opp.rank) { var d2 = r.day || end; if (d2 && d2 >= td && d2 <= relI) add({ name: trNm(r.opp.name) || "Ton adversaire", rank: rkNow(r.opp), tid: r.opp.tid || "", day: d2, kind: kind, where: "Tableau" + (t.name ? " · " + t.name : ""), p: trP(rkNow(r.opp), r.opp.tid, r.opp.name), wait: oppWait(r.opp.tid) }); }
     }); } catch (e) {}
     plans().forEach(function (pl) { if (pl.day >= td && pl.day <= relI) add({ name: pl.name || "Ton adversaire", rank: pl.rank, tid: pl.id || "", day: pl.day, kind: "tournoi", where: "Match prévu", p: planP(pl), wait: oppWait(pl.id) }); });
     return out.filter(function (o) { return o.p != null; }).sort(function (a, b) { return a.day < b.day ? -1 : 1; }).slice(0, 8);
