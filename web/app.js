@@ -3275,7 +3275,7 @@
       var p = trRoundP(r), rk = trRk(r), g = r.res || !rk ? null : trGain(rk), A2 = trAlt(r), past = r.day && dGap(r.day) <= 0, nx = r === cur, fut = !r.res && !nx;
       var mx = r.res ? trMx(r) : null, sc = mx && !mx.wo ? msbHtml(mx) : "", rkS = r.opp && !r.res ? rkShow(r.opp, r.day) : rk;
       var nm = r.opp && r.opp.name ? esc(trNm(r.opp.name)) : r.opp || A2 ? "Adversaire à venir" : esc(trWho(r));
-      var meta = [rkS ? '<span class="rk-tag">' + esc(rkS) + "</span>" : "", r.res ? esc(fdate(mx && mx.date || r.day || "")) : "", r.res === "V" && r.pts ? '<b class="pts-in">+' + r.pts + " pts</b>" : "",
+      var meta = [rkS ? '<span class="rk-tag">' + esc(rkS) + "</span>" : "", r.res ? esc(fdate(mx && mx.date || r.day || "")) : "", r.res === "V" && r.pts ? '<b class="pts-in">+' + r.pts + " pts</b>" : r.res === "V" && r.pts === 0 ? "hors quota" : "",
         !r.res && p != null ? '<span class="tq-ch">' + oddsBall(p / 100, 28) + " de chances</span>" : "", r.res === "D" && p != null ? "tu avais " + p + " %" : ""].filter(Boolean).join(" · ");
       s += '<div class="tg-r tq-tr ' + (r.res || "") + (nx ? " nx" : fut ? " fut" : "") + (i === rs.length - 1 ? " last" : "") + '"><span class="tg-n"><span class="vd ' + (r.res || "") + '">' + (r.res || i + 1) + "</span></span>" +
         '<span class="grow"><span class="tg-k">' + esc(trLab(i) + (r.res ? "" : " · " + trWhen(r))) + "</span>" +
