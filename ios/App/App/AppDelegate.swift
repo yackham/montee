@@ -18,6 +18,7 @@ import EventKitUI
 // Aucun serveur : les identifiants restent dans la WKWebView, les données sur le téléphone.
 
 let kRefreshTaskId = "fr.montennis.app.refresh"
+let kMorningPrefix = "montee-8h-"
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -43,6 +44,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidEnterBackground(_ application: UIApplication) {
         MonteeBackground.schedule()
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        MonteeBackground.dropMorning()
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
@@ -864,6 +869,13 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
                 let a = n.authorizationStatus == .denied ? "denied" : n.authorizationStatus == .notDetermined ? "unknown" : "granted"
                 let last = UserDefaults.standard.double(forKey: "montee.bgLast")
                 var out: [String: Any] = ["refresh": r, "notif": a]
+                // 4.18.1 : autorisées mais invisibles ? (écran verrouillé décoché, bannières coupées, résumé programmé)
+                if n.authorizationStatus == .authorized || n.authorizationStatus == .provisional {
+                    out["lock"] = n.lockScreenSetting == .disabled ? "off" : "on"
+                    out["banner"] = n.alertSetting == .disabled ? "off" : "on"
+                    out["quiet"] = n.authorizationStatus == .provisional ? "on" : "off"
+                    if #available(iOS 15.0, *) { out["digest"] = n.scheduledDeliverySetting == .enabled ? "on" : "off" }
+                }
                 if last > 0 { out["last"] = last }
                 out["log"] = UserDefaults.standard.stringArray(forKey: "montee.bgLog") ?? []
                 call.resolve(out)
@@ -1237,8 +1249,9 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
 
 enum MonteeSummary {
     /// Calcule le résumé avec le même moteur que l'app (engine.js, tenup.js, summary.js).
-    static func compute(payload: String, state: String) -> [(title: String, body: String)] {
-        guard let ctx = JSContext() else { return [] }
+    /// at8 (4.18.1) : trouvées entre 21 h et 8 h, les notifications sont montrées à 8 h au lieu d'être perdues.
+    static func compute(payload: String, state: String) -> (notes: [(title: String, body: String)], at8: Bool) {
+        guard let ctx = JSContext() else { return ([], false) }
         for name in ["engine", "tenup", "summary"] {
             if let url = Bundle.main.url(forResource: name, withExtension: "js", subdirectory: "public"),
                let source = try? String(contentsOf: url, encoding: .utf8) {
@@ -1246,9 +1259,9 @@ enum MonteeSummary {
             }
         }
         guard let fn = ctx.objectForKeyedSubscript("monteeSummary"), !fn.isUndefined,
-              let res = fn.call(withArguments: [payload, state]), !res.isUndefined, !res.isNull,
+              let res = fn.call(withArguments: [payload, state, NSNull(), ["at8": true]]), !res.isUndefined, !res.isNull,
               let json = res.toString(), let data = json.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return ([], false) }
         if let newState = obj["state"] as? String { MonteeStore.state = newState }
         var out: [(title: String, body: String)] = []
         if let title = obj["title"] as? String, let body = obj["body"] as? String { out.append((title: title, body: body)) }
@@ -1258,7 +1271,7 @@ enum MonteeSummary {
                 if let t = m["title"] as? String, let b = m["body"] as? String { out.append((title: t, body: b)) }
             }
         }
-        return Array(out.prefix(4))
+        return (Array(out.prefix(4)), (obj["at8"] as? Bool) ?? false)
     }
 }
 
@@ -1311,11 +1324,11 @@ enum MonteeBackground {
                 if text.hasPrefix("MONTEE1") {
                     // 3.43.2 : une relance « joueurs suivis » n'écrase pas un palmarès pas encore importé
                     if !(text.contains("\"folOnly\":true") && MonteeStore.pending != nil) { MonteeStore.pending = text }
-                    let notes = MonteeSummary.compute(payload: text, state: MonteeStore.state ?? "{}")
-                    for note in notes {
-                        notify(title: note.title, body: note.body)
+                    let res = MonteeSummary.compute(payload: text, state: MonteeStore.state ?? "{}")
+                    for note in res.notes {
+                        notify(title: note.title, body: note.body, at8: res.at8)
                     }
-                    log(notes.isEmpty ? "rien" : "notif:\(notes.count)")
+                    log(res.notes.isEmpty ? "rien" : res.at8 ? "nuit:\(res.notes.count)" : "notif:\(res.notes.count)")
                 } else if text.contains("connecte-toi") {
                     log("deconnecte")
                     if !MonteeStore.expiredNotified {
@@ -1330,13 +1343,30 @@ enum MonteeBackground {
         }
     }
 
-    static func notify(title: String, body: String) {
+    /// at8 : la nouveauté a été trouvée la nuit ; l'iPhone la montre à 8 h (jamais entre 21 h et 8 h).
+    static func notify(title: String, body: String, at8: Bool = false) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
-        let request = UNNotificationRequest(identifier: "montee-\(UUID().uuidString)", content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+        var trigger: UNNotificationTrigger? = nil
+        if at8 {
+            var c = DateComponents()
+            c.hour = 8
+            c.minute = 0
+            trigger = UNCalendarNotificationTrigger(dateMatching: c, repeats: false)
+        }
+        let id = (at8 ? kMorningPrefix : "montee-") + UUID().uuidString
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: trigger), withCompletionHandler: nil)
+    }
+
+    /// Ouvrir Montée avant 8 h : ces nouvelles sont déjà dans l'app, on ne les envoie plus.
+    static func dropMorning() {
+        let c = UNUserNotificationCenter.current()
+        c.getPendingNotificationRequests { list in
+            let ids = list.map { $0.identifier }.filter { $0.hasPrefix(kMorningPrefix) }
+            if !ids.isEmpty { c.removePendingNotificationRequests(withIdentifiers: ids) }
+        }
     }
 }
 
