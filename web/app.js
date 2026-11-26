@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.21.1",
+    VERSION: "4.22.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1345,19 +1345,19 @@
         mxSet(r, "mx-in", null, 300 + Math.min(i, 8) * 110);
         var rk = r.querySelector(".tm-rk b"); if (rk) { mxSet(rk, "mx-pop", 0, 550 + Math.min(i, 8) * 130); if (rk.querySelector(".tm-cup")) { rk.classList.add("mx-cupd"); mxSpark(rk, 1300); } }
       });
-      var path = document.querySelector(".tq-path"), tr = path ? mxQ(".tq-r", path) : [];
+      var path = document.querySelector(".tq-path"), tr = path ? mxQ(".tq-tr", path) : [];
       if (tr.length) {
         tr.forEach(function (r, i) { mxSet(r, "mx-in", null, i * 110); });
-        var done = tr.filter(function (r) { return r.classList.contains("v") || r.classList.contains("d"); }).length, stop = Math.min(tr.length - 1, done);
+        var done = tr.filter(function (r) { return r.classList.contains("V") || r.classList.contains("D"); }).length, stop = Math.min(tr.length - 1, done);
         mxIo([path], function () {
-          var pos = function (r) { var b = r.querySelector(".tq-b").getBoundingClientRect(), P = path.getBoundingClientRect(); return [b.left + b.width / 2 - P.left, b.top + b.height / 2 - P.top]; };
+          var pos = function (r) { var b = r.querySelector(".tg-n .vd").getBoundingClientRect(), P = path.getBoundingClientRect(); return [b.left + b.width / 2 - P.left, b.top + b.height / 2 - P.top]; };
           var ball = document.createElement("span"); ball.className = "mx-x mx-tb"; ball.setAttribute("aria-hidden", "true"); var p0 = pos(tr[0]); ball.style.left = p0[0] + "px"; ball.style.top = (p0[1] - 26) + "px"; path.appendChild(ball);
           var k = 0, step = function () {
             if (k > stop) { ball.style.opacity = 0; setTimeout(function () { ball.remove(); }, 400); return; }
             var r = tr[k], p = pos(r); ball.style.top = p[1] + "px";
             setTimeout(function () {
               r.classList.add("mx-hit");
-              if (k === stop && !r.classList.contains("v") && !r.classList.contains("d")) { r.querySelector(".tq-b").classList.add("mx-today"); var pc2 = r.querySelector(".tq-p"); if (pc2) mxCount(pc2, null, { ms: 700 }); mxSet(r.querySelector(".tq-g"), "mx-pop", 0, 0); }
+              if (k === stop && !r.classList.contains("V") && !r.classList.contains("D")) { r.querySelector(".tg-n .vd").classList.add("mx-today"); var pc2 = r.querySelector(".tq-ch"); if (pc2) mxCount(pc2, null, { ms: 700 }); mxSet(r.querySelector(".tq-gn"), "mx-pop", 0, 0); }
               k++; setTimeout(step, 200);
             }, 520);
           };
@@ -3265,22 +3265,31 @@
     if (c.proj.status !== "top" && gap > 0) s += '<div class="card"><span>Prochaine sortie le ' + esc(fdate(E.iso(c.proj.release))) + " : il te manque <b>" + gap + " pts</b> pour " + esc(tgt) + ".</span></div>";
     return s;
   }
+  // 4.22.0 (Yann, maquette A validée) : Ton chemin au style d'un tournoi dans l'Activité. Tour joué : V/D, score à droite et crayon
+  // pour corriger ; tour en cours : pastille jaune et bouton « Résultat » ; tours suivants : numéro et trait en pointillés, atténués.
+  var PEN_IC = svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', 2.2);
+  function trMx(r) { var id = r.twin || "tr" + r.id; return S.matches.filter(function (m) { return m.id === id; })[0] || null; }
   function trPath(t, done) {
-    var rs = t.rounds || [], s = "";
+    var rs = t.rounds || [], s = "", cur = done ? null : rs.filter(function (x) { return !x.res; })[0];
     rs.forEach(function (r, i) {
-      var p = trRoundP(r), g = r.res ? null : (function () { var rk = trRk(r); return rk ? trGain(rk) : null; })(), A2 = trAlt(r), past = r.day && dGap(r.day) <= 0;
-      var col = r.res === "V" ? "v" : r.res === "D" ? "d" : "", nxt = !r.res && !done && rs.filter(function (x) { return !x.res; })[0] === r;
-      s += '<div class="tq-r ' + col + (nxt ? " nx" : "") + (i === rs.length - 1 ? " last" : "") + '"><span class="tq-n"><span class="tq-b">' + (r.res || i + 1) + '</span></span><span class="grow">' +
-        '<span class="tq-k"><span>' + esc(trLab(i) + " · " + trWhen(r)) + "</span>" + (!done ? (r.res ? '<button class="linkbtn tq-edk" data-a="trUndo" data-i="' + i + '" aria-label="Corriger le résultat">Corriger</button>' : '<button class="linkbtn tq-edk" data-a="trRound" data-i="' + i + '" aria-label="Modifier ce tour">Modifier</button>') : "") + "</span>" + // 4.21.1 (Yann, maquette B) : « Modifier » sur la ligne du tour
-        '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + trWhoHtml(r) + '<span class="tq-gt" aria-hidden="true">›</span></a>' : trWhoHtml(r)) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<span class="tq-p tq-pb">' + oddsBall(p / 100, 30) + "</span>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
-        (r.opp && r.opp.club && !done ? '<span class="small">' + esc(r.opp.club) + "</span>" : "") +
+      var p = trRoundP(r), rk = trRk(r), g = r.res || !rk ? null : trGain(rk), A2 = trAlt(r), past = r.day && dGap(r.day) <= 0, nx = r === cur, fut = !r.res && !nx;
+      var mx = r.res ? trMx(r) : null, sc = mx && !mx.wo ? msbHtml(mx) : "", rkS = r.opp && !r.res ? rkShow(r.opp, r.day) : rk;
+      var nm = r.opp && r.opp.name ? esc(trNm(r.opp.name)) : r.opp || A2 ? "Adversaire à venir" : esc(trWho(r));
+      var meta = [rkS ? '<span class="rk-tag">' + esc(rkS) + "</span>" : "", r.res ? esc(fdate(mx && mx.date || r.day || "")) : "", r.res === "V" && r.pts ? '<b class="pts-in">+' + r.pts + " pts</b>" : "",
+        !r.res && p != null ? '<span class="tq-ch">' + oddsBall(p / 100, 28) + " de chances</span>" : "", r.res === "D" && p != null ? "tu avais " + p + " %" : ""].filter(Boolean).join(" · ");
+      s += '<div class="tg-r tq-tr ' + (r.res || "") + (nx ? " nx" : fut ? " fut" : "") + (i === rs.length - 1 ? " last" : "") + '"><span class="tg-n"><span class="vd ' + (r.res || "") + '">' + (r.res || i + 1) + "</span></span>" +
+        '<span class="grow"><span class="tg-k">' + esc(trLab(i) + (r.res ? "" : " · " + trWhen(r))) + "</span>" +
+        '<span class="t t2">' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + nm + '<span class="tq-gt" aria-hidden="true">›</span></a>' : nm) + "</span>" +
+        (meta ? '<span class="s tq-m">' + meta + "</span>" : "") +
         (r.opp && !r.res && rkMv(r.opp, r.day) ? rkMoveHtml(rkMv(r.opp, r.day), r.day, rkHe(r.opp.tid)) : "") +
         (r.beat && !r.res ? '<span class="small">Il a battu ' + esc(trNm(r.beat.name)) + (r.beat.score ? " " + esc(r.beat.score) : "") + "</span>" : "") +
         (A2 && !r.res ? '<span class="small">' + esc(trNm(A2.fav.name) || "Le " + (A2.fav === A2.a ? A2.rA : A2.rB)) + " devrait passer (" + Math.max(A2.pa, 100 - A2.pa) + " %)</span>" +
           [[A2.a, A2.pA, A2.rA], [A2.b, A2.pB, A2.rB]].map(function (z) { return '<span class="tq-alt"><span>' + esc(trNm(z[0].name) || "Un joueur") + (z[2] ? ' <span class="rk-tag">' + esc(z[2]) + "</span>" : "") + "</span><b>" + (z[1] != null ? z[1] + " %" : "–") + "</b></span>"; }).join("") : "") +
-        (g != null && !r.res ? '<span class="tq-g">' + (g > 0 ? "+" + g + " pts si tu gagnes" : "Une victoire ne changerait pas ton bilan") + "</span>" : "") +
-        (!r.res && past && !done ? '<span class="tq-res"><button class="chip" data-a="trRes" data-v="V" data-i="' + i + '">J\'ai gagné</button><button class="chip" data-a="trRes" data-v="D" data-i="' + i + '">J\'ai perdu</button></span>' : "") +
-        "</span></div>";
+        (g != null ? '<span class="tq-gn' + (g > 0 ? "" : " z") + '">' + (g > 0 ? "+" + g + " pts si tu gagnes" : "Une victoire ne changerait pas ton bilan") + "</span>" : "") +
+        "</span>" +
+        (r.res ? '<span class="tq-sc">' + sc + (!done ? '<button class="tq-pen" data-a="trSc" data-i="' + i + '" aria-label="Corriger le résultat">' + PEN_IC + "</button>" : "") + "</span>"
+          : !done ? '<span class="tq-rc">' + (nx && past ? '<button class="tq-rb" data-a="trSc" data-i="' + i + '">' + PEN_IC + "Résultat</button>" : "") + '<button class="linkbtn tq-edk" data-a="trRound" data-i="' + i + '" aria-label="Modifier ce tour">Modifier</button></span>' : "") +
+        "</div>";
     });
     return s;
   }
@@ -4732,9 +4741,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (pot > 0 && c.proj.status !== "top" && c.proj.next) { var now = c.proj.next.total, nm = c.proj.next.norme, pc = Math.min(100, Math.round(now * 100 / Math.max(1, nm))), pc2 = Math.min(100, Math.round((now + pot) * 100 / Math.max(1, nm)));
         trB = '<div class="card tq-bil"><div class="tq-bh"><span class="eyebrow id-pill id-dot c-dur">Ton bilan ' + esc(lab(tgtI)) + '</span><b>' + now + ' → <span style="color:var(--gazon)">' + (now + pot) + "</span> / " + nm + '</b></div><span class="tq-bar"><i style="width:' + pc + '%"></i><i class="p" style="width:' + Math.max(0, pc2 - pc) + '%"></i></span><span class="small">' + (now + pot >= nm ? "Si tu gagnes tous tes matchs prévus, tu passes la norme " + esc(lab(tgtI)) + "." : "Si tu gagnes tous tes matchs prévus.") + "</span></div>";
       }
-      s += ren ? trB : trB ? dockAce(trB, trS, trT, null, (poule ? "poule:" : "tour:") + t.id) : coachBubble(trS, trT); // 3.73
+      var bil = ren ? trB : trB ? dockAce(trB, trS, trT, null, (poule ? "poule:" : "tour:") + t.id) : coachBubble(trS, trT); // 3.73
       if (t.ins) s += '<div class="ins-st"><span class="ins-p' + (t.wait ? " w" : t.ins.due > 0 ? " d" : "") + '">' + esc(insLab(t)) + "</span><span class=\"small\">" + esc([t.ins.cat, t.ins.club && t.ins.club !== t.ins.city ? insCase(t.ins.club) : "", insCase(t.ins.city || "")].filter(Boolean).join(" · ")) + '</span></div>';
-      if (t.ins && t.tuid && !over) { s += tzPratique(t); insFiche(t); } // 4.6.0 : lieu, juge-arbitre, indispos, paiement
+      // 4.22.0 (Yann, choix B) : deux onglets, « Mon tournoi » (bilan, chemin ou poule) et « Infos pratiques » (lieu, juge-arbitre, indispos, paiement)
+      var prat = t.ins && t.tuid && !over && !ren, tq = prat && UI.tqTab && UI.tqTab.id === t.id ? UI.tqTab.v : "jeu";
+      if (prat) s += '<div class="seg pl-tabs tq-tabs" role="tablist"><button data-a="tqTab" data-v="jeu" class="' + (tq === "jeu" ? "on" : "") + '" aria-pressed="' + (tq === "jeu") + '">Mon tournoi</button><button data-a="tqTab" data-v="prat" class="' + (tq === "prat" ? "on" : "") + '" aria-pressed="' + (tq === "prat") + '">Infos pratiques</button></div>';
+      if (prat) insFiche(t);
+      if (tq === "prat") { s += tzPratique(t).replace("<h2>Pratique</h2>", ""); trOppSync(t); }
+      else {
+      s += bil;
       if (!(poule && t.kind === "champ" && !(t.pool || []).length && !t.resUrl)) s += resLinkHtml(t);
       trOppSync(t); // 3.47.3 : la fiche Ten'Up des adversaires du tableau, pour un % identique à leur fiche
       if (poule && !(t.pool || []).length && UI.plEdit !== t.id) s += "<h2>Ta poule</h2>" + poolEmptyHtml(t);
@@ -4743,11 +4758,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       // 3.45.6 (Yann) : en indivs, la suite de la poule est une autre épreuve Ten'Up (poule suivante ou tableau) : pas de « phase finale » ici
       if (!over && !poule && t.kind === "champ" && !rs.length) s += '<button class="btn" data-a="trImportInto">' + PASTE_IC + " Coller le mail du comité</button>"; // 3.46.3 : indivs en tableau : le mail donne ton 1er adversaire
       if (!over && !(poule && t.kind === "champ" && !rs.length)) s += '<button class="btn ' + (poule && !rs.length ? "" : "primary") + '" data-a="trRound" data-i="new">' + I.plus + " " + (poule && !rs.length ? "Ajouter un tour de la phase finale" : "Ajouter le " + trLab(rs.length)) + "</button>";
+      }
     }
     // 3.45.6 (Yann) : une épreuve venue de Ten'Up existe tant que tu y es inscrit : on ne la supprime pas, on peut vider ce que tu as saisi
-    if (t.tuid) { var anyR = (t.rounds || []).length || (t.pool || []).length; if (anyR) s += '<button class="linkbtn" data-a="trWipe" style="align-self:center;color:var(--terre)">Effacer ce que j\'ai saisi</button>'; }
+    if (UI.tqTab && UI.tqTab.id === t.id && UI.tqTab.v === "prat" && t.ins && t.tuid && !over) { /* rien sous les infos pratiques */ }
+    else if (t.tuid) { var anyR = (t.rounds || []).length || (t.pool || []).length; if (anyR) s += '<button class="linkbtn" data-a="trWipe" style="align-self:center;color:var(--terre)">Effacer ce que j\'ai saisi</button>'; }
     else s += '<button class="linkbtn tr-del" data-a="trDel" style="align-self:center">Supprimer cette épreuve</button>';
     if (UI.trR) s += trRoundSheet(t);
+    if (UI.trSc && UI.trSc.id === t.id && (t.rounds || [])[UI.trSc.i]) s += trScSheet(t);
     if (UI.plSched != null && (t.pool || [])[UI.plSched]) s += plSchedSheet(t);
     return s + "</div>";
   };
@@ -5093,6 +5111,19 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       '<span class="small">Montée te le rappelle la veille au soir' + (x.tid ? ", avec ton plan de jeu" : "") + ".</span>" +
       '<button class="btn primary" data-a="plSchedSave">Enregistrer</button>' +
       (x.day ? '<button class="linkbtn" data-a="plSchedClear" style="align-self:center">Retirer la date</button>' : "") + "</div>";
+  }
+  // 4.22.0 (Yann) : « Ton résultat » : Victoire / Défaite puis le score set par set (facultatif), le même sélecteur que la saisie d'un match
+  function trScSheet(t) {
+    var R = UI.trSc, r = t.rounds[R.i], d = UI.draft || {}, rk = r.res ? rkNow(r.opp || {}, true) : trRk(r);
+    var RES_V = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>';
+    var RES_D = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="trScClose"></div><div class="sheet big tq-sheet" role="dialog" aria-modal="true" aria-label="Ton résultat"><span class="sheet-grab"></span>' +
+      '<div class="tq-hd"><b>Ton ' + esc(trLab(R.i).toLowerCase()) + "</b></div>" +
+      '<span class="tq-rs-who">Contre ' + esc(r.opp && r.opp.name ? trNm(r.opp.name) : trWho(r)) + (rk ? ' <span class="rk-tag">' + esc(rk) + "</span>" : "") + (r.day ? " · " + esc(dayLab(r.day)) : "") + "</span>" +
+      '<div class="field"><span class="lbl">Résultat</span><div class="seg res"><button data-a="dset" data-k="result" data-v="V" class="rv' + (d.result === "V" ? " on" : "") + '">' + RES_V + 'Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (d.result === "D" ? " on" : "") + '">' + RES_D + "Défaite</button></div></div>" +
+      (d.result ? scoreHtml(d) : "") +
+      '<div class="tq-rs-b"><button class="btn soft" data-a="trScClose">Plus tard</button><button class="btn primary" data-a="trScSave"' + (d.result ? "" : " disabled") + ">Enregistrer</button></div>" +
+      (r.res ? '<button class="linkbtn" data-a="trScDel" style="align-self:center;color:var(--terre)">Retirer le résultat</button>' : "") + "</div>";
   }
   function trRoundSheet(t) {
     var R = UI.trR, pool = R.k === "pool", alt = !pool && R.mode === "alt";
@@ -21177,14 +21208,34 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       save(); UI.trR = null; UI.trHits = null; haptic("success"); render();
     },
     // 3.44.2 : un résultat mis par erreur s'annule (et une défaite rend les tours qu'elle avait retirés)
-    trUndo: function (el) {
+    tqTab: function (el) { var id = route().split("/")[1]; UI.tqTab = { id: id, v: el.dataset.v }; haptic("light"); render(); try { mxTabIn(el); } catch (e) {} },
+    // 4.22.0 : feuille « Ton résultat » (bouton Résultat du tour en cours, crayon d'un tour joué)
+    trSc: function (el) {
+      var id = route().split("/")[1], t = tourOf(id), i = +el.dataset.i, r = t && (t.rounds || [])[i]; if (!r) return;
+      var mx = r.res ? trMx(r) : null; UI.trSc = { id: id, i: i }; UI.scoreEdit = null; UI.scoreManual = false; UI.stb = false;
+      UI.draft = { result: r.res || null, score: mx ? mx.score || "" : "", sets: mx && mx.score ? setsOf(mx.score) : [] }; render();
+    },
+    trScClose: function () { UI.trSc = null; UI.draft = null; UI.scoreEdit = null; UI.scoreManual = false; render(); },
+    trScSave: function () {
+      var t = tourOf(route().split("/")[1]), R = UI.trSc, d = UI.draft, inp = document.getElementById("m-score"); if (!t || !R || !d || !d.result) return;
+      if (inp) d.score = inp.value.trim();
+      var i = R.i, r = t.rounds[i]; if (!r) return;
+      var sc = d.score || "";
+      if (r.res && r.res !== d.result) { A.trUndo({ dataset: { i: String(i) } }, true); r = t.rounds[i]; }
+      if (!r.res) A.trRes({ dataset: { i: String(i), v: d.result } }, true);
+      var m = S.matches.filter(function (x) { return x.id === "tr" + r.id; })[0]; // le match saisi dans Montée (jamais celui venu de Ten'Up)
+      if (m) { m.score = sc; m.sets = setsOf(sc); }
+      UI.trSc = null; UI.draft = null; UI.scoreEdit = null; UI.scoreManual = false; save(); render();
+    },
+    trScDel: function () { var R = UI.trSc; if (!R) return; UI.trSc = null; UI.draft = null; A.trUndo({ dataset: { i: String(R.i) } }); },
+    trUndo: function (el, quiet) {
       var t = tourOf(route().split("/")[1]); if (!t) return;
       var pool = el.dataset.k === "pool", list = pool ? t.pool : t.rounds, i = +el.dataset.i, r = (list || [])[i]; if (!r || !r.res) return;
       var was = r.res; r.res = null; r.pts = null; if (pool) r.noAuto = 1; trMatchSync(t, r, pool);
       if (pool) { UI.trR = null; }
       else if (was === "D") { if (i === t.rounds.length - 1 && t.cut && t.cut.length) t.rounds = t.rounds.concat(t.cut); t.cut = null; t.endedAt = null; }
       else if (i === t.rounds.length - 2 && !t.rounds[i + 1].res && !t.rounds[i + 1].opp && !(t.rounds[i + 1].alt || []).length) t.rounds.pop();
-      save(); haptic("light"); toast("Résultat retiré."); render();
+      save(); if (quiet) return; haptic("light"); toast("Résultat retiré."); render();
     },
     trRoundDel: function () { var t = tourOf(route().split("/")[1]), R = UI.trR; if (!t || !R || R.i === "new") return; var r0 = (R.k === "pool" ? t.pool : t.rounds)[+R.i]; if (r0 && r0.res) { r0.res = null; trMatchSync(t, r0, R.k === "pool"); } (R.k === "pool" ? t.pool : t.rounds).splice(+R.i, 1); save(); UI.trR = null; render(); },
     trRes: function (el) {

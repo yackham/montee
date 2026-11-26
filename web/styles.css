@@ -6246,7 +6246,7 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .mx-hb { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #EEF7A0, #D4E64A 60%, #AFC23A); box-shadow: 0 1px 2px rgba(0,0,0,.3); pointer-events: none; }
 .mx-tb { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #EEF7A0, #D4E64A 60%, #AFC23A); box-shadow: 0 1px 3px rgba(0,0,0,.35); z-index: 2; opacity: 0; pointer-events: none; transition: top .55s cubic-bezier(.4,0,.2,1), opacity .3s; }
 .tq-path { position: relative; }
-.tq-r.mx-hit .tq-b { animation: mxPop .45s cubic-bezier(.3,1.6,.5,1) both; }
+.tq-tr.mx-hit .tg-n .vd { animation: mxPop .45s cubic-bezier(.3,1.6,.5,1) both; }
 .tq-bar.mx i { transform-origin: left; animation: mxGrow .8s cubic-bezier(.2,.8,.3,1) both; } .tq-bar.mx i.p { animation-delay: .7s; }
 .mx-mv { position: relative; animation: mxRowMv .7s cubic-bezier(.3,1.3,.5,1) both; animation-delay: var(--d, 0ms); }
 .pl-r.me.mx-mv { z-index: 1; }
@@ -8062,6 +8062,38 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 .ace-cont-x { flex: none; width: 44px; height: 44px; margin: 0 2px 0 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle, rgba(21,23,15,.12) 15px, transparent 16px); color: #15170F; cursor: pointer; }
 .ace-cont-x svg { width: 14px; height: 14px; }
 @media (prefers-reduced-motion: reduce) { .ace-cont { animation: none; } }
+/* 4.22.0 (Yann, maquette A) : Ton chemin au style d'un tournoi dans l'Activité */
+.tq-path .tq-tr { align-items: flex-start; }
+.tq-tr .grow { gap: 2px; padding-bottom: 14px; }
+.tq-tr .tg-k { line-height: 1.35; }
+.tq-rc { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-top: 10px; }
+.tq-rc .tq-edk { margin: 0; min-height: 34px; } .tq-rc .tq-rb { margin-top: 6px; }
+.tq-tr .t { font-size: 15px; } .tq-tr .t a { color: inherit; text-decoration: none; }
+.tq-tr .tq-m { display: flex; align-items: center; flex-wrap: wrap; gap: 0 5px; white-space: nowrap; }
+.tq-tr .tq-m .pts-in { color: var(--gazon); }
+.tq-ch { display: inline-flex; align-items: center; gap: 5px; } .tq-ch svg { flex: none; display: block; }
+.tq-gn { margin-top: 3px; font-size: 12.5px; font-weight: 800; color: var(--gazon); }
+.tq-tr .tg-n .vd { width: 30px; height: 30px; font-size: 13px; font-weight: 900; border-radius: 50%; } .tq-tr .tg-n .vd:not(.V):not(.D) { background: var(--chip); color: var(--muted); }
+.tq-tr.nx .tg-n .vd:not(.V) { background: var(--balle); color: var(--on-balle); }
+.tq-tr.fut { opacity: .55; }
+.tq-tr.fut .tg-n .vd:not(.V) { background: none; box-shadow: inset 0 0 0 2px var(--line); }
+.tq-tr.nx .tg-n::after, .tq-tr.fut .tg-n::after { background: none; width: 0; border-left: 2px dashed var(--line); }
+.tq-tr.fut .tq-gn, .tq-gn.z { color: var(--muted); font-weight: 600; }
+.tq-sc { flex: none; margin-top: 16px; display: flex; align-items: center; gap: 2px; }
+.tq-pen { border: 0; background: var(--chip); color: var(--muted); width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; margin-left: 4px; cursor: pointer; }
+.tq-pen svg, .tq-rb svg { width: 15px; height: 15px; }
+.tq-rb { flex: none; margin-top: 18px; border: 0; border-radius: 99px; padding: 8px 12px; font: inherit; font-weight: 800; font-size: 13px; background: var(--balle); color: var(--on-balle); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+/* 4.22.0 : onglets Mon tournoi / Infos pratiques ; pastille d'inscription sans contour */
+.tq-tabs { margin: 4px 0 2px; }
+.ins-p { border: 0; background: color-mix(in srgb, var(--gazon) 16%, transparent); }
+.ins-p.w { background: color-mix(in srgb, var(--muted) 16%, transparent); }
+.ins-p.d { background: color-mix(in srgb, var(--terre) 16%, transparent); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .ins-st .ins-p { border: 0; }
+/* 4.22.0 : Victoire / Défaite choisie bien visible dans tous les thèmes (les règles .seg button.on des thèmes l'éteignaient) */
+:root:root:root .seg.res button.rv.on.on { background: var(--gazon); color: var(--on-gazon, #121212); box-shadow: none; }
+:root:root:root .seg.res button.rd.on.on { background: var(--terre); color: var(--on-terre, #121212); box-shadow: none; }
+.tq-rs-who { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tq-rs-b { display: flex; gap: 10px; } .tq-rs-b .btn { flex: 1; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.
