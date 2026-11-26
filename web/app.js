@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.8",
+    VERSION: "4.19.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -11048,7 +11048,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var seen = false, keep = sc.querySelector(".ace-prio .ace-peek .cbl-b");
     Array.prototype.forEach.call(sc.querySelectorAll(".ace-off, .ace-gone"), function (el) { el.classList.remove("ace-off", "ace-gone"); });
     Array.prototype.forEach.call(sc.querySelectorAll(".cbl-b"), function (el) {
-      if ((el.classList.contains("xs") && !el.closest(".bo-ace")) || el.closest(".mmo-det, .tcar, .ace-hd, .hd-dr")) return;
+      if ((el.classList.contains("xs") && !el.closest(".bo-ace")) || el.closest(".mmo-det, .tcar, .ace-hd, .hd-dr, .pdj-h")) return;
       var pk = el.closest(".ace-peek");
       if (keep ? el === keep : !seen) { seen = true; return; }
       if (pk) { pk.classList.add("ace-off"); var cd = pk.closest(".card"); if (cd) cd.classList.add("ace-gone"); }
@@ -11062,7 +11062,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     try { aceOnce(root); } catch (e) {}
     Array.prototype.forEach.call(root.querySelectorAll(".cbl-b"), function (el) {
       if (el.firstChild || el.classList.contains("ace-off") || el.closest(".ace-off")) return;
-      var sz = el.classList.contains("xl") ? 72 : el.classList.contains("xs") ? 32 : el.classList.contains("sm") ? 40 : 50, b = Balle.make(sz), id = el.getAttribute("data-id") || "", md = el.getAttribute("data-m") || "repos";
+      var sz = el.classList.contains("xl") ? 72 : el.classList.contains("pd") ? 26 : el.classList.contains("xs") ? 32 : el.classList.contains("sm") ? 40 : 50, b = Balle.make(sz), id = el.getAttribute("data-id") || "", md = el.getAttribute("data-m") || "repos";
       el.appendChild(b);
       var fin = /^(joie|arrivee|fier|rebond|rire|surpris)$/.test(md) ? 1 : md === "repos" ? 0.1 : md === "dort" ? 0.25 : 0.55, base = Balle.M[md] ? Balle.M[md](fin) : {};
       var red = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches, fr = el.closest(".ace-fresh .ace-av");
@@ -13978,7 +13978,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return Object.keys(wk).length;
   }
   function ringsWait(n) {
-    var sz = 92, w = 7, r = (sz - w) / 2;
+    var sz = 84, w = 7, r = (sz - w) / 2;
     var one = function (k) { return '<a class="cr3-c" href="#/victoires"><svg width="' + sz + '" height="' + sz + '" viewBox="0 0 ' + sz + " " + sz + '" aria-hidden="true"><circle cx="' + sz / 2 + '" cy="' + sz / 2 + '" r="' + r + '" stroke="var(--line)" stroke-width="' + w + '" fill="none" stroke-dasharray="4 6"/><text x="' + sz / 2 + '" y="' + (sz / 2 + 1) + '" text-anchor="middle" dominant-baseline="middle" font-weight="800" font-size="18" fill="var(--muted)">' + n + '<tspan font-size="12">/3</tspan></text></svg><b>' + k + "</b></a>"; };
     return '<div class="card cr3 cr3-wait"><div class="cr3-row">' + one("Victoires") + one("Forme") + one("Niveau") + '</div><div class="cr3-say"><b>' + (3 - n === 1 ? "Encore 1 match" : "Encore " + (3 - n) + " matchs") + ' et tes anneaux s\'allument</b><span class="small">Victoires, forme et classement réel se calculent à partir de 3 matchs sur 12 mois.</span></div></div>';
   }
@@ -14045,10 +14045,20 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var B = function (x) { return "<b>" + x + "</b>"; };
     var ic = "=", col = "var(--bleu3)", title;
     if (F && F.streak.n >= 3) { ic = F.streak.r === "V" ? "🔥" : "↓"; col = F.streak.r === "V" ? "var(--balle)" : "var(--terre)"; title = F.streak.r === "V" ? plural(F.streak.n, "victoire") + " d'affilée" + (F.streak.n >= F.best ? " : ta meilleure série" : "") : plural(F.streak.n, "défaite") + " d'affilée" + (lvl != null ? " · tu joues " + lab(lvl) + " en ce moment" : ""); } // 3.57 (audit parcours M1) : le réconfort est dans la carte « Passage à vide », ici on reste factuel
+    else if (p.margin != null && p.margin < 0 && !p.kept && cur > 0) { ic = "⛨"; col = "var(--terre)"; title = "Maintien menacé : " + plural(-p.margin, "pt") + " de retard"; } // 4.19.0 : jamais « vise plus haut » quand le maintien est menacé
     else if (lvl != null && lvl > cur) { ic = "↑"; col = "var(--gazon)"; title = up ? "En forme, la montée approche" : "Tu joues au-dessus de ton " + lab(cur); }
     else if (lvl != null && lvl < cur) { ic = "↓"; col = "var(--terre)"; title = (cur - lvl === 1 ? "Un cran" : crans(cur - lvl).replace(/^./, function (x) { return x.toUpperCase(); })) + " sous ton " + lab(cur) + " : vigilance"; }
     else if (lvl != null) { ic = up ? "↑" : dn ? "↓" : "="; col = up ? "var(--gazon)" : dn ? "var(--terre)" : "var(--bleu3)"; title = up ? "En forme : c'est le moment de viser " + nextL : dn ? "Stable à " + lab(cur) + ", mais la forme baisse" : "Stable à " + lab(cur) + ", une perf pour viser " + nextL; }
     else title = "Ta saison : " + r.v + " V · " + r.d + " D";
+    // 4.19.0 (Yann, maquette D validée le 26/11) : sous les anneaux, un petit titre de contexte qui tient toujours sur une ligne ;
+    // le détail (cran, série, maintien) passe dans le texte ; la feuille « Ton point du jour » garde le titre complet
+    var head;
+    if (F && F.streak.n >= 3) head = F.streak.r === "V" ? (F.streak.n >= F.best ? "Ta meilleure série" : F.streak.n + " victoires d'affilée") : F.streak.n + " défaites d'affilée";
+    else if (p.margin != null && p.margin < 0 && !p.kept && cur > 0) head = "Vigilance au maintien"; // le titre ne dit jamais « vise plus haut » quand le texte dit « maintien menacé »
+    else if (lvl != null && lvl > cur) head = up ? "La montée approche" : "Tu joues au-dessus";
+    else if (lvl != null && lvl < cur) head = "Vigilance au maintien";
+    else if (lvl != null) head = up ? "En forme, vise " + nextL : dn ? "La forme baisse" : "Stable à " + lab(cur);
+    else head = "Ta saison : " + r.v + " V · " + r.d + " D";
     // Les 4 rubriques
     var niv = lvl != null ? "Tu joues au niveau " + B(lab(lvl)) + (lvl === cur ? ", comme ton classement." : lvl > cur ? ", au-dessus de ton " + lab(cur) + "." : ", " + crans(cur - lvl) + " sous ton " + lab(cur) + ".") : "Encore " + plural(Math.max(1, 8 - (f && f.n || w12.length)), "match", "matchs") + " sur 12 mois et Montée te dit à quel niveau tu joues.";
     if (same.n) niv += " " + B(same.v + " sur " + same.n) + " contre des " + lab(cur);
@@ -14068,15 +14078,21 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (last) { var gd = -dGap(last); if (gd >= 7) frm += " Pas joué depuis " + gd + " jours."; }
     var secs = [{ ic: "◎", col: "var(--bleu3)", t: "Ton niveau", b: niv }, { ic: "↗", col: "var(--gazon)", t: "Ta montée", b: mon }, { ic: "⛨", col: "var(--terre)", t: "Ton maintien", b: mai }, { ic: "♥", col: "var(--balle)", t: "Ta forme", b: frm }].filter(function (x) { return x.b; });
     var text = [niv, (p.margin != null && p.margin >= 0 && !p.kept && !z && p.status !== "descente") ? "" : mai].filter(Boolean).join(" "); // 3.82.1 : « +X pts d'avance » est déjà dans la carte Sortie ; 3.46.5 : la montée est déjà dans la carte juste en dessous
-    // 4.4.6 (Yann, maquette accueil validée le 24/11) : la synthèse sous les anneaux, en 3 phrases courtes, chiffres clés en gras
-    // à la couleur de leur anneau (niveau bleu, montée vert, forme couleur forme) ; mêmes valeurs que les 4 rubriques ci-dessus
-    var K = function (k, x) { return '<b class="pd-' + k + '">' + x + "</b>"; }, sh = [];
-    if (lvl != null) sh.push("Tu joues " + K("n", lab(lvl)) + (lvl === cur ? ", pile ton classement." : lvl > cur ? ", " + crans(lvl - cur) + " au-dessus." : ", " + crans(cur - lvl) + " en dessous."));
-    if (p.status === "montee") sh.push("Tu montes " + K("m", lab(p.projected)) + " le " + fdate(E.iso(p.release)).replace(/\.$/, "") + ".");
-    else if (p.margin != null && p.margin < 0 && !p.kept && cur > 0) sh.push("Maintien menacé : " + K("d", -p.margin + " pts") + " de retard.");
-    else if (d.norme && p.status !== "top") { var gp2 = Math.max(0, d.norme - d.total), rl2 = E.parseDate(d.releaseIso); sh.push(gp2 ? "Il te manque " + K("m", gp2 + " pts") + " pour monter le " + dN(rl2) + " " + MOIS[rl2.getMonth()].replace(/\.$/, "") + "." : "Tu as les points pour " + esc(d.label || nextL) + "."); }
-    if (F && n6) sh.push((up ? "Forme au top : " : dn ? "Forme en baisse : " : "Forme stable : ") + K("f", nv6 + " victoire" + (nv6 > 1 ? "s" : "") + " sur " + n6) + ".");
-    return { ic: ic, col: col, title: title, text: text, secs: secs, short: sh.join(" ") };
+    // 4.19.0 (Yann, 26/11, inspiré de la sobriété de Bevel) : la synthèse sous les anneaux en deux phrases simples, d'une seule couleur ;
+    // mêmes valeurs que les 4 rubriques ci-dessus. Un fait, une seule fois : si la bulle d'Ace en haut parle déjà des points qui manquent, la carte ne le redit pas
+    var bub = null; try { var ht = coHomeTip(c); bub = ht && ht.tip ? ht.tip.v : null; } catch (e) {}
+    var sh = [], s1 = "", s2 = "";
+    if (lvl != null) s1 = "Tu joues " + (lvl === cur ? "pile à ton classement" : crans(Math.abs(lvl - cur)) + (lvl > cur ? " au-dessus" : " en dessous") + " de ton classement");
+    if (F && n6) { var fv = nv6 === n6 ? (n6 > 1 ? "tes " + n6 + " derniers matchs" : "ton dernier match") : nv6 === 0 ? (n6 > 1 ? "aucun de tes " + n6 + " derniers matchs" : "ton dernier match") : nv6 + " de tes " + n6 + " derniers matchs";
+      var gw = nv6 === 0 ? (n6 > 1 ? "tu n'as gagné " : "tu as perdu ") : "tu as gagné ";
+      s1 = s1 ? s1 + " et " + gw + fv : gw.charAt(0).toUpperCase() + gw.slice(1) + fv; }
+    if (s1) sh.push(s1 + ".");
+    var dt = function (x) { return dN(x) + " " + MOIS_L[x.getMonth()]; };
+    if (p.status === "montee") sh.push("Tu montes " + lab(p.projected) + " le " + dt(E.parseDate(E.iso(p.release))) + ".");
+    else if (p.margin != null && p.margin < 0 && !p.kept && cur > 0) sh.push("Pour te maintenir, il te manque " + plural(-p.margin, "point") + ".");
+    else if (d.norme && p.status !== "top" && bub !== "up") { var gp2 = Math.max(0, d.norme - d.total), rl2 = E.parseDate(d.releaseIso); sh.push(gp2 ? "Il te manque " + plural(gp2, "point") + " pour monter le " + dt(rl2) + "." : "Tu as les points pour " + (d.label || nextL) + "."); }
+    var mood = (F && F.streak.n >= 3) ? (F.streak.r === "V" ? "joie" : "decue") : (lvl != null && lvl > cur) || up ? "joie" : dn || (lvl != null && lvl < cur) ? "reflexion" : "repos";
+    return { ic: ic, col: col, title: title, head: head, mood: mood, text: text, secs: secs, short: sh.join(" ") };
   }
   function courbesRings(c) {
     var w12 = (c.proj.matches || []).filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); });
@@ -14093,20 +14109,22 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     else if (lvl != null && lvl < cur) say = up ? "Tes résultats sont un cran sous ton " + lab(cur) + ", mais ta forme remonte." : "Tes résultats sont un cran sous ton " + lab(cur) + " : attention au maintien.";
     else if (lvl != null) say = up ? "Ton niveau colle à ton classement, et ta forme monte." : dn ? "Ton niveau colle à ton classement, mais ta forme baisse." : "Tes résultats collent à ton classement.";
     else say = "Tu gagnes " + Math.round(pv * 100) + " % de tes matchs sur 12 mois" + (up ? ", et plus encore en ce moment." : dn ? ", un peu moins en ce moment." : ".");
+    // 4.19.0 (Yann, 26/11) : anneaux un peu plus petits (92 → 84) et sans séparateurs, pour plus d'air entre eux
     var go = !UI.cr3Go; UI.cr3Go = 1; // 3.57 (Yann) : les anneaux se remplissent, une fois par ouverture de l'appli
     // 4.3 : le projecteur de l'arrivée se pose sur l'anneau qui porte la bonne nouvelle (même calcul que la phrase)
     var spot = lvl != null && lvl > cur ? 2 : up ? 1 : -1;
     return '<div class="card cr3' + (go ? " cr3-go" : "") + '"' + (spot >= 0 ? ' data-spot="' + spot + '" data-say="' + esc(say) + '"' : "") + '><div class="cr3-row">' +
-      cell(ring3(pv, "var(--gazon)", 92, 9, Math.round(pv * 100) + "%"), "Victoires", "victoires") +
-      cell(ring3(pf, acc, 92, 9, Math.round(pf * 100) + "%"), "Forme", "!forme") +
-      (f && f.wait ? cell(ring3(.04, "var(--bleu3)", 92, 9, lab(cur)), '<span class="op-wait"><span class="rally-l" aria-hidden="true"><i></i></span>Niveau</span>', "!rrWhy") /* 4.2.3 : 1re lecture des niveaux de tes adversaires en cours */
-      : lvl != null ? cell(ring3(f.mean != null ? Math.max(.04, Math.min(1, f.mean - cur)) : .04, "var(--bleu3)", 92, 9, lab(cur)), "Niveau", "!rrWhy") /* 3.84 (Yann) : ton classement au centre, l'anneau se remplit à mesure que ton niveau joué approche l'échelon du dessus */ /* 3.84 (Yann) : « Niveau » comme sur la montre ; « Classement réel » = l'officiel, dans Courbes */ : cell(ring3(nv / Math.max(1, w12.length), "var(--bleu3)", 92, 9, String(w12.length)), "Matchs", "victoires")) +
+      cell(ring3(pv, "var(--gazon)", 84, 9, Math.round(pv * 100) + "%"), "Victoires", "victoires") +
+      cell(ring3(pf, acc, 84, 9, Math.round(pf * 100) + "%"), "Forme", "!forme") +
+      (f && f.wait ? cell(ring3(.04, "var(--bleu3)", 84, 9, lab(cur)), '<span class="op-wait"><span class="rally-l" aria-hidden="true"><i></i></span>Niveau</span>', "!rrWhy") /* 4.2.3 : 1re lecture des niveaux de tes adversaires en cours */
+      : lvl != null ? cell(ring3(f.mean != null ? Math.max(.04, Math.min(1, f.mean - cur)) : .04, "var(--bleu3)", 84, 9, lab(cur)), "Niveau", "!rrWhy") /* 3.84 (Yann) : ton classement au centre, l'anneau se remplit à mesure que ton niveau joué approche l'échelon du dessus */ /* 3.84 (Yann) : « Niveau » comme sur la montre ; « Classement réel » = l'officiel, dans Courbes */ : cell(ring3(nv / Math.max(1, w12.length), "var(--bleu3)", 84, 9, String(w12.length)), "Matchs", "victoires")) +
       "</div>" + (function () {
         var P = null; try { P = pointDuJour(c); } catch (e) {}
         if (!P) return '<div class="cr3-say' + (say.length <= 46 ? " c" : "") + '">' + esc(say) + "</div>";
         // 4.2 (Yann, allègement validé le 23/11/2026) : une seule ligne, le détail dans « Le point complet »
         // 4.4.6 (Yann) : titre + texte court scannable, icône agrandir ; le tout ouvre « Ton point du jour »
-        return '<button class="pdj pdj1 pdj2" data-a="sheet" data-k="pdj" aria-label="Ton point du jour, le détail"><span class="pdj-h"><i style="color:' + P.col + ";background:color-mix(in srgb," + P.col + ' 18%,transparent)">' + P.ic + "</i><b>" + esc(P.title) + "</b>" + svg('<path d="M14 4h6v6M20 4l-6.5 6.5M10 20H4v-6M4 20l6.5-6.5"/>', 2) + "</span>" + (P.short ? '<span class="pdj-tx">' + P.short + "</span>" : "") + "</button>";
+        // 4.19.0 (Yann, maquette D du 26/11) : Ace te parle (sa tête devant un petit titre d'une ligne), texte d'une seule couleur aligné sur le trait, « Ton point du jour › » en pied
+        return '<button class="pdj pdj1 pdj2 pdj3" data-a="sheet" data-k="pdj" aria-label="Ton point du jour, le détail"><span class="pdj-h">' + coBall("pdj", P.mood, "pd") + '<i style="color:' + P.col + '">' + P.ic + "</i><b>" + esc(P.head || P.title) + "</b></span>" + (P.short ? '<span class="pdj-tx">' + esc(P.short) + "</span>" : "") + '<span class="pdj-ft"><span>Ton point du jour</span>' + svg('<path d="M9 6l6 6-6 6"/>', 2) + "</span></button>";
       })() + "</div>";
   }
   // 3.30 : jauge de couleur. Sous le seuil bas : alerte (terre). Au-dessus du seuil haut : vert. Entre les deux : bleu, « dans la norme ».
@@ -14616,8 +14634,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     },
     pdj: function () {
       var P = null; try { P = pointDuJour(ctx()); } catch (e) {} if (!P) return null;
-      return { title: "Ton point du jour", body: '<div class="pdj-hero"><i style="color:' + P.col + ";background:color-mix(in srgb," + P.col + ' 18%,transparent)">' + P.ic + "</i><b>" + esc(P.title) + '</b></div><div class="card pdj-secs">' +
-        P.secs.map(function (x) { return '<div class="pdj-s"><i style="color:' + x.col + ";background:color-mix(in srgb," + x.col + ' 18%,transparent)">' + x.ic + "</i><div><b>" + x.t + "</b><p>" + x.b + "</p></div></div>"; }).join("") + "</div>" };
+      // 4.19.0 (Yann, 26/11) : même sobriété que la carte : Ace devant le titre, rubriques d'une seule couleur, pictos discrets
+      return { title: "Ton point du jour", body: '<div class="pdj-hero pdj-v2">' + coBall("pdjh", P.mood, "sm") + "<b>" + esc(P.title) + '</b></div><div class="card pdj-secs pdj-v2">' +
+        P.secs.map(function (x) { return '<div class="pdj-s"><i>' + x.ic + "</i><div><b>" + x.t + "</b><p>" + x.b + "</p></div></div>"; }).join("") + "</div>" };
     },
     // 3.31 : fiches ouvertes depuis l'accueil (on reste sur l'accueil)
     forme: function () {

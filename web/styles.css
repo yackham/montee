@@ -5249,7 +5249,7 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
   .cr3-go .cr3-c:nth-child(2) svg circle[stroke-dashoffset] { animation-delay: .15s; }
   .cr3-go .cr3-c:nth-child(3) svg circle[stroke-dashoffset] { animation-delay: .3s; }
 }
-@keyframes cr3Fill { from { stroke-dashoffset: 260.8; } }
+@keyframes cr3Fill { from { stroke-dashoffset: 235.6; } } /* 4.19.0 : anneaux de 84 px (r 37,5) */
 /* 3.57 (Yann) : pendant une lecture Ten'Up, une balle fait l'échange au-dessus d'un petit filet */
 .rally-l { display: inline-block; position: relative; width: 34px; height: 16px; vertical-align: middle; margin-right: 4px; }
 .rally-l::before { content: ""; position: absolute; left: 50%; bottom: 0; width: 2px; height: 7px; margin-left: -1px; border-radius: 1px; background: currentColor; opacity: .45; }
@@ -7554,6 +7554,27 @@ button.pdj.pdj2 { padding-bottom: 16px; gap: 8px; }
 .card.cr3 { padding-top: var(--s3); padding-bottom: var(--s3); }
 .card.cr3 .cr3-row { padding-top: var(--s2); }
 .card.cr3 button.pdj.pdj2 { padding-bottom: var(--s2); }
+/* 4.19.0 (Yann, maquette D validée le 26/11, sobriété façon Bevel) : sous les anneaux, la tête d'Ace devant un petit titre d'une ligne,
+   texte d'une seule couleur aligné sur le trait (plus de retrait), « Ton point du jour › » en pied ; les chiffres ne sont plus colorés */
+.card.cr3 button.pdj.pdj3 { padding-left: 0; padding-right: 0; gap: 8px; }
+.pdj3 .pdj-h { gap: 9px; min-width: 0; }
+.pdj3 .pdj-h b { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cbl-b.pd { width: 26px; height: 28px; margin: -2px 0 0; }
+.pdj3 .pdj-h .cbl-b:empty, .pdj3 .pdj-h .cbl-b.ace-off { display: none; }
+.pdj3 .pdj-h i { width: auto; height: auto; background: none !important; font-size: 16px; }
+.pdj3 .pdj-h .cbl-b:not(:empty):not(.ace-off) + i { display: none; }
+.pdj3 .pdj-tx { font-weight: 450; color: color-mix(in srgb, var(--ink) 80%, transparent); text-wrap: pretty; }
+.pdj-ft { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.pdj-ft svg { width: 16px; height: 16px; }
+/* 4.19.0 (Yann, version E du 26/11) : plus de traits verticaux entre les anneaux, un peu plus d'air entre les anneaux et le texte */
+.card.cr3 .cr3-c + .cr3-c { border-left: 0; }
+.card.cr3 .cr3-row { padding-left: 0; padding-right: 0; padding-bottom: 20px; }
+/* 4.19.0 : la feuille « Ton point du jour » dans le même esprit : Ace devant le titre, pictos discrets sans pastille, texte d'une seule couleur */
+.pdj-hero.pdj-v2 .cbl-b { margin: 0; }
+.pdj-v2 .pdj-s i { width: 22px; height: 22px; background: none; color: var(--muted); font-size: 16px; font-weight: 600; }
+.pdj-v2 .pdj-s p { color: color-mix(in srgb, var(--ink) 80%, transparent); }
+.pdj-v2 .pdj-s p b { font-size: inherit; font-weight: 600; color: inherit; }
+.card.cr3 button.pdj.pdj3 { padding-top: 16px; }
 /* 4.5.1 (Yann : « inconsistant ») : « Tes prochains adversaires » en carte comme les autres blocs de l'accueil, sur une ligne */
 .card.pa-l { background: var(--card); flex-direction: row; align-items: center; gap: 12px; padding: 12px 16px; margin-top: 4px; color: var(--ink); }
 .card.pa-l .pa-av i { color: var(--ink); background: color-mix(in srgb, var(--ink) 12%, var(--card)); }
