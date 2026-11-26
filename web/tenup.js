@@ -14,6 +14,11 @@
       if (/classement/i.test(k) && v && typeof v === "object" && typeof v.libelle === "string" && !/meilleur/i.test(k)) out = v.libelle; else if (/classement/i.test(k) && typeof v === "string" && /^(NC|\d|-?\d+\/\d|[0-9]{1,2}\/[0-9])/.test(v) && v.length < 8 && !/meilleur/i.test(k)) out = v; else if (v && typeof v === "object" && !Array.isArray(v)) walk(v, d + 1); }); })(o, 0);
     return out;
   }
+  // La simulation Ten'Up d'un joueur, lue de la même façon pour sa fiche (« player ») et pour la liste du club (« ranks »)
+  function simOf(sim) {
+    sim = sim || {};
+    return { message: sim.messageSimulation || (sim.messages || []).join(" ") || "", res: (sim.resultatSimulation || []).map(function (x) { var v = [x.valide, x.estValide, x.isValide, x.valid, x.atteint, x.obtenu].filter(function (y) { return typeof y === "boolean"; })[0]; return { c: x.classement && (x.classement.libelle || x.classement) || x.libelle || "", pts: x.pointsCumules, quota: x.quota, ok: v == null ? null : v }; }) };
+  }
   function bestYear(mc) {
     var y = null; if (!mc || typeof mc !== "object") return null;
     Object.keys(mc).forEach(function (k) { if (y || !/millesime|annee|year|saison|date/i.test(k)) return; var m = String(mc[k] == null ? "" : typeof mc[k] === "object" ? JSON.stringify(mc[k]) : mc[k]).match(/(19[89]\d|20[0-4]\d)/); if (m) y = +m[1]; });
@@ -722,6 +727,29 @@
         }, Promise.resolve());
       }).then(function () { return ok(out); }, err);
     }
+    if (KIND === "ranks") {
+      // 4.14.0 : « Ils montent ce mois-ci » (Le club). Lecture légère des joueurs du club : leur classement (profil) et leur
+      // simulation Ten'Up, sans palmarès. 10 joueurs au plus par appel, 3 à la fois.
+      var preR = ["/api/back/v1/personnes/", "/back/v1/personnes/"], outR = [];
+      var jR = function (u, post) {
+        var o = { credentials: "include", method: post ? "POST" : "GET", headers: { "Accept": "application/json" } };
+        if (post) { o.headers["Content-Type"] = "application/json"; o.body = "{}"; }
+        return fetch(location.origin + u, o).then(function (r) { if (r.status === 401 || r.status === 403) throw new Error("auth"); if (!r.ok) throw new Error("http " + r.status); return r.json(); });
+      };
+      var oneR = function (id) {
+        var tryP = function (i) { if (i >= preR.length) return Promise.resolve(null); return jR(preR[i] + id + "/profil-joueur").then(function (p) { return { b: preR[i] + id, p: p }; }, function (e) { if (e && e.message === "auth") throw e; return tryP(i + 1); }); };
+        return tryP(0).then(function (x) {
+          if (!x || !x.p) return;
+          var ct = x.p.classementTennis || {};
+          return jR(x.b + "/simulation-classement", true).catch(function (e) { if (e && e.message === "auth") throw e; return null; }).then(function (sm) {
+            outR.push({ id: id, rk: (ct.dernierClassement && ct.dernierClassement.libelle) || "", sx: x.p.sexe || x.p.genre || "", age: x.p.age || null, sim: sm ? simOf(sm) : null });
+          });
+        });
+      };
+      var idsR = (A.ids || []).slice(0, 10), chR = Promise.resolve();
+      for (var iR = 0; iR < idsR.length; iR += 3) (function (g) { chR = chR.then(function () { return Promise.all(g.map(oneR)); }); })(idsR.slice(iR, iR + 3));
+      return chR.then(function () { return ok({ L: outR, at: Date.now() }); }, err);
+    }
     if (KIND === "player") {
       var ids = [A.id, A.idp].filter(function (x, i, a) { return x && a.indexOf(x) === i; });
       var pres = ["/api/back/v1/personnes/", "/back/v1/personnes/"];
@@ -744,7 +772,7 @@
             var sim = r[1] || {};
             return { id: A.id, fiche: ficheOf(p), profil: { prenom: p.prenom || A.prenom, nom: p.nom || A.nom, sexe: p.sexe || p.genre || A.sexe || "", age: p.age || A.age || null, club: club || A.club || "",
               lic: p.numeroLicence || A.licence || "", classement: (ct.dernierClassement && ct.dernierClassement.libelle) || A.rank || "", meilleur: ct.meilleurClassement && ct.meilleurClassement.libelle || "", meilleurAn: bestYear(ct.meilleurClassement) },
-              raw: (pal && (pal.matchs || pal.matches)) || [], past: (r[2] || []).filter(Boolean), sim: { message: sim.messageSimulation || (sim.messages || []).join(" ") || "", res: (sim.resultatSimulation || []).map(function (x) { var v = [x.valide, x.estValide, x.isValide, x.valid, x.atteint, x.obtenu].filter(function (y) { return typeof y === "boolean"; })[0]; return { c: x.classement && (x.classement.libelle || x.classement) || x.libelle || "", pts: x.pointsCumules, quota: x.quota, ok: v == null ? null : v }; }) } };
+              raw: (pal && (pal.matchs || pal.matches)) || [], past: (r[2] || []).filter(Boolean), sim: simOf(sim) };
           });
         }, function (e) { if (e && e.message === "auth") throw e; return step(i + 1); });
       };
@@ -1232,7 +1260,7 @@
   var VERSION = "2.4";
   // Version pour l'app iPhone : corps d'une fonction async (WKWebView callAsyncJavaScript)
   // Le script embarque la recherche v2, utilisée en repli par tenupFetch
-  function src(fn) { return "var jaNameFrom = " + jaNameFrom.toString() + ";\nvar ageTxt = " + ageTxt.toString() + ";\nvar cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar epMerge = " + epMerge.toString() + ";\nvar favsMap = " + favsMap.toString() + ";\nvar SURF = " + JSON.stringify(SURF) + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar genMap = " + genMap.toString() + ";\nvar DZ_MAPS = { iso: function (d) { return (d.getDay() + 6) % 7 + 1; }, sun0: function (d) { return d.getDay(); }, sun1: function (d) { return d.getDay() + 1; } };\nvar dzGenSlots = " + dzGenSlots.toString() + ";\nvar dzSame = " + dzSame.toString() + ";\nvar dzMapping = " + dzMapping.toString() + ";\nvar profMap = " + profMap.toString() + ";\nvar slotsMerge = " + slotsMerge.toString() + ";\nvar tourGen = " + tourGen.toString() + ";\nvar dispoDays = " + dispoDays.toString() + ";\nvar dispoRaw = " + dispoRaw.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
+  function src(fn) { return "var simOf = " + simOf.toString() + ";\nvar jaNameFrom = " + jaNameFrom.toString() + ";\nvar ageTxt = " + ageTxt.toString() + ";\nvar cardsFrom = " + cardsFrom.toString() + ";\nvar cardMap = " + cardMap.toString() + ";\nvar ficheMap = " + ficheMap.toString() + ";\nvar epMerge = " + epMerge.toString() + ";\nvar favsMap = " + favsMap.toString() + ";\nvar SURF = " + JSON.stringify(SURF) + ";\nvar lieuMap = " + lieuMap.toString() + ";\nvar tuPick = " + tuPick.toString() + ";\nvar tuObj = " + tuObj.toString() + ";\nvar tuInfos = " + tuInfos.toString() + ";\nvar genMap = " + genMap.toString() + ";\nvar DZ_MAPS = { iso: function (d) { return (d.getDay() + 6) % 7 + 1; }, sun0: function (d) { return d.getDay(); }, sun1: function (d) { return d.getDay() + 1; } };\nvar dzGenSlots = " + dzGenSlots.toString() + ";\nvar dzSame = " + dzSame.toString() + ";\nvar dzMapping = " + dzMapping.toString() + ";\nvar profMap = " + profMap.toString() + ";\nvar slotsMerge = " + slotsMerge.toString() + ";\nvar tourGen = " + tourGen.toString() + ";\nvar dispoDays = " + dispoDays.toString() + ";\nvar dispoRaw = " + dispoRaw.toString() + ";\nvar dispoLimFrom = " + dispoLimFrom.toString() + ";\nvar tsMap = " + tsMap.toString() + ";\nvar inscritsMap = " + inscritsMap.toString() + ";\nvar champDeps = " + champDeps.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar palClOf = " + palClOf.toString() + ";\n(" + fn.toString().replace("__SV__", VERSION) + ")"; }
   // 3.47 : page de maintenance / file d'attente Ten'Up : on le dit au lieu de « Ten'Up n'a pas répondu »
   var MAINT = "var __mt = (document.title || \"\") + \" \" + Array.prototype.map.call(document.querySelectorAll(\"h1,h2\"), function (e) { return e.innerText; }).slice(0, 3).join(\" \");\n" +
     "if (/maintenance|mise à jour du site|file d'attente|queue-it|service (momentanément )?indisponible/i.test(__mt) || /maintenance/i.test(location.pathname)) return \"MONTEE-ERR maintenance\";\n";
@@ -1243,7 +1271,7 @@
   // les autres relances servent à relire tes joueurs suivis (10 au plus, 5 à la fois, 6 s max chacun).
   // Le moment de ta dernière relecture est gardé dans le stockage de la page Ten'Up (à défaut : une heure sur deux).
   function nativeScriptBg(licence, knownId, who, fol) {
-    var base = "var v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar __fetch = (" + tenupFetch.toString().replace("__SV__", VERSION) + ");\nvar __query = (" + tenupQuery.toString() + ");\n";
+    var base = "var simOf = " + simOf.toString() + ";\nvar v2Search = " + v2Search.toString() + ";\nvar ficheOf = " + ficheOf.toString() + ";\nvar bestYear = " + bestYear.toString() + ";\nvar __fetch = (" + tenupFetch.toString().replace("__SV__", VERSION) + ");\nvar __query = (" + tenupQuery.toString() + ");\n";
     return MAINT + base + "var F = " + JSON.stringify(fol || []) + ", LK = \"montee_bg_own\", last = -1;\n" +
       "try { last = +(localStorage.getItem(LK) || 0); } catch (e) {}\n" +
       "var ownDue = !F.length || (last < 0 ? Math.floor(Date.now() / 3600000) % 2 === 0 : Date.now() - last > 12 * 3600000);\n" +
