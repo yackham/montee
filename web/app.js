@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.1",
+    VERSION: "4.18.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -352,6 +352,12 @@
     } else if (ok) t.insertAdjacentHTML("afterbegin", '<span class="mx-ck2">' + MX_CK + "</span>");
     document.body.appendChild(t);
     UI.toastT = setTimeout(function () { t.remove(); }, msg.length > 60 ? 4500 : 2800);
+  }
+  // 4.18.2 (Yann : « Annuler ne fonctionne pas ») : un seul toast avec « Annuler », laissé 6 s ; le bouton est branché par l'écouteur des toasts (le toast vit hors de #app)
+  function toastUndo(msg, act) {
+    toast(msg); var tk = document.querySelector(".toast"); if (!tk) return;
+    clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000);
+    tk.insertAdjacentHTML("beforeend", ' <button type="button" class="tk-undo" data-a="' + act + '">Annuler</button>');
   }
 
   // ---------- Icônes ----------
@@ -2466,8 +2472,7 @@
   }
   function hbMergeToast(mg, prev) { // 4.10 (Yann) : on ne parle du regroupement que quand il arrive, avec « Annuler »
     if (!mg.length) return; var a = mg[0]; UI.hbUndo = prev;
-    toast(dzSl(a.a) + " et " + dzSl(a.b) + " regroupés en " + dzSl(a.r || { from: a.a.from, to: a.b.to }));
-    var tk = document.querySelector(".toast"); if (tk) { clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000); tk.insertAdjacentHTML("beforeend", ' <button class="tk-undo" data-a="hbUndo">Annuler</button>'); }
+    toastUndo(dzSl(a.a) + " et " + dzSl(a.b) + " regroupés en " + dzSl(a.r || { from: a.a.from, to: a.b.to }), "hbUndo");
   }
   function hbSet(slots) { var d = UI.hbd, prev = JSON.parse(JSON.stringify(d.slots)), r = T.slotsMerge(slots); d.slots = r.slots.map(function (x) { return { from: x.from, to: x.to }; }); hbMergeToast(r.merged, prev); }
   function DET_DZA(v) { // ajouter une indispo pour ce tournoi
@@ -21071,8 +21076,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     coachNo: function (el) {
       var m = coMem(), id = el.dataset.id, sc = el.dataset.s; m.no[id] = Date.now(); m.scr[sc] = (m.scr[sc] || 0) + 1; coPurge(m); save();
       // 4.8.0 (Yann : touché sans faire exprès) : « Annuler » dans le message pour le faire revenir tout de suite
-      UI.coUndo = { id: id, s: sc }; toast("Conseil masqué pour 3 semaines.");
-      var tk = document.querySelector(".toast"); if (tk) { clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000); tk.insertAdjacentHTML("beforeend", ' <button class="tk-undo" data-a="coachUndo">Annuler</button>'); }
+      UI.coUndo = { id: id, s: sc }; toastUndo("Conseil masqué pour 3 semaines.", "coachUndo");
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
     coachUndo: function () { var u = UI.coUndo, m = coMem(); if (!u) return; delete m.no[u.id]; if (m.scr[u.s]) m.scr[u.s]--; UI.coUndo = null; save(); var tk = document.querySelector(".toast"); if (tk) tk.remove(); render(); },
@@ -21987,6 +21991,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       A[a](el, ev);
       if (shK && UI.sheet && JSON.stringify(UI.sheet) === shK) { var shN = document.querySelectorAll(".sheet"); shN = shN[shN.length - 1]; if (shN && shN.getBoundingClientRect().height < shH) shN.style.minHeight = Math.round(shH) + "px"; }
     }
+  });
+  // 4.18.2 : les toasts sont posés sur <body>, hors de #app : leurs boutons (« Annuler ») passent par ici
+  document.addEventListener("click", function (ev) {
+    var el = ev.target.closest && ev.target.closest(".toast [data-a]"); if (!el) return;
+    var a = el.dataset.a; if (!A[a]) return;
+    ev.preventDefault(); ev.stopPropagation(); clearTimeout(UI.toastT); haptic("light"); A[a](el, ev);
   });
   // Pages qui défilent à l'horizontale (mode match) : les points suivent ; sommaire des courbes : la pastille suit
   document.addEventListener("scroll", function (ev) {
