@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.14.0",
+    VERSION: "4.15.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -86,15 +86,50 @@
   // (« 15/5 ») : le « / » coupait l'adresse #/match/… et l'écran retombait sur l'Activité. On le remplace une fois pour toutes.
   (function () { var fx = function (L) { (L || []).forEach(function (m) { if (m && typeof m.id === "string" && m.id.indexOf("/") >= 0) m.id = m.id.replace(/\//g, "_"); }); }; fx(S.histMatches); fx(S.matches); fx(S.doubles);
     (S.tours || []).forEach(function (t) { (t.pool || []).concat(t.rounds || []).forEach(function (r) { if (r && typeof r.twin === "string" && r.twin.indexOf("/") >= 0) r.twin = r.twin.replace(/\//g, "_"); }); }); })(); // 3.67.1 : les liens poule/tableau → match suivent
+  // ——— 4.15.0 (Yann, maquettes f1, f2, p1, p2 validées le 26/11/2026, lot 4) : LE PROFIL DE TON ENFANT.
+  // Montée lit sa fiche Ten'Up avec ta connexion (comme un adversaire) et bascule sur SON profil : ses matchs, son classement,
+  // sa projection et ses chances sont rangés à part (montee.kid.<id>), et TOUS les calculs de l'app tournent sur ses données
+  // sans une ligne de calcul en plus. Ce qui est à toi (réglages, Montée+, fiches lues, suivis, notifications) reste partagé.
+  // Pas de bascule de compte Ten'Up, aucun mot de passe : rien n'est écrit sur Ten'Up depuis son profil.
+  var KID_PFX = "montee.kid.", KID_FREE = 1, KID_MAX = 4;
+  var KID_SHARED = { kids: 1, kidOn: 1, prefs: 1, sup: 1, supEver: 1, trial: 1, plusMom: 1, notif: 1, notifP: 1, notifOff: 1, notifAsk: 1, scout: 1, follow: 1, oppNames: 1, oppGame: 1, oppNotes: 1,
+    demo: 1, revAt: 1, lastBackup: 1, bkAutoAt: 1, bkAutoN: 1, syncedVersion: 1, pages: 1, seenNotes: 1, owDone: 1, tzCfg: 1, aceSeen: 1, v: 1 };
+  var SP = S, SK = null; // SP : ton profil ; SK : le profil de l'enfant affiché (null = le tien)
+  function kidBlank(k) { var b = blank(); b.onboarded = true; b.kid = { id: k.id }; b.profile.name = k.prenom || ""; b.profile.rank = k.rank || ""; b.profile.sex = k.sexe === "F" ? "F" : "H"; b.scoreV2 = 1; b.surfV2 = 1; b.teV1 = 1; b.amicalV1 = 1; b.arrSeen = 1; b.tuMet = 1; return b; }
+  function kidOf(id) { return (SP.kids || []).filter(function (k) { return String(k.id) === String(id); })[0] || null; }
+  function kidCur() { return SK ? kidOf(SK.kid.id) : null; }
+  function kidLoad(k) { var o = null; try { var raw = localStorage.getItem(KID_PFX + k.id); if (raw) o = Object.assign(kidBlank(k), JSON.parse(raw)); } catch (e) {} return o || kidBlank(k); }
+  function kidProxy() {
+    var tg = function (k) { return KID_SHARED[k] ? SP : SK; };
+    return new Proxy({}, {
+      get: function (t, k) { return tg(k)[k]; },
+      set: function (t, k, v) { tg(k)[k] = v; return true; },
+      deleteProperty: function (t, k) { delete tg(k)[k]; return true; },
+      has: function (t, k) { return k in tg(k); },
+      ownKeys: function () { var o = {}; Object.keys(SK).forEach(function (k) { if (!KID_SHARED[k]) o[k] = 1; }); Object.keys(SP).forEach(function (k) { if (KID_SHARED[k]) o[k] = 1; }); return Object.keys(o); },
+      getOwnPropertyDescriptor: function (t, k) { var o = tg(k); return k in o ? { value: o[k], writable: true, enumerable: true, configurable: true } : undefined; }
+    });
+  }
+  // Passe sur le profil de l'enfant (id) ou revient au tien (null). La connexion Ten'Up de ses écrans reste la tienne.
+  function kidSwitch(id) {
+    if (!SK) SP = S;
+    var k = id != null ? kidOf(id) : null;
+    if (k) { SK = kidLoad(k); SK.tenup = Object.assign({}, SK.tenup, { linked: !!(SP.tenup && SP.tenup.linked), expired: !!(SP.tenup && SP.tenup.expired) }); SP.kidOn = String(k.id); S = kidProxy(); }
+    else { SK = null; delete SP.kidOn; S = SP; }
+    UI.sheet = null; UI.ace = null; UI.lastHtml = null; TRP_M = {}; PAL_IX = null;
+    try { localStorage.setItem(KEY, JSON.stringify(SP)); } catch (e) {}
+  }
   function save() {
     TRP_M = {}; PAL_IX = null; // 4.2.3 : les chances se recalculent dès que tes données changent
-    try { localStorage.setItem(KEY, JSON.stringify(S)); }
+    if (!SK) SP = S; // une restauration remplace S : ton profil suit
+    else { try { localStorage.setItem(KID_PFX + SK.kid.id, JSON.stringify(SK)); } catch (e) {} }
+    try { localStorage.setItem(KEY, JSON.stringify(SP)); }
     catch (e) {
       // 3.46.2 (audit) : stockage plein → on allège le cache des fiches joueurs (les plus anciennes, hors suivis) et on réessaie
       try {
         var sc = S.scout || {}, fol = S.follow || {}, ks = Object.keys(sc).filter(function (k) { return !fol[k]; }).sort(function (a, b) { return (sc[a].ts || 0) - (sc[b].ts || 0); });
         ks.slice(0, Math.max(5, Math.ceil(ks.length / 2))).forEach(function (k) { delete sc[k]; });
-        localStorage.setItem(KEY, JSON.stringify(S));
+        localStorage.setItem(KEY, JSON.stringify(SP));
       } catch (e2) { toast("Impossible d'enregistrer sur cet appareil."); }
     }
   }
@@ -782,6 +817,7 @@
     if (!S.onboarded && (parts[0] === "" || parts[0] === "palmares" || parts[0] === "courbes")) { location.replace("#/bienvenue"); return; }
     // 3.55.3 : une page qui plante ne bloque plus l'app (avant : « il ne se passe rien » au toucher)
     try {
+    if (kidBlocked(parts)) html = V.kidLim(parts[0]); else // 4.15 : pages de ton compte, pas sur son profil
     switch (parts[0]) {
       case "bienvenue": html = V.welcome(); break;
       case "badges": html = V.badges(); break; // 3.59
@@ -850,6 +886,7 @@
       var sec = { badges: "courbes", chantier: "palmares", joueur: "faf", moi: "faf", coach: "courbes", competiteur: "courbes", adversaire: "palmares", match: "palmares", niveau: "courbes", service: "courbes", victoires: "home", gagner: "courbes", competiteur: "courbes", tournoi: "home", saison: "home", tournois: "palmares", projection: "home", simu: "home", carte: "home", objectif: "home", soutenir: "home" }[parts[0]] || UI.lastTab || "home";
       html = html.replace('<div class="screen', '<div class="screen has-tabs') + tabbar(sec); // 3.50.1 : aussi « screen ins-scr », « screen tm-scr »… (sinon le bas de page passe sous les onglets)
     }
+    if (SK) { html = kidVoice(html.replace(/<div class="screen[^"]*">/, function (m) { return m + kidBand(); })); document.body.classList.add("kid-on"); } else document.body.classList.remove("kid-on"); // 4.15 : son profil, dit en haut de chaque écran
     if (UI.mmOv) { html += UI.mmOv; UI.mmOv = null; }
     else html += mmPill() || sjPill();
     if (UI.menu) html += menuHtml();
@@ -895,7 +932,8 @@
     Array.prototype.forEach.call(app.querySelectorAll('[data-a="simuLv"].on'), function (b) { var p = b.parentNode; if (p && p.scrollWidth > p.clientWidth) { var l = b.offsetLeft - p.offsetLeft - (p.clientWidth - b.offsetWidth) / 2; p.scrollLeft = Math.max(0, l); } });
     var f = app.querySelector("[data-autofocus]"); if (f) f.focus();
     if (UI.fafFocus && parts[0] === "faf") { UI.fafFocus = false; var fq = document.getElementById("ff-q"); if (fq) setTimeout(function () { fq.focus(); }, 120); }
-    if (UI.partyKey && S.celebrated !== UI.partyKey) { S.celebrated = UI.partyKey; save(); setTimeout(party, 350); }
+    if (UI.partyKey && S.celebrated !== UI.partyKey && !(SK && !(kidCur() || {}).at)) { // 4.15 : pas de fête pour ce que son 1er import trouve déjà acquis
+      S.celebrated = UI.partyKey; save(); setTimeout(party, 350); }
     reviewAsk(); // 4.4.7
     syncWidgets(); watchSync(); schedulePlanNotif(); try { scheduleTeamsNotif(); schedulePoolNotif(); } catch (e) {} try { scheduleSjNotif(); } catch (e) {}
   }
@@ -1494,7 +1532,7 @@
     };
     return '<div class="tabbar"><nav aria-label="Navigation principale">' +
       t("home", "Accueil", I.home, "") + t("palmares", "Activité", I.list, "palmares") +
-      '<button class="plus" data-a="menu" aria-label="Ouvrir le menu : ajouter un match, un entraînement…" aria-haspopup="dialog">' + svg('<path d="M12 5v14M5 12h14"/>', 2.8, ' width="26" height="26"') + "</button>" +
+      (SK ? '<button class="plus kd-off" data-a="kidNoAdd" aria-label="Rien à saisir sur son profil">' : '<button class="plus" data-a="menu" aria-label="Ouvrir le menu : ajouter un match, un entraînement…" aria-haspopup="dialog">') + svg('<path d="M12 5v14M5 12h14"/>', 2.8, ' width="26" height="26"') + "</button>" +
       t("courbes", "Courbes", I.chart, "courbes") + t("faf", "Joueurs", I.versus, "faf") +
       "</nav></div>";
   }
@@ -1880,6 +1918,7 @@
     news.forEach(function (t) { toast("Liste d'attente : tu es inscrit à " + t.name + " !"); if (S.notif && np("insc")) try { LN.schedule({ notifications: [{ id: 1300 + (parseInt(String(t.tuid).replace(/\D/g, ""), 10) % 90 || 1), title: "Tu es inscrit !", body: t.name + " : tu passes de la liste d'attente au tableau.", extra: { url: "montee://open/tournoi/" + t.id } }] }).catch(function () {}); } catch (e) {} });
   }
   function insRefresh(force) {
+    if (SK) return Promise.resolve(); // 4.15 : ses inscriptions restent dans son compte Ten'Up
     if (!NATIVE || !S.tenup || !S.tenup.linked || S.tenup.expired || UI.insBusy) return Promise.resolve();
     if (!force && S.insAt && Date.now() - S.insAt < 3 * 36e5) return Promise.resolve();
     UI.insBusy = true;
@@ -2638,6 +2677,7 @@
   }
   // Accueil, Activité : tes matchs relus à l'ouverture s'ils ont plus de 2 h (comme au réveil de l'appli)
   function syAutoMe() {
+    if (SK) { kidAuto(); return; } // 4.15 : sur son profil, c'est sa fiche qu'on relit
     if (!NATIVE || !S.tenup.linked || S.tenup.expired || UI.loading || offline()) return;
     if (!UI.owTried) { UI.owTried = 1; setTimeout(oppWarm, 2500); } // 4.2.3 : lecture étendue des adversaires, une fois par ouverture
     var at = S.tenup.lastAuto || 0; if ((Date.now() - at < 2 * 3600e3 && !syDue(at)) || (UI.syMeTry && Date.now() - UI.syMeTry < 120e3)) return;
@@ -3206,6 +3246,7 @@
   // non forcée attend maintenant 10 min après la précédente.
   function retryOk(k, force) { var T0 = UI.tryAt || (UI.tryAt = {}); if (!force && T0[k] && Date.now() - T0[k] < 10 * 60e3) return false; T0[k] = Date.now(); return true; }
   function teamsRefresh(force) {
+    if (SK) return; // 4.15
     if (!NATIVE || !S.tenup.linked || UI.tmBusy) return;
     var t = S.teams, live = t && myTeams().some(function (c) { return (c.renc || []).some(tmLive); });
     if (!force && t && t.qv === 9 && Date.now() - t.at < (live ? 10 * 60e3 : 6 * 3600e3)) return; if (!retryOk("teams", force)) return; // qv : relecture forcée quand la lecture change (3.50.1 ; 4 = 3.55, la bonne équipe ; 5 = 3.58.1, le club d'en face ; 6 = 3.62, ton nom sur la feuille de match ; 7 = 3.68, recherche découpée en plusieurs lectures ; 8 = 3.74.2, feuilles de match enfin lues)
@@ -3574,6 +3615,7 @@
     return Object.keys(o).slice(0, 6);
   }
   function clubRefresh(force) {
+    if (SK) return; // 4.15
     if (!NATIVE || !S.tenup.linked || UI.clubBusy || UI.tmBusy || !clubOn()) return;
     // 3.74.1 (rapport de Davy : lecture coupée après 10 appels, app fermée ou mise en veille) : une lecture inachevée est gardée
     // (S.clubJob, 6 h au plus) et reprise là où elle s'était arrêtée à la prochaine ouverture de l'onglet.
@@ -3949,6 +3991,111 @@
     if (!pre && U.length) s += '<button class="go-pill lm-go" data-a="sheet" data-k="lmMsg">Féliciter sur WhatsApp</button>';
     return s + "</div>";
   };
+  // ——— 4.15.0 (lot 4) : le profil de ton enfant. Écrans : « Qui regardes-tu ? » (pastille de l'accueil), « Ajouter un enfant
+  // ou un proche » (recherche Ten'Up), bandeau « Profil de Léa · Revenir à moi » en haut de chaque écran, limites dites.
+  // Les calculs sont ceux de l'app (S pointe sur ses données, voir kidSwitch) : rien n'est recalculé à part.
+  function kidName(k) { k = k || kidCur(); return k ? (k.prenom || "") + (k.nom ? " " + k.nom.charAt(0).toUpperCase() + "." : "") : ""; }
+  function kidInit(k) { return ((k && (k.prenom || k.nom)) || "?").charAt(0).toUpperCase(); }
+  function kidMeAv(cls) { var p = SP.profile || {}, ph = p.photo === "none" ? "" : p.photo || p.photoTU || "", nm = p.name || ((SP.tenup || {}).me || {}).prenom || ""; return '<span class="' + cls + '">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; }
+  function kidLocked(k) { return PLUS_LOCK() && (SP.kids || []).indexOf(k) >= KID_FREE; } // Montée+ terminé : le 1er reste ouvert
+  // Avatar de l'en-tête : ta pastille seule, ou la sienne devant la tienne sur son profil (touche : « Qui regardes-tu ? »)
+  function kidHdAv(av0) {
+    var K = SP.kids || [];
+    if (SK) return '<span class="kd-av2" data-a="kidSheet" role="button" aria-label="Qui regardes-tu ?"><span class="hd-av kd-avL">' + esc(kidInit(kidCur())) + "</span>" + kidMeAv("hd-av") + "</span>";
+    if (K.length) return '<span class="kd-av2" data-a="kidSheet" role="button" aria-label="Qui regardes-tu ?">' + av0 + '<span class="hd-av kd-avL">' + esc(kidInit(K[0])) + "</span></span>";
+    return av0.replace('<span class="hd-av">', '<span class="hd-av" data-a="kidSheet" role="button" aria-label="Qui regardes-tu ? Ajouter un enfant ou un proche">');
+  }
+  function kidBand() {
+    var k = kidCur(); if (!k) return "";
+    var sub = [k.age ? k.age + " ans" : "", SK.profile.rank || k.rank || ""].filter(Boolean).join(" · ");
+    return '<div class="kd-band" role="region" aria-label="Profil de ' + esc(k.prenom) + '"><span class="kd-l">' + esc(kidInit(k)) + "</span><b>Profil de " + esc(k.prenom) + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</b>" +
+      '<button class="kd-sw" data-a="kidBack">' + kidMeAv("kd-me") + "Revenir à moi</button></div>";
+  }
+  function kidLimHtml() {
+    var k = kidCur(); if (!k) return "";
+    return '<div class="kd-lim">' + "Ses tournois, ses convocations et ses dispos restent dans son compte Ten'Up : ils n'apparaissent pas ici." + "</div>";
+  }
+  // Pages de ton compte (épreuves, dispos, réglages…) : pas sur son profil
+  var KID_NO = { tournoi: 1, tournois: 1, trouver: 1, dispos: 1, equipe: 1, rencontre: 1, montees: 1, tenup: 1, profil: 1, reconnu: 1, donnees: 1, reglages: 1, notifs: 1, sante: 1, zones: 1, bienvenue: 1, arrivee: 1, seance: 1, entrainement: 1, creneau: 1, materiel: 1, raquette: 1, chantier: 1 };
+  function kidBlocked(parts) { return !!SK && (KID_NO[parts[0]] || (parts[0] === "match" && (!parts[1] || parts[1] === "new"))); }
+  V.kidLim = function (r0) {
+    var k = kidCur(), mine = /^(tenup|profil|reconnu|donnees|reglages|notifs|sante|zones|bienvenue|arrivee)$/.test(r0);
+    return '<div class="screen">' + topbar("", "") + '<div class="card kd-no"><b>' + (mine ? "C'est une page de ton profil" : "Pas sur le profil de " + esc(k.prenom)) + "</b>" +
+      '<span class="small">' + (mine ? "Tes réglages, ta connexion Ten'Up et tes données restent sur ton profil." : "Ses tournois, ses convocations, ses équipes et ses dispos restent dans son compte Ten'Up. Avec ta connexion, Montée lit seulement sa fiche : son classement et ses matchs.") + "</span>" +
+      '<button class="btn primary" data-a="kidBack">Revenir à moi</button></div></div>';
+  };
+  // Ses titres à la 3e personne (texte seul, jamais les attributs) ; le reste de l'app lui parle comme à un joueur
+  function kidVoice(html) {
+    var k = kidCur(); if (!k) return html;
+    var n = k.prenom || "", f = SK.profile.sex === "F", Il = f ? "Elle" : "Il";
+    var X = { "Ma saison": "Sa saison", "Mes épreuves": "Ses épreuves", "Ce qui arrive": "Ce qui arrive pour " + n, "Ce qui se joue pour toi": "Ce qui se joue pour " + n,
+      "Si tu gagnes": "Si " + n + " gagne", "Si tu perds": "Si " + n + " perd", "Je joue contre lui": n + " le joue", "Je joue contre elle": n + " la joue", "Je le joue": n + " le joue", "Je la joue": n + " la joue",
+      "Ton plan de match": "Son plan de match", "Ton plan de jeu": "Son plan de jeu", "Tes objectifs de jeu": "Ses objectifs de jeu", "Tes prochains adversaires": "Ses prochains adversaires",
+      "Ton palmarès est là": "Son palmarès est là", "Ta projection": "Sa projection", "Tes courbes": "Ses courbes", "Tes adversaires": "Ses adversaires", "Ta saison": "Sa saison", "Tes victoires": "Ses victoires" };
+    return html.replace(/>([^<>]+)</g, function (m, t) {
+      var tt = t.trim(), t0 = tt.replace(/\s*›$/, ""); if (X[t0]) return ">" + t.replace(t0, esc(X[t0])) + "<";
+      return ">" + t.replace(/^(\s*)Il te manque/, "$1Il lui manque").replace(/^(\s*)Tu montes\b/, "$1" + esc(n) + " monte").replace(/\btu montes\b/g, Il.toLowerCase() + " monte").replace(/^(\s*)Tu as déjà les points/, "$1" + esc(n) + " a déjà les points").replace(/^(\s*)Tu joues au-dessus de ton/, "$1" + Il + " joue au-dessus de son").replace(/^(\s*)Tu joues en dessous de ton/, "$1" + Il + " joue en dessous de son") + "<";
+    });
+  }
+  // Relit sa fiche Ten'Up (palmarès, saisons passées, simulation et bilan) avec ta connexion, puis la range comme un import à toi
+  function kidSync(quiet) {
+    var k = kidCur(); if (!k || UI.kidBusy) return Promise.resolve(false);
+    if (!NATIVE) { if (!quiet) toast("La lecture sur Ten'Up se fait depuis l'appli Android ou iPhone."); return Promise.resolve(false); }
+    if (!SP.tenup || !SP.tenup.linked || SP.tenup.expired) { if (!quiet) toast("Connecte d'abord ton compte Ten'Up, sur ton profil."); return Promise.resolve(false); }
+    UI.kidBusy = k.id; UI.loading = true; render();
+    return tenupQuery("player", Object.assign({}, k.hit, { kid: 1 })).then(function (r) {
+      UI.kidBusy = null; UI.loading = false;
+      if (!SK || String(SK.kid.id) !== String(k.id)) return false; // revenu à toi entre-temps
+      if (!r || r.error) { if (!quiet) toast(tuErrMsg(r)); render(); return false; }
+      var dOf = function (ms) { return (ms || []).map(function (m) { return String(m.date || m.dateMatch || ""); }).sort().pop() || ""; };
+      var pr = Object.assign({}, r.profil || {}); pr.photo = null;
+      importPayload({ v: 1, at: new Date().toISOString(), id: k.id, raw: r.raw || [], profil: pr, simulation: r.simulation || null, bilan: r.bilan || null, palD0: dOf(r.raw),
+        seasons: (r.past || []).map(function (x) { var ms = x.raw || []; return { y: x.y, cl: x.cl || "", raw: ms, n: ms.filter(function (m) { return !m.wo; }).length, d0: dOf(ms) }; }) }, { quiet: true });
+      if (!k.at) { delete S.syncRecap; refreshAhead(); if (S.ahead) S.celebrated = S.ahead.release + ">" + S.ahead.rank; } // 1re lecture : pas de fête ni de récap pour ce qui était déjà acquis
+      var rk = T.normRank(pr.classement); if (rk) k.rank = rk; if (pr.age) k.age = pr.age; if (pr.club) k.club = pr.club; k.at = Date.now();
+      save(); render(); return true;
+    }, function () { UI.kidBusy = null; UI.loading = false; render(); return false; });
+  }
+  function kidAuto() { if (SK && !UI.kidBusy && Date.now() - ((SK.tenup || {}).lastAuto || 0) > 6 * 3600e3) setTimeout(function () { kidSync(true); }, 300); }
+  function kidGo(id) {
+    var k = kidOf(id); if (!k) return;
+    if (kidLocked(k)) { UI.sheet = null; go("soutenir"); toast("Avec Montée+, suis jusqu'à " + KID_MAX + " enfants ou proches."); return; }
+    kidSwitch(id); go(""); window.scrollTo(0, 0);
+    if (!S.matches.length) kidSync(false); else kidAuto();
+  }
+  function kidBackNow() {
+    if (!SK) { UI.sheet = null; render(); return; }
+    kidSwitch(null); go(""); window.scrollTo(0, 0);
+    setTimeout(function () { try { syncWidgets(true); watchSync(true); syAutoMe(); } catch (e) {} }, 400);
+  }
+  function DET_KIDS() {
+    var K = SP.kids || [], me = SP.profile || {}, mrk = (SP.ahead && SP.ahead.rank) || me.rank || "";
+    var row = function (av, nm, small, right, a, v) { return '<button class="kd-r" data-a="' + a + '"' + (v != null ? ' data-v="' + esc(v) + '"' : "") + ">" + av + '<span class="grow"><b>' + nm + "</b><small>" + small + "</small></span>" + right + "</button>"; };
+    var on = '<span class="kd-ok">Affiché</span>', ch = '<span class="pa-ch">›</span>';
+    var b = row(kidMeAv("kd-av"), "Toi", (mrk ? '<span class="rk-tag">' + esc(mrk) + "</span> · " : "") + "ton compte Ten'Up", SK ? ch : on, "kidBack");
+    K.forEach(function (k) {
+      var st = null; try { var raw = JSON.parse(localStorage.getItem(KID_PFX + k.id) || "null"); st = raw && raw.ahead && raw.ahead.rank ? "monte " + raw.ahead.rank : null; } catch (e) {}
+      var sm = (k.rank ? '<span class="rk-tag">' + esc(k.rank) + "</span> · " : "") + esc([k.age ? k.age + " ans" : "", st || k.club || ""].filter(Boolean).join(" · "));
+      b += row('<span class="kd-av kd-avL">' + esc(kidInit(k)) + "</span>", esc(kidName(k)), sm, SK && String(SK.kid.id) === k.id ? on : kidLocked(k) ? '<span class="kd-plus">Montée+</span>' : ch, "kidGo", k.id);
+    });
+    if (K.length < KID_MAX) b += '<button class="kd-add" data-a="kidAddOpen"><i>+</i>Ajouter un enfant ou un proche</button>';
+    b += '<p class="kd-note">Montée lit sa fiche Ten\'Up avec ta connexion, comme pour tes adversaires. Pas besoin de son mot de passe, et tu restes connecté avec ton compte.' + (PLUS_LOCK() ? " Un profil en gratuit, jusqu'à " + KID_MAX + " avec Montée+." : "") + "</p>";
+    if (SK) b += '<button class="linkbtn kd-del" data-a="kidDel" data-v="' + esc(SK.kid.id) + '">Retirer ' + esc(kidCur().prenom) + " de Montée</button>";
+    return { title: "Qui regardes-tu ?", sub: "Ton profil et ceux que tu suis de près.", body: b };
+  }
+  function DET_KIDADD() {
+    var Q = UI.kidQ || (UI.kidQ = { q: "" }), hits = Q.hits, b = "";
+    b += '<div class="sbar sbf ps-bar">' + svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 2.2) + '<input id="kid-q" type="search" value="' + esc(Q.q) + '" placeholder="Prénom et nom" autocomplete="off" autocapitalize="words" enterkeyhint="search"><button class="sb-go ready" data-a="kidFind"' + (Q.busy ? " disabled" : "") + ">" + (Q.busy ? "…" : "Chercher") + "</button></div>";
+    if (!NATIVE) b += '<span class="small">La recherche sur Ten\'Up se fait depuis l\'appli Android ou iPhone.</span>';
+    if (Q.busy) b += '<span class="tq-none">Recherche sur Ten\'Up…</span>';
+    else if (hits && hits.length) b += '<div class="kd-st">' + (hits.length > 1 ? "Lequel ?" : "C'est lui ou elle ?") + "</div>" + hits.slice(0, 8).map(function (h, j) {
+      var nm = nameCase([h.prenom, h.nom].filter(Boolean).join(" ")), rk = T.normRank(h.rank) || "";
+      return '<button class="kd-r" data-a="kidAdd" data-v="' + j + '"><span class="kd-av">' + esc(kidInit({ prenom: nm })) + '</span><span class="grow"><b>' + esc(nm) + "</b><small>" + (rk ? '<span class="rk-tag">' + esc(rk) + "</span> · " : "") + esc([h.age ? h.age + " ans" : "", h.club ? clubCase(h.club) : ""].filter(Boolean).join(" · ")) + '</small></span><span class="kd-pick' + (j ? " ghost" : "") + '">Ajouter</span></button>';
+    }).join("");
+    else if (hits) b += '<span class="tq-none">Personne sur Ten\'Up avec ce nom. Vérifie l\'orthographe.</span>';
+    b += '<div class="kd-st">Ce que tu verras</div><p class="kd-note" style="margin-top:4px">Son classement, ses matchs, sa projection à la prochaine sortie, ses points à défendre, et contre un adversaire : ses chances, ce qui se joue et son plan de match. Ses tournois, ses convocations et ses dispos restent dans son compte Ten\'Up.</p>';
+    return { title: "Ajouter un enfant ou un proche", sub: "Comme dans Joueurs : prénom en entier et nom.", body: b };
+  }
   function lmDefSheet(v) {
     var pre = v === "pre", L = lmList(), rl = pre ? L.nx : L.rel;
     var row = function (t, d) { return '<div class="kp-st">' + t + '</div><p class="kp-note">' + d + "</p>"; };
@@ -5324,6 +5471,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // état de la synchro en petit) ; la date au-dessus. Avant : date, pastille de synchro, salut, profil et réglages mal alignés.
     var dl0 = S.demo ? '<span class="demo-pill"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/></svg>Exemple</span>' : '<span class="small hd-d">' + esc(dLine) + "</span>";
     var hiT = jm ? "Jour de match" : gt ? gt : S.profile.name ? "Salut " + S.profile.name : "Salut", rk0 = effRank() || "";
+    if (SK) hiT = kidName(); // 4.15 : sur son profil, son nom (pas de « Salut »)
     // 3.71.3 (Yann, maquette v4 validée) : jour de match, victoire de la veille ou montée détectée mettent la barre en avant
     // (contour couleur, pastille sur l'avatar, surtitre, action à droite) ; la ligne du haut redevient la date.
     var spK = null, spH = "";
@@ -5343,7 +5491,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       }
     } catch (e) { spK = null; }
     if (spK && !S.demo) dl0 = '<span class="small hd-d">' + esc((JOURS[d.getDay()] + " " + dN(d) + " " + MOIS[d.getMonth()]).replace(/^./, function (x) { return x.toUpperCase(); })) + "</span>";
-    var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })();
+    var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })(); av0 = kidHdAv(av0); // 4.15 : « Qui regardes-tu ? »
     // 3.70.9 (Yann, maquette 1) : la roue des réglages, discrète, en face de la date ; la barre de profil prend toute la largeur
     var wkH0 = ""; if (S.matches.length && p.status !== "top") { try { wkH0 = weekHtml(c); } catch (e) { wkH0 = ""; } }
     // 4.4.6 (Yann, maquette accueil validée le 24/11) : plus de date ; Ace et sa bulle à gauche, la roue dans un rond à droite ;
@@ -5356,6 +5504,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
     // 4.1 (Yann, audit densité validé le 23/11) : le lundi, la carte d'Ace parle déjà du match de la semaine : pas de 2e bulle d'Ace au-dessus
     s += (pauseOn() ? pauseAceHtml() : pauseAceHtml()) + pauseHomeHtml(c) + btwHtml(); // 3.82.1 : Ace sous le Salut ; 3.94 : en pause, la reprise, entre deux matchs
+    if (!S.matches.length && SK) { // 4.15 : son profil, avant ou sans matchs
+      var kk = kidCur();
+      return s + '<div class="card id-dock vx-sync" role="status">' + acePeek("") + coBall("vx:kid", UI.kidBusy ? "concentree" : "repos") + '<span class="ace-bub">' + (UI.kidBusy ? "Je lis…" : "Rien encore") + "</span></span>" +
+        '<span class="eyebrow id-pill c-dur">Ten\'Up · sa fiche</span><b class="vx-t">' + (UI.kidBusy ? "Je lis les matchs de " + esc(kk.prenom) + " des 12 derniers mois" : "Pas encore de match de " + esc(kk.prenom) + " sur Ten\'Up") + "</b>" + (UI.kidBusy ? '<div class="vx-bar"><i></i></div>' : "") +
+        '<span class="vx-s">' + (UI.kidBusy ? "Avec ta connexion, comme pour tes adversaires. Ensuite je calcule son vrai niveau et sa sortie." : "Dès que Ten\'Up a ses résultats, ils arrivent ici, avec sa projection et ses chances.") + "</span>" +
+        (UI.kidBusy ? "" : '<button class="btn soft" data-a="kidRead">Relire sa fiche</button>') + "</div>" + kidLimHtml() + "</div>" + tabbar("home");
+    }
     if (!S.matches.length) {
       // 4.2.6 (identité passe 3, validé) : Ace accueille, et pendant la 1re lecture Ten'Up il dit qu'il lit (sans faux chiffres)
       if (UI.loading && S.tenup.linked) return s + '<div class="card id-dock vx-sync" role="status">' + acePeek("") + coBall("vx:sync", "concentree") + '<span class="ace-bub">Je lis…</span></span>' +
@@ -5371,7 +5526,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }
     if (p.status === "top") {
       s += '<div class="card ink"><span class="eyebrow" style="color:var(--hl)">Joueur numéroté</span><span style="font-size:20px;font-weight:600">Ton classement se joue au concours des meilleurs bilans : Montée ne peut pas le simuler.</span><span style="font-size:14px;color:#E6E0D8">Tes stats, tes courbes et ton matériel restent disponibles.</span></div>';
-    } else s += watchInHtml() + relDayHtml(c) + goalSortieHtml(c) + wkH0 + plusMomentHtml(c) + freshHtml(c) + courbesRings(c) + trialCardHtml() + tourHomeHtml() + planHomeHtml() + sjHomeHtml() + heroHtml(c); // 3.44.2 (Yann) : ton prochain match et tes épreuves juste sous les anneaux ; 3.40 : un match de la montre à enregistrer passe avant tout
+    } else s += watchInHtml() + relDayHtml(c) + goalSortieHtml(c) + wkH0 + plusMomentHtml(c) + freshHtml(c) + courbesRings(c) + (SK ? "" : trialCardHtml()) + tourHomeHtml() + kidLimHtml() + planHomeHtml() + (SK ? "" : sjHomeHtml()) + heroHtml(c); // 3.44.2 (Yann) : ton prochain match et tes épreuves juste sous les anneaux ; 3.40 : un match de la montre à enregistrer passe avant tout
     var X = { verify: verifyHtml(), hc: hcHomeCard(), an: anHomeCard() };
     if (S.syncRecap && S.syncRecap.length && !UI.sheet && !UI.notesOpen) UI.sheet = { k: "recap" }; // récapitulatif après une synchro
     var trI = trialInfo(); if (trI && trI.left <= 3 && !trI.T.recapSeen && !UI.sheet && !UI.notesOpen) { trI.T.recapSeen = 1; save(); UI.sheet = { k: "trialEnd" }; } // 3.57 (P4) : J-3, ton mois Montée+
@@ -6369,6 +6524,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function tenupSerial(fn) { var p = TQ_CHAIN.then(fn, fn); TQ_CHAIN = p.then(function () {}, function () {}); return p; }
   function tenupQuery(kind, args) {
     if (!NATIVE || !Tenup || !Tenup.query) return Promise.resolve({ error: "web" });
+    // 4.15 : sur le profil de ton enfant, rien de ton compte (inscriptions, dispos, équipes, favoris) n'est lu ni écrit
+    if (SK && /^(dispoSave|dispos|equipes|favs|inscriptions|profDispo|profDispoSave|tournois)$/.test(kind)) return Promise.resolve({ error: "Pas sur le profil de " + (kidCur() || {}).prenom + " : reviens sur le tien." });
     return tenupSerial(function () { return Tenup.query({ script: T.queryScript(kind, args) }); }).then(function (r) {
       var pl = T.decode((r && r.data) || "");
       if (!pl) { tenupFail(""); return { error: "Ten'Up n'a pas répondu" }; }
@@ -9268,6 +9425,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   // Après une synchro Ten'Up : on relit en silence les joueurs suivis (au plus une fois toutes les 12 h chacun)
   function folRefresh(force) {
+    if (SK) return; // 4.15
     if (!NATIVE) return;
     if (UI.folBusy) return;
     var ids = Object.keys(S.follow || {}).filter(function (id) { return force || Date.now() - (S.follow[id].at || 0) > 4 * 3600e3; })
@@ -16153,6 +16311,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       '<span class="ob-foot">Un recordage compte environ ' + OB_RS_EUR + " € (≈) : 12 € le cordage et 10 € la pose. Les inscriptions sont celles que Ten'Up indique. " + (D.approx ? "Un tournoi déjà joué n'y figure plus, avec son prix : Montée le compte environ " + OB_INS_EUR + " € (≈). " : "") + "Rien ne sort de ton téléphone.</span>" };
   };
   function sheetHtml() {
+    DET.kids = DET_KIDS; DET.kidAdd = DET_KIDADD; // 4.15
     DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.dz = DET_DZ; DET.hb = DET_HB; DET.hbd = DET_HBD; DET.hbt = DET_HBT; DET.dza = DET_DZA; hbDragInit(); DET.itin = DET_ITIN; DET.tp = DET_TP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
     var d = DET[UI.sheet.k] && DET[UI.sheet.k](UI.sheet.v);
     if (!d) { UI.sheet = null; return ""; }
@@ -17740,6 +17899,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 4.2.3 : pour les notifications de profil (summary.js) : le niveau réel de tes adversaires, clé date|classement|résultat comme summary.js
   function effKeys() { var o = {}; try { playedOf(ctx().proj.matches).forEach(function (m) { var e = oppEffIdx(m), i = E.idx(m.oppRank); if (e != null && i != null && e > i) o[m.date + "|" + m.oppRank + "|" + m.result] = e; }); } catch (e) {} return o; }
   function syncNative() {
+    if (SK) return; // 4.15 : rappels, widgets et montre restent les tiens
     if (!NATIVE || !S.tenup.linked) return;
     var me = E.idx(S.profile.rank);
     // 3.43.2 : les matchs saisis à la main (12 derniers mois) pour ne pas les notifier une 2e fois quand Ten'Up les publie
@@ -17946,6 +18106,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return false;
   }
   function nativeConnect() {
+    if (SK) return; // 4.15
     UI.importError = null;
     // 3.47 : après un échec (maintenance, page bloquée), on repart d'une page Ten'Up neuve
     (S.tenup.fails || S.tenup.maintAt ? tenupRepair() : Promise.resolve()).then(function () { return Tenup.connect({ script: nativeScript() }); }).then(function (r) {
@@ -17955,6 +18116,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }).catch(function (e) { UI.importError = "Connexion impossible (" + (e && e.message || e) + ")."; render(); });
   }
   function nativeRefresh(quiet, pull) {
+    if (SK) return quiet && !pull ? Promise.resolve() : kidSync(false); // 4.15 : sur son profil, « relire » relit SA fiche (jamais ton palmarès chez lui)
     if (!NATIVE || UI.loading) return Promise.resolve();
     if (!S.tenup.linked || S.tenup.expired) { if (pull) { toast("Connecte-toi à Ten'Up sur la page qui s'ouvre."); nativeConnect(); } return Promise.resolve(); }
     UI.loading = true; if (!quiet && !pull) render();
@@ -18189,6 +18351,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // ---------- Apple Watch : ce que la montre affiche, et les matchs qu'elle renvoie ----------
   var watchTimer = null, lastWatchJson = "";
   function watchSync(force) {
+    if (SK) return; // 4.15
     if (!IOS || !Tenup || typeof Tenup.watchSync !== "function") return;
     if (force) lastWatchJson = "";
     // 3.92.1 : plus de profil sur l'iPhone (tout effacé) : la montre se vide aussi, au lieu de garder l'ancien compte
@@ -18369,6 +18532,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.53.4 (Yann : score compté à la montre, mais le match Ten'Up n'a pas les sets) : un match de la montre en attente
   // dont le match existe déjà (Ten'Up ou saisi) le même jour contre le même adversaire y est rattaché, au lieu d'attendre ou de doublonner
   function watchAttach() {
+    if (SK) return 0; // 4.15
     var L = S.watchIn || [], n = 0;
     // 3.53.5 : le match de la montre déjà enregistré à la main, puis le même match arrivé de Ten'Up sans être fusionné (doublon) :
     // le score compté, le service et le cardio passent aussi sur le match Ten'Up (le doublon reste, à confirmer par toi)
@@ -18513,6 +18677,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     save(); go("match/new"); toast("Vérifie et enregistre.");
   }
   function syncWidgets(force) {
+    if (SK) return; // 4.15
     if (!NATIVE || !Tenup || !S.onboarded) return;
     if (force) lastWidgetJson = "";
     clearTimeout(widgetTimer);
@@ -18594,6 +18759,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }).catch(function () {});
   }
   function nativeWake() {
+    if (SK) { kidAuto(); return; } // 4.15
     if (!NATIVE) return;
     setTimeout(function () { bkSnap(false).then(function (ok) { if (ok && route() === "donnees") render(); }); }, 6000); // 3.76.0 : copie de la semaine
     syncWidgets(true); // un widget a pu être ajouté ou redimensionné
@@ -18836,6 +19002,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       .sort(function (a, b) { return b.start - a.start; });
   }
   function hcSync() {
+    if (SK) return; // 4.15
     if (!HC_OK || !Tenup || !Tenup.healthSync) return;
     var md = Object.keys(hcMatchDays()).filter(function (d) { return d >= E.iso(new Date(Date.now() - 60 * 864e5)); });
     try { var r = Tenup.healthSync({ on: hcOn(), notify: !S.health || S.health.notify !== false, known: JSON.stringify(Object.keys((S.health && S.health.done) || {})), matchDays: JSON.stringify(md), since: String((S.health && S.health.since) || 0) }); if (r && r.catch) r.catch(function () {}); } catch (e) {}
@@ -19340,8 +19507,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.14",
+    v: "4.15",
     pages: [
+      // 4.15 (Yann, 26/11/2026, lot 4 validé) : le profil de ton enfant
+      { hero: true, title: "Montée 4.15", text: "Ton enfant joue aussi ? Ajoute-le et passe sur son profil : son classement, sa montée et ses chances contre un adversaire, calculés comme les tiens." },
+      { tag: "Nouveau", tone: "rose", title: "Le profil de ton enfant", vis: "kid415", text: "Touche ta pastille sur l'accueil : ajoute ton enfant ou un proche, et passe sur son profil. « Revenir à moi » est en haut de chaque écran." },
+      { tag: "Nouveau", tone: "rose", title: "Avec ta connexion", vis: "kidl415", text: "Montée lit sa fiche Ten'Up comme celle d'un adversaire : pas besoin de son mot de passe. Ses tournois, ses convocations et ses dispos restent dans son compte." },
+      { tag: "Gratuit", tone: "vert", title: "Un enfant gratuit", vis: "kidf415", text: "Un profil en plus dans la version gratuite. Avec Montée+, jusqu'à 4 enfants ou proches." },
       // 4.14 (Yann, 26/11/2026, lot 3 validé) : ils montent ce mois-ci, dans Le club
       { hero: true, title: "Montée 4.14", text: "Chaque mois, les joueurs du club qui montent au classement, et le message de félicitations prêt pour WhatsApp." },
       { tag: "Nouveau", tone: "rose", title: "Ils montent ce mois-ci", vis: "lm414", text: "Dans Le club : qui devrait monter avant la sortie, puis les montées officielles par Dames, Messieurs et Jeunes. Un message pour les féliciter, sans les descentes." },
@@ -19494,7 +19666,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-    var PHARES = ["lm414", "kp413", "cv413", "ef413", "rkm412"]; // 4.14 : ils montent ce mois-ci en tête // 4.13 : la saison d'une équipe, puis l'adversaire qui bouge (4.12) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
+    var PHARES = ["kid415", "kidl415", "kidf415", "lm414", "kp413"]; // 4.15 : le profil de ton enfant en tête ; // 4.14 : ils montent ce mois-ci en tête // 4.13 : la saison d'une équipe, puis l'adversaire qui bouge (4.12) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -19517,6 +19689,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var nvAv = function (t, c) { return '<span style="width:34px;height:34px;flex:none;border-radius:17px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:' + (c || "#3A3F49") + ';color:#F2F3F5">' + t + "</span>"; };
     var nvPill = '<em style="font-style:normal;font-size:11.5px;font-weight:800;border-radius:99px;padding:2px 8px;background:#D4E64A;color:#121212;margin-right:6px">Nouveau</em>';
     // 4.14 : ils montent ce mois-ci (noms d'exemple génériques)
+    // 4.15 : le profil de ton enfant (noms d'exemple génériques)
+    var kidBandV = '<span style="display:flex;align-items:center;gap:8px;padding:6px 6px 6px 8px;border-radius:99px;background:rgba(212,230,74,.18);text-align:left"><span style="flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#D4E64A;color:#121212;font-weight:800;font-size:11px">L</span><b style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Profil de Léa <span style="opacity:.6;font-weight:600">13 ans · 30/1</span></b><span style="flex:none;font-size:12px;font-weight:800;padding:4px 9px;border-radius:99px;background:rgba(255,255,255,.1)">Revenir à moi</span></span>';
+    if (k === "kid415") return nvc(kidBandV + '<span style="display:flex;justify-content:space-around;margin-top:12px">' + [["67 %", "Victoires", "#6FC28F"], ["67 %", "Forme", "#D4E64A"], ["30/1", "Niveau", "#8C9EFF"]].map(function (x) { return '<span style="display:flex;flex-direction:column;align-items:center;gap:4px"><span style="width:58px;height:58px;border-radius:50%;box-shadow:inset 0 0 0 5px ' + x[2] + ';display:grid;place-items:center;font-weight:800;font-size:14px">' + x[0] + '</span><small style="font-size:11.5px;opacity:.8">' + x[1] + "</small></span>"; }).join("") + '</span><span style="display:block;margin-top:10px;font-size:12.5px;text-align:left;opacity:.85">Léa a déjà ses points : elle monte 30 mardi.</span>');
+    if (k === "kidl415") return nvc('<span class="nv-k" style="color:#D4E64A">QUI REGARDES-TU ?</span>' + [["A", "Toi", "15/2 · ton compte Ten'Up", "Affiché"], ["L", "Léa D.", "30/1 · 13 ans", "›"]].map(function (x, i) { return '<span style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);text-align:left"><span style="flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;' + (i ? "background:#D4E64A;color:#121212" : "background:rgba(255,255,255,.12)") + '">' + x[0] + '</span><span style="flex:1"><b style="font-size:14px">' + x[1] + '</b><small style="display:block;font-size:11.5px;opacity:.7">' + x[2] + '</small></span><span style="font-size:12px;font-weight:800;color:' + (i ? "inherit" : "#7BC79A") + '">' + x[3] + "</span></span>"; }).join("") + '<span style="display:block;margin-top:8px;font-size:12px;text-align:left;opacity:.75">Pas besoin de son mot de passe : tu restes connecté avec ton compte.</span>');
+    if (k === "kidf415") return nvc(kidBandV + '<span style="display:block;margin-top:12px;font-size:28px;font-weight:800">1 <span style="font-size:14px;opacity:.7">gratuit</span> · 4 <span style="font-size:14px;color:#D4E64A">Montée+</span></span>');
     if (k === "lm414") return nvc('<span class="nv-k" style="color:#D4E64A">ILS MONTENT · CLASSEMENT DU 1ER DÉC.</span>' + [["15/3", "Julie M.", "+35 dames · éq. 1", "↑ de 15/4"], ["15/4", "Hugo L.", "+35 messieurs · éq. 2", "↑ de 15/5"], ["30/3", "Nathan V.", "15/16 ans · éq. 1", "↑ de 30/4"]].map(function (x) { return '<span style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);text-align:left"><b style="flex:none;width:44px;font-size:14px">' + x[0] + '</b><span style="flex:1"><b style="font-size:14px">' + x[1] + ' <span style="font-size:12px;color:#7BC79A">' + x[3] + '</span></b><small style="display:block;font-size:11.5px;opacity:.7">' + x[2] + "</small></span></span>"; }).join("") +
       '<span style="display:block;margin-top:10px;padding:10px 12px;border-radius:14px 14px 14px 4px;background:rgba(255,255,255,.08);font-size:12.5px;line-height:1.5;text-align:left">🎾 <b>Ça monte au TC Exemple !</b><br>▲ Julie M. : 15/4 → <b>15/3</b><br>▲ Hugo L. : 15/5 → <b>15/4</b></span>');
     // 4.13 : la compo d'Ace, la convocation, l'effectif
@@ -19679,7 +19856,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
 
   // ---------- Données ----------
-  function backupTxt() { var copy = JSON.parse(JSON.stringify(S)); if (copy.tenup) delete copy.tenup.cred; return JSON.stringify(copy, null, 2); }
+  function backupTxt() { var copy = JSON.parse(JSON.stringify(SK ? SP : S)); // 4.15 : toujours ta sauvegarde, même sur le profil de ton enfant
+    if (copy.tenup) delete copy.tenup.cred; return JSON.stringify(copy, null, 2); }
   // 3.76.0 (Yann, maquette propositions-23-11 validée) : une copie automatique chaque semaine, les 4 dernières gardées.
   // iPhone : Fichiers › Sur mon iPhone › Montée (et la sauvegarde iCloud du téléphone) ; Android : dossier de l'app (sauvegarde Google du téléphone).
   var BK_DIR = "Sauvegardes Montée", BK_RE = /^montee-auto-(\d{4}-\d\d-\d\d)\.json$/;
@@ -19703,6 +19881,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function bkRestore(name) {
     return Promise.resolve().then(function () { return FSP.readFile({ path: BK_DIR + "/" + name, directory: bkDir(), encoding: "utf8" }); }).then(function (r) {
       var d = JSON.parse(r && r.data); if (!d || !Array.isArray(d.matches)) throw new Error();
+      if (SK) kidSwitch(null); // 4.15
       S = Object.assign(blank(), d); S.onboarded = true; save(); UI.bkAsk = null; syncWidgets(true); watchSync(true); toast("Copie du " + dm(E.parseDate(name.match(BK_RE)[1])) + " restaurée."); go("");
     }).catch(function () { toast("Cette copie ne peut pas être lue."); });
   }
@@ -20955,6 +21134,47 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     kpOpen: function (el) { var id = el.dataset.v, sc = (S.scout || {})[id], c = null; if (!sc) { kpAll().some(function (x) { var P = kpRost(x, x.me.mine).P; if (P[id]) { c = P[id]; return true; } return false; }); } var w = nameCase((c && c.n) || "").split(/\s+/); UI.sheet = null; openScout(sc && sc.hit ? sc.hit : { id: id, prenom: w[0] || "", nom: w.slice(1).join(" "), rank: (c && c.r) || "" }); },
     kpCopy: function (el) { kpSend(el.dataset.v, false); },
     kpWa: function (el) { kpSend(el.dataset.v, true); },
+    // 4.15 : le profil de ton enfant
+    kidSheet: function () { if (S.demo) { toast("Sors de l'exemple pour ajouter un enfant ou un proche."); return; } UI.sheet = { k: (SP.kids || []).length || SK ? "kids" : "kidAdd" }; render(); },
+    kidAddOpen: function () {
+      if (PLUS_LOCK() && (SP.kids || []).length >= KID_FREE) { UI.sheet = null; go("soutenir"); toast("Avec Montée+, suis jusqu'à " + KID_MAX + " enfants ou proches."); return; }
+      UI.kidQ = { q: "" }; UI.sheet = { k: "kidAdd" }; render(); setTimeout(function () { var i = document.getElementById("kid-q"); if (i) i.focus(); }, 80);
+    },
+    kidFind: function () {
+      var Q = UI.kidQ || (UI.kidQ = { q: "" }), inp = document.getElementById("kid-q"); if (inp) Q.q = inp.value;
+      var tries = nameSplits(String(Q.q || "").trim());
+      if (!tries.length) { toast("Tape son prénom en entier et son nom, ex. : Léa Martin."); return; }
+      if (!NATIVE) return;
+      Q.busy = true; render();
+      tenupQuery("searchMany", { list: [{ tries: tries }], cfg: S.tenup.searchCfg || null }).then(function (r0) {
+        Q.busy = false; if (r0 && r0.cfg) SP.tenup.searchCfg = r0.cfg;
+        var it = r0 && !r0.error && r0.many ? r0.many[0] : null;
+        if (!it || (it.error && !it.hits.length)) { toast(tuMaint(r0) || tuMaint(it) ? TU_MAINT : "Ten'Up n'a pas répondu."); render(); return; }
+        Q.hits = it.hits.filter(function (h) { return !(SP.tenup.id && String(SP.tenup.id) === String(h.id)); }); render();
+      });
+    },
+    kidAdd: function (el) {
+      var h = ((UI.kidQ || {}).hits || [])[+el.dataset.v]; if (!h) return;
+      var K = SP.kids = SP.kids || [], id = String(h.id);
+      if (!kidOf(id)) {
+        if (PLUS_LOCK() && K.length >= KID_FREE) { UI.sheet = null; go("soutenir"); toast("Avec Montée+, suis jusqu'à " + KID_MAX + " enfants ou proches."); return; }
+        if (K.length >= KID_MAX) { toast(KID_MAX + " profils au plus : retires-en un pour en ajouter un autre."); return; }
+        K.push({ id: id, prenom: titleCase(String(h.prenom || "").trim()), nom: titleCase(String(h.nom || "").trim()), rank: T.normRank(h.rank) || "", club: h.club ? clubCase(h.club) : "", age: h.age || null, sexe: h.sexe || "",
+          hit: { id: h.id, idp: h.idp, nom: h.nom, prenom: h.prenom, rank: h.rank, club: h.club, sexe: h.sexe || "" }, at: 0 });
+        save();
+      }
+      UI.kidQ = null; kidGo(id);
+    },
+    kidGo: function (el) { kidGo(el.dataset.v); },
+    kidBack: function () { kidBackNow(); },
+    kidDel: function (el) {
+      var id = String(el.dataset.v), k = kidOf(id); if (!k) return;
+      if (!UI.kidDelAsk) { UI.kidDelAsk = id; el.textContent = "Touche encore pour retirer " + k.prenom; setTimeout(function () { UI.kidDelAsk = null; }, 4000); return; }
+      UI.kidDelAsk = null; kidSwitch(null); SP.kids = (SP.kids || []).filter(function (x) { return x !== k; }); try { localStorage.removeItem(KID_PFX + id); } catch (e) {}
+      save(); toast(k.prenom + " est retiré" + (k.sexe === "F" ? "e" : "") + " de Montée."); go(""); setTimeout(function () { try { syncWidgets(true); watchSync(true); } catch (e) {} }, 400);
+    },
+    kidRead: function () { kidSync(false); },
+    kidNoAdd: function () { toast("Ses matchs arrivent de Ten'Up : rien à saisir sur son profil."); },
     lmSend: function (el) { msgSend((UI.kpTxt || {}).lm || lmMsg(), el.dataset.v === "wa"); }, // 4.14
     clubTg: function () { S.prefs = S.prefs || {}; S.prefs.clubOn = !S.prefs.clubOn; save(); render(); if (S.prefs.clubOn) clubRefresh(!S.club); },
     ceFol: function (el) { S.prefs = S.prefs || {}; var f = S.prefs.clubFol = S.prefs.clubFol || {}, id = el.dataset.id; if (f[id]) delete f[id]; else f[id] = 1; save(); render(); },
@@ -21498,6 +21718,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     exportShare: function () { backup(true); },
     wipe: function () {
       if (!askOk("Effacer tout ton palmarès, tes raquettes et ton profil de cet appareil ?")) return;
+      if (SK) kidSwitch(null); // 4.15
       S = blank(); save(); UI.draft = null; watchSync(true); go("bienvenue");
     }
   };
@@ -21512,6 +21733,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var el = ev.target.closest("[data-a]");
     if (!el || el.tagName === "INPUT") return;
     var a = el.dataset.a;
+    // 4.15 : sur le profil de ton enfant, rien à saisir ni à envoyer (ses matchs viennent de Ten'Up)
+    if (SK && /^(actPlus|menu|newMatch|newTraining|newSlot|newRacketFromMatch|addRestring|mmStart|importClipboard|tenupConnect|tenupForget|tenupMethod|demo)$/.test(a)) { ev.preventDefault(); A.kidNoAdd(); return; }
+    if (SK && a === "tenupRefresh") { ev.preventDefault(); kidSync(false); return; }
     if (A[a]) { if (el.tagName !== "A" || a === "bmHelp") ev.preventDefault(); CUR_ACT = { a: a, el: el, ev: ev };
       // 4.9.2 (Yann : « ça fait escalier ») : un onglet changé dans une feuille ne la fait plus sauter, elle garde sa plus grande hauteur
       var shE = el.closest(".sheet"), shK = shE && UI.sheet ? JSON.stringify(UI.sheet) : "", shH = shE ? shE.getBoundingClientRect().height : 0;
@@ -21635,6 +21859,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         try {
           var d = JSON.parse(fr.result);
           if (!d || !Array.isArray(d.matches)) throw new Error();
+          if (SK) kidSwitch(null); // 4.15
           S = Object.assign(blank(), d); S.onboarded = true; save(); toast("Sauvegarde restaurée."); go("");
         } catch (e) { toast("Ce fichier n'est pas une sauvegarde Montée."); }
       };
@@ -21751,6 +21976,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.dataset && ev.target.dataset.ff) { ev.preventDefault(); ev.target.blur(); UI.fafLocal = null; fafSearch(null); } });
   document.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "tz-cp") { ev.preventDefault(); ev.target.blur(); A.tzCp(); } }); // 4.9.2 : Entrée valide le code postal et ferme le clavier
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "ps-q") { ev.preventDefault(); ev.target.blur(); A.psFind(); } });
+  app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "kid-q") { ev.preventDefault(); ev.target.blur(); A.kidFind(); } }); // 4.15
   app.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && ev.target.id === "m-opp" && ev.target.parentNode && ev.target.parentNode.classList.contains("sbf")) { ev.preventDefault(); ev.target.blur(); A.mTuFind(); } });
 
   app.addEventListener("toggle", function (ev) { var d = ev.target; if (d && d.classList && d.classList.contains("mo-g")) { UI.moOpen = UI.moOpen || {}; UI.moOpen[d.dataset.mo] = d.open; } }, true); // 4.4.3 : mois ouverts dans Activité
