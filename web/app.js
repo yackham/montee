@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.13.0",
+    VERSION: "4.14.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -812,6 +812,7 @@
       case "coach": html = V.coach(); break;
       case "tournoi": html = V.tournoi(parts[1]); break;
       case "equipe": html = V.equipe(parts[1]); break;
+      case "montees": html = V.montees(); break;
       case "rencontre": html = V.rencontre(parts[1], parts[2]); break;
       case "tournois": html = V.tournois(); break;
       case "trouver": html = V.trouver(); break;
@@ -3420,6 +3421,7 @@
       (nR ? '<div class="lc-vnd">' + vnd("v", W.v, W.v > 1 ? "victoires" : "victoire") + vnd("n", W.n, W.n > 1 ? "nuls" : "nul") + vnd("d", W.d, W.d > 1 ? "défaites" : "défaite") + "</div>" : "") +
       (nG || n2 || nL ? '<div class="lc-chips" role="group" aria-label="Filtrer les équipes">' + chip("g", nG, nG + " en tête", "g") + chip("2", n2, plural(n2, "deuxième", "deuxièmes"), "") + chip("r", nL, plural(nL, "dernière", "dernières"), "r") + "</div>" : "") + "</div>";
     s += lcAce(L);
+    s += lmCard(); // 4.14 : ils montent ce mois-ci
     // le dernier week-end joué (3 semaines au plus), toutes les équipes du club
     var all = []; L.forEach(function (x) { x.R.forEach(function (r, i) { all.push({ x: x, r: r, res: x.res[i] }); }); });
     var last = all.reduce(function (m, o) { var d = String(o.r.d).slice(0, 10); return d > m ? d : m; }, ""), td = today();
@@ -3769,10 +3771,10 @@
           var k = String(p.id || "n:" + kpNk(p.n)), o = P[k] || (P[k] = { id: k, n: p.n, r: "", s: 0, d: 0, rs: [], du: {}, rc: {}, b: false, last: "" });
           o.rc[r.id] = 1; if (p.b) o.b = true; if (p.n && r.d >= o.last) o.n = p.n;
           if (m.dbl) {
-            o.d++; if (!o.r && p.r) o.r = p.r;
+            o.d++; if (!o.r && p.r) { o.r = p.r; o.rd = r.d; }
             ps.forEach(function (q) { if (q === p) return; var mk = String(q.id || "n:" + kpNk(q.n)), du = o.du[mk] || (o.du[mk] = { n: 0, w: 0 }); du.n++; if (m.w === me) du.w++; });
           } else {
-            o.s++; o.rs.push(m.w === me ? "v" : m.w ? "d" : ""); if (p.r) { al.push(p.r); if (r.d >= o.last) { o.last = r.d; o.r = p.r; } }
+            o.s++; o.rs.push(m.w === me ? "v" : m.w ? "d" : ""); if (p.r) { al.push(p.r); if (r.d >= o.last) { o.last = r.d; o.r = p.r; o.rd = r.d; } }
           }
         });
       });
@@ -3843,6 +3845,131 @@
   }
   // les fiches des joueurs d'équipe sont gardées 30 jours (hors des 10 fiches consultées)
   function kpScoutKeep() { var o = {}, t = Date.now(); Object.keys(S.kpIds || {}).forEach(function (k) { if (t - S.kpIds[k] < 30 * 864e5) o[k] = 1; else delete S.kpIds[k]; }); return o; }
+
+  // ——— 4.14.0 (Yann, maquettes validées le 26/11/2026, lot 3) : ILS MONTENT CE MOIS-CI, dans l'onglet Le club.
+  // Joueurs du club = ceux qui ont joué au moins une rencontre par équipes cette saison (feuilles de match : Ten'Up ne donne pas
+  // la liste des licenciés). Avant la sortie : leur projection, la même fonction que la flèche de l'effectif et rkMoveOf (simProj sur
+  // leur simulation Ten'Up). Après : le classement officiel de leur fiche, comparé à celui d'avant la sortie (fiche lue avant, sinon
+  // leur dernière feuille de match d'avant la sortie). S.lm.P[id] = { at, sx, age, sim, sa (lecture de la simulation),
+  // h: { sortie (iso) : [jour de lecture, classement] } } ; lecture légère (profil + simulation), sans palmarès.
+  function lmSea() { var t = today(); return t.getMonth() >= 8 ? t.getFullYear() + 1 : t.getFullYear(); }
+  // la sortie dont relève une lecture faite à l'instant ts (le jour de la sortie avant 8 h 30, c'est encore l'ancien classement)
+  function lmPer(ts) { var d = new Date(ts), r = relOnOrBefore(d); if (E.iso(r) === E.iso(d) && d.getHours() * 60 + d.getMinutes() < SY_REL_H[0] * 60 + SY_REL_H[1]) r = relOnOrBefore(new Date(d.getTime() - 864e5)); return E.iso(r); }
+  function lmTeams() { var y = lmSea(); return lcAll().filter(function (c) { return c.me && c.me.mine && kpSea(c) === y; }); }
+  // les joueurs du club cette saison (effectif de chaque équipe : kpRost), avec l'équipe où ils ont le plus joué
+  function lmPl() {
+    var P = {};
+    lmTeams().forEach(function (c) {
+      var x = lcT(c), tl = champNm(c).replace(/\s*\b(19|20)\d\d\b/g, "") + (x.num ? " · éq. " + x.num : ""), R = kpRost(c, c.me.mine).P, jeu = clubCat(c) === "jeu";
+      Object.keys(R).forEach(function (k) {
+        if (/^[nm]:/.test(k)) return; var o = R[k], p = P[k] || (P[k] = { id: k, n: o.n, nR: 0, tl: "", fem: false, jeu: false, sh: [] });
+        if (o.nR > p.nR) { p.nR = o.nR; p.tl = tl; if (o.n) p.n = o.n; } if (x.fem) p.fem = true; if (jeu) p.jeu = true; if (o.r && o.rd) p.sh.push([String(o.rd).slice(0, 10), o.r]);
+      });
+    });
+    return P;
+  }
+  // son classement avant la sortie relI (dernier connu avant) ou depuis (dernier connu) : fiches lues, puis feuilles de match
+  function lmAt(p, q, relI, after) {
+    var best = null, h = (q && q.h) || {}, take = function (o, ok) { if (ok && o && o[1] && (!best || o[0] > best[0])) best = o; };
+    Object.keys(h).forEach(function (k) { take(h[k], after ? k >= relI : k < relI); });
+    p.sh.forEach(function (o) { take(o, after ? o[0] >= relI : o[0] < relI); });
+    return best ? E.idx(T.normRank(best[1])) : null;
+  }
+  function lmList() {
+    var P = lmPl(), td = today(), rel = relOnOrBefore(td), relI = E.iso(rel), nx = E.nextRelease(td), Q = (S.lm || {}).P || {};
+    var L = { P: P, n: 0, rel: rel, nx: nx, up: [], dn: [], eu: [], ed: [], read: 0, soon: dGap(E.iso(nx)) <= 7 };
+    Object.keys(P).forEach(function (id) {
+      var p = P[id], q = Q[id] || {}; L.n++;
+      if (q.sx) p.fem = /^F/i.test(q.sx); if (q.age) p.jeu = q.age < 18;
+      if (q.at && lmPer(q.at) >= relI) L.read++;
+      var b = lmAt(p, q, relI, false), a = lmAt(p, q, relI, true);
+      if (b != null && a != null && a !== b) (a > b ? L.up : L.dn).push({ p: p, from: b, to: a });
+      if (L.soon && q.sim && q.sa && Date.now() - q.sa < 4 * 864e5) {
+        var now = a != null ? a : b, sp = now != null ? simProj(q.sim, lab(now)) : null;
+        if (sp && sp.dir !== "same") (sp.dir === "up" ? L.eu : L.ed).push({ p: p, from: sp.cur, to: sp.proj });
+      }
+    });
+    [L.up, L.dn, L.eu, L.ed].forEach(function (A) { A.sort(function (x, y) { return y.to - x.to || (x.p.n < y.p.n ? -1 : 1); }); });
+    L.pre = L.soon && L.eu.length > 0; // la semaine avant la sortie : l'estimation, s'il y a des montées en vue
+    return L;
+  }
+  // Lecture : d'abord les feuilles de match des équipes du club (kpLoad), puis les fiches, 10 joueurs par appel ; chaque joueur relu
+  // après chaque sortie, sa simulation tous les 2 jours la semaine d'avant, sinon tous les 10 jours
+  function lmLoad(L) {
+    try { kpLoad(lmTeams().map(function (c) { return [c, [c.me.mine]]; })); } catch (e) {}
+    if (!NATIVE || !S.tenup || !S.tenup.linked || UI.lmBusy || UI.kpBusy || offline()) return;
+    var relI = E.iso(L.rel), Q = (S.lm && S.lm.P) || {}, Tr = UI.lmTried || (UI.lmTried = {});
+    var need = Object.keys(L.P).filter(function (id) { var q = Q[id]; if (Tr[id]) return false; if (!q || !q.at || lmPer(q.at) < relI) return true; return L.soon ? Date.now() - (q.sa || 0) > 2 * 864e5 : Date.now() - q.at > 10 * 864e5; });
+    if (!need.length) return;
+    var ids = need.slice(0, 10), rt = route(); ids.forEach(function (id) { Tr[id] = 1; }); UI.lmBusy = true;
+    tenupQuery("ranks", { ids: ids }).then(function (x) {
+      UI.lmBusy = false;
+      if (x && !x.error && x.L) {
+        S.lm = S.lm || {}; S.lm.P = S.lm.P || {}; var t = x.at || Date.now(), per = lmPer(t), d = E.iso(new Date(t));
+        x.L.forEach(function (o) {
+          var q = S.lm.P[o.id] || (S.lm.P[o.id] = { h: {} }); q.at = t; if (o.sx) q.sx = o.sx; if (o.age) q.age = o.age; if (o.sim) { q.sim = o.sim; q.sa = t; }
+          if (o.rk) { q.h = q.h || {}; q.h[per] = [d, o.rk]; Object.keys(q.h).sort().slice(0, -3).forEach(function (k) { delete q.h[k]; }); }
+        });
+        Object.keys(S.lm.P).forEach(function (k) { if (t - (S.lm.P[k].at || 0) > 400 * 864e5) delete S.lm.P[k]; }); // plus vu depuis plus d'un an
+        save();
+      }
+      if (route() === rt) render();
+    }, function () { UI.lmBusy = false; });
+  }
+  function lmDayLab(d) { return JOURS[d.getDay()] + " " + dN(d) + " " + MOIS_L[d.getMonth()]; }
+  function lmRow(o, pre, i) {
+    var up = o.to > o.from, p = o.p, now = pre ? o.from : o.to, arr = '<span class="kp-mvi ' + (up ? "up" : "dn") + '">' + (up ? KP_AU : KP_AD) + esc(pre ? lab(o.to) + " probable" : "de " + lab(o.from)) + "</span>";
+    return '<button class="lc-r lm-r" data-a="kpOpen" data-v="' + esc(p.id) + '" style="--i:' + (i || 0) + '" aria-label="' + esc(kpShort(p.n) + (up ? " monte " : " descend ") + (pre ? "probablement à " + lab(o.to) : "de " + lab(o.from) + " à " + lab(o.to))) + '"><span class="rk-tag">' + esc(lab(now)) + '</span><span class="grow"><b>' + esc(kpShort(p.n) || "Joueur") + arr + "</b><small>" + esc(p.tl) + "</small></span>" + I.next + "</button>";
+  }
+  function lmHead(t, sub) { return '<h2 class="tm-gh lc-h"><span>' + t + '<svg class="lc-wb" viewBox="0 0 50 14" aria-hidden="true"><circle cx="3" cy="11" r="3" fill="var(--balle)"/></svg></span><small>' + esc(sub) + "</small></h2>"; }
+  // La carte de l'onglet Le club
+  function lmCard() {
+    var L = lmList(); setTimeout(function () { try { lmLoad(L); } catch (e) {} }, 0);
+    if (!L.n) return "";
+    var busy = UI.lmBusy || UI.kpBusy, prog = L.read < L.n && (S.tenup || {}).linked ? '<p class="lm-note"><span class="spin"></span> Lecture des classements sur Ten\'Up · ' + L.read + "/" + L.n + " joueurs</p>" : "";
+    if (L.pre) return lmHead("Ils devraient monter", lmDayLab(L.nx)) + '<div class="blk lc-list lm-card">' + L.eu.slice(0, 3).map(function (o, i) { return lmRow(o, true, i); }).join("") +
+      '<p class="lm-note">Estimation d\'après leur simulation Ten\'Up. Le classement officiel tranche ' + JOURS[L.nx.getDay()] + ".</p>" + (busy ? prog : "") +
+      '<a class="lc-more" href="#/montees">' + (L.eu.length > 1 ? "Les " + L.eu.length + " montées probables" : "Le détail") + " ›</a></div>";
+    var nU = L.up.length, nD = L.dn.length, more = nU + nD ? [nU ? plural(nU, "montée", "montées") : "", nD ? plural(nD, "descente", "descentes") : ""].filter(Boolean).join(" et ") : "";
+    return lmHead("Ils montent", "classement du " + dN(L.rel) + " " + MOIS[L.rel.getMonth()]) + '<div class="blk lc-list lm-card">' + L.up.slice(0, 3).map(function (o, i) { return lmRow(o, false, i); }).join("") +
+      (nU ? "" : '<p class="lm-note">' + (L.read < L.n && busy ? "" : "Aucune montée parmi les " + plural(L.n, "joueur", "joueurs") + " du club à la sortie du " + dN(L.rel) + " " + MOIS_L[L.rel.getMonth()] + ".") + "</p>") + (busy ? prog : "") +
+      (more ? '<a class="lc-more" href="#/montees">' + (nU + nD > 1 ? "Les " : "La ") + more + " ›</a>" : "") + "</div>";
+  }
+  // La liste du mois, en blocs (retour de Yann : Dames, Messieurs, Jeunes, Ils descendent)
+  function lmGrp(A) { var G = { dam: [], mes: [], jeu: [] }; A.forEach(function (o) { G[o.p.jeu ? "jeu" : o.p.fem ? "dam" : "mes"].push(o); }); return G; }
+  V.montees = function () {
+    var s = '<div class="screen lm-scr">' + topbar("", backLab("Le club")), L = lmList(), nm = tmNm(((S.teams || {}).club || {}).nom || "Le club");
+    setTimeout(function () { try { lmLoad(L); } catch (e) {} }, 0);
+    var pre = L.pre, U = pre ? L.eu : L.up, D = pre ? L.ed : L.dn, rl = pre ? L.nx : L.rel, G = lmGrp(U), k = 0;
+    s += '<h1 class="tm-h">' + (pre ? "Ils devraient monter" : "Ils montent") + "</h1>";
+    var tile = function (n, lab0, cl) { return '<button data-a="sheet" data-k="lmDef" data-v="' + (pre ? "pre" : "") + '"><b class="' + cl + '">' + n + "</b><small>" + lab0 + "</small></button>"; };
+    s += '<div class="card lc-hero lm-hero"><span class="eyebrow">' + esc(nm) + " · " + (pre ? "sortie du " : "classement du ") + dN(rl) + " " + MOIS[rl.getMonth()] + "</span>" +
+      '<div class="lc-vnd">' + tile(U.length, pre ? "montées probables" : U.length > 1 ? "montées" : "montée", "v") + tile(D.length, pre ? "descentes probables" : D.length > 1 ? "descentes" : "descente", "d") + tile(L.n, "joueurs du club", "") + "</div></div>";
+    var blk = function (t, A) { return A.length ? '<h3 class="lc-gh">' + t + "<small>" + A.length + '</small></h3><div class="blk lc-list">' + A.map(function (o) { return lmRow(o, pre, k++); }).join("") + "</div>" : ""; };
+    s += blk("Dames", G.dam) + blk("Messieurs", G.mes) + blk("Jeunes", G.jeu) + blk(pre ? "Ils pourraient descendre" : "Ils descendent", D);
+    if (!U.length && !D.length) s += '<div class="card"><span class="small">' + (UI.lmBusy || UI.kpBusy ? '<span class="spin"></span> Lecture des classements sur Ten\'Up · ' + L.read + "/" + L.n + " joueurs" : "Personne n'a changé de classement à la sortie du " + dN(rl) + " " + MOIS_L[rl.getMonth()] + ".") + "</span></div>";
+    s += '<p class="lm-note lm-foot">' + (pre ? "Estimation d'après la simulation Ten'Up de chacun, comme pour la flèche de l'effectif. Le classement officiel sort le " + lmDayLab(L.nx) + "." : "D'après le classement officiel publié le " + lmDayLab(L.rel) + ".") + " Joueurs du club : ceux qui ont joué au moins une rencontre par équipes pour le club cette saison.</p>";
+    if (!pre && U.length) s += '<button class="go-pill lm-go" data-a="sheet" data-k="lmMsg">Féliciter sur WhatsApp</button>';
+    return s + "</div>";
+  };
+  function lmDefSheet(v) {
+    var pre = v === "pre", L = lmList(), rl = pre ? L.nx : L.rel;
+    var row = function (t, d) { return '<div class="kp-st">' + t + '</div><p class="kp-note">' + d + "</p>"; };
+    return { title: pre ? "Les montées probables" : "Les montées du mois", sub: (pre ? "Sortie du " : "Classement du ") + lmDayLab(rl), body:
+      row(pre ? "Montées et descentes probables" : "Montées et descentes", pre ? "D'après la simulation Ten'Up de chaque joueur, lue dans les 4 derniers jours. Le classement officiel peut différer." : "Classement officiel publié le " + lmDayLab(L.rel) + ", comparé au classement de chaque joueur avant la sortie (sa fiche Ten'Up, sinon sa dernière feuille de match).") +
+      row("Joueurs du club", "Ceux qui ont joué au moins une rencontre par équipes pour le club cette saison : Ten'Up ne donne pas la liste des licenciés. " + plural(L.read, "fiche lue", "fiches lues") + " sur " + L.n + " depuis la sortie.") };
+  }
+  // Le message au club : les montées seulement, par bloc (▲ en texte : les émojis flèches s'affichent en carré bleu sur iPhone)
+  function lmMsg() {
+    var L = lmList(), G = lmGrp(L.up), nm = tmNm(((S.teams || {}).club || {}).nom || "club"), t = "🎾 *Ça monte au " + nm + " !*\nClassement du " + dN(L.rel) + " " + MOIS_L[L.rel.getMonth()] + "\n";
+    [["Dames", G.dam], ["Messieurs", G.mes], ["Jeunes", G.jeu]].forEach(function (g) { if (g[1].length) t += "\n*" + g[0] + "*\n" + g[1].map(function (o) { return "▲ " + kpShort(o.p.n) + " : " + lab(o.from) + " → *" + lab(o.to) + "*"; }).join("\n") + "\n"; });
+    return t + "\nBravo à " + (L.up.length > 1 ? "tous" : "toi") + " 👏\n\nClassements suivis avec Montée, l'app tennis des compétiteurs :\nmontennis.netlify.app";
+  }
+  function lmMsgSheet() {
+    var txt = (UI.kpTxt || {}).lm || lmMsg();
+    return { title: "Message au club", sub: "Les descentes ne sont pas dans le message", body: '<textarea class="kp-msg" data-kp="txt" data-v="lm" rows="' + Math.min(24, txt.split("\n").length + 1) + '" aria-label="Le message">' + esc(txt) + "</textarea>" +
+      '<div class="kp-row2"><button class="kp-ask" data-a="lmSend" data-v="">Copier</button><button class="kp-cta" data-a="lmSend" data-v="wa">Envoyer sur WhatsApp</button></div>' };
+  }
 
   // ——— e1 · « Bientôt » dans Mes équipes : les championnats où le club a une équipe, avant la 1re rencontre
   function kpSoon() {
@@ -4053,7 +4180,11 @@
   }
   function kpSend(cid, wa) {
     var x = cid.split("|"), c = tmFind(x[0]), r = c && (c.renc || []).filter(function (y) { return String(y.id) === x[1]; })[0];
-    var t = (UI.kpTxt || {})[cid] || (c && r ? kpMsg(c, r) : ""); if (!t) return;
+    msgSend((UI.kpTxt || {})[cid] || (c && r ? kpMsg(c, r) : ""), wa);
+  }
+  // un message pour un groupe WhatsApp (convocation, montées du club) : ouvert dans WhatsApp, ou copié
+  function msgSend(t, wa) {
+    if (!t) return;
     if (wa) { haptic("light"); window.open("https://wa.me/?text=" + encodeURIComponent(t), "_system"); return; }
     if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { toast("Message copié : colle-le dans ton groupe."); }, function () { sharePlain(t); }); else sharePlain(t);
   }
@@ -13903,6 +14034,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     kpDz: function (v) { return kpDzSheet(v); },
     kpCompo: function (v) { return kpCompoSheet(v); },
     kpConv: function (v) { return kpConvSheet(v); },
+    lmDef: function (v) { return lmDefSheet(v); }, // 4.14
+    lmMsg: function () { return lmMsgSheet(); },
     // 3.63 : la feuille de partage (aperçu de l'image, format, partager)
     shv: function () {
       var V = UI.shv; if (!V) return null; var f = UI.shvF || "45";
@@ -19210,8 +19343,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.13",
+    v: "4.14",
     pages: [
+      // 4.14 (Yann, 26/11/2026, lot 3 validé) : ils montent ce mois-ci, dans Le club
+      { hero: true, title: "Montée 4.14", text: "Chaque mois, les joueurs du club qui montent au classement, et le message de félicitations prêt pour WhatsApp." },
+      { tag: "Nouveau", tone: "rose", title: "Ils montent ce mois-ci", vis: "lm414", text: "Dans Le club : qui devrait monter avant la sortie, puis les montées officielles par Dames, Messieurs et Jeunes. Un message pour les féliciter, sans les descentes." },
       // 4.13 (Yann, 26/11/2026, lot 2 validé) : la saison d'une équipe (qui joue, dispos, effectif, compo d'Ace, convocation WhatsApp)
       { hero: true, title: "Montée 4.13", text: "La saison de ton équipe dans Montée : qui joue, les dispos de chacun, la compo proposée par Ace et la convocation prête pour WhatsApp." },
       { tag: "Nouveau", tone: "rose", title: "Ace propose la compo", vis: "kp413", text: "Dans Mes équipes : coche les dispos, Ace propose la compo dans l'ordre du classement du jour de la rencontre. Touche un joueur pour le changer." },
@@ -19361,7 +19497,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-    var PHARES = ["kp413", "cv413", "ef413", "rkm412"]; // 4.13 : la saison d'une équipe, puis l'adversaire qui bouge (4.12) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
+    var PHARES = ["lm414", "kp413", "cv413", "ef413", "rkm412"]; // 4.14 : ils montent ce mois-ci en tête // 4.13 : la saison d'une équipe, puis l'adversaire qui bouge (4.12) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -19383,6 +19519,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.5 : visuels des nouveautés (couleurs fixes : l'écran est toujours sombre ; noms d'exemple génériques)
     var nvAv = function (t, c) { return '<span style="width:34px;height:34px;flex:none;border-radius:17px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;background:' + (c || "#3A3F49") + ';color:#F2F3F5">' + t + "</span>"; };
     var nvPill = '<em style="font-style:normal;font-size:11.5px;font-weight:800;border-radius:99px;padding:2px 8px;background:#D4E64A;color:#121212;margin-right:6px">Nouveau</em>';
+    // 4.14 : ils montent ce mois-ci (noms d'exemple génériques)
+    if (k === "lm414") return nvc('<span class="nv-k" style="color:#D4E64A">ILS MONTENT · CLASSEMENT DU 1ER DÉC.</span>' + [["15/3", "Julie M.", "+35 dames · éq. 1", "↑ de 15/4"], ["15/4", "Hugo L.", "+35 messieurs · éq. 2", "↑ de 15/5"], ["30/3", "Nathan V.", "15/16 ans · éq. 1", "↑ de 30/4"]].map(function (x) { return '<span style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);text-align:left"><b style="flex:none;width:44px;font-size:14px">' + x[0] + '</b><span style="flex:1"><b style="font-size:14px">' + x[1] + ' <span style="font-size:12px;color:#7BC79A">' + x[3] + '</span></b><small style="display:block;font-size:11.5px;opacity:.7">' + x[2] + "</small></span></span>"; }).join("") +
+      '<span style="display:block;margin-top:10px;padding:10px 12px;border-radius:14px 14px 14px 4px;background:rgba(255,255,255,.08);font-size:12.5px;line-height:1.5;text-align:left">🎾 <b>Ça monte au TC Exemple !</b><br>▲ Julie M. : 15/4 → <b>15/3</b><br>▲ Hugo L. : 15/5 → <b>15/4</b></span>');
     // 4.13 : la compo d'Ace, la convocation, l'effectif
     if (k === "kp413") return nvc('<span class="nv-k" style="color:#D4E64A">TA COMPO · DIM. 6 DÉC.</span>' + [["S1", "Toi", "15/4"], ["S2", "Hugo L.", "15/5"], ["S3", "Lucas B.", "15/5"], ["D", "Toi · Hugo L.", ""]].map(function (x) { return '<span style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08)"><b style="flex:none;width:26px;height:26px;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);display:grid;place-items:center;font-size:11px">' + x[0] + '</b><b style="flex:1;font-size:14px">' + x[1] + '</b><span style="font-size:13px;opacity:.75">' + x[2] + "</span></span>"; }).join(""));
     if (k === "cv413") return nvc('<span class="nv-k" style="color:#D4E64A">LE MESSAGE</span><span style="display:block;padding:10px 12px;border-radius:14px 14px 14px 4px;background:rgba(255,255,255,.08);font-size:12.5px;line-height:1.5;text-align:left"><b>TC Exemple 2 · Journée 5</b><br>Dim. 6 déc. · RDV 8 h 45, début 9 h<br><br><b>🎾 SIMPLES</b><br>1️⃣ Toi · 15/4<br>2️⃣ Hugo L. · 15/5<br>3️⃣ Lucas B. · 15/5<br><br>Confirmez-moi votre présence.</span>');
@@ -20819,6 +20958,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     kpOpen: function (el) { var id = el.dataset.v, sc = (S.scout || {})[id], c = null; if (!sc) { kpAll().some(function (x) { var P = kpRost(x, x.me.mine).P; if (P[id]) { c = P[id]; return true; } return false; }); } var w = nameCase((c && c.n) || "").split(/\s+/); UI.sheet = null; openScout(sc && sc.hit ? sc.hit : { id: id, prenom: w[0] || "", nom: w.slice(1).join(" "), rank: (c && c.r) || "" }); },
     kpCopy: function (el) { kpSend(el.dataset.v, false); },
     kpWa: function (el) { kpSend(el.dataset.v, true); },
+    lmSend: function (el) { msgSend((UI.kpTxt || {}).lm || lmMsg(), el.dataset.v === "wa"); }, // 4.14
     clubTg: function () { S.prefs = S.prefs || {}; S.prefs.clubOn = !S.prefs.clubOn; save(); render(); if (S.prefs.clubOn) clubRefresh(!S.club); },
     ceFol: function (el) { S.prefs = S.prefs || {}; var f = S.prefs.clubFol = S.prefs.clubFol || {}, id = el.dataset.id; if (f[id]) delete f[id]; else f[id] = 1; save(); render(); },
     hdGo: function (el) { if (el.dataset.h) location.hash = el.dataset.h; },
