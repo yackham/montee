@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.1",
+    VERSION: "4.18.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -734,7 +734,7 @@
     }, { passive: false, capture: true });
     document.addEventListener("click", function (e) { if (sup && Date.now() - sup < 800 && e.target.closest && e.target.closest(".tabbar a.tab")) { e.preventDefault(); e.stopPropagation(); } }, true);
   })();
-  // 4.18.1 (Yann : « je peux pas cliquer de suite sur l'onglet Entraînements au chargement ») : même cause que 4.4.8, iOS retient le clic
+  // 4.18.2 (Yann : « je peux pas cliquer de suite sur l'onglet Entraînements au chargement ») : même cause que 4.4.8, iOS retient le clic
   // tant que la page s'anime (pastilles des jours, chiffres qui défilent). Les onglets Matchs / Entraînements (et les autres sélecteurs d'onglets)
   // partent donc eux aussi au lever du doigt ; le clic d'iOS qui suit, s'il arrive, est ignoré pour ne pas compter deux fois.
   (function () {
