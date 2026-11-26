@@ -170,6 +170,7 @@ struct COpp: Codable {
     var rank: String
     var p: Int? = nil
     var tag: String? = nil
+    var pc: String? = nil // 4.16 : couleur de la balle des chances
 }
 struct CLive: Codable {
     var me: String
@@ -317,7 +318,7 @@ struct NextView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text((o.tag ?? "").replacingOccurrences(of: "Prévu ", with: "").uppercased()).font(.system(size: 11, weight: .heavy)).foregroundColor(mBalle)
                 Text(o.name + (o.rank.isEmpty ? "" : " · " + o.rank)).font(.system(size: 15, weight: .bold)).lineLimit(1)
-                if let p = o.p { Text("Tu gagnes \(p) % du temps").font(.system(size: 12)).lineLimit(1) }
+                if let p = o.p { HStack(spacing: 5) { OddsBall(p: p, hex: o.pc, size: 20); Text("de chances").font(.system(size: 12)).lineLimit(1) } } // 4.16 : la balle des chances
             }
         } else {
             VStack(alignment: .leading, spacing: 1) {

@@ -55,6 +55,51 @@
   function bar(pct, col, track, h) {
     return '<div style="height:' + (h || 8) + 'px;border-radius:' + (h || 8) + 'px;background:' + track + ';overflow:hidden"><div style="height:100%;width:' + Math.max(0, Math.min(100, pct || 0)) + "%;background:" + col + ';border-radius:inherit"></div></div>';
   }
+  // 4.16 (Yann, 26/11) : tes chances = une balle de tennis qui se remplit, aux couleurs du thème.
+  // Une seule fonction pour l'appli, les widgets et la montre : du « terre » (chances faibles) au « gazon » (toutes tes chances)
+  // du thème, mélangés en OKLCH (le milieu passe par le jaune), le milieu éclairci pour rester lisible.
+  function hexRgb(c) {
+    c = String(c || "").trim(); var m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(c);
+    if (m) return [+m[1], +m[2], +m[3]];
+    c = c.replace("#", ""); if (c.length === 3) c = c.replace(/./g, "$&$&");
+    return c.length >= 6 ? [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16)] : [128, 128, 128];
+  }
+  function toOklch(c) {
+    var v = hexRgb(c).map(function (x) { x /= 255; return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+    var l = Math.cbrt(0.4122214708 * v[0] + 0.5363325363 * v[1] + 0.0514459929 * v[2]), m = Math.cbrt(0.2119034982 * v[0] + 0.6806995451 * v[1] + 0.1073969566 * v[2]), s = Math.cbrt(0.0883024619 * v[0] + 0.2817188376 * v[1] + 0.6299787005 * v[2]);
+    var L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, b = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+    return [L, Math.sqrt(a * a + b * b), Math.atan2(b, a)];
+  }
+  function oklchRgb(L, C, H) {
+    var a = C * Math.cos(H), b = C * Math.sin(H);
+    var l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3), m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3), s = Math.pow(L - 0.0894841775 * a - 1.291485548 * b, 3);
+    return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s];
+  }
+  function ballCol(p, terre, gazon) {
+    var t = Math.max(0, Math.min(1, (p - 0.1) / 0.8)), A = toOklch(terre), B = toOklch(gazon), dh = B[2] - A[2];
+    if (dh > Math.PI) dh -= 2 * Math.PI; else if (dh < -Math.PI) dh += 2 * Math.PI;
+    var L = Math.max(A[0] + (B[0] - A[0]) * t, 0.5 + 0.22 * (1 - Math.abs(2 * t - 1))), C = A[1] + (B[1] - A[1]) * t, H = A[2] + dh * t, rgb;
+    // hors des couleurs affichables : on baisse la saturation, pas la clarté
+    for (var i = 0; i < 30; i++) { rgb = oklchRgb(L, C, H); if (rgb.every(function (x) { return x >= -0.001 && x <= 1.001; })) break; C *= 0.93; }
+    return "#" + rgb.map(function (x) { x = Math.max(0, Math.min(1, x)); x = x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055; return ("0" + Math.round(x * 255).toString(16)).slice(-2); }).join("");
+  }
+  // Ce qu'on écrit dans la balle : jamais 0, 3, 97 ni 100 (« < 5 % », « > 95 % »)
+  function ballLab(p, big) { return p < 0.05 ? (big ? "< 5 %" : "<5") : p > 0.95 ? (big ? "> 95 %" : ">95") : String(Math.round(p * 100)); }
+  var ballN = 0;
+  // o : col (remplissage), empty (vide), ring (contour), ink (chiffre), halo (autour du chiffre) ; S = taille en px
+  function ballSvg(p, S, o) {
+    o = o || {}; var id = "obq" + (++ballN), big = S >= 60, lvl = (98 - 96 * Math.max(0, Math.min(1, p))).toFixed(1), lb = ballLab(p, big), ex = /[<>]/.test(lb);
+    var ink = o.ink || "var(--ink)", halo = o.halo || "var(--card)", fs = (big ? 27 : 38) * (lb.length > 3 && !big ? 0.8 : ex && big ? 0.78 : 1);
+    var txt = ex || !big ? esc(lb) : esc(lb) + '<tspan font-size="' + Math.round(fs * 0.5) + '" dx="2">%</tspan>';
+    return '<svg class="obq" viewBox="0 0 100 100" width="' + S + '" height="' + S + '" role="img" aria-label="' + esc(ballLab(p, true)) + ' de chances" style="display:block;flex:none;overflow:visible">' +
+      '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="48"/></clipPath></defs>' +
+      '<circle cx="50" cy="50" r="48" fill="' + (o.empty || "color-mix(in srgb, var(--ink) 9%, var(--card))") + '"/>' +
+      '<g clip-path="url(#' + id + ')"><path class="obq-f" d="M-5 ' + lvl + " Q12 " + (lvl - 4) + " 28 " + lvl + " T62 " + lvl + " T96 " + lvl + " T130 " + lvl + ' V110 H-5 Z" fill="' + (o.col || "#D4E64A") + '"/>' +
+      '<g fill="none" stroke="#fff" stroke-width="' + (big ? 3 : 5) + '" opacity=".6"><path d="M14 8 Q46 50 14 92"/><path d="M86 8 Q54 50 86 92"/></g></g>' +
+      '<circle cx="50" cy="50" r="47" fill="none" stroke="' + (o.ring || "color-mix(in srgb, var(--ink) 22%, transparent)") + '" stroke-width="' + (big ? 1.6 : 2.5) + '"/>' +
+      '<text x="50" y="' + (big ? 59 : 63) + '" text-anchor="middle" font-size="' + fs.toFixed(1) + '" font-weight="800" font-family="inherit" fill="' + ink + '" stroke="' + halo + '" stroke-width="' + (big ? 5 : 7) + '" paint-order="stroke" letter-spacing="-1">' + txt + "</text></svg>";
+  }
+
   // Cotillons répartis dans une zone [x0, x1, y0, y1] en %, à l'écart du texte
   function confetti(p, z) {
     z = z || [70, 96, 20, 64];
@@ -343,15 +388,21 @@
   T.adversaire = function (d, p) {
     var o = d.scout, ac = accent(p);
     if (!o) return '<div class="x-w" style="' + glow(p, ac) + '">' + eyeb("Adversaire", p.muted) + '<div class="x-sp"></div><span class="x-t1">Prépare ton prochain match</span><span class="x-sm" style="margin-top:4px;color:' + p.muted + '">Cherche ton adversaire : tes chances, ton plan de jeu.</span></div>';
-    var pc = o.p, col = pc == null ? p.muted : pc >= 60 ? p.gazon : pc >= 40 ? ac : p.terre;
-    var ini = (o.name || "?").split(" ").map(function (x) { return x.charAt(0); }).join("").slice(0, 2).toUpperCase();
-    return '<div class="x-w" style="' + glow(p, ac) + ';gap:8px;padding:13px 16px">' +
-      '<div class="x-row" style="align-items:center;gap:10px"><span class="x-vd" style="width:38px;height:38px;font-size:13px;background:' + p.chip + ";color:" + p.ink + '">' + esc(ini) + "</span>" +
-      '<div style="flex:1;min-width:0;display:flex;flex-direction:column">' + eyeb(o.when ? "Ton match · " + o.when : "Consulté récemment", p.muted) + '<b style="font-size:17px;letter-spacing:-.02em" class="x-ell">' + esc(String(o.name || "").toLowerCase().replace(/(^|[\s'-])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); })) + "</b></div>" +
-      rkb(o.rank || "?", p, 14) + "</div>" +
-      (pc != null ? '<div class="x-row" style="align-items:center;gap:10px"><b style="font-size:26px;letter-spacing:-.04em;line-height:1">' + pc + ' %</b><div style="flex:1">' + bbar(p, pc, col) + "</div></div>" : "") +
-      (o.tip ? '<div style="margin-top:auto;background:' + p.chip + ';border-radius:14px;padding:7px 10px"><span class="x-sm x-ell" style="display:block;font-weight:700">' + esc(o.tip) + '</span><span class="x-sm x-ell" style="display:block;color:' + p.muted + '">' + esc(o.tipS || "") + "</span></div>" : "") + "</div>";
+    // 4.16 (maquette D validée le 26/11) : la balle à gauche, le verdict en premier, l'adversaire, puis le conseil sur une ligne
+    var pc = o.p, nm = String(o.name || "").toLowerCase().replace(/(^|[\s'-])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); });
+    var bc = pc != null ? ballCol(pc / 100, p.terre, p.gazon) : p.muted;
+    return '<div class="x-w" style="' + glow(p, ac) + ';gap:0;padding:14px 16px">' +
+      '<div class="x-row" style="align-items:center;gap:14px">' + (pc != null ? oddsBallW(pc, 78, p) : "") +
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">' +
+      (pc != null ? '<b class="x-ell" style="font-size:22px;letter-spacing:-.02em;line-height:1.1;color:' + verdictCol(bc, p) + '">' + esc(o.head || "Tes chances") + "</b>" : "") +
+      '<div class="x-row" style="align-items:center;gap:7px;font-size:14px;min-width:0"><span style="color:' + p.muted + ';font-weight:600">contre</span><b class="x-ell" style="letter-spacing:-.01em;min-width:0">' + esc(nm) + "</b>" + rkb(o.rank || "?", p, 13) + "</div>" +
+      eyeb(o.when ? o.when : "Consulté récemment", p.muted) + "</div></div>" +
+      '<div class="x-sp"></div>' +
+      (o.tip ? '<div class="x-ell" style="padding-top:8px;border-top:1px solid ' + p.line + '"><b style="font-size:13px">' + esc(o.tip) + "</b>" + (o.tipS ? '<span style="font-size:12px;color:' + p.muted + '"> · ' + esc(o.tipS) + "</span>" : "") + "</div>" : "") + "</div>";
   };
+  function oddsBallW(pc, S, p) { return ballSvg(pc / 100, S, { col: ballCol(pc / 100, p.terre, p.gazon), empty: "color-mix(in srgb, " + p.ink + " 10%, " + p.card + ")", ring: "color-mix(in srgb, " + p.ink + " 22%, transparent)", ink: p.ink, halo: p.card }); }
+  // le verdict à la couleur de la balle, un ton plus sombre sur fond clair pour rester lisible
+  function verdictCol(c, p) { return isDark(p) ? c : "color-mix(in srgb, " + c + " 68%, #000)"; }
 
   // 13. Objectif de saison (2 × 2)
   T.objectif = function (d, p) {
@@ -376,14 +427,15 @@
   T.adversaire2 = function (d, p) {
     var o = d.scout, ac = accent(p);
     if (!o) return '<div class="x-w" style="' + glow(p, ac) + '">' + eyeb("Adversaire", p.muted) + '<div class="x-sp"></div><span class="x-t1" style="font-size:18px">Qui tu joues ?</span><span class="x-sm" style="margin-top:4px;color:' + p.muted + '">Cherche-le : tes chances et ton plan de jeu.</span></div>';
-    var pc = o.p, col = pc == null ? p.muted : pc >= 60 ? p.gazon : pc >= 40 ? ac : p.terre;
-    return '<div class="x-w" style="' + glow(p, ac) + ';gap:4px">' +
+    // 4.16 (maquette A validée le 26/11) : la balle et le verdict côte à côte, le conseil dessous
+    var pc = o.p, bc = pc != null ? ballCol(pc / 100, p.terre, p.gazon) : p.muted, tp = o.tip || "";
+    return '<div class="x-w" style="' + glow(p, ac) + ';gap:2px;padding:14px 16px">' +
       '<div class="x-row" style="align-items:center;gap:6px"><span style="flex:1;min-width:0">' + eyeb(o.when ? o.when : "Recherche", p.muted) + "</span>" + rkb(o.rank || "?", p, 13) + "</div>" +
       '<b class="x-ell" style="font-size:16px;letter-spacing:-.02em;line-height:1.2;display:block">' + esc(shortName(o.name)) + "</b>" +
       '<div class="x-sp"></div>' +
-      (pc != null ? '<b style="font-size:26px;letter-spacing:-.04em;line-height:1">' + pc + ' %</b>' + bbar(p, pc, col) +
-        // 3.34 : le conseil seulement s'il tient en entier
-        ((o.tip || o.head || "").length <= 26 ? '<span class="x-sm" style="font-weight:700">' + esc(o.tip || o.head || "") + "</span>" : "") : '<span class="x-sm" style="color:' + p.muted + '">Ouvre sa fiche pour tes chances.</span>') + "</div>";
+      (pc != null ? '<div class="x-row" style="align-items:center;gap:10px">' + oddsBallW(pc, 58, p) + '<b style="font-size:15px;line-height:1.15;color:' + verdictCol(bc, p) + '">' + esc(o.head || "de chances") + "</b></div>" +
+        '<div class="x-sp"></div>' + (tp ? '<span class="x-sm x-ell" style="font-weight:700;font-size:12.5px">' + esc(tp) + "</span>" : "")
+        : '<span class="x-sm" style="color:' + p.muted + '">Ouvre sa fiche pour tes chances.</span>') + "</div>";
   };
 
   // 14. Joueurs suivis : qui a joué, qui monte (2 × 2 ou 4 × 2)
@@ -591,5 +643,5 @@
     });
   }
 
-  root.MonteeWidgetArt = { SIZES: SIZES, KINDS: Object.keys(SIZES), html: html, render: render, palette: palette, css: CSS, loadFonts: loadFonts };
+  root.MonteeWidgetArt = { SIZES: SIZES, KINDS: Object.keys(SIZES), html: html, render: render, palette: palette, ballCol: ballCol, ballSvg: ballSvg, ballLab: ballLab, css: CSS, loadFonts: loadFonts };
 })(typeof window !== "undefined" ? window : this);
