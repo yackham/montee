@@ -266,7 +266,7 @@
       var idP = function () { return A.idCrm ? Promise.resolve(A.idCrm) : jP("/api/back/v2/profil/disponibilites").then(function (pf) { var p = ((pf && (pf.personnes || pf.utilisateurs)) || [])[0] || {}; var id = p.idCrm || (p.personne && p.personne.idCrm); if (!id) throw new Error("profil introuvable"); return id; }); };
       var readP = function (id) { return jP("/api/back/v1/profil/disponibilites?idCrms=" + encodeURIComponent(id)).then(function (j) { var m = profMap(j); if (!m) throw new Error("profil vide"); return m; }); };
       if (KIND === "profDispo") return idP().then(readP).then(function (m) { m.at = Date.now(); return ok(m); }).catch(err);
-      // 4.11.6 : comme la page « Mon compte » : modifiés (PUT), ajoutés (POST), retirés (DELETE /{idDisponibilite}?idCrm=…, relevé 26/11), puis relecture
+      // 4.11.6 : comme la page « Mon compte » : modifiés (PUT), ajoutés (POST), retirés (DELETE /{idDisponibilite}?idCrm=…, relevé 26/11 : il répond souvent 400 mais retire bien le créneau, d'où la relecture qui fait foi)
       var PL = A.plan || {}, U = "/api/back/v1/profil/disponibilites", gone = PL.del || [];
       var delOne = function (id) { return jP(U + "/" + encodeURIComponent(id) + "?idCrm=" + encodeURIComponent(A.idCrm), { method: "DELETE" }).catch(function () { return null; }); };
       // ordre : retirer d'abord (deux créneaux réunis ne se chevauchent jamais), puis modifier, puis ajouter
