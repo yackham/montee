@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.16.5",
+    VERSION: "4.16.6",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -4249,16 +4249,16 @@
   function kpEffHtml(c) {
     var P = kpPl(c), R = kpRost(c, c.me.mine), U = !c.cloture ? kpUp(c) : [];
     setTimeout(function () { try { kpLoad([[c, [c.me.mine]]]); kpWarm(P); } catch (e) {} }, 0);
-    var rel = E.nextRelease(today()), anyMv = false;
+    var rel = E.nextRelease(today()), anyMv = false, anyB = false;
     var rows = P.map(function (p) {
-      var mv = kpMv(p); if (mv) anyMv = true; var x = p.R || {}, me = kpMe(p), real = !me && !/^[nm]:/.test(p.id);
+      var mv = kpMv(p); if (mv) anyMv = true; if ((p.R || {}).b) anyB = true; var x = p.R || {}, me = kpMe(p), real = !me && !/^[nm]:/.test(p.id);
       return "<" + (real ? 'button data-a="kpOpen" data-v="' + esc(p.id) + '"' : "div") + ' class="kp-r">' + kpRkTag(p) + '<span class="grow"><b>' + esc(kpNm(p)) + (x.b ? '<span class="kp-fl">brûlé</span>' : "") + kpMvi(mv) + "</b><small>" + plural(x.s || 0, "simple") + " · " + plural(x.d || 0, "double") + kpRes(x.rs) + "</small></span>" + (real ? '<span class="pa-ch" aria-hidden="true">›</span></button>' : "</div>");
     }).join("");
     return '<h2 class="tm-gh">L\'effectif</h2><div class="card kp-eff"><span class="eyebrow">' + plural(P.length, "joueur") + " <small>dans ce championnat · " + plural(R.nR, "rencontre") + "</small></span>" +
       (UI.kpBusy ? '<span class="small kp-ld"><span class="spin"></span> Lecture des feuilles de match…</span>' : "") + (rows || '<p class="kp-note">Les joueurs apparaissent ici dès la 1re feuille de match, ou choisis-les toi-même.</p>') +
       (U.length ? '<button class="kp-more" data-a="sheet" data-k="kpDz" data-v="' + esc(c.id) + '"><span>Les dispos, rencontre par rencontre</span><span aria-hidden="true">›</span></button>' : "") +
       '<button class="kp-more" data-a="sheet" data-k="kpWho" data-v="' + esc(c.id) + '"><span>Ajouter un joueur du club</span><span aria-hidden="true">›</span></button></div>' +
-      '<p class="kp-note kp-pn">Points : ses résultats en simple dans ce championnat.' + (anyMv ? " Flèche : son classement à la sortie du " + JOURS[rel.getDay()] + " " + dN(rel) + " " + MOIS[rel.getMonth()] + " (simulation Ten'Up)." : "") + "</p>";
+      '<p class="kp-note kp-pn">Points : ses résultats en simple dans ce championnat.' + (anyMv ? " Flèche : son classement à la sortie du " + JOURS[rel.getDay()] + " " + dN(rel) + " " + MOIS[rel.getMonth()] + " (simulation Ten'Up)." : "") + (anyB ? "<br>Brûlé (d'après la feuille de match Ten'Up) : il a déjà assez joué dans cette équipe ou une plus forte du club pour ne plus pouvoir jouer dans une équipe de numéro plus grand. Le nombre de rencontres dépend du règlement du championnat." : "") + "</p>";
   }
 
   // ——— La compo proposée par Ace (modifiable)
