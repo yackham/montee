@@ -6381,7 +6381,7 @@ button.acr, a.acr { cursor: pointer; }
 .acf-k { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 6px; margin-bottom: -6px; }
 .acf-k .ace-k { margin-top: 0; }
 .acf-k small { font-size: 12.5px; font-weight: 700; color: var(--acc-ink); }
-.acf { display: flex; gap: 10px; overflow-x: auto; margin: 0 -18px; padding: 2px 18px 4px; scroll-snap-type: x mandatory; scroll-padding: 0 18px; scrollbar-width: none; }
+.acf { display: flex; gap: 10px; overflow-x: auto; margin: 0 calc(-1 * var(--s4)); padding: 2px var(--s4) 4px; scroll-snap-type: x mandatory; scroll-padding: 0 var(--s4); /* 4.19.1 : suit la marge d'Ace (16 px), plus de défilement de côté */ scrollbar-width: none; }
 .acf::-webkit-scrollbar { display: none; }
 .acf > .acd { flex: none; width: 82%; scroll-snap-align: start; }
 .acf.one > .acd { width: 100%; }
@@ -7362,12 +7362,11 @@ button.ob-r, a.ob-r { cursor: pointer; }
 .acl { gap: 10px; }
 .acl-r { display: flex; align-items: center; gap: 12px; }
 .acl-av { position: relative; flex: none; }
-.acl-av > i, .ace-plb { position: absolute; right: -4px; top: -4px; width: 18px; height: 18px; border-radius: 50%; background: #D4E64A; color: #15170F; font: 800 14px/18px system-ui, sans-serif; font-style: normal; text-align: center; }
+.acl-av > i { position: absolute; right: -4px; top: -4px; width: 18px; height: 18px; border-radius: 50%; background: #D4E64A; color: #15170F; font: 800 14px/18px system-ui, sans-serif; font-style: normal; text-align: center; }
 .acl-t { flex: 1; min-width: 0; font-size: 14px; line-height: 1.4; color: var(--muted); } .acl-t b { color: var(--ink); }
 .acd-p { margin: 2px 0 6px; font-size: 15px; line-height: 1.45; color: var(--ink); }
 /* Ace plus vivant : on le touche, il rit ; abonné, son « + » ; sa réponse s'écrit mot à mot */
 .ace-tk { position: relative; flex: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.ace-tk .ace-plb { width: 24px; height: 24px; font-size: 18px; line-height: 24px; right: -2px; top: 0; }
 .ace-fresh .aw { animation: awIn .26s var(--ease-out) both; animation-delay: calc(.95s + var(--i) * 28ms); }
 @keyframes awIn { from { opacity: 0; } }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .ds-d.on .ds-ic.v { background: #fff; color: var(--today); }
@@ -8038,7 +8037,7 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 /* 4.16.6 : les ronds de dispo, fond doux au lieu du contour (règle du 26/11) */
 .kp-c i, .kp-c i.y, .kp-c i.n { box-shadow: none; background: color-mix(in srgb, currentColor 16%, transparent); }
 
-/* 4.19.1 (Yann, 26/11) : la carte profil de l'accueil garde ses couleurs ; son pied passe à trois entrées nommées
+/* 4.19.3 (Yann, 26/11) : la carte profil de l'accueil garde ses couleurs ; son pied passe à trois entrées nommées
    (Mon profil, Ma saison, Mes épreuves), icône au-dessus du mot pour tenir sur la largeur d'un iPhone. */
 .hd-ft.hd-ft3 { grid-template-columns: 1fr 1fr 1fr; }
 .hd-ft.hd-ft3 button { flex-direction: column; gap: 4px; height: 62px; font-size: 13px; font-weight: 650; position: relative; }

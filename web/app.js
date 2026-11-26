@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.19.1",
+    VERSION: "4.19.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -5682,7 +5682,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.4.6 (Yann, maquette accueil validée le 24/11) : plus de date ; Ace et sa bulle à gauche, la roue dans un rond à droite ;
     // la barre de profil devient une carte avec Mes épreuves et Ma saison en pied (avant : ligne « Mes épreuves » sous Ce qui arrive)
     var nEp = 0; try { nEp = toursOn().length; } catch (e) {}
-    // 4.19.1 (Yann, 26/11 ; Davy ne voyait pas que la carte mène au profil) : « Mon profil » devient une entrée nommée du pied, la carte garde ses couleurs
+    // 4.19.3 (Yann, 26/11 ; Davy ne voyait pas que la carte mène au profil) : « Mon profil » devient une entrée nommée du pied, la carte garde ses couleurs
     var hdFt = '<div class="hd-ft' + (SK ? "" : " hd-ft3") + '">' + (SK ? "" : '<button data-a="goProfil"><i>' + I.user + "</i>Mon profil</button>") + '<button data-a="goSeasonCard"><i>' + svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', 2.2) + "</i>Ma saison</button>" + (SK ? "" : '<button data-a="hdGo" data-h="#/tournoi"><i>' + TOUR_IC + "</i>Mes épreuves" + (nEp ? '<span class="hd-n">' + nEp + "</span>" : "") + "</button>") + "</div>"; // 4.17 : ses tournois restent dans son compte Ten'Up // 4.5.1 (Yann) : Mes épreuves à droite, sous le pouce
     s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + aceHd(!!wkH0) + (S.demo ? dl0 : "") + '<button class="act-ic hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r hd-pc"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + ' data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div>" + hdFt + "</div></div></div>" : av0 +
       '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div>" + hdFt + "</div></div></div>");
@@ -11703,7 +11703,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!ask) {
       var h = coHomeTip(c), hot = h.tip ? h.tip.v : "";
       var g = c.proj.status !== "top" && c.proj.next ? (c.proj.status === "montee" ? "Tu montes " + esc(lab(c.proj.projected)) + " à la prochaine sortie." : "Il te manque " + plural(Math.max(0, c.proj.next.norme - c.proj.next.total), "pt") + " pour " + esc(c.proj.next.label) + ".") : "";
-      s += top('<span class="small ace-pv">' + (isSup() ? '<span class="ace-plt">Montée+</span> tout reste dans ton téléphone' : "Gratuit · tout reste dans ton téléphone") + "</span>") + '<div class="ace-hero"><span class="ace-tk' + (isSup() ? " plus" : "") + '" data-a="aceTickle" aria-hidden="true">' + coBall("ace:hero", h.mood, "xl") + (isSup() ? '<i class="ace-plb">+</i>' : "") + "</span><span><b>Salut" + (name ? " " + esc(name) : "") + " !</b><small>" + g + " On parle de quoi ?</small></span></div>";
+      s += top('<span class="small ace-pv">' + (isSup() ? '<span class="ace-plt">Montée+</span> tout reste dans ton téléphone' : "Gratuit · tout reste dans ton téléphone") + "</span>") + '<div class="ace-hero"><span class="ace-tk" data-a="aceTickle" aria-hidden="true">' + coBall("ace:hero", h.mood, "xl") + "</span><span><b>Salut" + (name ? " " + esc(name) : "") + " !</b><small>" + g + " On parle de quoi ?</small></span></div>";
       // 3.75 : « Pour toi, maintenant », les vraies cartes du moment avant les sujets (un sujet en carte n'est pas répété en tuile)
       var fd = []; try { fd = coFeed(c); } catch (e) {}
       var inFd = {}; fd.forEach(function (x) { inFd[x.q] = 1; if (x.q2) inFd[x.q2] = 1; }); // 4.4 : le coup d'Ace dit déjà ce qui sort
