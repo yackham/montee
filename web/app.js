@@ -11410,6 +11410,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (d.best.length) Q.push(["toi", "best", "Je suis le meilleur quand ?", "Ta meilleure version", d.best[0].p + " % de victoires", "heart", null, 1]);
       if (d.seen.items && d.seen.items.length) Q.push(["toi", "scout", "Qu'est-ce que mes adversaires savent de moi ?", "Ton rapport de scouting", "Ce qu'ils préparent contre toi", "info", null, 1]);
     }
+    try { acDiscover(true).forEach(function (x) { if (x.q) Q.push(["go", x.q, x.ask, x.t, x.s, "spark"]); }); } catch (e) {} // 4.20 : les tuiles « À découvrir » sont des sujets d'Ace
     // filet : une même question (même texte) n'apparaît qu'une fois, ex. deux épreuves au même nom
     var seenQ = {}; return Q.filter(function (x) { var k = x[2].toLowerCase(); if (seenQ[k]) return false; seenQ[k] = 1; return true; });
   }
@@ -11435,21 +11436,69 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 4.19 (Yann, 26/11/2026) : « À découvrir dans Montée », en bas de l'écran d'Ace. Des tuiles qui ouvrent les vraies fonctions,
   // seulement quand elles te servent (4 au plus). Rien de nouveau à calculer : mêmes listes que les écrans qu'elles ouvrent (hbTours, myTeams, tmNext, matNeed).
   var DV_CAL = svg('<rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M8 2.5v4M16 2.5v4M3 10h18M8.5 15l2 2 4-4"/>'), DV_PIN = svg('<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>');
-  function acDiscover() {
+  // 4.20 (Yann, 26/11, 2e temps) : une tuile ouvre d'abord la conversation d'Ace avec tes vraies données en cartes, puis propose l'écran.
+  // Elle ouvre l'écran directement seulement quand Ace n'a rien à montrer (pas de recherche de tournois, pas de raquette).
+  function acDiscover(all) { // all : tous les sujets (pour la conversation), sinon les 4 tuiles
     var L = [], tu = NATIVE && S.tenup.linked, td = E.iso(today()), in30 = E.iso(new Date(today().getTime() + 30 * 864e5));
     if (tu) {
-      var t = hbTours().slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; })[0];
-      if (t) { var lim = (t.ins.more || {}).dispoLim; L.push({ h: "#/dispos/" + t.id, ic: DV_CAL, t: "Tes dispos", s: (t.name || "Ton tournoi").trim() + (lim ? " · à changer avant le " + fdate(lim) : " · " + fdate(t.from)) }); }
-      if (!S.hbSeen) L.push({ h: "hb", ic: I.clock, t: "Tes créneaux habituels", s: "Tes heures, pour tous tes tournois" });
-      if (!(S.tours || []).some(function (x) { return (x.to || x.from) >= td && x.from <= in30; })) L.push({ h: "#/trouver", ic: DV_PIN, t: "Trouver un tournoi", s: "Près de chez toi, sans collision" });
+      var t = dvTour();
+      if (t) { var lim = (t.ins.more || {}).dispoLim, tn = (t.name || "Ton tournoi").trim(); L.push({ q: "dv-dz", ask: "Je suis dispo quand pour « " + tn + " » ?", ic: DV_CAL, t: "Tes dispos", s: tn + (lim ? " · à changer avant le " + fdate(lim) : " · " + fdate(t.from)) }); }
+      if (all || !S.hbSeen) L.push({ q: "dv-hb", ask: "Je suis dispo quand, d'habitude ?", ic: I.clock, t: "Tes créneaux habituels", s: "Tes heures, pour tous tes tournois" });
+      if (!(S.tours || []).some(function (x) { return (x.to || x.from) >= td && x.from <= in30; })) {
+        var tzL = []; try { tzL = (S.tz || {}).lat ? tzShown() : []; } catch (e) {}
+        L.push(tzL.length ? { q: "dv-tz", ask: "Il y a quel tournoi pour moi ?", ic: DV_PIN, t: "Trouver un tournoi", s: plural(tzL.length, "tournoi") + " pour toi" } : { h: "#/trouver", ic: DV_PIN, t: "Trouver un tournoi", s: "Près de chez toi, sans collision" });
+      }
     }
-    if (teamsOn()) {
-      var tn = myTeams().map(function (c) { return { c: c, nx: tmNext(c) }; }).sort(function (a, b) { return (a.nx ? 0 : 1) - (b.nx ? 0 : 1) || (a.nx && b.nx && a.nx.d < b.nx.d ? -1 : 0); })[0];
-      if (tn) L.push({ h: "#/equipe/" + tn.c.id, ic: TEAM_IC, t: "Ton équipe", s: tn.nx ? "Prochaine rencontre le " + fdate(tn.nx.d) : "Rencontres, compo et classement" });
-    }
+    var eq = dvTeam(); if (eq) L.push({ q: "dv-eq", ask: "Mon équipe joue quand ?", ic: TEAM_IC, t: "Ton équipe", s: eq.nx ? "Prochaine rencontre le " + fdate(eq.nx.d) : "Rencontres, compo et classement" });
     var rk = bag(); if (!rk.length) L.push({ h: "#/materiel", ic: I.racket, t: "Ton matériel", s: "Tes raquettes et tes cordages" });
-    else if (rk.some(function (r) { try { return matNeed(r).now; } catch (e) { return false; } })) L.push({ h: "#/materiel", ic: I.racket, t: "Ton matériel", s: "Un recordage à prévoir" });
-    return L.slice(0, 4);
+    else if (rk.some(function (r) { return /soon|change|broken/.test(racketStatus(r).level); })) L.push({ q: "dv-mat", ask: "Je dois recorder quand ?", ic: I.racket, t: "Ton matériel", s: "Un recordage à prévoir" });
+    return all ? L : L.slice(0, 4);
+  }
+  function dvTour() { return hbTours().slice().sort(function (a, b) { return a.from < b.from ? -1 : 1; })[0] || null; }
+  function dvTeam() { if (!teamsOn()) return null; return myTeams().map(function (c) { return { c: c, nx: tmNext(c) }; }).sort(function (a, b) { return (a.nx ? 0 : 1) - (b.nx ? 0 : 1) || (a.nx && b.nx && a.nx.d < b.nx.d ? -1 : 0); })[0] || null; }
+  function dvAns(q) { // les réponses d'Ace aux tuiles « À découvrir » : mêmes données et mêmes fonctions que les écrans qu'elles ouvrent
+    var A = [], XH = "", F = [];
+    if (q === "dv-dz") {
+      var t = dvTour(); if (!t) return null; var m = t.ins.more || {}, D = m.dz, Dl = tzDispo(m.dispoLim); dzLoad(t);
+      A.push((Dl.ok ? (m.dispoLim ? Dl.txt.replace(/^Modifiables/, "Tu peux encore les changer") : "Tu peux les changer d'ici") : Dl.txt).replace(/\.?$/, "."));
+      if (D) { var days = [], d = E.parseDate(t.from), end = E.parseDate(t.to || t.from); while (d <= end && days.length < 21) { days.push(E.iso(d)); d = new Date(d.getTime() + 864e5); }
+        XH += acCard("Tes dispos, jour par jour", days.map(function (iso) { var z = dzDay(t, D, iso); return acRow({ l: esc(dzDayName(iso)), s: z.amb ? "À vérifier sur Ten'Up" : z.slots.length ? esc(z.slots.map(dzSl).join(" · ")) : "Pas dispo", v: z.ex ? '<span class="hb-ch1">changé</span>' : "" }); }).join(""));
+      } else XH += acCard("", '<p class="small">' + esc(UI.dzErr ? "Ten'Up : " + UI.dzErr : "Je lis tes dispos sur Ten'Up…") + "</p>");
+      if (Dl.ok) F.push(["Changer mes dispos", null, "#/dispos/" + t.id]);
+      return { a: A, x: XH, f: F, facts: [], mood: "concentree" };
+    }
+    if (q === "dv-hb") {
+      hbLoad(); var H = UI.hb || {}; if (!S.hbSeen) { S.hbSeen = 1; save(); }
+      A.push("Tes créneaux habituels servent pour <b>tous</b> tes tournois, sauf les jours que tu changes pour un tournoi.");
+      XH += H.prof ? acCard("Ta semaine sur Ten'Up", [1, 2, 3, 4, 5, 6, 7].map(function (wd) { var sl = H.prof.week[wd] || []; return acRow({ l: esc(hbDayName(wd)), s: sl.length ? esc(sl.map(dzSl).join(" · ")) : "Pas dispo" }); }).join(""))
+        : acCard("", '<p class="small">' + esc(H.err ? "Ten'Up : " + H.err : "Je lis tes créneaux sur Ten'Up…") + "</p>");
+      F.push(["Changer mes créneaux habituels", null, null, ["hb", ""]]);
+      return { a: A, x: XH, f: F, facts: [], mood: "repos" };
+    }
+    if (q === "dv-tz") {
+      var L = []; try { L = tzShown().slice().sort(function (a, b) { return b.score - a.score; }); } catch (e) {} if (!L.length) return null; var P = tzPrefs();
+      A.push(plural(L.length, "tournoi") + " ouvert" + (L.length > 1 ? "s" : "") + " à ton classement autour de " + esc(P.city || "chez toi") + ". Voici ceux qui collent le mieux à ta saison.");
+      XH += acCard("Pour toi", L.slice(0, 3).map(function (v) { return acRow({ l: esc(v.t.name), s: esc(fdate(v.t.from)) + (v.km != null ? " · " + Math.round(v.km) + " km" : "") + (v.clash.length ? " · collision" : ""), sheet: ["tz", v.t.id] }); }).join(""));
+      F.push([L.length > 3 ? "Les " + L.length + " tournois" : "Trouver un tournoi", null, "#/trouver"]);
+      return { a: A, x: XH, f: F, facts: [], mood: "concentree" };
+    }
+    if (q === "dv-eq") {
+      var e = dvTeam(); if (!e) return null; var c = e.c, me = c.me.mine, mt = tmOf(c, me) || {}, nx = e.nx;
+      A.push(nx ? "Prochaine rencontre le <b>" + esc(fdate(nx.d)) + "</b>, " + (nx.a === me ? "à domicile" : "à l'extérieur") + "." : "Pas de rencontre à venir pour l'instant.");
+      var rows = []; if (nx) rows.push(acRow({ l: esc(tmNm(nx.an) + " – " + tmNm(nx.bn)), s: esc(fdate(nx.d)) + " · " + (nx.a === me ? "à domicile" : "à l'extérieur"), href: "#/equipe/" + c.id }));
+      if (mt.cl) rows.push(acRow({ l: "Ta place dans la poule", s: esc(tmDiv(c.div)), v: esc(tmOrd(mt.cl)) }));
+      XH += acCard(esc(tmNm(((S.teams || {}).club || {}).nom || "")) || "Ton équipe", rows.join("") || '<p class="small">Rien à montrer pour l\'instant.</p>');
+      F.push(["Voir l'équipe", null, "#/equipe/" + c.id]);
+      return { a: A, x: XH, f: F, facts: [], mood: "joie" };
+    }
+    if (q === "dv-mat") {
+      var R = bag(); if (!R.length) return null;
+      A.push("Je compte tes heures de jeu depuis le dernier recordage, raquette par raquette.");
+      XH += acCard("Tes cordages", R.map(function (r) { var st = racketStatus(r), ref = wearRef(st), lv = st.level; return acRow({ l: esc(r.name), s: lv === "broken" ? "Cordage cassé" : lv === "change" ? "À recorder" : lv === "soon" ? "Bientôt à recorder" : st.known ? "Ça va" : "Pas encore d'heures", scl: lv === "ok" || lv === "unknown" ? "" : "r", bar: st.known ? 100 * st.min / (ref || 1) : null, cl: lv === "ok" ? "g" : lv === "soon" ? "y" : "r", v: st.known ? esc(fmtHours(st.min)) : "", href: "#/raquette/" + r.id }); }).join(""));
+      F.push(["Ton matériel", null, "#/materiel"]);
+      return { a: A, x: XH, f: F, facts: [], mood: "repos" };
+    }
+    return null;
   }
   function acSvg(k) { return { po: FT_IC.po, to: FT_IC.to, li: FT_IC.li, so: FR_REL, eq: TEAM_IC }[k] || ""; }
   // 4.4 (Yann, 24/11) : UN seul modèle Montée+ dans Ace : ce qui s'ouvre (lisible), Ace avec son « + » jaune, le bouton d'essai de partout (plusCta)
@@ -11491,6 +11540,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (k[0] === "next" || k[0] === "vs") return coMatchAns(c, q);
     if (k[0] === "tz") return tzWhyAns(c, k[1] || "");
     if (k[0] === "news") return coNewsAns(c);
+    if (/^dv-/.test(q)) { var dv = null; try { dv = dvAns(q); } catch (e) {} if (dv) return dv; }
     var ez = pl && pl.list && pl.list[0], rel = p.release ? fdate(p.release).replace(/^1 /, "1er ") : "";
     var routeLine = function () { return ez ? esc(pisteLabel(ez)) + (pl.goal === "keep" ? " et tu restes " : " et tu montes ") + esc(lab(pl.target)) + "." : ""; }; // dit une seule fois, dans « Comment je monte ? » (4.4)
     if (k[0] === "up") {
@@ -11733,7 +11783,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         s += '<span class="ace-k">' + gr[1] + '</span><div class="ace-grid">' + qs.map(function (x) { return '<button class="ace-tile' + (x[1] === hot ? " hot" : "") + '" data-a="aceQ" data-v="' + esc(x[1]) + '"><i' + (x[6] ? ' class="aci-' + x[6] + '"' : "") + (x[8] ? ' style="color:' + x[8] + '"' : "") + ">" + (x[6] ? acSvg(x[6]) : I[x[5]] || I.spark) + "</i><b>" + esc(x[3]) + "</b><small>" + esc(x[4]) + "</small>" + (x[7] && !isSup() ? '<span class="ace-plt">Montée+</span>' : "") + "</button>"; }).join("") + "</div>";
       });
       var dv = []; try { dv = acDiscover(); } catch (e) {}
-      if (dv.length) s += '<span class="ace-k">À découvrir dans Montée</span><div class="ace-grid">' + dv.map(function (x) { return '<button class="ace-tile dv-t" data-a="aceGo" data-h="' + esc(x.h) + '"><i>' + x.ic + "</i><b>" + esc(x.t) + "</b><small>" + esc(x.s) + '</small><span class="dv-go" aria-hidden="true">›</span></button>'; }).join("") + "</div>";
+      if (dv.length) s += '<span class="ace-k">À découvrir dans Montée</span><div class="ace-grid">' + dv.map(function (x) { return '<button class="ace-tile' + (x.q && x.q === hot ? " hot" : "") + (x.h ? " dv-t" : "") + '" ' + (x.q ? 'data-a="aceQ" data-v="' + esc(x.q) + '"' : 'data-a="coachGo" data-h="' + esc(x.h) + '"') + "><i>" + x.ic + "</i><b>" + esc(x.t) + "</b><small>" + esc(x.s) + "</small>" + (x.h ? '<span class="dv-go" aria-hidden="true">›</span>' : "") + "</button>"; }).join("") + "</div>";
     } else {
       var an = coAnswer(c, q);
       s += top('<span class="ace-ctx"><span>' + esc(ask[3]) + " · " + esc(ask[4]) + "</span></span>"); // 4.3 : Ace passe à côté de sa réponse (une seule fois par écran)
@@ -21170,7 +21220,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       }).catch(function () { askNotif(); });
     },
     aceIntro: function (el) { S.aceSeen = 1; save(); if (el.dataset.v === "go") UI.ace = { q: "" }; render(); },
-    aceGo: function (el) { var h = el.dataset.h || ""; UI.ace = null; haptic("light"); if (h === "hb") return A.hbOpen(); if (location.hash === h) render(); else location.hash = h; }, // 4.19 : les tuiles « À découvrir »
     coachGo: function (el) { var h = el.dataset.h || "", q = h.split("?")[1]; if (q) UI.mmTab = q; if (UI.ace && UI.ace.q) UI.aceBack = { q: UI.ace.q, h: h.split("?")[0] }; UI.sheet = null; UI.ace = null; if (location.hash === h.split("?")[0]) render(); else location.hash = h.split("?")[0]; },
     goSeasonCard: function (ev) { UI.cardWhich = "season"; UI.cardStyle = null; go("carte"); },
     cardWhich: function (el) { UI.cardWhich = el.dataset.v; UI.cardStyle = null; render(); },
