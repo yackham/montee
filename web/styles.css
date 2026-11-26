@@ -8037,7 +8037,10 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 /* 4.16.6 : les ronds de dispo, fond doux au lieu du contour (règle du 26/11) */
 .kp-c i, .kp-c i.y, .kp-c i.n { box-shadow: none; background: color-mix(in srgb, currentColor 16%, transparent); }
 
-/* 4.19.3 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
+/* 4.19 : « À découvrir dans Montée » (écran d’Ace) : même tuile, un › dit que ça ouvre un écran */
+.ace-tile .dv-go { position: absolute; top: 12px; right: 14px; font-size: 20px; line-height: 1; color: var(--muted); }
+
+/* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.
    Restent des traits seulement là où ce ne sont pas des boutons : séparateurs de lignes, cases à cocher vides,
@@ -8069,6 +8072,7 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .ace-tile.hot, :root:not([data-theme]) .ace-tile.hot { background: var(--card) !important; }
 .ace-tile.hot::after { content: ""; position: absolute; top: 14px; right: 14px; width: 9px; height: 9px; border-radius: 50%; background: var(--balle); }
 :root[data-theme="lin"] .ace-tile.hot::after, :root:not([data-theme]) .ace-tile.hot::after { background: var(--acc-ink); }
+.ace-tile.hot:has(.dv-go)::after { display: none; } .ace-tile.hot .dv-go { color: var(--acc-ink); } /* tuile « À découvrir » mise en avant : son › prend la couleur, pas de point en plus */
 
 /* 3. Boutons et puces au repos : plus d'anneau, un fond doux pour rester des boutons */
 .chip:not(.on), .card.qa .chip.ghost, .mechip, .pf-tile, .ce-pill, .crr-chips button:not(.on), .lc-chips button:not(.on), .kp-dz button:not(.on), .kp-opt > span:not(.on), .kp-hr:not(.on), .card.qa.an .an-chips .chip:not(.on) { box-shadow: none !important; }
