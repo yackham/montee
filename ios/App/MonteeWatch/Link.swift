@@ -14,6 +14,8 @@ struct WOpp: Codable, Identifiable, Hashable {
     var p: Int? = nil
     var tip: String? = nil
     var tag: String? = nil
+    /// 4.16 : couleur de la balle des chances (calculée par l'iPhone)
+    var pc: String? = nil
     var hom: Bool? = nil
     var fmt: String? = nil
     /// 3.42 : le plan de jeu préparé sur l'iPhone (3 consignes) et son jeu (forces / faiblesses)
@@ -192,7 +194,9 @@ struct WNext: Codable { var id: String? = nil; var name: String; var rank: Strin
     /// 3.42 : plan, son jeu, votre dernier match (« Défaite 4-6 6-7 »)
     var plan: [WStep]? = nil; var forts: [String]? = nil; var faibles: [String]? = nil; var last: String? = nil
     /// 3.49 : votre face-à-face (toutes saisons) ; rv = le plan est celui de la revanche
-    var fv: Int? = nil; var fd: Int? = nil; var fseq: String? = nil; var rv: Bool? = nil }
+    var fv: Int? = nil; var fd: Int? = nil; var fseq: String? = nil; var rv: Bool? = nil
+    /// 4.16 : couleur de la balle des chances (calculée par l'iPhone)
+    var pc: String? = nil }
 /// Ta raquette principale
 struct WRacket: Codable { var name: String; var pct: Int; var msg: String; var hours: String; var level: String }
 

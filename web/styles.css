@@ -7917,3 +7917,12 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .kd-no { display: flex; flex-direction: column; gap: 10px; }
 .kd-no b { font-size: 18px; }
 .tabbar .plus.kd-off { opacity: .35; }
+
+/* 4.16 (Yann, 26/11) : tes chances = une balle de tennis qui se remplit (widgets.js ballSvg), aux couleurs du thème */
+.ff-ring.ff-ball { width: 92px; height: 92px; } .ff-ring.ff-ball svg { transform: none; }
+.ff-ball .obq-f { transform-box: view-box; }
+.obq-m { display: inline-flex; margin: -8px 0; }
+.obq-i { display: inline-flex; vertical-align: middle; margin: -4px 0; }
+.tq-p.tq-pb { display: inline-flex; align-self: center; margin: -6px 0 -6px 6px; }
+.pa-chb { display: flex; gap: 6px; align-items: center; margin-top: 8px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.pa-chb > i { font-style: normal; opacity: .6; }
