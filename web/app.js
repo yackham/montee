@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.16.4",
+    VERSION: "4.16.7",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -79,6 +79,7 @@
     return blank();
   }
   var S = load();
+  if (S.prefs && S.prefs.epTab) delete S.prefs.epTab; // 4.16.7 (Yann) : Mes épreuves se rouvre toujours sur « Toi »
   if (S.tenup && S.tenup.cred) { delete S.tenup.cred; try { localStorage.setItem("montee.v1", JSON.stringify(S)); } catch (e) {} }
   // 3.74.3 (Yann) : fin des diagnostics de test (rapport des équipes) : les traces déjà enregistrées sont effacées
   if (S.teamsTrace || (S.clubTrace && S.clubTrace.last)) { delete S.teamsTrace; if (S.clubTrace) delete S.clubTrace.last; try { localStorage.setItem("montee.v1", JSON.stringify(S)); } catch (e) {} }
@@ -752,7 +753,7 @@
     if (navBack) { navBack = false; y = UI.scrollPos[r] || 0; }
     else if (TAB_ROOTS[r] != null) { stack = [r]; delete UI.scrollPos[r]; } // un onglet : sa pile repart de zéro
     else if (at >= 0) { stack = stack.slice(0, at + 1); y = UI.scrollPos[r] || 0; } // page déjà ouverte : on y revient, sans boucle
-    else if (stack[stack.length - 1] !== r) { stack.push(r); delete UI.scrollPos[r]; }
+    else if (stack[stack.length - 1] !== r) { stack.push(r); delete UI.scrollPos[r]; if (r === "tournoi") epToi(); } // 4.16.7 (Yann) : on arrive sur Mes épreuves par « Toi »
     UI.menu = false;
     var show = function () { render(); window.scrollTo(0, y); };
     // 4.4.3 (Yann, B2) : on glisse vers une page, on revient en glissant, on change d'onglet en fondu ; la barre d'onglets ne bouge pas
@@ -18832,7 +18833,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       S.notif = ok; save(); syncNative(); render();
     }).catch(function () {});
   }
+  // 4.16.7 (Yann : « quand je recharge mes épreuves, j'aimerais revenir sur Toi ») : à l'ouverture de l'app, en arrivant sur Mes épreuves,
+  // en touchant Actualiser ou en revenant dans l'app après quelques minutes, l'onglet repart sur « Toi ». Un retour depuis une épreuve ou une équipe garde l'onglet.
+  function epToi() { if (S.prefs && S.prefs.epTab && S.prefs.epTab !== "toi") { S.prefs.epTab = "toi"; save(); return true; } return false; }
   function nativeWake() {
+    if (UI.bgAt && Date.now() - UI.bgAt > 3 * 60000 && route() === "tournoi" && epToi()) render(); UI.bgAt = 0;
     if (SK) { kidAuto(); return; } // 4.15
     if (!NATIVE) return;
     setTimeout(function () { bkSnap(false).then(function (ok) { if (ok && route() === "donnees") render(); }); }, 6000); // 3.76.0 : copie de la semaine
@@ -20631,7 +20636,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var nm = String(x && x.name || "").split(" "), hit = x && x.hit && x.hit.id ? x.hit : { id: id, prenom: nm.slice(0, -1).join(" "), nom: nm.slice(-1)[0] || "", rank: x && x.rank || "" };
       UI.trR = null; UI.plSched = null; openScout(hit);
     },
-    insSync: function () { insRefresh(true); render(); },
+    insSync: function () { epToi(); insRefresh(true); render(); window.scrollTo(0, 0); }, // 4.16.7 (Yann) : actualiser revient sur « Toi »
     insOpen: function () { window.open("https://tenup.fft.fr/user/mes-inscriptions", "_system"); },
     tlOff: function () { UI.tlOff = !UI.tlOff; render(); },
     actPlus: function () { UI.actPlus = true; render(); },
@@ -22077,7 +22082,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     try { var lwm = Tenup && Tenup.addListener && Tenup.addListener("watchMatch", function () { watchTake(); }); if (lwm && lwm.catch) lwm.catch(function () {}); } catch (e) {}
     try { var lw = Tenup && Tenup.addListener && Tenup.addListener("widgetAction", function () { try { var ta = Tenup.takeAction(); if (ta && ta.then) ta.then(function (r) { if (r && r.action) widgetAction(r.action); }).catch(function () {}); } catch (e) {} }); if (lw && lw.catch) lw.catch(function () {}); } catch (e) {}
     try {
-      var l = AppP && AppP.addListener("appStateChange", function (st) { if (st && st.isActive) nativeWake(); else { try { syMomentsPush(); } catch (e) {} } }); // 4.5.0 : en partant, le téléphone sait quand relire
+      var l = AppP && AppP.addListener("appStateChange", function (st) { if (st && st.isActive) nativeWake(); else { UI.bgAt = Date.now(); try { syMomentsPush(); } catch (e) {} } }); // 4.5.0 : en partant, le téléphone sait quand relire
       if (l && l.catch) l.catch(function () {});
     } catch (e) {}
     // Notification d'un joueur suivi : ouvre sa fiche
