@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.6",
+    VERSION: "4.18.7",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -19726,15 +19726,22 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var B = UI.bgSt; if (B.wait) return "";
     // 3.69 : journal des passages (iPhone et Android) : « heure|résultat », pour savoir POURQUOI peu de notifications arrivent
     var LG = (B.log || []).map(function (x) { var q = String(x).split("|"); return { t: +q[0] * 1000, r: q[1] || "" }; }).filter(function (x) { return x.t > 0; }).reverse();
-    var RL = { rien: "rien de nouveau", deconnecte: "Ten'Up déconnecté : reconnecte-toi", timeout: "Ten'Up trop lent, réessayé plus tard", maintenance: "Ten'Up en maintenance", erreur: "erreur de lecture", interrompu: "arrêté par le téléphone (temps écoulé)", "sans-lecture": "rien à lire pour l'instant" };
+    var RL = { rien: "rien de nouveau", deconnecte: "Ten'Up déconnecté : reconnecte-toi", timeout: "Ten'Up trop lent, réessayé plus tard", "timeout-page": "Ten'Up n'a pas répondu à temps", "timeout-lecture": "lecture de Ten'Up trop longue", maintenance: "Ten'Up en maintenance", erreur: "erreur de lecture", interrompu: "arrêté par le téléphone (temps écoulé)", "sans-lecture": "rien à lire pour l'instant" };
     var ok = IOS ? B.refresh === "available" : true, lastT = B.last ? B.last * 1000 : LG.length ? LG[0].t : 0, last = lastT ? new Date(lastT) : null, h = last ? Math.round((Date.now() - lastT) / 3600e3) : null;
     var when = last ? (h < 1 ? "il y a moins d'une heure" : h < 48 ? "il y a " + h + " h" : "le " + fdate(E.iso(last))) : "jamais pour l'instant";
     var tips = [];
     if (IOS && !ok) tips.push(B.refresh === "restricted" ? "Le mode économie d'énergie ou un contrôle parental bloque l'actualisation en arrière-plan." : "Réglages de l'iPhone › Général › Actualisation en arrière-plan › active Montée.");
     if (B.notif === "denied") tips.push(IOS ? "Réglages de l'iPhone › Notifications › Montée › Autoriser les notifications." : "Réglages Android › Applications › Montée › Notifications : autorise-les.");
+    // 4.18.1 : autorisées, mais l'iPhone ne les montre pas (ou pas tout de suite)
+    if (IOS && B.quiet === "on") tips.push("Montée est en distribution discrète : rien sur l'écran verrouillé. Réglages de l'iPhone › Notifications › Montée › coche « Écran verrouillé » et « Bannières ».");
+    else {
+      if (IOS && B.lock === "off") tips.push("Rien ne s'affiche sur l'écran verrouillé : Réglages de l'iPhone › Notifications › Montée › coche « Écran verrouillé ».");
+      if (IOS && B.banner === "off") tips.push("Les bannières sont coupées : Réglages de l'iPhone › Notifications › Montée › coche « Bannières ».");
+    }
+    if (IOS && B.digest === "on") tips.push("Tes notifications Montée attendent le résumé programmé : Réglages de l'iPhone › Notifications › Montée › choisis « Distribution immédiate ».");
     if (!IOS && B.battery === "optimized") tips.push("Réglages Android › Applications › Montée › Batterie › Sans restriction : sinon certains téléphones coupent la vérification quand l'écran est éteint.");
     if (IOS) tips.push("Ne ferme pas Montée en la balayant vers le haut : iOS ne la réveille plus jusqu'à ta prochaine ouverture.");
-    var rows = LG.slice(0, 6).map(function (x) { var d = new Date(x.t), m = /^notif:(\d+)$/.exec(x.r), lab2 = m ? plural(+m[1], "notification") + " envoyée" + (+m[1] > 1 ? "s" : "") : RL[x.r] || x.r; return '<div class="nf-lg"><span>' + esc(fdate(E.iso(d)) + " · " + String(d.getHours()).padStart(2, "0") + " h " + String(d.getMinutes()).padStart(2, "0")) + "</span><b>" + esc(lab2) + "</b></div>"; }).join("");
+    var rows = LG.slice(0, 6).map(function (x) { var d = new Date(x.t), m = /^notif:(\d+)$/.exec(x.r), m8 = /^nuit:(\d+)$/.exec(x.r), lab2 = m ? plural(+m[1], "notification") + " envoyée" + (+m[1] > 1 ? "s" : "") : m8 ? plural(+m8[1], "notification") + " pour 8 h" : RL[x.r] || x.r; return '<div class="nf-lg"><span>' + esc(fdate(E.iso(d)) + " · " + String(d.getHours()).padStart(2, "0") + " h " + String(d.getMinutes()).padStart(2, "0")) + "</span><b>" + esc(lab2) + "</b></div>"; }).join("");
     return '<h2 class="nf-gh">Vérification en arrière-plan</h2><div class="nf-grp nf-bg"><div class="nf-row"><span class="nf-r"><b>' + (ok ? "Active" : "Coupée") + "</b><small>Dernière vérification : " + esc(when) + '</small></span><span class="nf-dot ' + (ok && h != null && h < 24 ? "ok" : "ko") + '"></span></div>' +
       (rows ? '<div class="nf-log"><small>Les derniers passages</small>' + rows + "</div>" : "") +
       '<div class="nf-tips">' + tips.map(function (t) { return '<span class="small">' + esc(t) + "</span>"; }).join("") + "</div></div>";

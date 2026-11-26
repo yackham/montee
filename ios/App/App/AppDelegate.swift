@@ -18,6 +18,9 @@ import EventKitUI
 // Aucun serveur : les identifiants restent dans la WKWebView, les données sur le téléphone.
 
 let kRefreshTaskId = "fr.montennis.app.refresh"
+let kMorningPrefix = "montee-8h-"
+/// 4.18.1 : tâche longue (quelques minutes, souvent la nuit en charge) : la relance courte (30 s) ne suffisait jamais à lire Ten'Up.
+let kProcessTaskId = "fr.montennis.app.process"
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -26,11 +29,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: kRefreshTaskId, using: nil) { task in
-            if let refresh = task as? BGAppRefreshTask {
-                MonteeBackground.handle(task: refresh)
-            } else {
-                task.setTaskCompleted(success: true)
-            }
+            MonteeBackground.handle(task: task, timeout: 24)
+        }
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: kProcessTaskId, using: nil) { task in
+            MonteeBackground.handle(task: task, timeout: 100)
         }
         // Apple Santé : la surveillance des nouvelles séances doit être lancée dès le démarrage
         MonteeHealth.startObserver()
@@ -43,6 +45,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidEnterBackground(_ application: UIApplication) {
         MonteeBackground.schedule()
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        MonteeBackground.dropMorning()
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
@@ -357,6 +363,9 @@ final class TenupFetcher: NSObject, WKNavigationDelegate {
     private let script: String
     private var running = false
     private(set) var finished = false
+    /// 4.18.1 : lancer le script dès que la page est arrivée (arrière-plan) ; started = il a démarré au moins une fois.
+    var runOnCommit = false
+    private(set) var started = false
     /// Appelé avec le texte renvoyé par le script ; renvoyer true pour arrêter.
     var onResult: ((String) -> Bool)?
 
@@ -388,10 +397,16 @@ final class TenupFetcher: NSObject, WKNavigationDelegate {
         runScript()
     }
 
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        guard runOnCommit else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in self?.runScript() }
+    }
+
     /// Exécute le script Montée dans la page, uniquement sur tenup.fft.fr.
     func runScript() {
         guard !running, !finished, let host = webView.url?.host, host.hasSuffix("tenup.fft.fr") else { return }
         running = true
+        started = true
         webView.callAsyncJavaScript(script, arguments: [:], in: nil, in: .page) { [weak self] result in
             guard let self = self else { return }
             self.running = false
@@ -493,10 +508,13 @@ final class TenupConnectViewController: UIViewController {
 enum TenupSilentRefresh {
     private static var current: TenupFetcher?
 
-    static func run(script: String, timeout: TimeInterval = 25, completion: @escaping (String) -> Void) {
+    /// early (4.18.1, arrière-plan) : le script part dès que la page Ten'Up arrive, sans attendre ses images,
+    /// publicités et scripts (le site complet ne finissait jamais de charger dans le temps laissé par iOS).
+    static func run(script: String, timeout: TimeInterval = 25, early: Bool = false, completion: @escaping (String) -> Void) {
         DispatchQueue.main.async {
             current?.stop()
             let fetcher = TenupFetcher(script: script)
+            fetcher.runOnCommit = early
             current = fetcher
             var done = false
             let finish: (String) -> Void = { text in
@@ -508,7 +526,15 @@ enum TenupSilentRefresh {
                 if current === fetcher { current = nil }
                 completion(text)
             }
-            fetcher.onResult = { text in finish(text); return true }
+            var retried = false
+            fetcher.onResult = { text in
+                // Lancé tôt, le script peut être coupé par une redirection de la page : on le relance une fois sur la page suivante
+                if early && !retried && text.hasPrefix("MONTEE-ERR") && !text.contains("connecte-toi") && !text.contains("maintenance") {
+                    retried = true
+                    return false
+                }
+                finish(text); return true
+            }
             // Une WKWebView attachée à une fenêtre exécute son JavaScript de façon plus fiable.
             if let window = UIApplication.shared.connectedScenes
                 .compactMap({ ($0 as? UIWindowScene)?.windows.first }).first {
@@ -516,7 +542,7 @@ enum TenupSilentRefresh {
                 window.addSubview(fetcher.webView)
             }
             fetcher.load()
-            DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { finish("MONTEE-ERR délai dépassé") }
+            DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { finish("MONTEE-ERR délai dépassé " + (fetcher.started ? "[lecture]" : "[page]")) }
         }
     }
 }
@@ -864,6 +890,13 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
                 let a = n.authorizationStatus == .denied ? "denied" : n.authorizationStatus == .notDetermined ? "unknown" : "granted"
                 let last = UserDefaults.standard.double(forKey: "montee.bgLast")
                 var out: [String: Any] = ["refresh": r, "notif": a]
+                // 4.18.1 : autorisées mais invisibles ? (écran verrouillé décoché, bannières coupées, résumé programmé)
+                if n.authorizationStatus == .authorized || n.authorizationStatus == .provisional {
+                    out["lock"] = n.lockScreenSetting == .disabled ? "off" : "on"
+                    out["banner"] = n.alertSetting == .disabled ? "off" : "on"
+                    out["quiet"] = n.authorizationStatus == .provisional ? "on" : "off"
+                    if #available(iOS 15.0, *) { out["digest"] = n.scheduledDeliverySetting == .enabled ? "on" : "off" }
+                }
                 if last > 0 { out["last"] = last }
                 out["log"] = UserDefaults.standard.stringArray(forKey: "montee.bgLog") ?? []
                 call.resolve(out)
@@ -1237,8 +1270,9 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
 
 enum MonteeSummary {
     /// Calcule le résumé avec le même moteur que l'app (engine.js, tenup.js, summary.js).
-    static func compute(payload: String, state: String) -> [(title: String, body: String)] {
-        guard let ctx = JSContext() else { return [] }
+    /// at8 (4.18.1) : trouvées entre 21 h et 8 h, les notifications sont montrées à 8 h au lieu d'être perdues.
+    static func compute(payload: String, state: String) -> (notes: [(title: String, body: String)], at8: Bool) {
+        guard let ctx = JSContext() else { return ([], false) }
         for name in ["engine", "tenup", "summary"] {
             if let url = Bundle.main.url(forResource: name, withExtension: "js", subdirectory: "public"),
                let source = try? String(contentsOf: url, encoding: .utf8) {
@@ -1246,9 +1280,9 @@ enum MonteeSummary {
             }
         }
         guard let fn = ctx.objectForKeyedSubscript("monteeSummary"), !fn.isUndefined,
-              let res = fn.call(withArguments: [payload, state]), !res.isUndefined, !res.isNull,
+              let res = fn.call(withArguments: [payload, state, NSNull(), ["at8": true]]), !res.isUndefined, !res.isNull,
               let json = res.toString(), let data = json.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [] }
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return ([], false) }
         if let newState = obj["state"] as? String { MonteeStore.state = newState }
         var out: [(title: String, body: String)] = []
         if let title = obj["title"] as? String, let body = obj["body"] as? String { out.append((title: title, body: body)) }
@@ -1258,7 +1292,7 @@ enum MonteeSummary {
                 if let t = m["title"] as? String, let b = m["body"] as? String { out.append((title: t, body: b)) }
             }
         }
-        return Array(out.prefix(4))
+        return (Array(out.prefix(4)), (obj["at8"] as? Bool) ?? false)
     }
 }
 
@@ -1267,7 +1301,15 @@ enum MonteeBackground {
         let request = BGAppRefreshTaskRequest(identifier: kRefreshTaskId)
         request.earliestBeginDate = Date(timeIntervalSinceNow: nextDelay())
         try? BGTaskScheduler.shared.submit(request)
+        let long = BGProcessingTaskRequest(identifier: kProcessTaskId)
+        long.requiresNetworkConnectivity = true
+        long.requiresExternalPower = false
+        long.earliestBeginDate = Date(timeIntervalSinceNow: nextDelay())
+        try? BGTaskScheduler.shared.submit(long)
     }
+
+    /// Une seule lecture à la fois (les deux tâches peuvent tomber ensemble).
+    static var busy = false
 
     /// 4.5.0 : 3 h comme avant, ou plus tôt si un moment utile arrive avant (au moins 5 min plus tard).
     /// iOS reste libre de l'heure exacte ; demander ce moment-là lui donne la bonne heure au plus tôt.
@@ -1290,32 +1332,35 @@ enum MonteeBackground {
         UserDefaults.standard.set(l, forKey: "montee.bgLog")
     }
 
-    static func handle(task: BGAppRefreshTask) {
+    static func handle(task: BGTask, timeout: TimeInterval) {
         schedule()
+        if busy { task.setTaskCompleted(success: true); return }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "montee.bgLast") // 3.59 : affiché dans Réglages › Notifications
         guard let script = MonteeStore.script, MonteeStore.state != nil else {
             log("sans-lecture")
             task.setTaskCompleted(success: true)
             return
         }
+        busy = true
         var completed = false
         task.expirationHandler = {
             DispatchQueue.main.async {
-                if !completed { completed = true; log("interrompu"); task.setTaskCompleted(success: false) }
+                if !completed { completed = true; busy = false; log("interrompu"); task.setTaskCompleted(success: false) }
             }
         }
-        TenupSilentRefresh.run(script: script, timeout: 22) { text in
+        TenupSilentRefresh.run(script: script, timeout: timeout, early: true) { text in
             DispatchQueue.main.async {
                 if completed { return }
                 completed = true
+                busy = false
                 if text.hasPrefix("MONTEE1") {
                     // 3.43.2 : une relance « joueurs suivis » n'écrase pas un palmarès pas encore importé
                     if !(text.contains("\"folOnly\":true") && MonteeStore.pending != nil) { MonteeStore.pending = text }
-                    let notes = MonteeSummary.compute(payload: text, state: MonteeStore.state ?? "{}")
-                    for note in notes {
-                        notify(title: note.title, body: note.body)
+                    let res = MonteeSummary.compute(payload: text, state: MonteeStore.state ?? "{}")
+                    for note in res.notes {
+                        notify(title: note.title, body: note.body, at8: res.at8)
                     }
-                    log(notes.isEmpty ? "rien" : "notif:\(notes.count)")
+                    log(res.notes.isEmpty ? "rien" : res.at8 ? "nuit:\(res.notes.count)" : "notif:\(res.notes.count)")
                 } else if text.contains("connecte-toi") {
                     log("deconnecte")
                     if !MonteeStore.expiredNotified {
@@ -1323,20 +1368,38 @@ enum MonteeBackground {
                         notify(title: "Ten'Up t'a déconnecté", body: "Ouvre Montée et reconnecte-toi pour suivre tes nouveaux matchs.")
                     }
                 } else {
-                    log(text.contains("délai") ? "timeout" : text.contains("maintenance") ? "maintenance" : "erreur")
+                    // 4.18.1 : où ça a coincé : la page Ten'Up n'est jamais arrivée, ou la lecture a été trop longue
+                    log(text.contains("délai") ? (text.contains("[page]") ? "timeout-page" : text.contains("[lecture]") ? "timeout-lecture" : "timeout") : text.contains("maintenance") ? "maintenance" : "erreur")
                 }
                 task.setTaskCompleted(success: true)
             }
         }
     }
 
-    static func notify(title: String, body: String) {
+    /// at8 : la nouveauté a été trouvée la nuit ; l'iPhone la montre à 8 h (jamais entre 21 h et 8 h).
+    static func notify(title: String, body: String, at8: Bool = false) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
-        let request = UNNotificationRequest(identifier: "montee-\(UUID().uuidString)", content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+        var trigger: UNNotificationTrigger? = nil
+        if at8 {
+            var c = DateComponents()
+            c.hour = 8
+            c.minute = 0
+            trigger = UNCalendarNotificationTrigger(dateMatching: c, repeats: false)
+        }
+        let id = (at8 ? kMorningPrefix : "montee-") + UUID().uuidString
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: trigger), withCompletionHandler: nil)
+    }
+
+    /// Ouvrir Montée avant 8 h : ces nouvelles sont déjà dans l'app, on ne les envoie plus.
+    static func dropMorning() {
+        let c = UNUserNotificationCenter.current()
+        c.getPendingNotificationRequests { list in
+            let ids = list.map { $0.identifier }.filter { $0.hasPrefix(kMorningPrefix) }
+            if !ids.isEmpty { c.removePendingNotificationRequests(withIdentifiers: ids) }
+        }
     }
 }
 
