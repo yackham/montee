@@ -1702,6 +1702,13 @@
     if (r.alt && r.alt.length) return "Vainqueur de " + r.alt.map(function (a) { return trNm(a.name) || ("un " + rkNow(a, !!r.res)); }).join(" / ");
     return "Adversaire à venir";
   }
+  // 4.21.1 (Yann) : à l'écran, son classement toujours avec la petite balle devant (rk-tag), comme partout
+  function trWhoHtml(r) {
+    var rk = r.opp ? (r.res ? rkNow(r.opp, true) : rkShow(r.opp, r.day)) : "", tg = rk ? ' <span class="rk-tag">' + esc(rk) + "</span>" : "";
+    if (r.opp && r.opp.name) return esc(trNm(r.opp.name)) + tg;
+    if (rk) return "Un" + tg;
+    return esc(trWho(r));
+  }
   // Pour « le vainqueur de A / B » : qui devrait passer, et tes chances contre chacun
   function trAlt(r) {
     if (!r.alt || r.alt.length < 2) return null;
@@ -3265,12 +3272,12 @@
       var col = r.res === "V" ? "v" : r.res === "D" ? "d" : "", nxt = !r.res && !done && rs.filter(function (x) { return !x.res; })[0] === r;
       s += '<div class="tq-r ' + col + (nxt ? " nx" : "") + (i === rs.length - 1 ? " last" : "") + '"><span class="tq-n"><span class="tq-b">' + (r.res || i + 1) + '</span></span><span class="grow">' +
         '<span class="tq-k">' + esc(trLab(i) + " · " + trWhen(r)) + "</span>" +
-        '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + esc(trWho(r)) + "</a>" : esc(trWho(r))) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<span class="tq-p tq-pb">' + oddsBall(p / 100, 30) + "</span>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
+        '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + trWhoHtml(r) + "</a>" : trWhoHtml(r)) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<span class="tq-p tq-pb">' + oddsBall(p / 100, 30) + "</span>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
         (r.opp && r.opp.club && !done ? '<span class="small">' + esc(r.opp.club) + "</span>" : "") +
         (r.opp && !r.res && rkMv(r.opp, r.day) ? rkMoveHtml(rkMv(r.opp, r.day), r.day, rkHe(r.opp.tid)) : "") +
         (r.beat && !r.res ? '<span class="small">Il a battu ' + esc(trNm(r.beat.name)) + (r.beat.score ? " " + esc(r.beat.score) : "") + "</span>" : "") +
         (A2 && !r.res ? '<span class="small">' + esc(trNm(A2.fav.name) || "Le " + (A2.fav === A2.a ? A2.rA : A2.rB)) + " devrait passer (" + Math.max(A2.pa, 100 - A2.pa) + " %)</span>" +
-          [[A2.a, A2.pA, A2.rA], [A2.b, A2.pB, A2.rB]].map(function (z) { return '<span class="tq-alt"><span>' + esc((trNm(z[0].name) || "Un joueur") + (z[2] ? " · " + z[2] : "")) + "</span><b>" + (z[1] != null ? z[1] + " %" : "–") + "</b></span>"; }).join("") : "") +
+          [[A2.a, A2.pA, A2.rA], [A2.b, A2.pB, A2.rB]].map(function (z) { return '<span class="tq-alt"><span>' + esc(trNm(z[0].name) || "Un joueur") + (z[2] ? ' <span class="rk-tag">' + esc(z[2]) + "</span>" : "") + "</span><b>" + (z[1] != null ? z[1] + " %" : "–") + "</b></span>"; }).join("") : "") +
         (g != null && !r.res ? '<span class="tq-g">' + (g > 0 ? "+" + g + " pts si tu gagnes" : "Une victoire ne changerait pas ton bilan") + "</span>" : "") +
         (!r.res && past && !done ? '<span class="tq-res"><button class="chip" data-a="trRes" data-v="V" data-i="' + i + '">J\'ai gagné</button><button class="chip" data-a="trRes" data-v="D" data-i="' + i + '">J\'ai perdu</button></span>' : "") +
         (!r.res && !done ? '<button class="linkbtn tq-edl" data-a="trRound" data-i="' + i + '">Modifier ce tour</button>' : "") +
