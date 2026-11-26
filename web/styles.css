@@ -8037,6 +8037,12 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 /* 4.16.6 : les ronds de dispo, fond doux au lieu du contour (règle du 26/11) */
 .kp-c i, .kp-c i.y, .kp-c i.n { box-shadow: none; background: color-mix(in srgb, currentColor 16%, transparent); }
 
+/* 4.20.2 (Yann, 26/11) : la carte profil de l'accueil garde ses couleurs ; son pied passe à trois entrées nommées
+   (Mon profil, Ma saison, Mes épreuves), icône au-dessus du mot pour tenir sur la largeur d'un iPhone. */
+.hd-ft.hd-ft3 { grid-template-columns: 1fr 1fr 1fr; }
+.hd-ft.hd-ft3 button { flex-direction: column; gap: 4px; height: 62px; font-size: 13px; font-weight: 650; position: relative; }
+.hd-ft.hd-ft3 .hd-n { position: absolute; top: 6px; left: calc(50% + 10px); min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; font-size: 11px; }
+@media (max-width: 350px) { .hd-ft.hd-ft3 button { font-size: 12px; padding: 0 4px; } }
 /* 4.19 : « À découvrir dans Montée » (écran d’Ace) : même tuile, un › dit que ça ouvre un écran */
 .ace-tile .dv-go { position: absolute; top: 12px; right: 14px; font-size: 20px; line-height: 1; color: var(--muted); }
 
