@@ -7970,3 +7970,36 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .h2h-rows { display: flex; flex-direction: column; }
 .h2h-rows .row { padding: 12px 0; border-top: 1px solid var(--line); }
 .h2h-rows .row:first-child { border-top: 0; }
+
+/* 4.16.6 (Yann) : l'effectif en deux colonnes, Simple (carrés) puis Double (ronds) ; vert gagné, orangé perdu, gris sans résultat */
+.kp-cl { flex: none; display: flex; align-items: center; gap: 4px; }
+.kp-cl.s { min-width: 58px; } .kp-cl.d { min-width: 40px; }
+.kp-cl i { flex: none; width: 11px; height: 11px; display: block; background: color-mix(in srgb, var(--muted) 35%, transparent); }
+.kp-cl.s i { border-radius: 3px; } .kp-cl.d i { border-radius: 50%; }
+.kp-cl i.v { background: var(--gazon); } .kp-cl i.d { background: color-mix(in srgb, var(--terre) 55%, transparent); }
+.kp-cl .z { color: var(--muted); font-size: 13px; }
+.kp-hd { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 6px 0 0; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.kp-hd .kp-cl { gap: 5px; white-space: nowrap; overflow: visible; } .kp-hd .kp-cl.s { width: 58px; } .kp-hd .kp-cl.d { width: 40px; } .kp-hd .kp-cl i { width: 9px; height: 9px; background: var(--muted); }
+.kp-hd .pa-ch { visibility: hidden; font-size: 18px; }
+
+/* 4.16.6 (Yann) : la fiche championnat d'un joueur, un encart doux par section (un ton plus clair, sans contour) */
+.kp-enc { background: color-mix(in srgb, var(--ink) 5%, transparent); border-radius: 20px; padding: 2px 16px 4px; margin-top: 10px; }
+.kp-enc:first-child { margin-top: 0; }
+.kp-enc .lc-r:last-child { border-bottom: 0; }
+.kp-eh { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 12px 0 2px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.kp-eh b { font-size: 13px; color: var(--ink); letter-spacing: 0; text-transform: none; }
+.kp-sh { display: inline-block; width: 9px; height: 9px; background: currentColor; margin-right: 7px; vertical-align: 0; }
+.kp-sh.s { border-radius: 2px; } .kp-sh.d { border-radius: 50%; }
+.kp-jr { gap: 12px; } .kp-jr b { font-size: 15px; } .kp-jr small { display: block; white-space: normal; overflow: visible; text-overflow: clip; }
+.kp-jr .kp-c { border: 0; padding: 0; flex: none; }
+.kp-vd0 { background: color-mix(in srgb, var(--muted) 22%, transparent); color: var(--muted); }
+.kp-jh { display: block; padding: 2px 0 4px; }
+.kp-jn { margin: 6px 0 10px; }
+.kp-jf { padding: 4px 0 12px; } .kp-jf small { display: block; margin-bottom: 10px; } .kp-jf > span { display: flex; gap: 6px; }
+.kp-jend { display: flex; align-items: center; gap: 12px; padding: 10px 0 14px; }
+.kp-jend b { display: block; font-size: 15px; } .kp-jend small { color: var(--muted); font-size: 13px; }
+.kp-jic { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: var(--gazon); background: color-mix(in srgb, var(--gazon) 16%, transparent); }
+.kp-jic svg { width: 20px; height: 20px; }
+.kp-jlk { border-top: 0; margin-top: 8px; }
+/* 4.16.6 : les ronds de dispo, fond doux au lieu du contour (règle du 26/11) */
+.kp-c i, .kp-c i.y, .kp-c i.n { box-shadow: none; background: color-mix(in srgb, currentColor 16%, transparent); }
