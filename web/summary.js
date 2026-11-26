@@ -75,6 +75,7 @@
     return out.slice(0, 2);
   }
   // ---- 3.43.2 : joueurs suivis relus en arrière-plan ----
+  // 4.17.0 (Yann, 26/11) : un joueur suivi, on reçoit TOUS ses résultats (plus seulement montée / victoire de ton niveau)
   function folNotes(pl, st, cur) {
     var T = root.MonteeTenup, E = root.MonteeEngine, out = [], snap = Object.assign({}, st.fol || {});
     (pl.fol || []).forEach(function (x) {
@@ -82,12 +83,21 @@
       var rank = T.normRank(d.profil && d.profil.classement) || o.r, ri = E.idx(rank), ro = E.idx(o.r);
       var rows = []; try { rows = T.rows({ raw: d.raw }) || []; } catch (e) {}
       rows = rows.filter(function (r) { return r.ok && r.date && (r.result === "V" || r.result === "D"); }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
-      var fresh = rows.filter(function (r) { return r.date > (o.last || ""); }), big = fresh.filter(function (r) { return r.result === "V" && E.idx(r.oppRank) >= (cur < 0 ? 0 : cur); })[0];
-      if (ri != null && ro != null && ri > ro) out.push({ title: o.n + " est monté " + rank, body: "Il était " + o.r + "." });
-      else if (big && o.last) out.push({ title: o.n + " a battu un joueur de ton niveau", body: "Victoire " + (big.score ? big.score + " " : "") + "contre un " + big.oppRank + "." });
+      var fresh = o.last ? rows.filter(function (r) { return r.date > o.last; }) : [], m0 = fresh[0];
+      var what = m0 ? (m0.result === "V" ? "Victoire " : "Défaite ") + (m0.score ? m0.score + " " : "") + "contre un " + m0.oppRank : "";
+      var more = fresh.length > 1 ? " (et " + (fresh.length - 1) + " autre" + (fresh.length > 2 ? "s" : "") + " match" + (fresh.length > 2 ? "s" : "") + ")" : "";
+      var nm = String(o.n || "").split(" "), sn = nm[0] + (nm[1] ? " " + nm[nm.length - 1].charAt(0).toUpperCase() + "." : "");
+      var short = m0 ? sn + " " + (m0.result === "V" ? "bat" : "perd contre") + " un " + m0.oppRank : "";
+      if (ri != null && ro != null && ri > ro) out.push({ title: o.n + " est monté " + rank, body: "Il était " + o.r + "." + (what ? " " + what + more + "." : ""), short: sn + " monte " + rank, ess: true });
+      else if (m0) out.push({ title: o.n + " a joué", body: what + more + ".", short: short, ess: true });
       snap[x.id] = { n: o.n, r: rank || o.r, last: rows[0] ? rows[0].date : o.last };
     });
     return { notes: out, fol: snap };
+  }
+  // Plusieurs joueurs suivis ont joué : une seule notification qui les regroupe (hors limite « Combien »)
+  function folGroup(notes) {
+    if (notes.length < 2) return notes;
+    return [{ title: notes.length + " joueurs que tu suis ont joué", body: notes.map(function (n) { return n.short; }).join(" · ") + ".", ess: true }];
   }
   // 3.44.2 : « le vainqueur de A / B » : leur match est sur Ten'Up, on te dit contre qui tu joues
   function invSc(sc) { return String(sc || "").replace(/(\d{1,2})\s*([-\/])\s*(\d{1,2})/g, function (_, a, s, b) { return b + "-" + a; }); }
@@ -199,7 +209,7 @@
       var o3 = { state: JSON.stringify(Object.assign({}, st, { fol: FN0.fol, watch: WN0.watch, pool: PN0.pool, pa: AN0.pa })) };
       var f0 = npOn(st, "fol") ? FN0.notes : [];
       AN0.notes = AN0.notes.filter(function (n) { return !(npOn(st, "poule") && PN0.notes.some(function (q) { return q.body.indexOf(n.who) >= 0; })); }); // déjà dit par « Ta poule a bougé »
-      var m3 = (npOn(st, "avant") ? AN0.notes : []).concat(npOn(st, "poule") ? WN0.notes.map(function (n) { n.ess = true; return n; }).concat(PN0.notes) : []).concat(f0.length > 2 ? [{ title: f0.length + " joueurs que tu suis ont bougé", body: f0.map(function (n) { return n.title; }).join(" · ") + "." }] : f0);
+      var m3 = (npOn(st, "avant") ? AN0.notes : []).concat(npOn(st, "poule") ? WN0.notes.map(function (n) { n.ess = true; return n; }).concat(PN0.notes) : []).concat(folGroup(f0));
       return fin(o3, m3);
     }
     var rows = T.rows(pl).filter(function (r) { return r.ok; });
@@ -213,8 +223,7 @@
     var matches = rows.map(function (r) { return { id: key(r), date: r.date, opp: r.opp, oppRank: r.oppRank, result: r.result, wo: r.wo, kind: r.kind }; });
     if (T.doublesRows) matches = matches.concat(T.doublesRows(pl));
     var p = E.project(matches, cur, st.sex === "F" ? "F" : "H", { today: today, extra: st.extra || 0 });
-    // plus de 2 joueurs suivis qui bougent : une seule notification qui les regroupe
-    var FN = folNotes(pl, st, cur), fN = npOn(st, "fol") ? FN.notes : [], more = fN.length > 2 ? [{ title: fN.length + " joueurs que tu suis ont bougé", body: fN.map(function (n) { return n.title; }).join(" · ") + "." }] : fN;
+    var FN = folNotes(pl, st, cur), fN = npOn(st, "fol") ? FN.notes : [], more = folGroup(fN);
     var AN = paNotes(pl, st, Object.keys(st.fol || {})); if (npOn(st, "avant")) more = AN.notes.concat(more); // 4.5.0
     var jal = null;
     if (known.length && fresh.length) {

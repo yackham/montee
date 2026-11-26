@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.16.9",
+    VERSION: "4.17.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -6051,7 +6051,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     mesurer: { t: "Me mesurer", s: "Perfs, revanches, défis", ic: '<path d="M5 19l6-6M14 4l6 6-9 9-6-6z"/>',
       fx: [["Tes défis sur l'accueil", "Battre un mieux classé, prendre ta revanche, gagner un tie-break…"]] },
     copains: { t: "Les copains", s: "Course du mois, doubles, équipe", ic: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M14.5 14.2c3 .2 6.5 2 6.5 5.8"/>',
-      fx: [["La course du mois avec tes copains, sur l'accueil", "Remonte sous tes anneaux (dès que tu suis au moins un joueur)"]] },
+      fx: [["La course du mois avec tes copains, sur l'accueil", "Remonte sous tes anneaux, si tu l'affiches (Réglages › Affichage)"]] },
     depasser: { t: "Me dépasser", s: "Progrès, défis, entraînement", ic: '<path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-9z"/>',
       fx: [["Tes défaites qui progressent sur l'accueil", "Le progrès qui se voit avant les victoires"], ["Tes défis", "Juste en dessous, pour un but atteignable ce mois-ci"]] }
   };
@@ -6066,7 +6066,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // Les cartes que la réponse remonte sur l'accueil (vides si rien à montrer)
   function whyHome(X, c) {
     var w = S.why;
-    if (w === "copains") X.wyLeague = leagueHtml();
+    if (w === "copains") X.wyLeague = leagueHtml(true);
     if (w === "mesurer") X.wyDefis = defisHtml();
     if (w === "depasser") { X.wyLoss = lossCardHtml(c); X.wyDefis = defisHtml(); }
   }
@@ -6667,13 +6667,28 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // Onglet Joueurs : une barre de recherche (qui filtre aussi tes adversaires), les résultats Ten'Up, tes adversaires
   var BELL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
   var BELL_ON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" fill="none"/></svg>';
-  function folStar(on, attrs) { return '<span class="fol-tap' + (on ? " on" : "") + '" role="button" aria-label="' + (on ? "Ne plus suivre" : "Suivre : être prévenu s'il monte ou bat un joueur de ton niveau") + '" ' + attrs + ">" + (on ? BELL_ON : BELL) + "</span>"; }
+  function folStar(on, attrs) { return '<span class="fol-tap' + (on ? " on" : "") + '" role="button" aria-label="' + (on ? "Ne plus suivre" : "Suivre : être prévenu de chacun de ses résultats") + '" ' + attrs + ">" + (on ? BELL_ON : BELL) + "</span>"; }
   // Suivre depuis une liste (sans ouvrir la fiche) : la fiche sera lue à la prochaine synchro
   var FOL_MAX = 10; // 3.43.2 : tous relus en arrière-plan, donc 10 au plus
+  // 4.17.0 (Yann, 26/11) : 3 joueurs suivis sans Montée+, 10 avec (sur le web, pas de Montée+ : 10)
+  function folMax() { return !PLUS || isSup() ? FOL_MAX : 3; }
+  // Ceux qui sont vraiment relus et notifiés : tous, ou les premiers suivis tant qu'il n'a pas choisi qui il garde
+  function folActive() { return Object.keys(S.follow || {}).slice(0, folMax()); }
+  function folFull() {
+    var mx = folMax(); if (Object.keys(S.follow || {}).length < mx) return false;
+    if (mx < FOL_MAX) { toast("Sans Montée+, tu suis " + mx + " joueurs. Avec Montée+, jusqu'à " + FOL_MAX + "."); UI.supFrom = "suivis"; go("soutenir"); }
+    else toast("Tu suis déjà " + mx + " joueurs : arrête d'en suivre un pour en ajouter un autre.");
+    return true;
+  }
+  // Plus de joueurs suivis que permis (fin de Montée+, ou suivis d'avant la 4.17) : il choisit qui il garde
+  function folKeepCheck() {
+    if (!PLUS || isSup() || UI.sheet || Object.keys(S.follow || {}).length <= folMax()) return;
+    UI.folKeep = folActive(); UI.sheet = { k: "folKeep", v: "1" }; render();
+  }
   function folAdd(hit, name, rank, club) {
     var id = String(hit.id); S.follow = S.follow || {};
     if (S.follow[id]) { delete S.follow[id]; save(); toast("Tu ne suis plus " + name + "."); render(); return; }
-    if (Object.keys(S.follow).length >= FOL_MAX) { toast("Tu suis déjà " + FOL_MAX + " joueurs : arrête d'en suivre un pour en ajouter un autre."); return; }
+    if (folFull()) return;
     var sc = (S.scout || {})[id];
     S.follow[id] = { id: id, name: name, rank: rank || "", club: club || "", hit: hit, snap: sc ? folSnap(sc) : null, at: sc ? Date.now() : 0, seen: true };
     save(); toast("Tu suis " + name + "."); render();
@@ -6739,14 +6754,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         var sub = nw && nw.t ? esc(nw.t) : did || "Pas encore de match lu cette saison", rk = sn.rank || f.rank || "", nm = nameCase(f.name);
         var club = f.club || (sc && sc.profil && sc.profil.club) || (f.hit && f.hit.club) || (sc && sc.hit && sc.hit.club) || "";
         if (club && !f.club) f.club = club;
-        var meta = (rk ? '<b class="fol-rk">' + esc(rk) + "</b>" : "") + (rk && club ? " · " : "") + (club ? '<span class="fol-club">' + esc(clubCase(club)) + "</span>" : "");
+        var meta = (rk ? '<b class="rk-tag fol-rk">' + esc(rk) + "</b>" : "") + (rk && club ? " · " : "") + (club ? '<span class="fol-club">' + esc(clubCase(club)) + "</span>" : "");
         var ag = (sc && sc.profil && sc.profil.age) || (f.hit && f.hit.age); if (ag) meta += " · " + ag + " ans";
         var avc = nw && nw.k === "up" ? " up" : nw && nw.k === "dn" ? " dn" : "";
         return '<button class="row fol2" data-a="folOpen" data-id="' + esc(f.id) + '"><span class="ini' + avc + (nw && !f.seen ? " unseen" : "") + '">' + esc(initials(nm)) + '</span><span class="grow"><span class="t">' + esc(nm) + (nw ? ' <span class="fol-news ' + nw.k + '">' + esc(nw.tag) + "</span>" : "") + "</span>" +
           (meta ? '<span class="s fol-meta">' + meta + "</span>" : "") + '<span class="s fol-what' + (nw ? " " + nw.k : "") + '">' + sub + "</span></span>" + I.next + "</button>";
       };
       // 3.55 (Yann, maquette G) : un dessin, à quoi ça sert, et un bouton qui mène à l'action
-      if (!fl.length) { var nAdv = oppIndex().length; s += '<div class="card emp-c">' + PAL_ILL.suivis + "<b>Garde un œil sur tes rivaux</b><p>Suis les joueurs que tu croises souvent : tu sauras quand ils jouent, montent ou battent un joueur de ton niveau. Ils ne savent pas que tu les suis.</p>" + (nAdv ? '<button class="btn primary" data-a="fafTab" data-v="adv">Choisir parmi tes ' + plural(nAdv, "adversaire", "adversaires") + "</button>" : '<span class="small">Cherche un joueur ci-dessus, puis touche « Suivre » sur sa fiche.</span>') + "</div>"; }
+      if (!fl.length) { var nAdv = oppIndex().length; s += '<div class="card emp-c">' + PAL_ILL.suivis + "<b>Garde un œil sur tes rivaux</b><p>Suis les joueurs que tu croises souvent : tu es prévenu de chacun de leurs résultats et quand ils montent. Ils ne savent pas que tu les suis.</p>" + (nAdv ? '<button class="btn primary" data-a="fafTab" data-v="adv">Choisir parmi tes ' + plural(nAdv, "adversaire", "adversaires") + "</button>" : '<span class="small">Cherche un joueur ci-dessus, puis touche « Suivre » sur sa fiche.</span>') + "</div>"; }
       else {
         var isNew = function (f) { return f.news && Date.now() - (f.newsAt || 0) < 14 * 864e5; };
         var fn = fl.filter(isNew).sort(function (a, b) { return (b.newsAt || 0) - (a.newsAt || 0); }), fo = fl.filter(function (f) { return !isNew(f); }).sort(function (a, b) { return nameCase(a.name) < nameCase(b.name) ? -1 : 1; });
@@ -9020,7 +9035,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (ti >= 0) { trail = UI.plTrail = trail.slice(0, ti); }
     var self = S.tenup && S.tenup.id && String(S.tenup.id) === String(id), fol = (S.follow || {})[id];
     if (fol && !fol.seen) { fol.seen = true; save(); }
-    if (fol && !S.folHelp) s += '<div class="card fol-help"><b>Tu suis ' + esc(fol.name) + '</b><span>Après chaque synchro Ten\'Up, Montée relit son palmarès et te prévient :</span><ul><li><b>s\'il monte</b> au classement ;</li><li><b>s\'il bat un joueur de ton niveau</b>, avec le score.</li></ul><span>Ses autres nouvelles (matchs joués, séries) s\'affichent dans l\'onglet Joueurs, filtre « Suivis ». Rien n\'est partagé : il ne sait pas que tu le suis.</span><button class="btn soft small" data-a="folHelpOk">Compris</button></div>';
+    if (fol && !S.folHelp) s += '<div class="card fol-help"><b>Tu suis ' + esc(fol.name) + '</b><span>Montée relit son palmarès sur Ten\'Up toutes les quelques heures, quand ton téléphone le permet, et te prévient :</span><ul><li><b>de chacun de ses résultats</b>, avec le score ;</li><li><b>s\'il monte</b> au classement.</li></ul><span>Tout s\'affiche aussi dans l\'onglet Joueurs, « Suivis ». Rien n\'est partagé : il ne sait pas que tu le suis.</span><button class="btn soft small" data-a="folHelpOk">Compris</button></div>';
     s += '<div class="seg pl-tabs" role="tablist"><button data-a="plTab" data-v="plan" class="' + (tab === "plan" ? "on" : "") + '" aria-pressed="' + (tab === "plan") + '">Plan de jeu</button><button data-a="plTab" data-v="stats" class="' + (tab === "stats" ? "on" : "") + '" aria-pressed="' + (tab === "stats") + '">Statistiques</button><button data-a="plTab" data-v="pal" class="' + (tab === "pal" ? "on" : "") + '" aria-pressed="' + (tab === "pal") + '">Palmarès</button></div>';
     if (trail.length) s = s.replace('<div class="pl-head">', '<div class="pl-trail">' + trail.map(function (x, i) { return '<button data-a="plCrumb" data-i="' + i + '">' + esc(x.name) + "</button><i>›</i>"; }).join("") + '<span>' + esc(name) + "</span></div>" + '<div class="pl-head">');
     var s0 = s.length;
@@ -9508,8 +9523,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return plural(r.v, "victoire") + (r.perf ? " dont " + plural(r.perf, "perf") : "") ;
   }
   // 3.55.1 (Yann) : compacte (top 3, ou top 2 + toi), dépliable ; dans l'onglet Suivis
-  function leagueHtml() {
-    var R = leagueRows();
+  // 4.17.0 (Yann, 26/11) : la course passe au second plan derrière les joueurs suivis. Masquée par défaut ;
+  // ceux qui la voyaient vivre (2 coureurs ou plus) choisissent une fois de la garder ou non. Réglages › Affichage.
+  function raceOn() { return (S.prefs || {}).race === 1; }
+  function leagueHtml(home) {
+    var R = leagueRows(), pr = (S.prefs || {}).race;
+    if (pr !== 1) {
+      if (home || pr === 0 || R.length < 2) return "";
+      return '<div class="card lg-card"><span class="eyebrow">Course du mois</span><b class="m2-t lgc-t">Tu la gardes ?</b><span class="small">Joueurs se concentre sur les résultats de ceux que tu suis. Si tu ne l\'utilises pas, tu peux masquer la course. Tu pourras changer d\'avis dans Réglages › Affichage.</span>' +
+        '<div class="ls-foot" style="gap:10px"><button class="go-pill" data-a="raceSet" data-v="0">La masquer</button><button class="go-pill" data-a="raceSet" data-v="1">La garder</button></div></div>';
+    }
     if (R.length < 2) { // 3.59 : personne dans ta course, mais des joueurs suivis : on propose de la lancer
       if (!Object.keys(S.follow || {}).length) return "";
       return '<div class="card lg-card lg-empty">' + RACE_ILL + '<span class="eyebrow">Course de ' + MOIS_L[today().getMonth()] + '</span><b class="m2-t lgc-t">Lance ta course du mois</b><span class="small">Choisis qui court avec toi parmi les joueurs que tu suis. Chaque victoire du mois rapporte des points, tout le monde repart de 0 le 1er.</span>' +
@@ -9563,8 +9586,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     } else if (now.streak && now.streak.n >= 3) news = { k: now.streak.r === "V" ? "nw" : "dn", tag: now.streak.n + " " + now.streak.r + " de suite", t: "" };
     f.snap = now; f.rank = now.rank || f.rank; f.at = Date.now();
     if (news && (news.k === "up" || news.lvl || fresh.length)) { f.news = news; f.newsAt = Date.now(); f.seen = false; }
-    if (notify && news && (news.k === "up" || news.lvl) && LN && S.notif && np("fol")) {
-      try { LN.schedule({ notifications: [{ id: 3000 + (parseInt(id, 10) % 900 || 1), title: f.name + (news.k === "up" ? " est monté " + now.rank : " a battu un joueur de ton niveau"), body: news.t, extra: { url: "montee://open/joueur/" + id } }] }).catch(function () {}); } catch (e) {}
+    if (notify && news && (news.k === "up" || fresh.length) && LN && S.notif && np("fol")) { // 4.17.0 (Yann) : tous ses résultats
+      try { LN.schedule({ notifications: [{ id: 3000 + (parseInt(id, 10) % 900 || 1), title: nameCase(f.name) + (news.k === "up" ? " est monté " + now.rank : " a joué"), body: news.t, extra: { url: "montee://open/joueur/" + id } }] }).catch(function () {}); } catch (e) {}
     }
     return news;
   }
@@ -9573,7 +9596,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (SK) return; // 4.15
     if (!NATIVE) return;
     if (UI.folBusy) return;
-    var ids = Object.keys(S.follow || {}).filter(function (id) { return force || Date.now() - (S.follow[id].at || 0) > 4 * 3600e3; })
+    var fa = folActive(), ids = Object.keys(S.follow || {}).filter(function (id) { return fa.indexOf(id) >= 0 && (force || Date.now() - (S.follow[id].at || 0) > 4 * 3600e3); })
       .sort(function (a, b) { return (S.follow[a].at || 0) - (S.follow[b].at || 0); }).slice(0, 12), chain = Promise.resolve(), any = false;
     if (!ids.length || !retryOk("fol", force)) return; UI.folBusy = true; if (route() === "faf") render(); // 3.67 : la pastille tourne
     ids.forEach(function (id) {
@@ -9852,6 +9875,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var was = isSup();
     S.sup = { ids: ids || [], at: E.iso(today()) }; if (S.sup.ids.length) S.supEver = 1; save();
     if (was !== isSup()) { applyTheme(); syncWidgets(true); }
+    setTimeout(folKeepCheck, 800); // 4.17.0
     if (!was && isSup() && !quiet) { UI.supThanks = true; UI.partyKey = "sup-" + Date.now(); }
   }
   // Ce que le joueur possède, d'après l'App Store / Google Play (à chaque ouverture)
@@ -10700,7 +10724,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       ["plan", "Programme un match : rappel la veille au soir", "goFaf", (S.plans || []).length > 0 || tours.some(function (x) { return (x.pool || []).some(function (y) { return y.day; }) || (x.rounds || []).some(function (y) { return y.day; }); })],
       ["an", "Ouvre l'analyse de ton dernier match", "tryAn"],
       ["adv", "Cherche ton prochain adversaire", "goFaf"],
-      ["fol", "Suis un copain : tu sais quand il monte", "goFaf", Object.keys(S.follow || {}).length > 0],
+      ["fol", "Suis un copain : tu reçois tous ses résultats", "goFaf", Object.keys(S.follow || {}).length > 0],
       ["simu", "Essaie « Et si… » : simule tes prochaines victoires", "goSimu"]
     ].filter(Boolean).map(function (x) { return [x[0], x[1], x[2], !!(t[x[0]] || x[3])]; });
     var todo = A.filter(function (x) { return !x[3]; });
@@ -14347,6 +14371,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     },
     badge: function (v) { return badgeSheet(v); }, // 3.59 : un badge, ouvert // 3.59 (Yann) : tous les matchs d'un face-à-face
     // 3.59 (Yann, maquette L5) : qui court avec toi. Sortir de la course ne retire pas des suivis.
+    // 4.17.0 (Yann, maquette « Qui gardes-tu ? ») : sans Montée+, il garde 3 joueurs suivis
+    folKeep: function () {
+      var mx = folMax(), ids = Object.keys(S.follow || {}), keep = UI.folKeep || folActive(), n = keep.length;
+      if (ids.length <= mx) return null;
+      var row = function (id) { var f = S.follow[id], sc = (S.scout || {})[id], rk = (sc && folSnap(sc).rank) || f.rank || "", on = keep.indexOf(id) >= 0, nm = nameCase(f.name || "");
+        return '<label class="rc-row"><span class="ini">' + esc(initials(nm)) + '</span><span class="grow"><b>' + esc(nm) + "</b><small>" + (rk ? '<span class="rk-tag">' + esc(rk) + "</span>" : "classement inconnu") + '</small></span><input type="checkbox" role="switch" data-a="folKeepTog" data-v="' + esc(id) + '"' + (on ? " checked" : "") + (!on && n >= mx ? " disabled" : "") + ' aria-label="Garder ' + esc(nm) + '"></label>'; };
+      return { title: "Qui gardes-tu ?", sub: "Sans Montée+, tu suis " + mx + " joueurs. Choisis ceux que tu gardes : les autres ne seront plus suivis.",
+        body: '<div class="rc-sec">Tu gardes · ' + n + " sur " + mx + "</div>" + ids.map(row).join("") +
+          '<div style="display:flex;flex-direction:column;gap:10px;margin-top:16px"><button class="btn primary" data-a="folKeepOk"' + (n ? "" : " disabled") + ">Garder " + (n > 1 ? "ces " + n : n ? "celui-là" : "") + '</button><button class="btn soft" data-a="folKeepPlus">Garder les ' + ids.length + " avec Montée+</button></div>" };
+    },
     race: function () {
       var ins = raceIn(), me = curIdx(), all = Object.keys(S.follow || {}).map(function (k) { var f = S.follow[k], sc = (S.scout || {})[k]; return { id: k, name: nameCase(f.name), rank: (sc && folSnap(sc).rank) || f.rank || "" }; });
       var R = {}; try { leagueRows().forEach(function (r) { R[r.id] = r; }); } catch (e) {}
@@ -18055,7 +18089,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var lim = new Date(); lim.setMonth(lim.getMonth() - 13); var limI = E.iso(lim);
     var manual = S.matches.filter(function (m) { return m.source !== "tenup" && m.source !== "tenup-pdf" && (m.result === "V" || m.result === "D") && (!m.date || m.date >= limI); }).map(function (m) { return { d: m.date || "", r: m.oppRank || "", res: m.result, n: m.opp || "" }; }).slice(-60);
     // 3.43.2 : joueurs suivis (relus en arrière-plan, 2 par relance) et état de leur fiche pour comparer
-    var folIds = Object.keys(S.follow || {}).filter(function (id) { return S.follow[id] && S.follow[id].hit; }).sort(function (a, b) { return (S.follow[a].at || 0) - (S.follow[b].at || 0); }).slice(0, FOL_MAX);
+    var folOk = folActive(), folIds = Object.keys(S.follow || {}).filter(function (id) { return folOk.indexOf(id) >= 0; }).filter(function (id) { return S.follow[id] && S.follow[id].hit; }).sort(function (a, b) { return (S.follow[a].at || 0) - (S.follow[b].at || 0); }).slice(0, FOL_MAX);
     var folSt = {}; folIds.forEach(function (id) { var f = S.follow[id], sn = f.snap || {}; folSt[id] = { n: nameCase(f.name || ""), r: sn.rank || f.rank || "", last: sn.last || "" }; });
     var TW = trWatch();
     // 3.49 : ta poule (fiches de tes adversaires relues en arrière-plan → « Ta poule a bougé »), tes saisons (jalons), tes réglages
@@ -19578,6 +19612,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       '<a class="row" href="#/perso/home"><span class="grow"><span class="t">Personnaliser l\'accueil</span><span class="s">Choisir les cartes et leur ordre</span></span>' + I.next + "</a>" +
       '<a class="row" href="#/perso/courbes"><span class="grow"><span class="t">Personnaliser les courbes</span></span>' + I.next + "</a>" +
       '<button class="row" data-a="sheet" data-k="whyPick" data-v="1"><span class="grow"><span class="t">Tu joues surtout pour…</span><span class="s">' + (WHY[S.why] ? WHY[S.why].t : S.why === "mix" ? "Un peu de tout" : "Pas encore répondu") + "</span></span>" + I.next + "</button>" +
+      '<label class="row" style="cursor:pointer"><span class="grow"><span class="t">Course du mois</span><span class="s">Un classement du mois entre toi et des joueurs que tu suis, en haut de Suivis</span></span><input type="checkbox" role="switch" data-a="raceToggle"' + (raceOn() ? " checked" : "") + "></label>" +
       (IOS && (S.prefs || {}).hideWatchCard ? '<button class="row" data-a="showWatchCard"><span class="grow"><span class="t">Réafficher « Ton service »</span><span class="s">La carte Apple Watch dans les Courbes</span></span>' + I.next + "</button>" : "") + "</div>";
     s += "<h2>Montée</h2><div class=\"list\">" +
       '<button class="row" data-a="openNotes"><span class="grow"><span class="t">Quoi de neuf</span><span class="s">Les nouveautés de la version ' + esc(CONFIG.VERSION) + "</span></span>" + I.next + "</button>" +
@@ -19650,7 +19685,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var grp = function (h, rows) { return '<h2 class="nf-gh">' + h + '</h2><div class="nf-grp' + (S.notif ? "" : " off") + '">' + rows.join("") + "</div>"; };
     s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche et tes adversaires qui bougent avec Montée+" : ", avec ta revanche s'il t'a battu, et tes adversaires qui bougent")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
     s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Ace", "Le lundi : ta semaine et le match qui compte. Avec Montée+ : tes chances qui bougent et tes consignes remplies"), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
-    var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("club", "Les montées du club", "Le matin de la sortie, les joueurs du club qui devraient monter"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
+    var oth = [row("fol", "Joueurs suivis", "Chacun de leurs résultats sur Ten'Up, et quand ils montent"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("club", "Les montées du club", "Le matin de la sortie, les joueurs du club qui devraient monter"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
     if (HC_OK && hcOn()) oth.push('<label class="nf-row"><span class="nf-r"><b>Séances de la montre</b><small>Une nouvelle séance à enregistrer</small></span><input type="checkbox" role="switch" data-a="hcNotify"' + (S.health.notify !== false ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>");
     s += grp("Les autres", oth);
     var lv = np("lvl"), LV = { ess: "Tes matchs, ta poule et ton classement, rien d'autre.", norm: "En plus, 3 autres par semaine au plus (copains, jalons…) : on garde les plus importantes.", tout: "Tout ce que tu as activé, sans limite." };
@@ -19662,8 +19697,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.16.7",
+    v: "4.17",
     pages: [
+      // 4.17 (Yann, 26/11/2026, maquettes validées) : un joueur suivi = tous ses résultats ; la course du mois passe au second plan
+      { hero: true, title: "Montée 4.17", text: "Tu suis un joueur ? Tu reçois maintenant chacun de ses résultats, comme sur Ten'Up, et quand il monte." },
+      { tag: "Nouveau", tone: "rose", title: "Tous leurs résultats", vis: "fol417", text: "Victoire ou défaite, chaque match homologué d'un joueur que tu suis arrive en notification, dans les heures qui suivent. Plusieurs d'un coup ? Une seule notification les regroupe." },
+      { tag: "Montée+", tone: "bleu", title: "3 suivis, ou 10", vis: "fol417b", text: "Sans Montée+, tu suis 3 joueurs ; avec Montée+, jusqu'à 10. La course du mois se range : tu la retrouves dans Réglages › Affichage." },
       // 4.16 (Yann, 26/11/2026) : tes chances = une balle de tennis qui se remplit, aux couleurs de ton thème (fiche, accueil, tournois, widgets, montre)
       { hero: true, title: "Montée 4.16", text: "Tes chances contre un adversaire se lisent d'un coup d'œil : une balle de tennis qui se remplit, aux couleurs de ton thème." },
       { tag: "Nouveau", tone: "rose", title: "Tes chances, en balle", vis: "bal416", text: IOS ? "Plus elle est pleine, plus le match est pour toi. Sur sa fiche, dans Ce qui arrive, tes tournois, tes widgets et ta montre. Touche « D'où vient » pour le détail du calcul." : "Plus elle est pleine, plus le match est pour toi. Sur sa fiche, dans Ce qui arrive, tes tournois et tes widgets. Touche « D'où vient » pour le détail du calcul." },
@@ -19826,7 +19865,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-      var PHARES = ["ef416", "bal416", "kid415", "kidl415", "kidf415"]; // 4.16.7 : l'effectif en colonnes et la fiche championnat en tête (lm414 sort) // 4.16 : la balle des chances en tête (kp413 sort) // 4.15 : le profil de ton enfant en tête ; // 4.14 : ils montent ce mois-ci en tête // 4.13 : la saison d'une équipe, puis l'adversaire qui bouge (4.12) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
+      var PHARES = ["fol417", "fol417b", "ef416", "bal416"]; // 4.17 : tous les résultats des suivis, 3 ou 10 suivis (kid415 sort) // 4.16.7 : l'effectif en colonnes et la fiche championnat en tête (lm414 sort) // 4.16 : la balle des chances en tête (kp413 sort) // 4.15 : le profil de ton enfant en tête ; // 4.14 : ils montent ce mois-ci en tête // 4.13 : la saison d'une équipe, puis l'adversaire qui bouge (4.12) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -19860,6 +19899,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.13 : la compo d'Ace, la convocation, l'effectif
     if (k === "kp413") return nvc('<span class="nv-k" style="color:#D4E64A">TA COMPO · DIM. 6 DÉC.</span>' + [["S1", "Toi", "15/4"], ["S2", "Hugo L.", "15/5"], ["S3", "Lucas B.", "15/5"], ["D", "Toi · Hugo L.", ""]].map(function (x) { return '<span style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08)"><b style="flex:none;width:26px;height:26px;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);display:grid;place-items:center;font-size:11px">' + x[0] + '</b><b style="flex:1;font-size:14px">' + x[1] + '</b><span style="font-size:13px;opacity:.75">' + x[2] + "</span></span>"; }).join(""));
     if (k === "cv413") return nvc('<span class="nv-k" style="color:#D4E64A">LE MESSAGE</span><span style="display:block;padding:10px 12px;border-radius:14px 14px 14px 4px;background:rgba(255,255,255,.08);font-size:12.5px;line-height:1.5;text-align:left"><b>TC Exemple 2 · Journée 5</b><br>Dim. 6 déc. · RDV 8 h 45, début 9 h<br><br><b>🎾 SIMPLES</b><br>1️⃣ Toi · 15/4<br>2️⃣ Hugo L. · 15/5<br>3️⃣ Lucas B. · 15/5<br><br>Confirmez-moi votre présence.</span>');
+    if (k === "fol417" || k === "fol417b") return nvc('<span class="nv-k" style="color:#D4E64A">JOUEURS SUIVIS</span>' + [["Thomas M. a joué", "Défaite 4-6 3-6 contre un 15/3."], ["3 joueurs que tu suis ont joué", "Thomas M. perd contre un 15/3 · Hugo L. bat un 15/5 · Lucas B. monte 15/2."]].map(function (x) { return '<span style="display:block;text-align:left;margin-top:10px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.08);font-size:12.5px;line-height:1.35"><span style="display:flex;justify-content:space-between;font-size:10.5px;opacity:.65"><b>MONTÉE</b><span>maintenant</span></span><b style="display:block;margin-top:2px">' + x[0] + "</b>" + x[1] + "</span>"; }).join(""));
     if (k === "ef416") return nvc('<span class="nv-k" style="color:#D4E64A">L\'EFFECTIF</span><span style="display:flex;justify-content:flex-end;gap:10px;font-size:10px;font-weight:800;opacity:.7"><span style="width:52px;text-align:left">SIMPLE</span><span style="width:34px;text-align:left;white-space:nowrap">DOUBLE</span></span>' + [["15/3", "Thomas M.", "vvd", "v"], ["15/4", "Hugo L.", "v", "v"], ["30", "Antoine R.", "v", "d"]].map(function (x) { var sh = function (r, rd) { return r.split("").map(function (z) { return '<i style="display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:' + rd + ';background:' + (z === "v" ? "#6FC28F" : "rgba(232,138,94,.6)") + '"></i>'; }).join(""); }; return '<span style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);text-align:left"><b style="flex:none;width:40px;font-size:14px">' + x[0] + '</b><b style="flex:1;font-size:14px">' + x[1] + '</b><span style="width:52px">' + sh(x[2], "3px") + '</span><span style="width:34px">' + sh(x[3], "50%") + "</span></span>"; }).join(""));
     if (k === "ef413") return nvc('<span class="nv-k" style="color:#D4E64A">L\'EFFECTIF</span>' + [["15/3", "Thomas M.", "4 simples · 2 doubles", ""], ["15/4", "Hugo L.", "3 simples · 1 double", "↓ 15/5"], ["30", "Antoine R.", "2 simples", "↑ 15/5"]].map(function (x) { return '<span style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);text-align:left"><b style="flex:none;width:44px;font-size:14px">' + x[0] + '</b><span style="flex:1"><b style="font-size:14px">' + x[1] + (x[3] ? ' <span style="font-size:12px;color:' + (x[3].charAt(0) === "↑" ? "#7BC79A" : "#E88A5E") + '">' + x[3] + "</span>" : "") + '</b><small style="display:block;font-size:11.5px;opacity:.7">' + x[2] + "</small></span></span>"; }).join(""));
     if (k === "rkm412") return nvc('<span class="nv-k" style="color:#D4E64A">JE LE JOUE · JOUR</span><span style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' + [["SAM.", "28", 0, 0], ["DIM.", "29", 0, 0], ["LUN.", "30", 0, 0], ["MAR.", "1", 1, 0], ["MER.", "2", 1, 1]].slice(1).map(function (d) { return '<span style="position:relative;display:flex;flex-direction:column;align-items:center;padding:6px 0;border-radius:12px;background:' + (d[3] ? "#D4E64A;color:#121212" : "rgba(255,255,255,.08)") + '"><small style="font-size:9.5px;font-weight:800;opacity:.75">' + d[0] + '</small><b style="font-size:17px">' + d[1] + '</b>' + (d[2] ? '<i style="position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:#E88A5E"></i>' : "") + "</span>"; }).join("") + '</span><span style="display:flex;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);font-size:12.5px;line-height:1.4"><b style="flex:none;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1.5px #E88A5E;color:#E88A5E;display:grid;place-items:center">↓</b><span><b style="display:block;color:#E88A5E;font-size:13.5px">Mer. 2 déc. : il sera 15/2 ce jour-là</b>Ta victoire vaudra +30 pts au lieu de +45.</span></span>');
@@ -20402,7 +20442,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var id = el.dataset.id, sc = (S.scout || {})[id]; if (!sc) return;
       S.follow = S.follow || {};
       if (S.follow[id]) { delete S.follow[id]; save(); toast("Tu ne suis plus ce joueur."); render(); return; }
-      if (Object.keys(S.follow).length >= FOL_MAX) { toast("Tu suis déjà " + FOL_MAX + " joueurs : arrête d'en suivre un pour en ajouter un autre."); return; }
+      if (folFull()) return;
       var pr = sc.profil || {};
       S.follow[id] = { id: id, name: [pr.prenom ? pr.prenom.charAt(0).toUpperCase() + pr.prenom.slice(1).toLowerCase() : "", pr.nom || ""].join(" ").trim(), rank: pr.classement || "", club: pr.club || "", hit: sc.hit, snap: folSnap(sc), at: Date.now(), seen: true };
       save(); toast("Suivi : ses nouvelles arriveront à chaque synchro Ten'Up."); render();
@@ -20465,6 +20505,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     },
     offDel: function (el) { S.off = (S.off || []).filter(function (o) { return o.id !== el.dataset.v; }); save(); render(); },
     sheet: function (el) { if (el.dataset.k === "sjSet") UI.sjSet = null; UI.sheet = { k: el.dataset.k, v: el.dataset.v }; render(); },
+    folKeepOk: function () {
+      var keep = UI.folKeep || folActive(), out = Object.keys(S.follow || {}).filter(function (k) { return keep.indexOf(k) < 0; });
+      out.forEach(function (k) { delete S.follow[k]; }); UI.folKeep = null; UI.sheet = null; save(); syncNative(); render();
+      toast(out.length ? "Tu suis " + keep.length + " joueur" + (keep.length > 1 ? "s" : "") + "." : "C'est noté.");
+    },
+    folKeepPlus: function () { UI.sheet = null; UI.supFrom = "suivis"; go("soutenir"); },
+    raceSet: function (el) { S.prefs = S.prefs || {}; S.prefs.race = el.dataset.v === "1" ? 1 : 0; save(); if (!S.prefs.race) toast("Course masquée. Tu la retrouves dans Réglages › Affichage."); render(); },
     leagueShare: function () {
       var R = leagueRows(); if (R.length < 2) return; var me = 0; R.forEach(function (r, k) { if (r.me) me = k + 1; });
       var t = "Course tennis de " + MOIS_L[today().getMonth()] + " (points gagnés ce mois-ci) :\n" + R.map(function (r, k) { return (k + 1) + ". " + (r.me ? (S.profile.name || "Moi") : r.name) + " · " + r.rank + " · +" + r.pts + " pts (" + plural(r.v, "victoire") + ")"; }).join("\n");
@@ -21983,6 +22030,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var r = UI.importRows[+el.dataset.ir], k = el.dataset.k;
       r[k] = el.type === "checkbox" ? el.checked : el.value;
       if (k !== "keep") { r.ok = !!(r.oppRank && r.result && r.date); if (r.ok && !r.dup) r.keep = true; render(); }
+    } else if (el.dataset.a === "folKeepTog") { // 4.17.0
+      var kk = (UI.folKeep || folActive()).filter(function (x) { return x !== el.dataset.v; }); if (el.checked && kk.length < folMax()) kk.push(el.dataset.v);
+      UI.folKeep = Object.keys(S.follow || {}).filter(function (x) { return kk.indexOf(x) >= 0; }); render();
     } else if (el.dataset.a === "raceTog") { // 3.59 : entrer / sortir de la course (toujours suivi)
       var ri = raceIn(), rk = el.dataset.v; S.league.in = ri.filter(function (x) { return x !== rk; }); if (el.checked && S.league.in.length < RACE_MAX) S.league.in.push(rk);
       save(); render(); toast(el.checked ? "Dans ta course." : "Sorti de ta course. Tu le suis toujours.");
@@ -21994,6 +22044,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       S.rebond = S.rebond || {}; S.rebond.quiet = el.checked ? E.iso(new Date(today().getTime() + 14 * 864e5)) : null; save(); render();
     } else if (el.dataset.a === "hcNotify") {
       S.health.notify = el.checked; save(); hcSync(); if (el.checked && LN && LN.requestPermissions) LN.requestPermissions().catch(function () {});
+    } else if (el.dataset.a === "raceToggle") {
+      S.prefs = S.prefs || {}; S.prefs.race = el.checked ? 1 : 0; save();
     } else if (el.dataset.a === "teamsToggle") {
       S.prefs = S.prefs || {}; S.prefs.teamsOff = !el.checked; save();
     } else if (el.dataset.a === "sjPhys") {
