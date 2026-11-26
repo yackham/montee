@@ -7134,7 +7134,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!BALL_TC[k]) { var cs = getComputedStyle(r); BALL_TC[k] = { t: cs.getPropertyValue("--terre").trim(), g: cs.getPropertyValue("--gazon").trim() }; }
     return BALL_TC[k];
   }
-  function oddsBall(p, S) { var W = window.MonteeWidgetArt, c = ballTheme(); return W && W.ballSvg ? W.ballSvg(p, S, { col: W.ballCol(p, c.t, c.g) }) : "<b>" + Math.round(p * 100) + " %</b>"; }
+  // 4.16.2 (Yann) : les balles un « mini chouille » plus petites, partout dans l'appli (×0,9)
+  function oddsBall(p, S) { var W = window.MonteeWidgetArt, c = ballTheme(); S = Math.round(S * 0.9); return W && W.ballSvg ? W.ballSvg(p, S, { col: W.ballCol(p, c.t, c.g) }) : "<b>" + Math.round(p * 100) + " %</b>"; }
   // une mini-balle dans une ligne (pc en %)
   function oddsBallI(pc, S) { return '<span class="obq-i">' + oddsBall(pc / 100, S || 22) + "</span>"; }
   // la couleur de la balle pour la montre (toujours sur fond sombre : couleurs de Nuit)
