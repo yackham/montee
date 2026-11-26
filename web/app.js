@@ -2639,10 +2639,13 @@
   // 3.47.3 (Yann) : les adversaires à venir du tableau — on lit leur fiche Ten'Up en arrière-plan (fiche absente ou > 3 jours)
   function trOppSync(t) {
     if (!NATIVE) return; UI.toTried = UI.toTried || {};
-    var todo = (t.rounds || []).filter(function (r) { var o = r.opp, sc = o && o.tid && (S.scout || {})[o.tid]; return !r.res && o && o.tid && o.hit && !UI.toTried[o.tid] && (!sc || Date.now() - (sc.ts || new Date(sc.at).getTime()) > 3 * 864e5); });
+    // 4.21.1 (Yann) : un match prévu APRÈS la prochaine sortie : sa fiche (et sa simulation Ten'Up) est relue chaque jour, pour savoir à temps
+    // s'il jouera déjà à son nouveau classement ce jour-là (rkUp). Adversaire choisi dans « Tes adversaires » : sa fiche se lit avec son id (poolHit).
+    var relI = E.iso(E.nextRelease(today()));
+    var todo = (t.rounds || []).filter(function (r) { var o = r.opp, sc = o && o.tid && (S.scout || {})[o.tid], ttl = r.day && r.day >= relI ? 864e5 : 3 * 864e5; return !r.res && o && o.tid && !UI.toTried[o.tid] && (!sc || Date.now() - (sc.got || sc.ts || new Date(sc.at).getTime()) > ttl); });
     if (!todo.length) return;
     var chain = Promise.resolve();
-    todo.forEach(function (r) { UI.toTried[r.opp.tid] = 1; chain = chain.then(function () { return tenupQuery("player", r.opp.hit).then(function (x) { if (x && !x.error) { try { scoutStore(r.opp.tid, r.opp.hit, x); } catch (e) {} } }).catch(function () {}); }); });
+    todo.forEach(function (r) { var h = poolHit(r.opp); UI.toTried[r.opp.tid] = 1; chain = chain.then(function () { return tenupQuery("player", h).then(function (x) { if (x && !x.error) { try { scoutStore(r.opp.tid, h, x); } catch (e) {} } }).catch(function () {}); }); });
     chain.then(function () { save(); if (route() === "tournoi/" + t.id || route() === "") render(); });
   }
   // 3.66.1 (Davy : Anthony marqué protégé seulement après avoir ouvert sa fiche) : chaque adversaire de la poule a sa fiche à jour
@@ -3264,7 +3267,7 @@
         '<span class="tq-k">' + esc(trLab(i) + " · " + trWhen(r)) + "</span>" +
         '<span class="tq-o"><b>' + (r.opp && r.opp.tid ? '<a href="#/joueur/' + esc(r.opp.tid) + '">' + esc(trWho(r)) + "</a>" : esc(trWho(r))) + "</b>" + (r.res === "V" && r.pts ? '<b class="tq-p" style="color:var(--gazon)">+' + r.pts + "</b>" : p != null && !r.res ? '<span class="tq-p tq-pb">' + oddsBall(p / 100, 30) + "</span>" : r.res === "D" && p != null ? '<small class="muted">tu avais ' + p + " %</small>" : "") + "</span>" +
         (r.opp && r.opp.club && !done ? '<span class="small">' + esc(r.opp.club) + "</span>" : "") +
-        (r.opp && !r.res && rkUp(r.opp, r.day) ? '<span class="small tq-upo">Si tu le bats, c\'est officiellement un ' + esc(rkUp(r.opp, r.day)) + " : sa montée compte depuis le " + (function () { var d = E.nextRelease(today()); return (d.getDate() === 1 ? "1er" : d.getDate()) + " " + MOIS[d.getMonth()].replace(/\.$/, ""); })() + ".</span>" : "") +
+        (r.opp && !r.res && rkMv(r.opp, r.day) ? rkMoveHtml(rkMv(r.opp, r.day), r.day, rkHe(r.opp.tid)) : "") +
         (r.beat && !r.res ? '<span class="small">Il a battu ' + esc(trNm(r.beat.name)) + (r.beat.score ? " " + esc(r.beat.score) : "") + "</span>" : "") +
         (A2 && !r.res ? '<span class="small">' + esc(trNm(A2.fav.name) || "Le " + (A2.fav === A2.a ? A2.rA : A2.rB)) + " devrait passer (" + Math.max(A2.pa, 100 - A2.pa) + " %)</span>" +
           [[A2.a, A2.pA, A2.rA], [A2.b, A2.pB, A2.rB]].map(function (z) { return '<span class="tq-alt"><span>' + esc((trNm(z[0].name) || "Un joueur") + (z[2] ? " · " + z[2] : "")) + "</span><b>" + (z[1] != null ? z[1] + " %" : "–") + "</b></span>"; }).join("") : "") +
@@ -6311,20 +6314,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var id = x.tid || x.oid, n = id ? oppNowIdx({ oid: String(id), opp: x.name }).r : null;
     return n != null ? lab(n) : (x.rankNow || x.rank || "");
   }
-  // 4.21.1 (Yann) : sa montée déjà VALIDÉE par Ten'Up (simulation, ligne « atteinte »), qui compte au plus tard le jour du match :
-  // ce jour-là il joue officiellement à ce classement (les tableaux écrivent « 15/5 (15/4) »). Jamais un niveau estimé.
-  // Rend le nouveau classement, ou "" (pas de montée validée, simulation d'une autre période, ou sortie après le match).
-  function rkUp(x, day) {
-    if (!x || !day) return "";
-    var id = x.tid || x.oid, sc = id && (S.scout || {})[String(id)], sim = (sc && sc.sim) || x.sim, at = sc && sc.sim ? (sc.got || sc.ts) : x.simAt;
-    if (!sim || !at) return "";
-    var rel = E.nextRelease(today()), relAt = E.nextRelease(new Date(typeof at === "number" ? at : E.parseDate(at)));
-    if (E.iso(relAt) !== E.iso(rel) || String(day) < E.iso(rel)) return "";
-    var cur = E.idx(T.normRank(rkNow(x))), ok = (sim.res || []).filter(function (l) { return l.ok === true; }).map(function (l) { return E.idx(T.normRank(l.c)); }).filter(function (i) { return i != null; });
-    if (cur == null || !ok.length) return "";
-    var up = Math.max.apply(null, ok); return up > cur ? lab(up) : "";
+  // 4.21.1 (Yann) : son classement change à une sortie qui tombe au plus tard le jour du match : ce jour-là il joue officiellement au
+  // nouveau classement (les tableaux écrivent « 15/5 (15/4) »). Même calcul que l'alerte de la fiche et de « Je le joue » (rkMove :
+  // simulation Ten'Up de sa fiche, protection comprise), jamais un niveau estimé. Rend l'alerte (mv) ou null.
+  function rkMv(x, day) {
+    if (!x || !day) return null;
+    var id = x.tid || x.oid, now = rkNow(x), mv = null;
+    try { mv = x.sim ? rkMove(simProj(x.sim, now)) : rkMoveOf(id, now); } catch (e) { mv = null; }
+    return mv && String(day) >= mv.relI ? mv : null;
   }
-  // son classement officiel le jour du match (montée validée comprise) : sert au match enregistré, aux points et aux chances
+  function rkUp(x, day) { var mv = rkMv(x, day); return mv ? lab(mv.proj) : ""; }
+  // son classement officiel le jour du match (sortie comprise) : sert au match enregistré, aux points et aux chances
   function rkOn(x, day) { return rkUp(x, day) || rkNow(x); }
   // à l'écran, comme dans les tableaux : « 15/5 (15/4) » quand il joue déjà officiellement au-dessus ce jour-là
   function rkShow(x, day) { var r = rkNow(x), u = rkUp(x, day); return u ? r + " (" + u + ")" : r; }
