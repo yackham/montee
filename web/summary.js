@@ -193,15 +193,18 @@
     } else body = rec && rec.n ? "Ton record (" + rec.n + " en " + recL + ") est déjà battu : chaque victoire l'allonge." : "Depuis le 1er septembre.";
     return { title: hit + "e victoire de la saison", body: body, jal: mo };
   }
-  function monteeSummary(payloadStr, stateStr, todayIso) {
+  // opts.at8 (4.18.1, iPhone) : entre 21 h et 8 h, on prépare quand même les notifications ; l'iPhone les montre à 8 h.
+  // Sans ça, une nouveauté trouvée la nuit (iOS relance surtout la nuit, en charge) était lue à l'ouverture de Montée et jamais notifiée.
+  function monteeSummary(payloadStr, stateStr, todayIso, opts) {
     var T = root.MonteeTenup, E = root.MonteeEngine;
     var pl = T.decode(payloadStr);
     if (!pl || pl.error) return null;
     var st = {};
     try { st = JSON.parse(stateStr || "{}") || {}; } catch (e) { st = {}; }
     // 3.49 : jamais entre 21 h et 8 h : on ne touche à rien, la prochaine relance (ou l'ouverture de Montée) reprendra
-    if (!todayIso && quietNow(st)) return JSON.stringify({});
-    var fin = function (o, more) { var C = capMore(st, more || []), x = JSON.parse(o.state || "{}"); x.wk = C.wk; o.state = JSON.stringify(x); if (C.more.length) o.more = C.more; else delete o.more; return JSON.stringify(o); };
+    var at8 = !todayIso && quietNow(st);
+    if (at8 && !(opts && opts.at8)) return JSON.stringify({});
+    var fin = function (o, more) { var C = capMore(st, more || []), x = JSON.parse(o.state || "{}"); x.wk = C.wk; o.state = JSON.stringify(x); if (C.more.length) o.more = C.more; else delete o.more; if (at8 && (o.title || o.more)) o.at8 = true; return JSON.stringify(o); };
     // 3.43.2 : relance « joueurs suivis » seulement : ton palmarès n'a pas été relu
     if (pl.folOnly) {
       var FN0 = folNotes(pl, st, E.idx(st.rank || "") == null ? -1 : E.idx(st.rank || "")), WN0 = watchNotes(pl, st), PN0 = poolNotes(pl, st);
