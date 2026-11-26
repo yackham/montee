@@ -3976,10 +3976,25 @@
         });
         ids.forEach(function (id) { if (!got[id]) { var q = S.lm.P[id] || (S.lm.P[id] = { h: {} }); q.miss = t; } }); // pas de fiche : retentée dans 3 jours
         Object.keys(S.lm.P).forEach(function (k) { if (t - (S.lm.P[k].at || S.lm.P[k].miss || 0) > 400 * 864e5) delete S.lm.P[k]; }); // plus vu depuis plus d'un an
-        save();
+        save(); try { lmNotif(); } catch (e) {}
       }
       if (route() === rt) paint();
     }, function () { UI.lmBusy = false; lmPaint(); });
+  }
+  // 4.17 (Yann, maquette du 26/11) : le matin de la sortie, à 10 h, une notification avec les joueurs du club qui devraient monter
+  // (leur estimation, la même que la carte : rien n'est lu sur Ten'Up en arrière-plan, il n'y a pas de serveur). La toucher ouvre
+  // « Ils montent », qui relit les fiches et donne la liste officielle, avec « Féliciter sur WhatsApp ». Personne en vue : pas de notif.
+  function lmNotif() {
+    if (!NATIVE || !LN) return;
+    var cancel = function () { LN.cancel({ notifications: [{ id: 2300 }] }).catch(function () {}); };
+    if (!S.notif || !np("club") || !clubOn()) return cancel();
+    var L = lmList(), at = new Date(L.nx.getTime()); at.setHours(10, 0, 0, 0);
+    if (!L.soon || !L.eu.length || at <= new Date()) return cancel();
+    var nm = tmNm(((S.teams || {}).club || {}).nom || "club"), N = L.eu.map(function (o) { return kpShort(o.p.n); }).filter(Boolean), k = L.eu.length;
+    var who = N.length <= 3 ? N.join(", ").replace(/, ([^,]*)$/, " et $1") : N.slice(0, 3).join(", ") + " et " + (k - 3) + " autre" + (k - 3 > 1 ? "s" : "");
+    var n = { id: 2300, title: "Ça monte au " + nm + " ?", body: who + (k > 1 ? " devraient" : " devrait") + " monter aujourd'hui. Touche pour le classement officiel et " + (k > 1 ? "les" : "le") + " féliciter.", schedule: { at: at }, extra: { url: "montee://open/montees" } };
+    var key = n.title + n.body + at.getTime(); if (UI.lmNK === key) return; UI.lmNK = key;
+    LN.cancel({ notifications: [{ id: 2300 }] }).catch(function () {}).then(function () { return LN.schedule({ notifications: [n] }); }).catch(function () {});
   }
   // Redessine seulement la carte (pas tout l'écran) pendant la lecture
   function lmPaint() {
@@ -4006,7 +4021,7 @@
   function lmHead(t, sub) { return '<h2 class="tm-gh lc-h"><span>' + t + '<svg class="lc-wb" viewBox="0 0 50 14" aria-hidden="true"><circle cx="3" cy="11" r="3" fill="var(--balle)"/></svg></span><small>' + esc(sub) + "</small></h2>"; }
   // La carte de l'onglet Le club
   function lmCard(inner) {
-    var L = lmList(); if (!inner) setTimeout(function () { try { lmLoad(L); } catch (e) {} }, 0);
+    var L = lmList(); if (!inner) setTimeout(function () { try { lmLoad(L); lmNotif(); } catch (e) {} }, 0);
     return '<div class="lm-wrap">' + lmCardIn(L) + "</div>";
   }
   function lmCardIn(L) {
@@ -17989,11 +18004,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var mo = syMoments().join(","); UI.syMomK = mo; // 4.5.0 (B1)
     Tenup.setState({ state: JSON.stringify(st), script: bgScript, moments: mo }).catch(function () {});
     scheduleReleaseNotif();
+    try { lmNotif(); } catch (e) {} // 4.17 : les montées du club
     try { scheduleTeamsNotif(); schedulePoolNotif(); } catch (e) {}
     try { scheduleCoachNotif(); } catch (e) {}
   }
   // 3.49 (maquette validée) : chaque notification se règle dans Réglages › Notifications
-  var NP_DEF = { hom: 1, poule: 1, avant: 1, apres: 1, eq: 1, sortie: 1, coach: 1, jalons: 1, fol: 1, insc: 1, seance: 1 };
+  var NP_DEF = { hom: 1, poule: 1, avant: 1, apres: 1, eq: 1, sortie: 1, club: 1, coach: 1, jalons: 1, fol: 1, insc: 1, seance: 1 };
   function np(k) { var p = S.notifP || {}; if (k === "lvl") return p.lvl || "norm"; if ((k === "coach" || k === "seance" || k === "jalons") && pauseOn()) return false; /* 3.94 : en pause, Ace et les rappels se taisent */ return p[k] == null ? !!NP_DEF[k] : !!p[k]; }
   function npKey(date, a, b) { var tk = function (n) { return String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z]+/).filter(function (t) { return t.length >= 3; }).join(" "); }; return date ? date + "|" + [tk(a), tk(b)].sort().join("|") : ""; }
   function npApply() { lastPlanKey = ""; lastTimingKey = ""; lastTeamNotifKey = ""; lastPoolNotifKey = ""; lastSjKey = ""; try { scheduleSjNotif(); } catch (e) {} try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
@@ -19552,7 +19568,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var grp = function (h, rows) { return '<h2 class="nf-gh">' + h + '</h2><div class="nf-grp' + (S.notif ? "" : " off") + '">' + rows.join("") + "</div>"; };
     s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche et tes adversaires qui bougent avec Montée+" : ", avec ta revanche s'il t'a battu, et tes adversaires qui bougent")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
     s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Ace", "Le lundi : ta semaine et le match qui compte. Avec Montée+ : tes chances qui bougent et tes consignes remplies"), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
-    var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
+    var oth = [row("fol", "Joueurs suivis", "Ils montent, battent un joueur de ton niveau"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("club", "Les montées du club", "Le matin de la sortie, les joueurs du club qui devraient monter"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
     if (HC_OK && hcOn()) oth.push('<label class="nf-row"><span class="nf-r"><b>Séances de la montre</b><small>Une nouvelle séance à enregistrer</small></span><input type="checkbox" role="switch" data-a="hcNotify"' + (S.health.notify !== false ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>");
     s += grp("Les autres", oth);
     var lv = np("lvl"), LV = { ess: "Tes matchs, ta poule et ton classement, rien d'autre.", norm: "En plus, 3 autres par semaine au plus (copains, jalons…) : on garde les plus importantes.", tout: "Tout ce que tu as activé, sans limite." };
@@ -22071,6 +22087,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         var mt = u && /tournoi\/(\w+)/.exec(u); if (mt && tourOf(mt[1])) go("tournoi/" + mt[1]);
         if (u && /open\/coach/.test(u)) go(PLUS_LOCK() ? "courbes" : "coach");
         if (u && /open\/seance/.test(u)) go("seance");
+        if (u && /open\/montees/.test(u)) go("montees"); // 4.17
         if (u && /open\/lundi/.test(u)) go(""); // 3.93 : ton lundi avec Ace
         if (u && /open\/ace/.test(u)) { if (location.hash !== "#/" && location.hash !== "") go(""); setTimeout(function () { UI.ace = { q: "next" }; render(); }, 80); } // 3.75 : le rappel du jour J ouvre ton match dans Ace
         if (u && /open\/plus/.test(u)) { if (trialInfo()) UI.sheet = { k: "trialEnd" }; go(trialInfo() ? "" : "soutenir"); }
