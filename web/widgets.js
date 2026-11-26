@@ -89,8 +89,8 @@
   // o : col (remplissage), empty (vide), ring (contour), ink (chiffre), halo (autour du chiffre) ; S = taille en px
   function ballSvg(p, S, o) {
     o = o || {}; var id = "obq" + (++ballN), big = S >= 60, lvl = (98 - 96 * Math.max(0, Math.min(1, p))).toFixed(1), lb = ballLab(p, big), ex = /[<>]/.test(lb);
-    var ink = o.ink || "var(--ink)", halo = o.halo || "var(--card)", fs = (big ? 27 : 38) * (lb.length > 3 && !big ? 0.8 : ex && big ? 0.78 : 1);
-    var txt = ex || !big ? esc(lb) : esc(lb) + '<tspan font-size="' + Math.round(fs * 0.5) + '" dx="2">%</tspan>';
+    var ink = o.ink || "var(--ink)", halo = o.halo || "var(--card)", fs = (big ? 22 : 38) * (lb.length > 3 && !big ? 0.8 : ex && big ? 0.78 : 1);
+    var txt = ex || !big ? esc(lb) : esc(lb) + '<tspan font-size="' + Math.round(fs * 0.58) + '" dx="1">%</tspan>';
     return '<svg class="obq" viewBox="0 0 100 100" width="' + S + '" height="' + S + '" role="img" aria-label="' + esc(ballLab(p, true)) + ' de chances" style="display:block;flex:none;overflow:visible">' +
       '<defs><clipPath id="' + id + '"><circle cx="50" cy="50" r="48"/></clipPath></defs>' +
       '<circle cx="50" cy="50" r="48" fill="' + (o.empty || "color-mix(in srgb, var(--ink) 9%, var(--card))") + '"/>' +

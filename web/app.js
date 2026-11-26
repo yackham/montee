@@ -3824,10 +3824,10 @@
       L.forEach(function (m) {
         var ps = m[sd] || [];
         ps.forEach(function (p) {
-          var k = String(p.id || "n:" + kpNk(p.n)), o = P[k] || (P[k] = { id: k, n: p.n, r: "", s: 0, d: 0, rs: [], du: {}, rc: {}, b: false, last: "" });
+          var k = String(p.id || "n:" + kpNk(p.n)), o = P[k] || (P[k] = { id: k, n: p.n, r: "", s: 0, d: 0, rs: [], rsd: [], du: {}, rc: {}, b: false, last: "" });
           o.rc[r.id] = 1; if (p.b) o.b = true; if (p.n && r.d >= o.last) o.n = p.n;
           if (m.dbl) {
-            o.d++; if (!o.r && p.r) { o.r = p.r; o.rd = r.d; }
+            o.d++; o.rsd.push(m.w === me ? "v" : m.w ? "d" : ""); if (!o.r && p.r) { o.r = p.r; o.rd = r.d; }
             ps.forEach(function (q) { if (q === p) return; var mk = String(q.id || "n:" + kpNk(q.n)), du = o.du[mk] || (o.du[mk] = { n: 0, w: 0 }); du.n++; if (m.w === me) du.w++; });
           } else {
             o.s++; o.rs.push(m.w === me ? "v" : m.w ? "d" : ""); if (p.r) { al.push(p.r); if (r.d >= o.last) { o.last = r.d; o.r = p.r; o.rd = r.d; } }
@@ -3875,7 +3875,9 @@
   function kpNm(p) { return kpMe(p) ? "Toi" : kpShort(p.n) || "Joueur"; }
   function kpNmMsg(p) { return kpMe(p) ? kpShort(S.profile.name || p.n) || "Moi" : kpShort(p.n) || "Joueur"; }
   function kpPre(p) { return kpMe(p) ? "toi" : (nameCase(p.n).split(/\s+/)[0] || kpNm(p)); }
-  function kpRes(rs) { rs = (rs || []).filter(Boolean); return rs.length ? ' <span class="kp-res" aria-label="' + esc(rs.map(function (x) { return x === "v" ? "victoire" : "défaite"; }).join(", ")) + '">' + rs.map(function (x) { return '<i class="' + x + '"></i>'; }).join("") + "</span>" : ""; }
+  // 4.16.6 (Yann) : une colonne Simple (carrés) et une colonne Double (ronds), comme la légende de « Ta saison »
+  function kpRes(rs, k) { rs = rs || []; var lab = function (x) { return x === "v" ? "gagné" : x === "d" ? "perdu" : "sans résultat"; };
+    return '<span class="kp-cl ' + k + '" aria-label="' + (k === "s" ? "Simples" : "Doubles") + " : " + esc(rs.length ? rs.map(lab).join(", ") : "aucun") + '">' + (rs.length ? rs.map(function (x) { return '<i class="' + x + '"></i>'; }).join("") : '<span class="z" aria-hidden="true">–</span>') + "</span>"; }
   // Format de la division : simples et doubles (Ten'Up), sinon le plus grand nombre de simples vus sur les feuilles
   function kpFmt(c) {
     var ns = +c.ns || 0, nd = c.nd != null ? +c.nd || 0 : null;
@@ -4250,16 +4252,66 @@
   function kpEffHtml(c) {
     var P = kpPl(c), R = kpRost(c, c.me.mine), U = !c.cloture ? kpUp(c) : [];
     setTimeout(function () { try { kpLoad([[c, [c.me.mine]]]); kpWarm(P); } catch (e) {} }, 0);
-    var rel = E.nextRelease(today()), anyMv = false;
+    var rel = E.nextRelease(today()), anyMv = false, anyB = false;
     var rows = P.map(function (p) {
-      var mv = kpMv(p); if (mv) anyMv = true; var x = p.R || {}, me = kpMe(p), real = !me && !/^[nm]:/.test(p.id);
-      return "<" + (real ? 'button data-a="kpOpen" data-v="' + esc(p.id) + '"' : "div") + ' class="kp-r">' + kpRkTag(p) + '<span class="grow"><b>' + esc(kpNm(p)) + (x.b ? '<span class="kp-fl">brûlé</span>' : "") + kpMvi(mv) + "</b><small>" + plural(x.s || 0, "simple") + " · " + plural(x.d || 0, "double") + kpRes(x.rs) + "</small></span>" + (real ? '<span class="pa-ch" aria-hidden="true">›</span></button>' : "</div>");
+      var mv = kpMv(p); if (mv) anyMv = true; if ((p.R || {}).b) anyB = true; var x = p.R || {};
+      return '<button data-a="sheet" data-k="kpJo" data-v="' + esc(c.id + "|" + p.id) + '" class="kp-r">' + kpRkTag(p) + '<span class="grow"><b>' + esc(kpNm(p)) + (x.b ? '<span class="kp-fl">brûlé</span>' : "") + kpMvi(mv) + "</b></span>" + kpRes(x.rs, "s") + kpRes(x.rsd, "d") + '<span class="pa-ch" aria-hidden="true">›</span></button>';
     }).join("");
     return '<h2 class="tm-gh">L\'effectif</h2><div class="card kp-eff"><span class="eyebrow">' + plural(P.length, "joueur") + " <small>dans ce championnat · " + plural(R.nR, "rencontre") + "</small></span>" +
-      (UI.kpBusy ? '<span class="small kp-ld"><span class="spin"></span> Lecture des feuilles de match…</span>' : "") + (rows || '<p class="kp-note">Les joueurs apparaissent ici dès la 1re feuille de match, ou choisis-les toi-même.</p>') +
+      (UI.kpBusy ? '<span class="small kp-ld"><span class="spin"></span> Lecture des feuilles de match…</span>' : "") + (rows ? '<div class="kp-hd" aria-hidden="true"><span class="kp-cl s"><i></i>Simple</span><span class="kp-cl d"><i></i>Double</span><span class="pa-ch">›</span></div>' + rows : '<p class="kp-note">Les joueurs apparaissent ici dès la 1re feuille de match, ou choisis-les toi-même.</p>') +
       (U.length ? '<button class="kp-more" data-a="sheet" data-k="kpDz" data-v="' + esc(c.id) + '"><span>Les dispos, rencontre par rencontre</span><span aria-hidden="true">›</span></button>' : "") +
       '<button class="kp-more" data-a="sheet" data-k="kpWho" data-v="' + esc(c.id) + '"><span>Ajouter un joueur du club</span><span aria-hidden="true">›</span></button></div>' +
-      '<p class="kp-note kp-pn">Points : ses résultats en simple dans ce championnat.' + (anyMv ? " Flèche : son classement à la sortie du " + JOURS[rel.getDay()] + " " + dN(rel) + " " + MOIS[rel.getMonth()] + " (simulation Ten'Up)." : "") + "</p>";
+      '<p class="kp-note kp-pn">Carré : un simple, rond : un double, dans ce championnat. Vert : gagné, orangé : perdu.' + (anyMv ? " Flèche : son classement à la sortie du " + JOURS[rel.getDay()] + " " + dN(rel) + " " + MOIS[rel.getMonth()] + " (simulation Ten'Up)." : "") + (anyB ? "<br>Brûlé (d'après la feuille de match Ten'Up) : il a déjà assez joué dans cette équipe ou une plus forte du club pour ne plus pouvoir jouer dans une équipe de numéro plus grand. Le nombre de rencontres dépend du règlement du championnat." : "") + "</p>";
+  }
+
+  // 4.16.6 (Yann) : la fiche « championnat » d'un joueur de l'effectif : classement, simples, doubles, dispos à venir, forme ; un encart doux par section
+  function kpJoMs(c, pid) {
+    var me = c.me.mine, S2 = [], D2 = [];
+    kpRenc(c, me).forEach(function (r) {
+      var L = kpF(r.id); if (!L) return; var sd = r.a === me ? "a" : "b", od = sd === "a" ? "b" : "a", w = sd === "a" ? 1 : 2, o = kpOpp(c, r);
+      L.forEach(function (m) {
+        var ps = m[sd] || [], k = function (q) { return String(q.id || "n:" + kpNk(q.n)); };
+        if (!ps.some(function (q) { return k(q) === String(pid); })) return;
+        var sc = String(m.sc || "").split(" ").filter(Boolean).map(function (z) { var t = z.split("-"); return sd === "a" ? t[0] + "/" + t[1] : t[1] + "/" + t[0]; }).join(" ");
+        var x = { r: r, j: kpJ(c, r), opp: o.nm, home: o.home, res: m.w === w ? "V" : m.w ? "D" : "", sc: m.wo ? "WO" : sc, them: m[od] || [], mate: ps.filter(function (q) { return k(q) !== String(pid); })[0] };
+        (m.dbl ? D2 : S2).push(x);
+      });
+    });
+    return { s: S2, d: D2 };
+  }
+  function kpJoSheet(v) {
+    var a = String(v || "").split("|"), c = tmFind(a[0]); if (!c || !c.me) return null;
+    var p = kpPl(c).filter(function (q) { return String(q.id) === a[1]; })[0]; if (!p) return null;
+    var me = kpMe(p), real = !me && !/^[nm]:/.test(p.id), M = kpJoMs(c, p.id), U = kpUp(c), av = function (r) { return kpAv(c, r.id)[p.id]; };
+    var day = function (r) { var d = E.parseDate(String(r.d).slice(0, 10)); return dN(d) + " " + MOIS[d.getMonth()]; };
+    var bil = function (L) { var v = L.filter(function (x) { return x.res === "V"; }).length, d = L.filter(function (x) { return x.res === "D"; }).length; return [v ? v + " V" : "", d ? d + " D" : ""].filter(Boolean).join(" · ") || plural(L.length, "match", "matchs"); };
+    var enc = function (h, b, body) { return '<div class="kp-enc"><div class="kp-eh"><span>' + h + "</span>" + (b ? "<b>" + b + "</b>" : "") + "</div>" + body + "</div>"; };
+    var vd = function (x) { return x.res ? '<span class="vd ' + x.res + '">' + x.res + "</span>" : '<span class="vd kp-vd0" aria-label="sans résultat">–</span>'; };
+    var where = function (x) { return [x.j ? "J" + x.j : "", (x.home ? "contre " : "chez ") + x.opp, x.sc].filter(Boolean).join(" · "); };
+    var nm = function (q) { return q ? esc(kpShort(q.n) || "Joueur") : "?"; };
+    var mv = kpMv(p), rk = kpRk(p);
+    var brl = (p.R || {}).b ? '<p class="kp-note kp-jn"><span class="kp-fl" style="margin:0 6px 0 0">brûlé</span>D\'après la feuille de match Ten\'Up, ' + (me ? "tu ne peux" : "il ne peut") + " plus jouer dans une équipe de numéro plus grand du club.</p>" : "";
+    var top = '<div class="lc-r kp-jr">' + kpRkTag(p) + '<span class="grow">' + (mv ? "<b>" + (mv.dir === "up" ? "Monte" : "Descend") + " probablement à " + esc(lab(mv.proj)) + "</b><small>" + esc(cap1(rkRelLab(mv))) + " · simulation Ten'Up</small>" : "<b>Classé " + esc(rk || "?") + "</b><small>" + (me ? "Ton" : "Son") + " classement officiel Ten'Up</small>") + "</span></div>";
+    var sRows = M.s.map(function (x) { var o = x.them[0]; return '<div class="lc-r kp-jr">' + vd(x) + '<span class="grow"><b>contre ' + (o && o.r ? '<span class="rk-tag">' + esc(o.r) + "</span> " : "") + nm(o) + "</b><small>" + esc(where(x)) + '</small></span><span class="small">' + day(x.r) + "</span></div>"; }).join("");
+    var dRows = M.d.map(function (x) { return '<div class="lc-r kp-jr">' + vd(x) + '<span class="grow"><b>' + (x.mate ? "avec " + nm(x.mate) : "En double") + "</b><small>" + (x.them.length ? "face à " + x.them.map(nm).join(" / ") + " · " : "") + esc(where(x)) + '</small></span><span class="small">' + day(x.r) + "</span></div>"; }).join("");
+    var none = function (t) { return '<p class="kp-note kp-jn">' + t + "</p>"; };
+    var dz = U.length ? '<small class="small kp-jh">Touche le rond pour changer : dispo, pas dispo, sans réponse.</small>' + U.map(function (r) { var o = kpOpp(c, r), j = kpJ(c, r), x = av(r), k = x === 1 ? "y" : x === 0 ? "n" : "", t = x === 1 ? "Dispo" : x === 0 ? "Pas dispo" : "Sans réponse";
+        return '<div class="lc-r kp-jr"><span class="grow"><b>' + esc((j ? "J" + j + " · " : "") + o.nm) + "</b><small>" + esc(kpDay(r.d) + " · " + (o.home ? "à domicile" : "à l'extérieur")) + '</small></span><span class="small">' + t + '</span><button class="kp-c" data-a="kpAv" data-v="' + esc(c.id + "|" + r.id + "|" + p.id) + '" aria-label="' + esc(kpDay(r.d) + " : " + t.toLowerCase() + ", toucher pour changer") + '"><i class="' + k + '">' + (x === 1 ? "✓" : x === 0 ? "✕" : "?") + "</i></button></div>"; }).join("")
+      : '<div class="kp-jend"><span class="kp-jic" aria-hidden="true">' + I.check + "</span><span><b>Plus de rencontre à venir</b><small>" + (c.cloture ? "Le championnat est terminé." : "Toutes les rencontres de l'équipe sont jouées.") + "</small></span></div>";
+    var fm = "";
+    try {
+      var rows = null, own = E.idx(T.normRank(rk));
+      if (me) { var cx = ctx(); rows = effMs(cx.proj.matches); own = cx.cur < 0 ? 0 : cx.cur; }
+      else { var sc = (S.scout || {})[String(p.id)]; if (sc && sc.rows) rows = hisEffRows(sc.rows, p.id, nameCase(p.n)); }
+      if (rows && own != null) { var F = ffStats(rows, own), l5 = F.last.slice(0, 5);
+        if (l5.length) fm = enc(me ? "Ta forme" : "Sa forme", F.form.v + " V sur " + F.form.n, '<div class="kp-jf"><small class="small">' + (me ? "Tes " : "Ses ") + plural(l5.length, "dernier match", "derniers matchs") + " en simple, tournois compris, du plus récent au plus ancien</small><span>" + l5.map(function (m) { return '<span class="vd ' + m.result + '">' + m.result + "</span>"; }).join("") + "</span></div>"); }
+    } catch (e) {}
+    var body = enc("Classement", "", top + brl) +
+      enc('<i class="kp-sh s" aria-hidden="true"></i>En simple', M.s.length ? bil(M.s) : "", sRows || none((me ? "Tu n'as" : "Il n'a") + " pas encore joué de simple dans ce championnat.")) +
+      enc('<i class="kp-sh d" aria-hidden="true"></i>En double', M.d.length ? bil(M.d) : "", dRows || none((me ? "Tu n'as" : "Il n'a") + " pas encore joué de double dans ce championnat.")) +
+      enc(me ? "Tes dispos" : "Ses dispos", U.length ? U.filter(function (r) { return av(r) === 1; }).length + " sur " + U.length : "", dz) + fm +
+      (real ? '<button class="kp-more kp-jlk" data-a="kpOpen" data-v="' + esc(p.id) + '"><span>Sa fiche et votre face-à-face</span><span aria-hidden="true">›</span></button>' : "");
+    return { title: me ? "Toi" : kpShort(p.n) || "Joueur", sub: (me ? "Ton" : "Son") + " championnat avec " + tmNm(kpTeamNm(c)), body: body };
   }
 
   // ——— La compo proposée par Ace (modifiable)
@@ -9007,10 +9059,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       (vsMe.length ? '<div class="kv-r"><span>Contre les ' + esc(myR) + "</span><b>" + vsV + " V · " + (vsMe.length - vsV) + " D</b></div>" : "") +
       (sp ? '<div class="kv-r"><span>Sa simulation Ten\'Up · ' + esc(fdate(sp.rel)) + '</span><b class="simv ' + sp.dir + '">' + (sp.dir === "same" ? "Maintien " + lab(sp.cur) : lab(sp.cur) + " → " + lab(sp.proj) + (sp.dir === "up" ? " ↑" : " ↓")) + "</b></div>" : simTxt ? '<div class="kv-r"><span>Simulation Ten\'Up</span><b>' + esc(simTxt) + "</b></div>" : "") + "</div>";
     // toi contre lui + adversaires communs
-    if (!D || mine.length) s += "<h2>Toi contre lui</h2>";
+    // 4.16.5 (Yann, maquette validée le 26/11/2026) : « Toi contre lui » en tête de Statistiques, le court du face-à-face, vos rencontres en dépliant
+    if (!D && !mine.length) s += "<h2>Toi contre lui</h2>";
     if (mine.length) {
-      var mv = mine.filter(function (m) { return m.result === "V"; }).length;
-      s += '<div class="card"><div class="h2h-big"><span>Toi</span><b>' + mv + " – " + (mine.length - mv) + "</b><span>" + esc(pr.prenom || "Lui") + "</span></div>" + mine.map(function (m) { return '<a class="row" href="#/match/' + m.id + '"><span class="vd lg ' + m.result + '">' + m.result + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.comp || "") + "</span></span>" + msbHtml(m) + I.next + "</a>"; }).join("") + "</div>";
+      var mv = mine.filter(function (m) { return m.result === "V"; }).length, lui = her ? "elle" : "lui";
+      var h2c = '<div class="card opp-head h2h-c"><span class="grow"><span class="eyebrow id-pill c-dur">Toi contre ' + lui + "</span>" + fcCourt(mv, mine.length - mv, String(name || "").split(" ")[0] || cap1(lui)) +
+        '<span class="small fc-sub">' + plural(mine.length, "match", "matchs") + " contre " + lui + (mine.length > 1 ? " · le dernier le " + esc(fdate(mine[0].date)) : "") + "</span>" +
+        '<details class="ff-bdd h2h-d"><summary>' + (mine.length > 1 ? "Voir les " + mine.length + " rencontres" : "Voir la rencontre") + '</summary><div class="h2h-rows">' + mine.map(function (m) { return '<a class="row" href="#/match/' + m.id + '"><span class="vd lg ' + m.result + '">' + m.result + '</span><span class="grow"><span class="t">' + esc(fdate(m.date)) + (m.score && !msbHtml(m) ? " · " + esc(m.score) : "") + '</span><span class="s">' + esc(m.comp || "") + "</span></span>" + msbHtml(m) + I.next + "</a>"; }).join("") + "</div></details></span></div>";
+      s = s.slice(0, s0) + h2c + s.slice(s0);
     }
     if (!mine.length && !D) s += '<div class="card"><span style="font-size:15px"><b>Jamais joué.</b> ' + (common0.length ? "Vos adversaires communs sont plus haut." : "Pas encore d\'adversaire commun cette saison.") + "</span></div>";
     var statsHtml = s.slice(s0); s = s.slice(0, s0) + (tab === "plan" && !mixed ? planHtml : tab === "pal" ? palHtml(rows, id, name, pr) : statsHtml);
@@ -14261,6 +14317,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.13 : la saison d'une équipe (qui joue, dispos, compo d'Ace, convocation)
     kpWho: function (v) { return kpWhoSheet(v); },
     kpDz: function (v) { return kpDzSheet(v); },
+    kpJo: function (v) { return kpJoSheet(v); },
     kpCompo: function (v) { return kpCompoSheet(v); },
     kpConv: function (v) { return kpConvSheet(v); },
     lmDef: function (v) { return lmDefSheet(v); }, // 4.14
@@ -16582,6 +16639,14 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return '<a class="rev-hint' + (dark ? " dark" : "") + '" href="#/' + advPath(nameKey(name)) + '">' + 
       '<span class="grow"><span class="eyebrow">' + (x.fiche ? "Ta fiche sur lui" : "Ton retour du dernier match") + '</span>' + noteHtml(x.text) + '<span class="small">' + (x.m ? (x.m.result === "V" ? "Victoire" : "Défaite") + (x.date ? " le " + esc(fdate(x.date)) : "") + (x.m.score ? " · " + esc(x.m.score) : "") : "Sur sa fiche") + (n.length > 1 ? " · " + plural(n.length - 1, "autre note", "autres notes") : "") + "</span></span></a>";
   }
+  // 4.2 (Yann, piste A + B validée le 23/11/2026) : le score du face-à-face sur un court vu de dessus. Un seul dessin, partout (fiche d'adversaire, Statistiques)
+  function fcCourt(v, d, name) {
+    var crt = '<svg class="fc-crt" viewBox="0 0 236 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"><rect x="1" y="1" width="234" height="98" rx="2"/><path d="M1 13h234M1 87h234M55 13v74M181 13v74M55 50h126"/></g><path d="M118 -2v104" stroke="currentColor" stroke-width="3" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/></svg>';
+    return '<span class="fc-court" role="img" aria-label="' + v + " victoire" + (v > 1 ? "s" : "") + " pour toi, " + d + " pour " + esc(name) + '">' + crt +
+      '<span class="fc-sd me"><b style="color:' + (v > d ? "var(--gazon)" : v < d ? "var(--terre)" : "var(--ink)") + '">' + v + "</b><small>Toi</small></span>" +
+      '<span class="fc-ball">' + tball(22) + "</span>" +
+      '<span class="fc-sd him"><b>' + d + "</b><small>" + esc(name) + "</small></span></span>";
+  }
   V.adversaire = function (key) {
     key = decodeURIComponent(key || "");
     var ms = knownMatches(false).filter(function (m) { return m.opp && !isAnon(m.opp) && nameKey(m.opp) === key; }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; });
@@ -16591,12 +16656,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var s = '<div class="screen">' + topbar(name, ms[0].oppRank ? "Classé " + ms[0].oppRank + " au dernier match" : "");
     var prep = null; try { prep = coAdvPrep(key); } catch (e) {}
     // 4.2 (Yann, piste A + B validée le 23/11/2026) : le score sur un court vu de dessus, Ace posé sur la carte avec sa phrase
-    var crt = '<svg class="fc-crt" viewBox="0 0 236 100" preserveAspectRatio="none" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"><rect x="1" y="1" width="234" height="98" rx="2"/><path d="M1 13h234M1 87h234M55 13v74M181 13v74M55 50h126"/></g><path d="M118 -2v104" stroke="currentColor" stroke-width="3" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/></svg>';
     var oh = '<div class="card opp-head"><span class="grow"><span class="eyebrow id-pill c-dur">Face-à-face</span>' +
-      '<span class="fc-court" role="img" aria-label="' + v + " victoire" + (v > 1 ? "s" : "") + " pour toi, " + d + " pour " + esc(name) + '">' + crt +
-      '<span class="fc-sd me"><b style="color:' + (v > d ? "var(--gazon)" : v < d ? "var(--terre)" : "var(--ink)") + '">' + v + "</b><small>Toi</small></span>" +
-      '<span class="fc-ball">' + tball(22) + "</span>" +
-      '<span class="fc-sd him"><b>' + d + "</b><small>" + esc(name) + "</small></span></span>" +
+      fcCourt(v, d, name) +
       '<span class="small fc-sub">' + plural(ms.length, "match", "matchs") + " contre lui" + (v === d && v >= 1 && jk("f-belle") ? " · la belle s'annonce" : "") + "</span><!--FAFACE--></span></div>";
     s += dockAce(oh, "adv", (prep ? [prep] : []).concat(coAdvTips(key, ms)), "<!--FAFACE-->", "vs:" + key); // 3.73 ; 3.75 : « Prépare-moi le match » d'abord
     // 3.93 (Yann, partage) : un match prévu contre lui = l'avant-match se partage en image (tes chances, vos matchs, ce qu'il rapporte)
@@ -19586,11 +19647,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.16",
+    v: "4.16.7",
     pages: [
       // 4.16 (Yann, 26/11/2026) : tes chances = une balle de tennis qui se remplit, aux couleurs de ton thème (fiche, accueil, tournois, widgets, montre)
       { hero: true, title: "Montée 4.16", text: "Tes chances contre un adversaire se lisent d'un coup d'œil : une balle de tennis qui se remplit, aux couleurs de ton thème." },
       { tag: "Nouveau", tone: "rose", title: "Tes chances, en balle", vis: "bal416", text: IOS ? "Plus elle est pleine, plus le match est pour toi. Sur sa fiche, dans Ce qui arrive, tes tournois, tes widgets et ta montre. Touche « D'où vient » pour le détail du calcul." : "Plus elle est pleine, plus le match est pour toi. Sur sa fiche, dans Ce qui arrive, tes tournois et tes widgets. Touche « D'où vient » pour le détail du calcul." },
+      // 4.16.7 (Yann, 26/11/2026, maquette validée) : l'effectif en colonnes Simple / Double, et la fiche championnat d'un joueur
+      { tag: "Nouveau", tone: "rose", title: "Ton effectif, d'un coup d'œil", vis: "ef416", text: "Dans Mes équipes : les simples en carrés, les doubles en ronds, verts quand c'est gagné. Touche un joueur : ses matchs, ses dispos à venir et sa forme." },
       // 4.15 (Yann, 26/11/2026, lot 4 validé) : le profil de ton enfant
       { hero: true, title: "Montée 4.15", text: "Ton enfant joue aussi ? Ajoute-le et passe sur son profil : son classement, sa montée et ses chances contre un adversaire, calculés comme les tiens." },
       { tag: "Nouveau", tone: "rose", title: "Le profil de ton enfant", vis: "kid415", text: "Touche ta pastille sur l'accueil : ajoute ton enfant ou un proche, et passe sur son profil. « Revenir à moi » est en haut de chaque écran." },
@@ -19748,7 +19811,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-      var PHARES = ["bal416", "kid415", "kidl415", "kidf415", "lm414"]; // 4.16 : la balle des chances en tête (kp413 sort) // 4.15 : le profil de ton enfant en tête ; // 4.14 : ils montent ce mois-ci en tête // 4.13 : la saison d'une équipe, puis l'adversaire qui bouge (4.12) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
+      var PHARES = ["ef416", "bal416", "kid415", "kidl415", "kidf415"]; // 4.16.7 : l'effectif en colonnes et la fiche championnat en tête (lm414 sort) // 4.16 : la balle des chances en tête (kp413 sort) // 4.15 : le profil de ton enfant en tête ; // 4.14 : ils montent ce mois-ci en tête // 4.13 : la saison d'une équipe, puis l'adversaire qui bouge (4.12) // 4.12 : l'adversaire qui bouge en tête, puis 4.11 (hb410 sort) // 4.11 (Yann) : une page à la fin pour dire que tout ça est gratuit // 4.11 (avant : ace49, aw47, pa45, ace45) // 4.9 : Ace t'explique la carte // 4.7 : Ace au poignet (iPhone seulement, filtré sur Android) ; 5 pages max avec la 1re (Yann) // 4.5 (avant : eq51, hr54, zn54, how54, fdm51) // 3.43 : à compléter avec les autres nouveautés phares de la version
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -19782,6 +19845,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.13 : la compo d'Ace, la convocation, l'effectif
     if (k === "kp413") return nvc('<span class="nv-k" style="color:#D4E64A">TA COMPO · DIM. 6 DÉC.</span>' + [["S1", "Toi", "15/4"], ["S2", "Hugo L.", "15/5"], ["S3", "Lucas B.", "15/5"], ["D", "Toi · Hugo L.", ""]].map(function (x) { return '<span style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08)"><b style="flex:none;width:26px;height:26px;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25);display:grid;place-items:center;font-size:11px">' + x[0] + '</b><b style="flex:1;font-size:14px">' + x[1] + '</b><span style="font-size:13px;opacity:.75">' + x[2] + "</span></span>"; }).join(""));
     if (k === "cv413") return nvc('<span class="nv-k" style="color:#D4E64A">LE MESSAGE</span><span style="display:block;padding:10px 12px;border-radius:14px 14px 14px 4px;background:rgba(255,255,255,.08);font-size:12.5px;line-height:1.5;text-align:left"><b>TC Exemple 2 · Journée 5</b><br>Dim. 6 déc. · RDV 8 h 45, début 9 h<br><br><b>🎾 SIMPLES</b><br>1️⃣ Toi · 15/4<br>2️⃣ Hugo L. · 15/5<br>3️⃣ Lucas B. · 15/5<br><br>Confirmez-moi votre présence.</span>');
+    if (k === "ef416") return nvc('<span class="nv-k" style="color:#D4E64A">L\'EFFECTIF</span><span style="display:flex;justify-content:flex-end;gap:10px;font-size:10px;font-weight:800;opacity:.7"><span style="width:52px;text-align:left">SIMPLE</span><span style="width:34px;text-align:left;white-space:nowrap">DOUBLE</span></span>' + [["15/3", "Thomas M.", "vvd", "v"], ["15/4", "Hugo L.", "v", "v"], ["30", "Antoine R.", "v", "d"]].map(function (x) { var sh = function (r, rd) { return r.split("").map(function (z) { return '<i style="display:inline-block;width:10px;height:10px;margin-right:4px;border-radius:' + rd + ';background:' + (z === "v" ? "#6FC28F" : "rgba(232,138,94,.6)") + '"></i>'; }).join(""); }; return '<span style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);text-align:left"><b style="flex:none;width:40px;font-size:14px">' + x[0] + '</b><b style="flex:1;font-size:14px">' + x[1] + '</b><span style="width:52px">' + sh(x[2], "3px") + '</span><span style="width:34px">' + sh(x[3], "50%") + "</span></span>"; }).join(""));
     if (k === "ef413") return nvc('<span class="nv-k" style="color:#D4E64A">L\'EFFECTIF</span>' + [["15/3", "Thomas M.", "4 simples · 2 doubles", ""], ["15/4", "Hugo L.", "3 simples · 1 double", "↓ 15/5"], ["30", "Antoine R.", "2 simples", "↑ 15/5"]].map(function (x) { return '<span style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);text-align:left"><b style="flex:none;width:44px;font-size:14px">' + x[0] + '</b><span style="flex:1"><b style="font-size:14px">' + x[1] + (x[3] ? ' <span style="font-size:12px;color:' + (x[3].charAt(0) === "↑" ? "#7BC79A" : "#E88A5E") + '">' + x[3] + "</span>" : "") + '</b><small style="display:block;font-size:11.5px;opacity:.7">' + x[2] + "</small></span></span>"; }).join(""));
     if (k === "rkm412") return nvc('<span class="nv-k" style="color:#D4E64A">JE LE JOUE · JOUR</span><span style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">' + [["SAM.", "28", 0, 0], ["DIM.", "29", 0, 0], ["LUN.", "30", 0, 0], ["MAR.", "1", 1, 0], ["MER.", "2", 1, 1]].slice(1).map(function (d) { return '<span style="position:relative;display:flex;flex-direction:column;align-items:center;padding:6px 0;border-radius:12px;background:' + (d[3] ? "#D4E64A;color:#121212" : "rgba(255,255,255,.08)") + '"><small style="font-size:9.5px;font-weight:800;opacity:.75">' + d[0] + '</small><b style="font-size:17px">' + d[1] + '</b>' + (d[2] ? '<i style="position:absolute;top:5px;right:6px;width:6px;height:6px;border-radius:50%;background:#E88A5E"></i>' : "") + "</span>"; }).join("") + '</span><span style="display:flex;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.08);font-size:12.5px;line-height:1.4"><b style="flex:none;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1.5px #E88A5E;color:#E88A5E;display:grid;place-items:center">↓</b><span><b style="display:block;color:#E88A5E;font-size:13.5px">Mer. 2 déc. : il sera 15/2 ce jour-là</b>Ta victoire vaudra +30 pts au lieu de +45.</span></span>');
     if (k === "pa45") return nvc('<span class="nv-k" style="color:#D4E64A">TES PROCHAINS ADVERSAIRES</span>' + [["MC", "M. Caron · 15/2", nvPill + "a perdu lundi", "47 % → 57 %", 1], ["TD", "T. Durand · 15/3", "Rien de neuf", "61 %", 0], ["JM", "J. Moreau · 15/1", "a gagné samedi", "38 % → 34 %", 0]].map(function (r) { return '<span style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)">' + nvAv(r[0]) + '<span style="flex:1;display:flex;flex-direction:column;min-width:0"><b style="font-size:14px">' + r[1] + '</b><span style="font-size:12.5px;opacity:' + (r[4] ? 1 : 0.7) + '">' + r[2] + '</span></span><b style="font-size:13px;color:' + (r[4] ? "#6FC28F" : "#F2F3F5") + ';white-space:nowrap">' + r[3] + "</b></span>"; }).join(""));
