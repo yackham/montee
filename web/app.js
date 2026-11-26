@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.1",
+    VERSION: "4.18.6",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -352,6 +352,12 @@
     } else if (ok) t.insertAdjacentHTML("afterbegin", '<span class="mx-ck2">' + MX_CK + "</span>");
     document.body.appendChild(t);
     UI.toastT = setTimeout(function () { t.remove(); }, msg.length > 60 ? 4500 : 2800);
+  }
+  // 4.18.2 (Yann : « Annuler ne fonctionne pas ») : un seul toast avec « Annuler », laissé 6 s ; le bouton est branché par l'écouteur des toasts (le toast vit hors de #app)
+  function toastUndo(msg, act) {
+    toast(msg); var tk = document.querySelector(".toast"); if (!tk) return;
+    clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000);
+    tk.insertAdjacentHTML("beforeend", ' <button type="button" class="tk-undo" data-a="' + act + '">Annuler</button>');
   }
 
   // ---------- Icônes ----------
@@ -733,6 +739,21 @@
       if ((location.hash || "#/") !== h) location.hash = h;
     }, { passive: false, capture: true });
     document.addEventListener("click", function (e) { if (sup && Date.now() - sup < 800 && e.target.closest && e.target.closest(".tabbar a.tab")) { e.preventDefault(); e.stopPropagation(); } }, true);
+  })();
+  // 4.18.2 (Yann : « je peux pas cliquer de suite sur l'onglet Entraînements au chargement ») : même cause que 4.4.8, iOS retient le clic
+  // tant que la page s'anime (pastilles des jours, chiffres qui défilent). Les onglets Matchs / Entraînements (et les autres sélecteurs d'onglets)
+  // partent donc eux aussi au lever du doigt ; le clic d'iOS qui suit, s'il arrive, est ignoré pour ne pas compter deux fois.
+  (function () {
+    var SEL = '.seg button[data-a$="Tab"]', tg = null, x0 = 0, y0 = 0, sup = 0, own = false;
+    document.addEventListener("touchstart", function (e) { var b = e.touches.length === 1 && e.target.closest ? e.target.closest(SEL) : null; tg = b && !b.disabled ? b : null; if (tg) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, { passive: true, capture: true });
+    document.addEventListener("touchmove", function (e) { if (tg && (Math.abs(e.touches[0].clientX - x0) > 10 || Math.abs(e.touches[0].clientY - y0) > 10)) tg = null; }, { passive: true, capture: true });
+    document.addEventListener("touchcancel", function () { tg = null; }, { passive: true, capture: true });
+    document.addEventListener("touchend", function (e) {
+      var b = tg; tg = null; if (!b || !b.isConnected) return;
+      e.preventDefault(); sup = Date.now(); own = true;
+      try { b.click(); } finally { own = false; }
+    }, { passive: false, capture: true });
+    document.addEventListener("click", function (e) { if (!own && sup && Date.now() - sup < 800 && e.target.closest && e.target.closest(SEL)) { e.preventDefault(); e.stopPropagation(); } }, true);
   })();
   window.addEventListener("hashchange", function () {
     if (location.hash.indexOf("#import=") === 0) return handleImportHash();
@@ -1811,11 +1832,15 @@
     }
     if (ri != null && ro != null && ri !== ro) return { k: ri > ro ? "up" : "dn", now: now, n: fresh.length, t: "<b>" + (ri > ro ? "Monté " : "Descendu ") + esc(now.rank) + "</b> (était " + esc(b.snap.rank) + ")." + (fx ? " " + fx.replace(/<\/?b>/g, "") : "") };
     if (fresh.length) return { k: "nw", now: now, n: fresh.length, t: fx, m0: fresh[0] };
-    return { k: "calm", now: now, t: ms[0] ? "Rien de neuf : pas de match depuis le " + fdate(ms[0].date) + "." : "Rien de neuf : pas de match cette saison." };
+    var dt = ms[0] ? fdate(ms[0].date) : "", dtx = dt ? dt + (/\.$/.test(dt) ? "" : ".") : "";
+    // 4.18.1 (Yann, maquette validée le 26/11/2026) : lui n'a pas rejoué mais tes chances ont bougé (même calcul que la feuille : paChance), c'est du neuf
+    var p = null; try { p = oppWait(o.id) ? null : paChance(o); } catch (e) {}
+    if (b.p != null && p != null && p !== b.p) return { k: "ch", now: now, p: p, p0: b.p, t: (dt ? "Pas de nouveau match pour lui depuis le " + dtx : "Pas encore de match pour lui cette saison.") + " Ce sont tes chances qui ont bougé :" };
+    return { k: "calm", now: now, t: dt ? "Rien de neuf : pas de match depuis le " + dtx : "Rien de neuf : pas de match cette saison." };
   }
-  function paIsNew(n) { return n.k === "up" || n.k === "dn" || n.k === "nw"; }
+  function paIsNew(n) { return n.k === "up" || n.k === "dn" || n.k === "nw" || n.k === "ch"; }
   // Une phrase courte pour la ligne de l'accueil
-  function paShort(o, n) { var nm = paName(o); return n.k === "up" ? nm + " est monté " + n.now.rank : n.k === "dn" ? nm + " est descendu " + n.now.rank : n.m0 ? nm + " a joué " + paAgo(n.m0.date) : nm + " a joué " + n.n + " matchs"; }
+  function paShort(o, n) { var nm = paName(o); return n.k === "up" ? nm + " est monté " + n.now.rank : n.k === "dn" ? nm + " est descendu " + n.now.rank : n.k === "ch" ? nm + " : tes chances à " + n.p + " %" : n.m0 ? nm + " a joué " + paAgo(n.m0.date) : nm + " a joué " + n.n + " matchs"; }
   // La ligne sous « Ce qui arrive » : la nouvelle du moment (gratuit : seulement ton prochain adversaire), sinon qui arrive
   // 4.5.1 : les nouvelles du moment (gratuit : ton prochain adversaire seulement), un seul calcul pour la carte et la bulle d'Ace
   function paHot() {
@@ -1827,6 +1852,7 @@
     var o = x.o, n = x.n, nm = paName(o), b = (S.paSeen || {})[o.id], p = null; try { p = oppWait(o.id) ? null : paChance(o); } catch (e) {}
     var t = n.k === "up" ? nm + " est monté " + n.now.rank : n.k === "dn" ? nm + " est descendu " + n.now.rank : n.m0 ? nm + (n.m0.result === "V" ? " a gagné " : " a perdu ") + paAgo(n.m0.date) : nm + " a joué " + n.n + " matchs";
     var g = o.day ? dGap(o.day) : null, when = g == null ? "" : g === 0 ? " aujourd'hui" : g === 1 ? " demain" : g < 7 ? " " + JOURS[E.parseDate(o.day).getDay()] : " le " + fdate(o.day);
+    if (n.k === "ch") return "Tes chances contre " + nm + when + " " + (n.p > n.p0 ? "montent" : "baissent") + " à " + n.p + " %.";
     return t + (b && b.p != null && p != null && p !== b.p ? " : tes chances" + when + " passent à " + p + " %." : ".");
   }
   function paLineHtml() {
@@ -2468,8 +2494,7 @@
   }
   function hbMergeToast(mg, prev) { // 4.10 (Yann) : on ne parle du regroupement que quand il arrive, avec « Annuler »
     if (!mg.length) return; var a = mg[0]; UI.hbUndo = prev;
-    toast(dzSl(a.a) + " et " + dzSl(a.b) + " regroupés en " + dzSl(a.r || { from: a.a.from, to: a.b.to }));
-    var tk = document.querySelector(".toast"); if (tk) { clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000); tk.insertAdjacentHTML("beforeend", ' <button class="tk-undo" data-a="hbUndo">Annuler</button>'); }
+    toastUndo(dzSl(a.a) + " et " + dzSl(a.b) + " regroupés en " + dzSl(a.r || { from: a.a.from, to: a.b.to }), "hbUndo");
   }
   function hbSet(slots) { var d = UI.hbd, prev = JSON.parse(JSON.stringify(d.slots)), r = T.slotsMerge(slots); d.slots = r.slots.map(function (x) { return { from: x.from, to: x.to }; }); hbMergeToast(r.merged, prev); }
   function DET_DZA(v) { // ajouter une indispo pour ce tournoi
@@ -11299,7 +11324,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (hier && hier.result === "D") tips.push({ id: "home:loss:" + hier.id, t: "Défaite " + hj + ", ça arrive. On regarde ce qui vient ensuite ?", v: "loss" });
     if (hier && hier.result === "V") tips.push({ id: "home:win:" + hier.id, t: "Bien joué " + hj + " ! Tu veux savoir ce que ça t'a rapporté ?", v: "win" });
     // 4.5.1 (Yann) : Ace pousse les nouvelles de tes prochains adversaires ; sa bulle ouvre la feuille
-    try { var PH = paHot(); if (PH.N.length) { var px = PH.N[0], ps = px.n.now || {}; tips.push({ id: "pa:" + px.o.id + ":" + (ps.last || "") + ":" + (ps.rank || ""), hot: 1, t: paAceLine(px), v: "pa" }); } } catch (e) {}
+    try { var PH = paHot(); if (PH.N.length) { var px = PH.N[0], ps = px.n.now || {}; tips.push({ id: "pa:" + px.o.id + ":" + (ps.last || "") + ":" + (ps.rank || "") + (px.n.k === "ch" ? ":" + px.n.p : ""), hot: 1, t: paAceLine(px), v: "pa" }); } } catch (e) {}
     var oW = null; try { oW = c.proj.status !== "top" ? coNextOut(c) : null; } catch (e) {}
     if (oW && oW.days <= 21) tips.push({ id: "when:" + oW.iso, hot: 1, t: "Ta victoire contre un " + oW.rank + " sort de ton bilan le " + oW.dt + " : une victoire d'ici là la compense.", v: "when" });
     toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
@@ -15930,7 +15955,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         // 4.2 (Yann : « triste », maquette validée le 23/11/2026) : la séance elle-même, en compact (vignette, déroulé, 2 exercices clés, défi)
         var kb = P.blocks.filter(function (b) { return b.k === "ax" || b.k === "game"; }).slice(0, 2), dfb = P.blocks.filter(function (b) { return b.df && b.df.t; })[0];
         var hm = function (m) { m = Math.round(m || 0); return Math.floor(m / 60) + ":" + ("0" + (m % 60)).slice(-2); };
-        cards.push('<a class="tcar-c sq-c" href="#/seance"><span class="eyebrow id-pill c-dur">' + svg('<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>', 2) + "Prochaine séance" + (when ? " · " + esc(when) : "") + " · " + esc(fmtDur(P.min)) + "</span>" +
+        cards.push('<a class="tcar-c sq-c" href="#/seance"><span class="eyebrow id-pill c-dur">' + svg('<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>', 2) + (when ? esc(when.charAt(0).toUpperCase() + when.slice(1)) : "Prochaine séance") + " · " + esc(fmtDur(P.min)) + "</span>" +
           '<span class="sq-top"><b class="tcar-t">' + esc(P.title) + '</b><span class="sq-vig" aria-hidden="true">' + sjVig(P) + "</span></span>" +
           '<span class="sq-bar" aria-hidden="true">' + P.blocks.map(function (b) { return '<i style="flex:' + (b.min || 1) + ";background:" + (b.cat === "cor" ? "var(--muted)" : gcol(b.cat)) + '"></i>'; }).join("") + "</span>" +
           '<span class="sq-l">' + kb.map(function (b) { return '<span class="sq-r"><time>' + hm(b.at) + '</time><i style="color:' + gcol(b.cat) + '"></i><b>' + esc(b.t) + "</b><small>" + b.min + " min</small></span>"; }).join("") + "</span>" +
@@ -18985,7 +19010,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }).catch(function () {});
   }
   // 4.16.7 (Yann : « quand je recharge mes épreuves, j'aimerais revenir sur Toi ») : à l'ouverture de l'app, en arrivant sur Mes épreuves,
-  // en touchant Actualiser ou en revenant dans l'app après quelques minutes, l'onglet repart sur « Toi ». Un retour depuis une épreuve ou une équipe garde l'onglet.
+  // ou en revenant dans l'app après quelques minutes, l'onglet repart sur « Toi ». Un retour depuis une épreuve ou une équipe garde l'onglet.
   function epToi() { if (S.prefs && S.prefs.epTab && S.prefs.epTab !== "toi") { S.prefs.epTab = "toi"; save(); return true; } return false; }
   function nativeWake() {
     if (UI.bgAt && Date.now() - UI.bgAt > 3 * 60000 && route() === "tournoi" && epToi()) render(); UI.bgAt = 0;
@@ -20808,7 +20833,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var nm = String(x && x.name || "").split(" "), hit = x && x.hit && x.hit.id ? x.hit : { id: id, prenom: nm.slice(0, -1).join(" "), nom: nm.slice(-1)[0] || "", rank: x && x.rank || "" };
       UI.trR = null; UI.plSched = null; openScout(hit);
     },
-    insSync: function () { epToi(); insRefresh(true); render(); window.scrollTo(0, 0); }, // 4.16.7 (Yann) : actualiser revient sur « Toi »
+    insSync: function () { insRefresh(true); render(); }, // 4.18.1 (Yann, build) : Actualiser garde l'onglet en cours (Le club reste Le club)
     insOpen: function () { window.open("https://tenup.fft.fr/user/mes-inscriptions", "_system"); },
     tlOff: function () { UI.tlOff = !UI.tlOff; render(); },
     actPlus: function () { UI.actPlus = true; render(); },
@@ -21073,8 +21098,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     coachNo: function (el) {
       var m = coMem(), id = el.dataset.id, sc = el.dataset.s; m.no[id] = Date.now(); m.scr[sc] = (m.scr[sc] || 0) + 1; coPurge(m); save();
       // 4.8.0 (Yann : touché sans faire exprès) : « Annuler » dans le message pour le faire revenir tout de suite
-      UI.coUndo = { id: id, s: sc }; toast("Conseil masqué pour 3 semaines.");
-      var tk = document.querySelector(".toast"); if (tk) { clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000); tk.insertAdjacentHTML("beforeend", ' <button class="tk-undo" data-a="coachUndo">Annuler</button>'); }
+      UI.coUndo = { id: id, s: sc }; toastUndo("Conseil masqué pour 3 semaines.", "coachUndo");
       var card = el.closest(".cbl, .cbl-say"); if (card) { card.style.transition = "opacity .2s"; card.style.opacity = "0"; setTimeout(render, 200); } else render();
     },
     coachUndo: function () { var u = UI.coUndo, m = coMem(); if (!u) return; delete m.no[u.id]; if (m.scr[u.s]) m.scr[u.s]--; UI.coUndo = null; save(); var tk = document.querySelector(".toast"); if (tk) tk.remove(); render(); },
@@ -21989,6 +22013,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       A[a](el, ev);
       if (shK && UI.sheet && JSON.stringify(UI.sheet) === shK) { var shN = document.querySelectorAll(".sheet"); shN = shN[shN.length - 1]; if (shN && shN.getBoundingClientRect().height < shH) shN.style.minHeight = Math.round(shH) + "px"; }
     }
+  });
+  // 4.18.2 : les toasts sont posés sur <body>, hors de #app : leurs boutons (« Annuler ») passent par ici
+  document.addEventListener("click", function (ev) {
+    var el = ev.target.closest && ev.target.closest(".toast [data-a]"); if (!el) return;
+    var a = el.dataset.a; if (!A[a]) return;
+    ev.preventDefault(); ev.stopPropagation(); clearTimeout(UI.toastT); haptic("light"); A[a](el, ev);
   });
   // Pages qui défilent à l'horizontale (mode match) : les points suivent ; sommaire des courbes : la pastille suit
   document.addEventListener("scroll", function (ev) {
