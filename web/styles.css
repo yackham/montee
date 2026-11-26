@@ -8114,6 +8114,10 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .sbd-n { color: color-mix(in srgb, var(--ink) 72%, transparent); }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .sbd-b { background: var(--balle); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 45%, transparent); }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .tq-sheet .seg { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+/* 4.22.0 (Yann) : dans la feuille, le rail et « Annuler » restent neutres dans tous les thèmes (pas la couleur de carte du thème) */
+:root:root:root .tq-sheet .seg { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+:root:root:root .tq-sheet .tq-rs-b .btn.soft { background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); }
+.tq-sheet .field:has(> .seg.res) { margin-bottom: 12px; }
 .tq-rs-who { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tq-rs-b { display: flex; gap: 10px; } .tq-rs-b .btn { flex: 1; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
