@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.18.4",
+    VERSION: "4.18.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -15953,7 +15953,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         // 4.2 (Yann : « triste », maquette validée le 23/11/2026) : la séance elle-même, en compact (vignette, déroulé, 2 exercices clés, défi)
         var kb = P.blocks.filter(function (b) { return b.k === "ax" || b.k === "game"; }).slice(0, 2), dfb = P.blocks.filter(function (b) { return b.df && b.df.t; })[0];
         var hm = function (m) { m = Math.round(m || 0); return Math.floor(m / 60) + ":" + ("0" + (m % 60)).slice(-2); };
-        cards.push('<a class="tcar-c sq-c" href="#/seance"><span class="eyebrow id-pill c-dur">' + svg('<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>', 2) + "Prochaine séance" + (when ? " · " + esc(when) : "") + " · " + esc(fmtDur(P.min)) + "</span>" +
+        cards.push('<a class="tcar-c sq-c" href="#/seance"><span class="eyebrow id-pill c-dur">' + svg('<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>', 2) + (when ? esc(when.charAt(0).toUpperCase() + when.slice(1)) : "Prochaine séance") + " · " + esc(fmtDur(P.min)) + "</span>" +
           '<span class="sq-top"><b class="tcar-t">' + esc(P.title) + '</b><span class="sq-vig" aria-hidden="true">' + sjVig(P) + "</span></span>" +
           '<span class="sq-bar" aria-hidden="true">' + P.blocks.map(function (b) { return '<i style="flex:' + (b.min || 1) + ";background:" + (b.cat === "cor" ? "var(--muted)" : gcol(b.cat)) + '"></i>'; }).join("") + "</span>" +
           '<span class="sq-l">' + kb.map(function (b) { return '<span class="sq-r"><time>' + hm(b.at) + '</time><i style="color:' + gcol(b.cat) + '"></i><b>' + esc(b.t) + "</b><small>" + b.min + " min</small></span>"; }).join("") + "</span>" +
