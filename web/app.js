@@ -5127,13 +5127,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var RES_V = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>';
     var RES_D = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="trScClose"></div><div class="sheet big tq-sheet" role="dialog" aria-modal="true" aria-label="Ton résultat"><span class="sheet-grab"></span>' +
-      '<div class="tq-hd"><b>Ton ' + esc(trLab(R.i).toLowerCase()) + "</b></div>" +
+      '<div class="tq-hd"><b>Ton ' + esc(trLab(R.i).toLowerCase()) + '</b><button class="linkbtn tq-hm" data-a="trScRound" aria-label="Changer l\'adversaire, le jour ou l\'heure">' + PEN_IC + "Modifier</button></div>" +
       '<span class="tq-rs-who">Contre ' + esc(r.opp && r.opp.name ? trNm(r.opp.name) : trWho(r)) + (rk ? ' <span class="rk-tag">' + esc(rk) + "</span>" : "") + (r.day ? " · " + esc(dayLab(r.day)) : "") + "</span>" +
       '<div class="field"><span class="lbl">Résultat</span><div class="seg res"><button data-a="dset" data-k="result" data-v="V" class="rv' + (d.result === "V" ? " on" : "") + '">' + RES_V + 'Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (d.result === "D" ? " on" : "") + '">' + RES_D + "Défaite</button></div></div>" +
       (d.result ? trScScore(d, r.opp && r.opp.name ? trNm(r.opp.name) : "") : "") +
       '<div class="tq-rs-b"><button class="btn soft" data-a="trScClose">Annuler</button><button class="btn primary" data-a="trScSave"' + (d.result ? "" : " disabled") + ">Enregistrer</button></div>" +
-      '<button class="linkbtn" data-a="trScRound" style="align-self:center">Changer l\'adversaire, le jour ou l\'heure</button>' +
-      (r.res ? '<button class="linkbtn" data-a="trScDel" style="align-self:center;color:var(--terre)">Retirer le résultat</button>' : "") + "</div>";
+      (r.res ? '<button class="linkbtn" data-a="trScDel" style="align-self:center;color:var(--terre)">Remettre en « pas encore joué »</button>' : "") + "</div>";
   }
   function trRoundSheet(t) {
     var R = UI.trR, pool = R.k === "pool", alt = !pool && R.mode === "alt";

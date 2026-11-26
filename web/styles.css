@@ -8102,6 +8102,8 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 .sbd-s { flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); background: color-mix(in srgb, var(--ink) 6%, transparent); }
 .sbd-s.w { color: var(--gazon); background: color-mix(in srgb, var(--gazon) 18%, transparent); font-weight: 900; }
 .sbd-ed { align-self: flex-start; padding: 0; min-height: 36px; font-size: 14px; font-weight: 700; }
+.tq-hm { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 2px; min-height: 36px; font-size: 14px; font-weight: 700; } .tq-hm svg { width: 15px; height: 15px; }
+.tq-sheet .tq-hd { align-items: center; }
 .tq-rs-who { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tq-rs-b { display: flex; gap: 10px; } .tq-rs-b .btn { flex: 1; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
