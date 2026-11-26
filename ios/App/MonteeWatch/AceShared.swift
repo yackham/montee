@@ -336,7 +336,7 @@ enum AceDraw {
 }
 
 
-// MARK: - 4.14 : tes chances = une balle de tennis qui se remplit (comme l'iPhone et ses widgets)
+// MARK: - 4.16 : tes chances = une balle de tennis qui se remplit (comme l'iPhone et ses widgets)
 
 /// La couleur vient de l'iPhone (« pc », même calcul que l'appli, couleurs de Nuit) ; jaune balle si elle manque
 struct OddsBall: View {

@@ -55,7 +55,7 @@
   function bar(pct, col, track, h) {
     return '<div style="height:' + (h || 8) + 'px;border-radius:' + (h || 8) + 'px;background:' + track + ';overflow:hidden"><div style="height:100%;width:' + Math.max(0, Math.min(100, pct || 0)) + "%;background:" + col + ';border-radius:inherit"></div></div>';
   }
-  // 4.14 (Yann, 26/11) : tes chances = une balle de tennis qui se remplit, aux couleurs du thème.
+  // 4.16 (Yann, 26/11) : tes chances = une balle de tennis qui se remplit, aux couleurs du thème.
   // Une seule fonction pour l'appli, les widgets et la montre : du « terre » (chances faibles) au « gazon » (toutes tes chances)
   // du thème, mélangés en OKLCH (le milieu passe par le jaune), le milieu éclairci pour rester lisible.
   function hexRgb(c) {
@@ -388,7 +388,7 @@
   T.adversaire = function (d, p) {
     var o = d.scout, ac = accent(p);
     if (!o) return '<div class="x-w" style="' + glow(p, ac) + '">' + eyeb("Adversaire", p.muted) + '<div class="x-sp"></div><span class="x-t1">Prépare ton prochain match</span><span class="x-sm" style="margin-top:4px;color:' + p.muted + '">Cherche ton adversaire : tes chances, ton plan de jeu.</span></div>';
-    // 4.14 (maquette D validée le 26/11) : la balle à gauche, le verdict en premier, l'adversaire, puis le conseil sur une ligne
+    // 4.16 (maquette D validée le 26/11) : la balle à gauche, le verdict en premier, l'adversaire, puis le conseil sur une ligne
     var pc = o.p, nm = String(o.name || "").toLowerCase().replace(/(^|[\s'-])(\S)/g, function (m, a, b) { return a + b.toUpperCase(); });
     var bc = pc != null ? ballCol(pc / 100, p.terre, p.gazon) : p.muted;
     return '<div class="x-w" style="' + glow(p, ac) + ';gap:0;padding:14px 16px">' +
@@ -427,7 +427,7 @@
   T.adversaire2 = function (d, p) {
     var o = d.scout, ac = accent(p);
     if (!o) return '<div class="x-w" style="' + glow(p, ac) + '">' + eyeb("Adversaire", p.muted) + '<div class="x-sp"></div><span class="x-t1" style="font-size:18px">Qui tu joues ?</span><span class="x-sm" style="margin-top:4px;color:' + p.muted + '">Cherche-le : tes chances et ton plan de jeu.</span></div>';
-    // 4.14 (maquette A validée le 26/11) : la balle et le verdict côte à côte, le conseil dessous
+    // 4.16 (maquette A validée le 26/11) : la balle et le verdict côte à côte, le conseil dessous
     var pc = o.p, bc = pc != null ? ballCol(pc / 100, p.terre, p.gazon) : p.muted, tp = o.tip || "";
     return '<div class="x-w" style="' + glow(p, ac) + ';gap:2px;padding:14px 16px">' +
       '<div class="x-row" style="align-items:center;gap:6px"><span style="flex:1;min-width:0">' + eyeb(o.when ? o.when : "Recherche", p.muted) + "</span>" + rkb(o.rank || "?", p, 13) + "</div>" +
