@@ -624,7 +624,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.19.0;
+				MARKETING_VERSION = 4.19.2;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -647,7 +647,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.19.0;
+				MARKETING_VERSION = 4.19.2;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
@@ -671,7 +671,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.19.0;
+				MARKETING_VERSION = 4.19.2;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -699,7 +699,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.19.0;
+				MARKETING_VERSION = 4.19.2;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -726,7 +726,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.19.0;
+				MARKETING_VERSION = 4.19.2;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -750,7 +750,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.19.0;
+				MARKETING_VERSION = 4.19.2;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -774,7 +774,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.19.0;
+				MARKETING_VERSION = 4.19.2;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.watchkitapp.complications;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -801,7 +801,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 4.19.0;
+				MARKETING_VERSION = 4.19.2;
 				PRODUCT_BUNDLE_IDENTIFIER = fr.montennis.app.watchkitapp.complications;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
