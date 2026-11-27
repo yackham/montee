@@ -7590,7 +7590,7 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 /* Vert Montée : textes orangés et gris secondaires */
 :root[data-skin="vert"] { --terre-dark: #F5B596; --sub: #C9D6CE; }
 /* Onglets (Matchs / Entraînements, Plan de jeu / Statistiques…) des thèmes sombres : le choix non retenu reste lisible */
-:root[data-skin]:not([data-skin="retro"]) .seg:not(.res) button:not(.on) { color: color-mix(in srgb, var(--ink) 88%, transparent); }
+:root[data-skin]:not([data-skin="retro"]) .seg:not(.res) button:not(.on) { color: color-mix(in srgb, var(--ink) 94%, transparent); }
 /* Terre : textes secondaires, bleu et brique un ton plus sombres sur les pastilles des cartes sable */
 :root[data-theme="terre"] { --muted: #694636; --id-dur: #234A92; --terre: #8F3216; }
 /* Thèmes clairs : petites pastilles « ×1 » des badges et « Point fort / faible » du profil compétiteur */
@@ -7625,7 +7625,17 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 :root[data-theme="nuit"] :is(.p-ic, .cp-ib:not(.fort):not(.lock)) { color: color-mix(in srgb, var(--c) 70%, var(--ink)); }
 :root[data-skin="retro"] .sj1-go { color: #FBF5E7; }
 .seg.res button svg { opacity: .8; }
-.sc-stamp { color: color-mix(in srgb, var(--sc-r) 68%, var(--ink)); } /* le tampon « Confidentiel » en fond doux : texte un ton plus franc */
+.sc-stamp { color: color-mix(in srgb, var(--sc-r) 58%, var(--ink)); } /* le tampon « Confidentiel » en fond doux : texte un ton plus franc */
+/* 4.24.4 (Yann, 27/11) : traits et séparateurs. La couleur --line était réglée pour la carte normale : sur une surface
+   éclaircie (carte profil de l'accueil, feuilles, encarts) elle se confondait avec le fond (1,02:1 en Vert Montée).
+   Le trait est désormais une touche de la couleur du texte posée par-dessus : il reste visible sur n'importe quelle surface. */
+:root:root:root:root { --line: color-mix(in srgb, var(--ink) 13%, transparent); }
+:root:root:root[data-theme="nuit"] { --line: color-mix(in srgb, var(--ink) 14%, transparent); }
+:root:root:root[data-theme="terre"], :root:root:root[data-skin="retro"] { --line: color-mix(in srgb, var(--ink) 16%, transparent); }
+/* Pastilles « À recorder » et ligne « toi » de la poule : un ton plus franc sur les cartes des thèmes sombres */
+:root[data-theme="nuit"] :is(.mt-st, .rf-st .mt-st, .mt-grid .mt-st) { color: color-mix(in srgb, var(--c) 45%, var(--ink)); }
+:root[data-theme="nuit"] .pl-r.me :is(.pl-tb, .pl-pt) { color: color-mix(in srgb, var(--ink) 82%, transparent); }
+:root[data-theme="nuit"] .mt-c.hot .mt-st { background: rgba(0,0,0,.2); color: var(--ink); }
 
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ

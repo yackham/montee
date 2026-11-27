@@ -27,7 +27,7 @@ App tennis pour compétiteurs (Capacitor iOS + Android, montre Apple en Swift). 
 - À garder : les 3 anneaux de l'accueil, « Ce qui arrive », carte Sortie, « Points à défendre », cartes paliers de l'Activité.
 - Tout chiffre affiché a une définition ou un détail touchable. Noms d'exemple génériques (jamais de vrais joueurs ou testeurs). Thèmes sans marques de tournois.
 - Moderne, sportif, chaleureux, lisible ; pas de refonte pour moderniser.
-- Contraste (règle de Yann, 27/11) : chaque nouvel écran ou changement visuel est vérifié dans les 12 thèmes avant la PR avec `npm run contrastes` (WCAG AA, doit finir à 0). Nouvel écran : l'ajouter à `scripts/contrastes/cap.js`. Couleurs d'accent des thèmes sombres via les variables (`--n-ok`, `--n-ko`, `--n-info`, `--field`…), jamais en dur.
+- Contraste (règle de Yann, 27/11, allégée le même jour) : `npm run contrastes` (12 thèmes, WCAG AA + traits, doit finir à 0, environ 4 min) seulement aux moments stratégiques : avant un build annoncé à Yann, et pour une PR qui touche aux couleurs, aux thèmes ou ajoute un écran. Pas à chaque petite PR. Nouvel écran : l'ajouter à `scripts/contrastes/cap.js`. Couleurs d'accent des thèmes sombres via les variables (`--n-ok`, `--n-ko`, `--n-info`, `--field`…), jamais en dur ; `--line` reste translucide.
 - Avant de créer une classe CSS, vérifier qu'elle n'existe pas déjà dans `styles.css` (collisions déjà vues : `.an-r`, `.tq-ed`).
 
 ## Métier
