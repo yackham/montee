@@ -547,6 +547,162 @@ enum TenupSilentRefresh {
     }
 }
 
+// MARK: - 4.24.1 : lecture directe de Ten'Up (arrière-plan)
+// Le même script que la page Ten'Up cachée, exécuté dans un moteur JavaScript léger : les appels réseau passent
+// par URLSession avec les cookies de la session Ten'Up de l'utilisateur (ceux de la WKWebView, jamais envoyés ailleurs).
+// Quelques secondes au lieu de 30 : la page Ten'Up complète ne finissait jamais de charger dans le temps laissé par iOS.
+final class NativeTenup {
+    private static var current: NativeTenup?
+    static let host = "tenup.fft.fr"
+    static let agent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+    static let poly = """
+    var window = this, self = this, globalThis = this;
+    var console = { log: function () {}, warn: function () {}, error: function () {}, info: function () {} };
+    var __cbs = {}, __n = 0, __tm = {}, __tn = 0;
+    function fetch(url, o) {
+      o = o || {};
+      return new Promise(function (res, rej) {
+        var id = ++__n;
+        __cbs[id] = function (st, tx) {
+          if (st < 0) return rej(new TypeError("Failed to fetch"));
+          res({ ok: st >= 200 && st < 300, status: st,
+            json: function () { return Promise.resolve().then(function () { return JSON.parse(tx); }); },
+            text: function () { return Promise.resolve(tx); },
+            blob: function () { return Promise.reject(new Error("blob")); } });
+        };
+        __nfetch(String(url), String(o.method || "GET"), JSON.stringify(o.headers || {}), o.body == null ? "" : String(o.body), id);
+      });
+    }
+    function __nres(id, st, tx) { var f = __cbs[id]; delete __cbs[id]; if (f) f(st, tx); }
+    function setTimeout(f, ms) { var id = ++__tn; __tm[id] = f; __ntimer(id, +ms || 0); return id; }
+    function clearTimeout(id) { delete __tm[id]; }
+    function __tfire(id) { var f = __tm[id]; delete __tm[id]; if (typeof f === "function") f(); }
+    var location = { origin: "https://tenup.fft.fr", hostname: "tenup.fft.fr", host: "tenup.fft.fr", protocol: "https:", href: "https://tenup.fft.fr/", pathname: "/", search: "", hash: "" };
+    var __el = function () { return { style: {}, innerHTML: "", innerText: "", textContent: "", children: [], appendChild: function () {}, remove: function () {}, setAttribute: function () {}, addEventListener: function () {}, querySelectorAll: function () { return []; }, querySelector: function () { return null; } }; };
+    var document = { title: "", body: __el(), documentElement: __el(), head: __el(), querySelectorAll: function () { return []; }, querySelector: function () { return null; }, getElementById: function () { return null; }, createElement: function () { return __el(); }, execCommand: function () { return false; }, addEventListener: function () {} };
+    var performance = { getEntriesByType: function () { return []; }, now: function () { return Date.now(); } };
+    var navigator = { userAgent: "", language: "fr-FR" };
+    var localStorage = { getItem: function (k) { return __lsget(String(k)); }, setItem: function (k, v) { __lsset(String(k), String(v)); }, removeItem: function (k) { __lsset(String(k), ""); } };
+    """
+
+    let ctx: JSContext
+    let session: URLSession
+    var cookies: [HTTPCookie] = []
+    var ended = false
+    var completion: ((String) -> Void)?
+
+    init?() {
+        guard let c = JSContext() else { return nil }
+        ctx = c
+        let cfg = URLSessionConfiguration.ephemeral
+        cfg.httpShouldSetCookies = false
+        cfg.httpCookieAcceptPolicy = .never
+        cfg.timeoutIntervalForRequest = 12
+        cfg.requestCachePolicy = .reloadIgnoringLocalCacheData
+        session = URLSession(configuration: cfg)
+    }
+
+    static func matches(_ c: HTTPCookie) -> Bool {
+        let d = c.domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        return host == d || host.hasSuffix("." + d)
+    }
+
+    static func run(script: String, timeout: TimeInterval, completion: @escaping (String) -> Void) {
+        DispatchQueue.main.async {
+            current?.end("MONTEE-ERR remplacée")
+            guard let n = NativeTenup() else { completion("MONTEE-ERR moteur"); return }
+            current = n
+            n.completion = completion
+            WKWebsiteDataStore.default().httpCookieStore.getAllCookies { all in
+                n.cookies = all.filter { matches($0) }
+                if n.cookies.isEmpty { n.end("MONTEE-ERR pas de session"); return }
+                n.start(script: script)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { n.end("MONTEE-ERR délai dépassé [direct]") }
+        }
+    }
+
+    func end(_ text: String) {
+        if ended { return }
+        ended = true
+        session.invalidateAndCancel()
+        let c = completion
+        completion = nil
+        if NativeTenup.current === self { NativeTenup.current = nil }
+        c?(text)
+    }
+
+    private func start(script: String) {
+        ctx.exceptionHandler = { _, _ in }
+        let nfetch: @convention(block) (String, String, String, String, Int) -> Void = { [weak self] url, method, headers, body, id in
+            self?.request(url: url, method: method, headers: headers, body: body, id: id)
+        }
+        let ntimer: @convention(block) (Int, Double) -> Void = { [weak self] id, ms in
+            DispatchQueue.main.asyncAfter(deadline: .now() + max(0, ms) / 1000) {
+                guard let self = self, !self.ended else { return }
+                self.ctx.objectForKeyedSubscript("__tfire")?.call(withArguments: [id])
+            }
+        }
+        let ndone: @convention(block) (String) -> Void = { [weak self] text in
+            DispatchQueue.main.async { self?.end(text) }
+        }
+        let lsget: @convention(block) (String) -> Any = { k in
+            if let v = UserDefaults.standard.string(forKey: "montee.ls." + k) { return v }
+            return NSNull()
+        }
+        let lsset: @convention(block) (String, String) -> Void = { k, v in
+            UserDefaults.standard.set(v.isEmpty ? nil : v, forKey: "montee.ls." + k)
+        }
+        ctx.setObject(nfetch, forKeyedSubscript: "__nfetch" as NSString)
+        ctx.setObject(ntimer, forKeyedSubscript: "__ntimer" as NSString)
+        ctx.setObject(ndone, forKeyedSubscript: "__ndone" as NSString)
+        ctx.setObject(lsget, forKeyedSubscript: "__lsget" as NSString)
+        ctx.setObject(lsset, forKeyedSubscript: "__lsset" as NSString)
+        ctx.evaluateScript(NativeTenup.poly)
+        ctx.evaluateScript("(async function () {\n" + script + "\n})().then(function (r) { __ndone(String(r)); }, function (e) { __ndone(\"MONTEE-ERR \" + String(e && e.message || e)); });")
+    }
+
+    private func request(url: String, method: String, headers: String, body: String, id: Int) {
+        guard let u = URL(string: url), let h = u.host, h == NativeTenup.host || h.hasSuffix("." + NativeTenup.host) else {
+            reply(id, -1, ""); return
+        }
+        var r = URLRequest(url: u)
+        r.httpMethod = method
+        if let d = headers.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
+            for (k, v) in o { r.setValue("\(v)", forHTTPHeaderField: k) }
+        }
+        if !body.isEmpty { r.httpBody = body.data(using: .utf8) }
+        r.setValue(NativeTenup.agent, forHTTPHeaderField: "User-Agent")
+        r.setValue("https://tenup.fft.fr/", forHTTPHeaderField: "Referer")
+        r.setValue("fr-FR,fr;q=0.9", forHTTPHeaderField: "Accept-Language")
+        if let c = HTTPCookie.requestHeaderFields(with: cookies)["Cookie"] { r.setValue(c, forHTTPHeaderField: "Cookie") }
+        session.dataTask(with: r) { [weak self] data, resp, _ in
+            let http = resp as? HTTPURLResponse
+            let text = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            DispatchQueue.main.async {
+                guard let self = self, !self.ended else { return }
+                // Session Ten'Up rafraîchie par le site : on la garde, ici et dans la WKWebView
+                if let http = http, let f = http.allHeaderFields as? [String: String] {
+                    let fresh = HTTPCookie.cookies(withResponseHeaderFields: f, for: u)
+                    for c in fresh {
+                        self.cookies.removeAll { $0.name == c.name && $0.domain == c.domain && $0.path == c.path }
+                        self.cookies.append(c)
+                        WKWebsiteDataStore.default().httpCookieStore.setCookie(c)
+                    }
+                }
+                self.reply(id, http?.statusCode ?? -1, text)
+            }
+        }.resume()
+    }
+
+    private func reply(_ id: Int, _ status: Int, _ text: String) {
+        DispatchQueue.main.async {
+            guard !self.ended else { return }
+            self.ctx.objectForKeyedSubscript("__nres")?.call(withArguments: [id, status, text])
+        }
+    }
+}
+
 // MARK: - Plugin Capacitor appelé depuis l'app web
 
 /// 3.94 : aperçu Quick Look d'un fichier calendrier (.ics), gardé en mémoire le temps de l'aperçu
@@ -1348,7 +1504,10 @@ enum MonteeBackground {
                 if !completed { completed = true; busy = false; log("interrompu"); task.setTaskCompleted(success: false) }
             }
         }
-        TenupSilentRefresh.run(script: script, timeout: timeout, early: true) { text in
+        // 4.24.1 : d'abord la lecture directe (quelques secondes, sans navigateur caché) ; si Ten'Up la refuse,
+        // la page Ten'Up cachée comme avant, avec le temps qui reste.
+        let deadline = Date().addingTimeInterval(timeout)
+        let finish: (String) -> Void = { text in
             DispatchQueue.main.async {
                 if completed { return }
                 completed = true
@@ -1373,6 +1532,13 @@ enum MonteeBackground {
                 }
                 task.setTaskCompleted(success: true)
             }
+        }
+        NativeTenup.run(script: script, timeout: min(18, timeout - 4)) { direct in
+            if direct.hasPrefix("MONTEE1") { finish(direct); return }
+            log("direct-ko")
+            let left = deadline.timeIntervalSinceNow - 1
+            if completed || left < 10 { finish("MONTEE-ERR délai dépassé [page]"); return }
+            TenupSilentRefresh.run(script: script, timeout: left, early: true, completion: finish)
         }
     }
 
