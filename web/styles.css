@@ -2721,8 +2721,8 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .topbar .linkbtn { color: var(--page-ink); }
 /* 3.42.4 : contrastes des thèmes Montée+ (Yann) */
 /* Feuilles : Indoor et Nocturne gardent leurs couleurs (plus le gris de Nuit) */
-:root[data-theme="nuit"]:is([data-skin="indoor"], [data-skin="nocturne"]) .sheet { background: linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, #fff 6%) 0, var(--bg) 140px); }
-:root[data-theme="nuit"]:is([data-skin="indoor"], [data-skin="nocturne"]) .sheet .card { background: color-mix(in srgb, var(--card) 80%, #fff 8%); }
+:root[data-theme="nuit"][data-skin] .sheet { background: linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, #fff 6%) 0, var(--bg) 140px); }
+:root[data-theme="nuit"][data-skin] .sheet .card { background: color-mix(in srgb, var(--card) 80%, #fff 8%); }
 /* Rétro : le chiffre de l'objectif sur le panneau vert */
 :root[data-skin="retro"] .tl-i.goal .tl-c b, :root[data-skin="retro"] .tl-i.goal .tl-d { color: #F1E7D2; }
 /* Terre / Dur : ce qui est posé directement sur le fond coloré */
@@ -2840,9 +2840,11 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-r.v .tq-n::after { background: color-mix(in srgb, var(--gazon) 70%, transparent); } .tq-r.last .tq-n::after { display: none; }
 .tq-b { width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; background: var(--chip); color: var(--ink); flex: none; }
 .tq-r.v .tq-b { background: var(--gazon); color: var(--on-gazon, #fff); } .tq-r.d .tq-b { background: var(--terre); color: var(--on-terre, #fff); }
-.tq-r .grow { display: flex; flex-direction: column; gap: 3px; padding-bottom: 16px; min-width: 0; } .tq-r.last .grow { padding-bottom: 2px; }
+.tq-r .grow { flex: 1; display: flex; flex-direction: column; gap: 3px; padding-bottom: 16px; min-width: 0; } .tq-r.last .grow { padding-bottom: 2px; }
 .tq-k { font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.tq-o { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .tq-o b { font-size: 15px; } .tq-o a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent); }
+.tq-k { display: flex; align-items: center; justify-content: space-between; gap: 8px; } /* 4.21.1 : « Modifier » à droite de la ligne du tour */
+.tq-edk { flex: none; min-height: 36px; margin: -10px -4px -10px 0; padding: 0 4px; font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+.tq-o { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .tq-o b { font-size: 15px; } .tq-o a { color: inherit; text-decoration: none; } .tq-gt { color: var(--muted); font-weight: 600; margin-left: 5px; } /* 4.21.1 : plus de soulignement, une flèche vers sa fiche */
 .tq-p { flex: none; font-size: 18px; }
 .tq-alt { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); } .tq-alt b { color: var(--ink); }
 .tq-g { align-self: flex-start; font-size: 11.5px; font-weight: 800; padding: 3px 8px; border-radius: 99px; background: color-mix(in srgb, var(--gazon) 16%, transparent); color: var(--gazon); margin-top: 2px; }
@@ -4312,7 +4314,7 @@ button.co-lk { width: 100%; background: none; border-left: 0; border-right: 0; b
 .rk-near .chip { padding: 0 4px; }
 .rk-other { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
 .rk-other label { font-size: 14px; color: var(--sub); }
-.cond-ed { color: var(--hl, var(--acc-ink)); font-weight: 600; font-size: 15px; flex: none; }
+.cond-ed { color: var(--gazon); font-weight: 600; font-size: 15px; flex: none; }
 .cond-min { flex-direction: row; align-items: center; gap: 12px; text-align: left; cursor: pointer; border: none; width: 100%; font: inherit; color: inherit; }
 .cond-min .grow { display: flex; flex-direction: column; gap: 3px; }
 .cond-min small { color: var(--sub); font-size: 13px; }
@@ -4610,7 +4612,7 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 .td3-i > .card.rate .rate-row button { background: var(--chip); color: var(--ink); }
 :root[data-skin="retro"] .td3-i > .card.rate :is(.eyebrow, .linkbtn) { color: #7B1E2C; }
 /* C3 : surligneur et gris de panneau sur cartes blanches */
-:root:not([data-theme="nuit"]) :is(.gl-card, .tp-card) .eyebrow, :root:not([data-theme="nuit"]) .cond-ed { color: var(--acc-ink); }
+:root:not([data-theme="nuit"]) :is(.gl-card, .tp-card) .eyebrow { color: var(--acc-ink); }
 :root:not([data-theme="nuit"]) .tug-r:not(.n) > span { color: var(--ink); }
 :root:not([data-theme="nuit"]) :is(.rk-other label, .cond-min small, .hx-big:not(.pos), .hx-badge) { color: var(--muted); }
 :root:not([data-theme="nuit"]) .off-card.hx.v .hx-badge { color: var(--acc-ink); }
@@ -5686,7 +5688,7 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .mx-hb { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #EEF7A0, #D4E64A 60%, #AFC23A); box-shadow: 0 1px 2px rgba(0,0,0,.3); pointer-events: none; }
 .mx-tb { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #EEF7A0, #D4E64A 60%, #AFC23A); box-shadow: 0 1px 3px rgba(0,0,0,.35); z-index: 2; opacity: 0; pointer-events: none; transition: top .55s cubic-bezier(.4,0,.2,1), opacity .3s; }
 .tq-path { position: relative; }
-.tq-r.mx-hit .tq-b { animation: mxPop .45s cubic-bezier(.3,1.6,.5,1) both; }
+.tq-tr.mx-hit .tg-n .vd { animation: mxPop .45s cubic-bezier(.3,1.6,.5,1) both; }
 .tq-bar.mx i { transform-origin: left; animation: mxGrow .8s cubic-bezier(.2,.8,.3,1) both; } .tq-bar.mx i.p { animation-delay: .7s; }
 .mx-mv { position: relative; animation: mxRowMv .7s cubic-bezier(.3,1.3,.5,1) both; animation-delay: var(--d, 0ms); }
 .pl-r.me.mx-mv { z-index: 1; }
@@ -7453,6 +7455,55 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 .ace-cont-x { flex: none; width: 44px; height: 44px; margin: 0 2px 0 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle, rgba(21,23,15,.12) 15px, transparent 16px); color: #15170F; cursor: pointer; }
 .ace-cont-x svg { width: 14px; height: 14px; }
 @media (prefers-reduced-motion: reduce) { .ace-cont { animation: none; } }
+/* 4.22.0 (Yann, maquette A) : Ton chemin au style d'un tournoi dans l'Activité */
+.tq-path .tq-tr { align-items: flex-start; }
+.tq-tr .grow { gap: 2px; padding-bottom: 14px; }
+.tq-tr .tg-k { line-height: 1.35; }
+.tq-rc { flex: none; display: flex; align-items: center; gap: 6px; margin-top: 16px; }
+.tq-rc .tq-rb { margin-top: 0; }
+.tq-tr .t { font-size: 15px; } .tq-tr .t a { color: inherit; text-decoration: none; }
+.tq-tr .tq-m { display: flex; align-items: center; flex-wrap: wrap; gap: 0 5px; white-space: nowrap; }
+.tq-tr .tq-m .pts-in { color: var(--gazon); }
+.tq-ch { display: inline-flex; align-items: center; gap: 5px; } .tq-ch svg { flex: none; display: block; }
+.tq-gn { margin-top: 3px; font-size: 12.5px; font-weight: 800; color: var(--gazon); }
+.tq-tr .tg-n .vd { width: 30px; height: 30px; font-size: 13px; font-weight: 900; border-radius: 50%; } .tq-tr .tg-n .vd:not(.V):not(.D) { background: var(--chip); color: var(--muted); }
+.tq-tr.nx .tg-n .vd:not(.V) { background: var(--balle); color: var(--on-balle); }
+.tq-tr.fut { opacity: .55; }
+.tq-tr.fut .tg-n .vd:not(.V) { background: none; box-shadow: inset 0 0 0 2px var(--line); }
+.tq-tr.nx .tg-n::after, .tq-tr.fut .tg-n::after { background: none; width: 0; border-left: 2px dashed var(--line); }
+.tq-tr.fut .tq-gn, .tq-gn.z { color: var(--muted); font-weight: 600; }
+.tq-sc { flex: none; margin-top: 16px; display: flex; align-items: center; gap: 2px; }
+.tq-pen { border: 0; background: var(--chip); color: var(--muted); width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; margin-left: 4px; cursor: pointer; }
+.tq-pen svg, .tq-rb svg { width: 15px; height: 15px; }
+.tq-rb { flex: none; margin-top: 18px; border: 0; border-radius: 99px; padding: 8px 12px; font: inherit; font-weight: 800; font-size: 13px; background: var(--balle); color: var(--on-balle); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+/* 4.22.0 : onglets Mon tournoi / Infos pratiques ; pastille d'inscription sans contour */
+.tq-tabs { margin: 4px 0 2px; }
+.ins-p { border: 0; background: color-mix(in srgb, var(--gazon) 16%, transparent); }
+.ins-p.w { background: color-mix(in srgb, var(--muted) 16%, transparent); }
+.ins-p.d { background: color-mix(in srgb, var(--terre) 16%, transparent); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .ins-st .ins-p { border: 0; }
+/* 4.22.0 : Victoire / Défaite choisie bien visible dans tous les thèmes (les règles .seg button.on des thèmes l'éteignaient) */
+:root:root:root .seg.res button.rv.on.on { background: var(--gazon); color: var(--on-gazon, #121212); box-shadow: none; }
+:root:root:root .seg.res button.rd.on.on { background: var(--terre); color: var(--on-terre, #121212); box-shadow: none; }
+.tq-sheet .field { padding: 0; } /* 4.22.0 (Yann : effet escalier) : tout aligné sur le titre */
+.tq-sheet .seg { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.sbd-ed { padding: 0 2px; min-height: 36px; font-size: 14px; font-weight: 700; margin-left: auto; }
+.tq-sbf .sb-h { align-items: center; }
+.sbd-nj { align-self: center; color: var(--terre); font-size: 14px; font-weight: 600; min-height: 40px; }
+.tq-hm { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 2px; min-height: 36px; font-size: 14px; font-weight: 700; } .tq-hm svg { width: 15px; height: 15px; }
+.tq-sheet .tq-hd { align-items: center; }
+/* 4.22.0 (Yann : contrastes en thème clair) : tableau blanc, chiffres foncés, balle détourée */
+:is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) .tq-sheet .seg { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+/* 4.22.0 (Yann) : dans la feuille, le rail et « Annuler » restent neutres dans tous les thèmes (pas la couleur de carte du thème) */
+:root:root:root .tq-sheet .seg { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+:root:root:root .tq-sheet .tq-rs-b .btn.soft { background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); }
+.tq-sheet .field:has(> .seg.res) { margin-bottom: 12px; }
+/* 4.22.0 (Yann) : sous-titre collé au titre, de l'air avant Victoire/Défaite ; tableau d'arbitre lisible sur le fond de la feuille (fond doux, sans contour) */
+.tq-sheet .tq-rs-who { margin-top: -10px; }
+.tq-sheet .field:has(> .seg.res) { margin-top: 10px; }
+:root .tq-sbf .sb { box-shadow: none; background: linear-gradient(color-mix(in srgb, var(--ink) 12%, transparent), color-mix(in srgb, var(--ink) 12%, transparent)) 0 50% / 100% 1px no-repeat, color-mix(in srgb, var(--ink) 6%, transparent); }
+.tq-rs-who { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tq-rs-b { display: flex; gap: 10px; } .tq-rs-b .btn { flex: 1; }
 /* 4.21.1 : « Dernier week-end » — partager = pastille d'action en couleur d'accent (fond doux, sans contour) en bas de la carte, séparée des liens de navigation */
 .lc-shw { display: flex; width: fit-content; align-items: center; justify-content: center; gap: 6px; margin: 6px auto 14px; padding: 10px 18px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--acc-ink); background: color-mix(in srgb, var(--acc-ink) 14%, transparent); }
 .lc-shw svg { width: 16px; height: 16px; }
