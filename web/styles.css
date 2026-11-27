@@ -346,6 +346,11 @@ input[role=switch]:checked::after { transform: translateX(20px); }
 .card.empty .emp-ill { display: flex; align-items: flex-end; justify-content: center; gap: 6px; margin: 6px 0 8px; }
 .card.empty .emp-ill .cbl-b { margin: 0; }
 /* 4.24.4 (Yann, 27/11) : choix de la pause en rail, 4 mots courts tiennent à 320 px */
+/* 4.24.4 (Yann, 27/11, piste K3) : frise des équipes, ta part de la journée à droite de la 2e ligne, même look que l'effectif */
+.tf-r2 { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 18px; }
+.tf-me { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.tf-me .kp-cl.s, .tf-me .kp-cl.d { min-width: 0; width: auto; }
+.tf-no { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .seg.pz-seg button { font-size: 14px; padding: 0 2px; overflow-wrap: normal; word-break: normal; hyphens: none; }
 .band { border-radius: 22px; overflow: hidden; height: 84px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.04); }
 .band .ill { height: 100%; }
@@ -4130,14 +4135,9 @@ button.co-lk { width: 100%; background: none; border-left: 0; border-right: 0; b
 .tf-dot { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #17181C; z-index: 1; }
 .tf-dot.V { background: var(--gazon); } .tf-dot.D { background: var(--terre); } .tf-dot.N { background: var(--muted); }
 .tf-bx { background: var(--chip); border-radius: 14px; padding: 9px 11px; display: flex; flex-direction: column; gap: 5px; font-size: 13.5px; min-width: 0; }
-.tf-bx.me { box-shadow: inset 0 0 0 2px var(--balle, #D9E85A); }
 .tf-r1 { display: flex; justify-content: space-between; gap: 8px; } .tf-r1 > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tf-sc { font-weight: 800; white-space: nowrap; } .tf-sc.V { color: var(--gazon); } .tf-sc.D { color: var(--terre); }
 :root[data-theme="nuit"] .tf-sc.V { color: var(--n-ok3, #7FC79A); } :root[data-theme="nuit"] .tf-dot.V { background: var(--n-ok3, #7FC79A); }
-.tf-ml { display: flex; flex-wrap: wrap; gap: 5px; font-size: 11px; align-items: center; }
-.tf-toi { background: var(--balle, #D9E85A); color: #17181C; font-weight: 800; border-radius: 6px; padding: 1px 5px; }
-.tf-m { display: inline-flex; align-items: center; gap: 4px; background: var(--card); border-radius: 6px; padding: 1px 6px; font-weight: 650; }
-.tf-m i { width: 9px; height: 9px; display: inline-block; } .tf-m i.s { border-radius: 2px; } .tf-m i.d { border-radius: 50%; } .tf-m i.V { background: var(--gazon); } .tf-m i.D { background: var(--terre); }
 .tf-pl { font-size: 12px; color: var(--muted); } .tf-pl b { color: var(--ink); } .tf-pl .up { color: var(--gazon); } .tf-pl .dn { color: var(--terre); }
 .tm-oth { padding: 0; } .tm-oh { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 16px 18px; font-size: 15px; }
 
@@ -4908,7 +4908,7 @@ button.go-pill { border: 0; cursor: pointer; } a.go-pill, a.go-pill:visited { te
 :root[data-theme="nuit"] .tsx-r.V, :root[data-theme="nuit"] .tim-r.V { color: var(--n-ok3, #7FC79A); }
 .tsx-me i { background: var(--gazon); } .tsx-me i.d { background: var(--terre); }
 .tf-dot.V { color: var(--on-acc-g); } .tf-dot.D { color: var(--on-acc-t); } .tf-dot.N { background: var(--chip); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--muted); }
-.tf-toi, .tim-tg { color: var(--on-balle); }
+.tim-tg { color: var(--on-balle); }
 .tf-sc.D, .tf-it .dn { color: var(--terre-dark); }
 .d3m { color: var(--terre-dark); }
 .d3r-up .d3m { background: color-mix(in srgb, var(--gazon) 14%, transparent); color: var(--gazon-dark); } .d3r-up .d3p { color: var(--gazon); } /* 3.78.1 : victoire qui prend le relais, bonus qui revient */
