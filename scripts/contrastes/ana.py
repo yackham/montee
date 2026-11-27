@@ -44,6 +44,14 @@ for t in TH:
             r=ratio(L(bi),L(bo))
             bc=it['bc']; bord=it['bw']>=1 and bc and bc[3]>0.3 and ratio(L(np.array(bc[:3])),L(bo))>=1.5
             res.append(dict(k='fld' if it['field'] else 'btn',t=t,page=name,txt=it['txt'],path=it['path'],r=round(float(r),3),need=0,fg=[int(x) for x in bi],bg=[int(x) for x in bo],box=it['rect'],bord=bool(bord)))
+        for it in v.get('lines',[]):
+            x,y,w,h=it['rect']
+            # fond derrière le trait : bande de 3 px juste à côté (au-dessus/à gauche, sinon dessous/à droite)
+            if it['side'] in ('t','b','h'): band=crop(im,x+4,y-4,w-8,3) if y>=5 else crop(im,x+4,y+h+1,w-8,3)
+            else: band=crop(im,x-4,y+3,3,h-6) if x>=5 else crop(im,x+w+1,y+3,3,h-6)
+            if band is None: continue
+            bg=med(band); c=np.array(it['col'][:3],float); a=it['col'][3]*it['op']; fg=a*c+(1-a)*bg
+            res.append(dict(k='line',t=t,page=name,txt=it['side'],path=it['path'],r=round(float(ratio(L(fg),L(bg))),3),need=0,fg=[int(q) for q in fg],bg=[int(q) for q in bg],box=it['rect']))
 json.dump(res,open(f'{D}/res.json','w'))
 txt=[x for x in res if x['k']=='txt']; bad=[x for x in txt if x['r']<x['need']]
 print(len(txt),'textes,',len(bad),'sous AA')
