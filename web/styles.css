@@ -345,6 +345,8 @@ input[role=switch]:checked::after { transform: translateX(20px); }
 .card.empty .ill { max-width: 240px; margin: 0 auto 6px; }
 .card.empty .emp-ill { display: flex; align-items: flex-end; justify-content: center; gap: 6px; margin: 6px 0 8px; }
 .card.empty .emp-ill .cbl-b { margin: 0; }
+/* 4.24.4 (Yann, 27/11) : choix de la pause en rail, 4 mots courts tiennent à 320 px */
+.seg.pz-seg button { font-size: 14px; padding: 0 2px; overflow-wrap: normal; word-break: normal; hyphens: none; }
 .band { border-radius: 22px; overflow: hidden; height: 84px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.04); }
 .band .ill { height: 100%; }
 .card.hero { position: relative; overflow: hidden; }
@@ -5846,8 +5848,8 @@ button.acr, a.acr { cursor: pointer; }
 .pl-flat .pl-g, .pl-flat .pl-g.me { border: 0; border-top: 1px solid var(--line); border-radius: 0; margin: 0; padding: 11px 0; background: none; box-shadow: none; gap: 12px; font-size: 14.5px; }
 .pl-flat > .eyebrow + .pl-g { border-top: 0; }
 .pl-lead { width: 32px; flex: none; display: flex; justify-content: center; }
-.pl-ok { width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; box-shadow: inset 0 0 0 2px var(--gazon); color: var(--gazon); }
-.pl-ok.d { box-shadow: inset 0 0 0 2px var(--terre); color: var(--terre); }
+.pl-ok { width: 30px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; background: var(--gazon); color: var(--on-acc-g); } /* 4.24.4 (Yann, 27/11) : pastille pleine, comme les matchs de l'Activité (.vd) */
+.pl-ok.d { background: var(--terre); color: var(--on-acc-t); }
 .pl-dt { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.15; }
 .pl-st .pl-r .rk-tag { margin-left: 3px; }
 

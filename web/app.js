@@ -12263,11 +12263,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       }).join("");
     })();
     if (UI.palSheet) {
-      var ch = function (k, v, t) { var on = (k === "res" ? fRes : fType) === v; return '<button class="chip' + (on ? " on" : "") + '" data-a="palSet" data-k="' + k + '" data-v="' + v + '">' + t + "</button>"; };
+      var ch = function (k, v, t) { var on = (k === "res" ? fRes : fType) === v; return '<button class="' + (on ? "on" : "") + '" data-a="palSet" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + on + '">' + t + "</button>"; }; // 4.24.4 (Yann, 27/11) : choix en rail, comme les onglets
       var nRes = all.filter(function (m) { return fRes === "all" || m.result === (fRes === "v" ? "V" : "D"); }).length * (fType === "d" ? 0 : 1) + (fType === "s" ? 0 : (S.doubles || []).filter(function (m) { return fRes === "all" || m.result === (fRes === "v" ? "V" : "D"); }).length);
       s += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="palSheet"></div><div class="sheet act-sheet" role="dialog" aria-modal="true" aria-label="Afficher"><span class="sheet-grab"></span><b style="font-size:19px">Afficher</b>' +
-        '<span class="m2-lab">Résultat</span><div class="chips">' + ch("res", "all", "Tout") + ch("res", "v", "Victoires") + ch("res", "d", "Défaites") + "</div>" +
-        ((S.doubles || []).length ? '<span class="m2-lab">Type</span><div class="chips">' + ch("type", "all", "Simples et doubles") + ch("type", "s", "Simples") + ch("type", "d", "Doubles") + "</div>" : "") +
+        '<span class="m2-lab">Résultat</span><div class="seg" role="group" aria-label="Résultat">' + ch("res", "all", "Tout") + ch("res", "v", "Victoires") + ch("res", "d", "Défaites") + "</div>" +
+        ((S.doubles || []).length ? '<span class="m2-lab">Type</span><div class="seg" role="group" aria-label="Type">' + ch("type", "all", "Tous") + ch("type", "s", "Simples") + ch("type", "d", "Doubles") + "</div>" : "") +
         '<button class="btn primary" data-a="palSheet">Voir ' + plural(nRes, "match", "matchs") + "</button></div>";
     }
     return s + "</div>" + tabbar("palmares");
@@ -16371,7 +16371,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- 3 · Pause ou blessure ----------
   var PZ_WHY = [["blessure", "Blessure"], ["fatigue", "Fatigue"], ["vacances", "Vacances"], ["autre", "Autre"]];
-  var PZ_LEN = [["0", "Je ne sais pas"], ["14", "2 semaines"], ["30", "1 mois"]];
+  var PZ_LEN = [["0", "Pas sûr"], ["14", "14 jours"], ["30", "1 mois"]];
   function pauseOn() { var p = S.pause; return !!(p && p.from && (!p.until || p.until >= E.iso(today()))); }
   function pauseBack() { var b = S.pauseBack; if (!b || !b.d) return null; var g = -dGap(b.d); return g >= 0 && g < 21 && !b.hide ? { b: b, wk: Math.floor(g / 7) } : null; }
   function pauseWhyLab(k) { var w = PZ_WHY.filter(function (x) { return x[0] === k; })[0]; return w ? w[1].toLowerCase() : "pause"; }
@@ -16407,13 +16407,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   DET.pause = function () {
     var p = UI.pzDraft || (UI.pzDraft = { why: (S.pause && S.pause.why) || "blessure", len: "0", until: "" });
-    var chip = function (k, v, l, on) { return '<button class="chip' + (on ? " on" : "") + '" data-a="pzSet" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + !!on + '">' + l + "</button>"; };
+    var chip = function (k, v, l, on) { return '<button class="' + (on ? "on" : "") + '" data-a="pzSet" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + !!on + '">' + l + "</button>"; };
     var c = ctx(), pr = c.proj, mt = "";
     try { if (pr && pr.status !== "top" && c.cur > 0) mt = pr.kept ? "Ton maintien à " + obRk(effRank()) + " est protégé : ta pause n'y change rien." : pr.margin >= 0 ? "Ton maintien à " + obRk(effRank()) + " est déjà assuré pour la sortie du " + esc(fdate(pr.release).replace(/\.$/, "")) + ". Ta pause n'y change rien." : "Attention : ton maintien à " + obRk(effRank()) + " n'est pas encore assuré pour la sortie du " + esc(fdate(pr.release).replace(/\.$/, "")) + "."; } catch (e) {}
     var on = pauseOn();
     return { title: on ? "Ta pause" : "Tu fais une pause ?", sub: "Montée se met en veille, et t'aide à revenir.", body:
-      '<span class="ob-lbl">Pourquoi</span><div class="chips">' + PZ_WHY.map(function (w) { return chip("why", w[0], w[1], p.why === w[0]); }).join("") + "</div>" +
-      '<span class="ob-lbl">Jusqu\'à quand</span><div class="chips">' + PZ_LEN.map(function (w) { return chip("len", w[0], w[1], p.len === w[0]); }).join("") + chip("len", "d", "Une date", p.len === "d") + "</div>" +
+      '<span class="ob-lbl">Pourquoi</span><div class="seg pz-seg" role="group" aria-label="Pourquoi">' + PZ_WHY.map(function (w) { return chip("why", w[0], w[1], p.why === w[0]); }).join("") + "</div>" +
+      '<span class="ob-lbl">Jusqu\'à quand</span><div class="seg pz-seg" role="group" aria-label="Jusqu\'à quand">' + PZ_LEN.map(function (w) { return chip("len", w[0], w[1], p.len === w[0]); }).join("") + chip("len", "d", "Une date", p.len === "d") + "</div>" +
       (p.len === "d" ? '<input type="date" class="ob-date" data-pz="until" value="' + esc(p.until || "") + '" min="' + E.iso(today()) + '" aria-label="Fin de ta pause">' : "") +
       '<span class="ob-lbl">Pendant ta pause</span>' +
       '<div class="ob-li"><i>✓</i><span>Ace ne te relance plus sur tes matchs et tes entraînements.</span></div>' +
