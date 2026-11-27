@@ -7639,6 +7639,29 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 .tz-cta { position: sticky; bottom: calc(-18px - var(--sab)); z-index: 2; display: flex; flex-direction: column; gap: 6px; margin: 14px -18px calc(-18px - var(--sab)); padding: 12px 18px calc(12px + var(--sab)); background: var(--bg); box-shadow: 0 -12px 18px -14px rgba(0,0,0,.45); }
 :root[data-theme="nuit"] .tz-cta { background: #1E2025; }
 .tz-cta .tz-foot { margin: 0 4px; text-align: center; }
+/* 4.27 (Yann, maquette v3) : Réglages en sommaire ; écran Ten'Up rangé en encarts */
+.rg-scr .list + .list { margin-top: 4px; }
+.row.tu-pull { flex-direction: column; align-items: stretch; gap: 10px; }
+.row.tu-unl .t { color: var(--gazon); font-weight: 500; }
+:root[data-theme="nuit"] .row.tu-unl .t { color: var(--n-ok2, #6FC28F); }
+.card.rg-hd { gap: 8px; padding: 20px; }
+.rg-hd .p-ic { width: 56px; height: 56px; border-radius: 28px; margin-bottom: 4px; }
+.rg-hd .p-ic svg { width: 28px; height: 28px; }
+.rg-hd h1 { font-size: 24px; letter-spacing: -.01em; margin: 0; }
+.rg-hd .p-ic { position: relative; }
+.rg-hd .p-ic::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: color-mix(in srgb, var(--c) 30%, transparent); animation: rgHalo 1.1s .15s ease-out both; pointer-events: none; }
+@keyframes rgHalo { from { transform: scale(1); opacity: .9; } to { transform: scale(1.7); opacity: 0; } }
+.rg-ring .p-ic svg { transform-origin: 50% 12%; animation: rgRing 1.1s .25s ease-in-out both; }
+@keyframes rgRing { 0%, 100% { transform: rotate(0); } 12% { transform: rotate(16deg); } 26% { transform: rotate(-14deg); } 40% { transform: rotate(10deg); } 54% { transform: rotate(-6deg); } 68% { transform: rotate(3deg); } }
+.rg-blink .p-ic svg { animation: rgBlink 1.4s .3s ease-in-out both; }
+@keyframes rgBlink { 0%, 30%, 50%, 100% { transform: scaleY(1); } 38% { transform: scaleY(.1); } 72% { transform: scaleY(1); } 80% { transform: scaleY(.1); } 88% { transform: scaleY(1); } }
+.rg-spin .p-ic svg { animation: rgSpin 1.2s .2s cubic-bezier(.5, 0, .2, 1) both; }
+@keyframes rgSpin { from { transform: rotate(-180deg); } to { transform: rotate(0); } }
+.rg-beat .p-ic svg path { stroke-dasharray: 44; animation: rgBeat 1.3s .2s ease-out both; }
+@keyframes rgBeat { from { stroke-dashoffset: 44; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .rg-hd .p-ic::after, .rg-hd .p-ic svg, .rg-hd .p-ic svg path { animation: none !important; } .rg-hd .p-ic::after { opacity: 0; } }
+.rg-hd p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--muted); }
+
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.
