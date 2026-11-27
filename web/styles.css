@@ -3273,9 +3273,7 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 
 /* 3.44.2 : saisie d'un tour (tq-) */
 .tq-sheet { gap: 14px; }
-.tq-hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.tq-hd b { font-size: 21px; }
-.tq-hd span { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tq-hd + .tq-sub { color: var(--muted); line-height: 1.4; margin: -8px 0 12px; overflow-wrap: anywhere; } /* 4.21.2 (Yann) : l'épreuve sous le titre, puis de l'air avant le contenu */
 .tq-seg { display: flex; background: var(--chip); border-radius: 99px; padding: 3px; }
 .tq-seg button { flex: 1; border: 0; background: none; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 700; padding: 9px 6px; border-radius: 99px; white-space: nowrap; }
 .tq-seg button.on { background: var(--ink); color: var(--bg); }
@@ -3302,6 +3300,29 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-pill { flex: none; min-width: 46px; padding: 8px 10px; border: 0; border-radius: 99px; background: var(--chip); color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; }
 .tq-pill.on { background: var(--ink); color: var(--bg); }
 .tq-card { display: flex; align-items: center; gap: 12px; background: var(--chip); border-radius: 16px; padding: 12px 10px 12px 14px; }
+/* 4.21.2 (Yann) : ajout d'un adversaire de poule : carte du joueur, puis un encart à lignes plates */
+.tq-card2 .grow { min-width: 0; }
+.tq-card2 .grow > b { display: block; overflow-wrap: anywhere; line-height: 1.25; }
+.tq-card2 small { display: flex; align-items: center; gap: 6px; margin-top: 3px; min-width: 0; }
+.tq-card2 small > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tq-card2 small .rk-tag { flex: none; }
+.tq-chg { flex: none; align-self: center; }
+.tq-sheet .vdl { margin-top: 8px; }
+.tq-enc { display: flex; flex-direction: column; background: var(--chip); border-radius: 16px; padding: 0 14px; }
+.tq-er { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.tq-er:last-child { border-bottom: 0; }
+.tq-el2 { flex: 1; min-width: 0; font-weight: 600; }
+.tq-hp { display: flex; gap: 6px; }
+.tq-hp .tq-pill { display: inline-flex; align-items: center; gap: 4px; padding: 7px 11px; font-size: 12.5px; background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.tq-hp .tq-pill.on { background: var(--ink); color: var(--bg); }
+.tq-ein { flex: 0 1 170px; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; text-align: right; padding: 8px 0; }
+.tq-ein::placeholder { color: var(--gazon); font-weight: 600; opacity: 1; }
+.tq-dt { display: flex; gap: 6px; align-items: center; }
+.tq-dt .tn-dd { position: relative; }
+.tq-dt .tn-dd input[type=date], .tq-dt .tn-dd select { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; text-align: right; padding: 8px 0; -webkit-appearance: none; appearance: none; }
+.tq-dt .tn-dd:not(.v) input[type=date] { color: transparent; width: 150px; }
+.tq-dt input[type=date]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; opacity: 0; cursor: pointer; }
+.tq-dt .tn-dd em { left: auto; right: 0; color: var(--gazon); font-weight: 600; white-space: nowrap; }
 .tq-big { font-size: 20px !important; flex: none; }
 .tq-x { border: 0; background: none; color: var(--muted); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex: none; padding: 0; }
 .tq-x svg { width: 16px; height: 16px; }
@@ -3323,7 +3344,10 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-h span { font-size: 13.5px; color: var(--muted); }
 .tq-h select.tsel { text-align-last: right; }
 .tq-h input, .tq-h select.tsel { border: 0; background: none; color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; text-align: right; min-width: 80px; min-height: 40px; outline: none; -webkit-appearance: none; appearance: none; }
-.tq-stake b { font-size: 13px; }
+.tq-stake b { font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+.tq-stake { align-items: center; }
+.tq-stake b { color: var(--ink); }
+.tq-odds { display: inline-flex; align-items: center; gap: 8px; }
 .tq-undo { align-self: center; font-size: 13px; }
 .tl-r .tl-vd { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
 .tl-r .tl-vd b { font-size: 13px; }
@@ -3648,11 +3672,14 @@ button.ts-t { border: 0; font: inherit; color: var(--ink); text-align: left; }
 .ti-host .tq-pill { display: inline-flex; align-items: center; gap: 4px; padding: 6px 11px; font-size: 12.5px; }
 .ti-host .tq-pill svg { width: 13px; height: 13px; }
 /* 3.46.4 : PDF de la poule */
-.ti-pdf { display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
-.ti-pdf svg { width: 18px; height: 18px; }
-.ti-pdfok { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--gazon); font-weight: 600; }
-.ti-pdfok svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
-.ti-warn { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--terre); }
+.ti-warn { display: flex; flex-direction: column; gap: 14px; }
+.ti-warn .linkbtn { align-self: center; }
+.ti-wh { display: flex; gap: 12px; align-items: flex-start; }
+.ti-wi { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--terre) 20%, transparent); color: var(--terre); font-weight: 800; font-size: 16px; }
+.ti-wt { display: flex; flex-direction: column; gap: 4px; }
+.ti-wt > b { font-size: 17px; }
+.ti-wt .small { color: var(--muted); line-height: 1.4; }
+.ti-wt .small b { color: var(--ink); }
 /* 3.46.4 : import, grille stricte : avatar | nom (prend la place) | classement à droite ; « Qui reçoit » aligné sous le nom */
 .ti-r .grow { flex: 1 1 auto; }
 .ti-r > .tq-rk, .ti-r > .ti-auto, .ti-r > .ti-busy, .ti-r > .linkbtn { margin-left: auto; }
@@ -3662,10 +3689,6 @@ button.ts-t { border: 0; font: inherit; color: var(--ink); text-align: left; }
 .ti-host .tq-pill { min-width: 92px; justify-content: center; }
 /* 3.46.4 : bouton secondaire lisible dans une carte (contraste) ; compléter un PDF avec le mail */
 .pe-alt { background: transparent; color: var(--ink); border: 1.5px solid var(--line); box-shadow: none; }
-.ti-addm { display: flex; flex-direction: column; gap: 10px; }
-.ti-addm .btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; }
-.ti-addm .btn svg { width: 16px; height: 16px; }
-.ti-addm .ti-t { min-height: 120px; }
 .ti-addm .pe-alt, .pe-c .pe-alt { border-color: color-mix(in srgb, var(--ink) 35%, transparent); }
 /* 3.46.5 : carte Montée compacte (maquette 449 C) */
 .card.hero.h3.h3c { gap: 8px; }
@@ -8111,6 +8134,30 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 :root .tq-sbf .sb { box-shadow: none; background: linear-gradient(color-mix(in srgb, var(--ink) 12%, transparent), color-mix(in srgb, var(--ink) 12%, transparent)) 0 50% / 100% 1px no-repeat, color-mix(in srgb, var(--ink) 6%, transparent); }
 .tq-rs-who { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tq-rs-b { display: flex; gap: 10px; } .tq-rs-b .btn { flex: 1; }
+/* 4.21.1 : « Dernier week-end » — partager = pastille d'action en couleur d'accent (fond doux, sans contour) en bas de la carte, séparée des liens de navigation */
+.lc-shw { display: flex; width: fit-content; align-items: center; justify-content: center; gap: 6px; margin: 6px auto 14px; padding: 10px 18px; border: 0; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--acc-ink); background: color-mix(in srgb, var(--acc-ink) 14%, transparent); }
+.lc-shw svg { width: 16px; height: 16px; }
+.lc-list > .lc-r + .lc-more { border-top: 0; } /* 4.21.1 : un seul trait sous le dernier match */
+
+/* 4.21.2 (Yann) : liste des adversaires lue dans le mail : nom, balle jaune + club, numéro, qui reçoit sous le texte */
+.ti-hint { color: var(--muted); margin-top: 4px; }
+.ti-r2 { align-items: flex-start; padding: 14px 0; }
+.ti-r2 .grow { gap: 3px; }
+.ti-nm { display: flex; align-items: baseline; gap: 8px; }
+.ti-nm > b { flex: 1; min-width: 0; font-size: 15px; line-height: 1.25; }
+.ti-nm > .linkbtn, .ti-nm > .ti-q, .ti-nm > .ti-busy { flex: none; margin-left: auto; }
+.ti-nm > .linkbtn { padding: 0; min-height: 0; line-height: 1.25; }
+.ti-sub { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ti-sub .rk-tag { flex: none; white-space: nowrap; }
+.ti-sub > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ti-hp { display: flex; gap: 6px; margin-top: 8px; }
+.ti-hp .tq-pill { display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; font-size: 12.5px; }
+.ti-hp .tq-pill svg { width: 13px; height: 13px; }
+/* 4.21.2 (Yann) : en thème clair, une feuille a la couleur du fond et les champs de saisie (couleur puce) s'y fondaient.
+   Sur une feuille claire, un champ prend la couleur des cartes ; dans une carte posée sur la feuille, il reprend sa couleur de champ. */
+:root:not([data-theme="nuit"]) .sheet :is(.tq-sb, .rl-in, .rl-e input, .ob-time input, .ob-time select.tsel, .field input[type=text], .field input[type=email], .field input[type=password], .field input[type=date], .field input[type=number], .field select, .field textarea, .tn-d.field .tn-dd input, .tn-d.field .tn-dd select.tsel) { background: var(--card) !important; }
+:root:not([data-theme="nuit"]) .sheet :is(.tq-card, .tq-enc) { background: var(--card); }
+:root:not([data-theme="nuit"]) .sheet .card :is(.tq-sb, .rl-in, .rl-e input, .ob-time input, .ob-time select.tsel, .field input[type=text], .field input[type=email], .field input[type=password], .field input[type=date], .field input[type=number], .field select, .field textarea, .tn-d.field .tn-dd input, .tn-d.field .tn-dd select.tsel) { background: var(--field) !important; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.
@@ -8173,3 +8220,4 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 .card.cap { border-color: transparent !important; }
 .cap-n { border-color: transparent !important; background: color-mix(in srgb, var(--ink) 12%, transparent); }
 /* Garde-fou : tests/sans-contour.test.js refuse tout nouveau trait ou anneau sur un bouton, une tuile ou une puce. */
+

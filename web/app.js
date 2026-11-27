@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.22.0",
+    VERSION: "4.24.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -3165,7 +3165,7 @@
   // 3.46.3 : en tableau, l'adversaire du mail devient ton 1er tour
   function trR1(x) { return { id: uid(), day: "", time: "", res: null, opp: { name: x.name || "", rank: x.rank || "", club: x.club || "", tid: x.tid || "", hit: x.hit || null }, tel: x.tel || "" }; }
   function poolEmptyHtml(t) {
-    return '<div class="card pe-c"><b>Ta poule n\'est pas encore là</b><span class="small">Le comité l\'envoie par mail (adversaires, téléphones, date limite). Colle-le, et joins son PDF si tu l\'as : Montée remplit ta poule, retrouve tes adversaires sur Ten\'Up et sait qui reçoit.</span>' +
+    return '<div class="card pe-c"><b>Ta poule n\'est pas encore là</b><span class="small">Le comité l\'envoie par mail (adversaires, téléphones, date limite). Colle-le : Montée remplit ta poule, retrouve tes adversaires sur Ten\'Up et sait qui reçoit.</span>' +
       '<button class="btn primary" data-a="trImportInto">' + PASTE_IC + " Coller le mail du comité</button>" +
       '<button class="btn pe-alt" data-a="plEdit">' + I.plus + " Ajouter les joueurs à la main</button>" +
       '<button class="linkbtn pe-probe" data-a="trFmtSet" data-v="tableau">Pas de poule : élimination directe ?</button>' +
@@ -3548,7 +3548,8 @@
       s += '<h2 class="tm-gh lc-h"><span>Dernier week-end<svg class="lc-wb" viewBox="0 0 50 14" aria-hidden="true"><circle cx="3" cy="11" r="3" fill="var(--balle)"/></svg></span><small>' + lcDay(last) + "</small></h2>" +
         '<div class="blk lc-list">' + WE.map(function (o, i) { var me = o.x.c.me.mine, r = o.r, a = r.a === me ? r.s1 : r.s2, b = r.a === me ? r.s2 : r.s1;
           return '<a class="lc-r lc-w" href="#/rencontre/' + esc(o.x.c.id) + "/" + esc(r.id) + '" style="--i:' + i + '"><span class="grow"><b>' + esc(champNm(o.x.c) + (o.x.num ? " · éq. " + o.x.num : "")) + (o.x.mine ? ' <span class="lc-me">toi</span>' : "") + "</b><small>" + (r.dom === me ? "contre " : "chez ") + esc(tmNm(r.a === me ? r.bn : r.an)) + '</small></span><span class="lc-sc ' + o.res + '">' + o.res.toUpperCase() + " " + a + "–" + b + "</span></a>"; }).join("") +
-        '<button class="lc-more lc-sh" data-a="lcShare" data-k="we">' + I.share + "Partager les scores du week-end</button>" + '<button class="lc-more" data-a="sheet" data-k="lcRes" data-v="">Toutes les rencontres de la saison ›</button>' + (nxt ? '<button class="lc-more" data-a="sheet" data-k="clubNx" data-v="' + nx7 + '">7 prochains jours : ' + plural(nxt, "rencontre", "rencontres") + " ›</button>" : "") + "</div>";
+        '<button class="lc-more" data-a="sheet" data-k="lcRes" data-v="">Toutes les rencontres de la saison ›</button>' + (nxt ? '<button class="lc-more" data-a="sheet" data-k="clubNx" data-v="' + nx7 + '">7 prochains jours : ' + plural(nxt, "rencontre", "rencontres") + " ›</button>" : "") +
+        '<button class="lc-shw" data-a="lcShare" data-k="we">' + I.share + "Partager les scores du week-end</button>" + "</div>"; /* 4.21.1 (Yann : « séparer visuellement les deux actions ») : partager = pastille d'action en bas, les liens restent des lignes */
     }
     // les équipes, groupées au choix
     if (L.length) {
@@ -4774,6 +4775,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.46.4 (Yann) : le tableau du comité, en colonnes (Nom / Prénom / Club / Classt / Tél / eMail) : une valeur par ligne, ou une ligne par joueur avec des tabulations
   var RK_RX = /^(NC|N°\s?\d{1,3}|-?\d{1,2}\/\d|-?15|30|40|0)$/i;
   function samePerson(a, b) { var ta = nameTokens(a), tb = nameTokens(b), n = ta.filter(function (t) { return tb.indexOf(t) >= 0; }).length; return n >= Math.min(2, ta.length, tb.length) && n > 0; }
+  // 4.21.2 (Yann) : un numéro de mail de poule, quelle que soit sa ponctuation : « 06.12.34.56.78 », « +33 6 12 34 56 78 »,
+  // « +33 (0)6 12… », « +3.36.12.34.56.78 » (points mal placés), ou un autre pays (« +41 79 123 45 67 »). Suivi ou non de « / mail ».
+  var TEL_RX = /((?:\+[\s.]?3[\s.\-]?3[\s.\-]*(?:\(0\)|0)?[\s.\-]*[1-9](?:[\s.\-]?\d){8}|\+[\s.]?[1-9](?:[\s.\-]?\d){7,12}|0[\s.\-]?[1-9](?:[\s.\-]?\d{2}){4}))(?!\d)/;
+  // un seul format gardé : « 0612345678 » en France, « +41791234567 » ailleurs
+  function telNorm(t) {
+    var d = String(t || "").replace(/\(0\)/, "").replace(/[^\d+]/g, "").replace(/^00(?=[1-9])/, "+");
+    var fr = d.match(/^\+330?([1-9]\d{8})$/); if (fr) return "0" + fr[1];
+    return d;
+  }
   function tableParse(raw, TEL) {
     var L = String(raw || "").replace(/\r/g, "").split("\n").map(function (x) { return x.replace(/[  ]+/g, " ").trim(); });
     var KEY = function (x) { x = String(x || "").trim(); return /^nom$/i.test(x) ? "nom" : /^pr[ée]nom$/i.test(x) ? "prenom" : /^club$/i.test(x) ? "club" : /^class/i.test(x) ? "rank" : /^t[ée]l/i.test(x) ? "tel" : /^(e-?mail|courriel|mail)$/i.test(x) ? "mail" : /^(licence|n°|age|âge|cat)/i.test(x) ? "skip" : ""; };
@@ -4806,96 +4816,31 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }
     return out.filter(function (o) { return o.nom && o.prenom; }).map(function (o) {
       var t = (o.tel || "").match(TEL);
-      return { name: o.prenom.replace(/(^|[\s\-])([a-zà-ÿ])/g, function (m, a, b) { return a + b.toUpperCase(); }) + " " + o.nom, club: o.club || "", rank: o.rank ? (T.normRank(o.rank.replace(/\s/g, "")) || o.rank) : "", tel: t ? t[1].replace(/[^\d+]/g, "") : "" };
+      return { name: o.prenom.replace(/(^|[\s\-])([a-zà-ÿ])/g, function (m, a, b) { return a + b.toUpperCase(); }) + " " + o.nom, club: o.club || "", rank: o.rank ? (T.normRank(o.rank.replace(/\s/g, "")) || o.rank) : "", tel: t ? telNorm(t[1]) : "" };
     });
-  }
-  // 3.46.4 : la feuille de poule en PDF (« A 15/3  Vs  B 15/4 ») : les rencontres, donc qui reçoit (le joueur de gauche, sauf règle contraire)
-  // Feuille de poule : on travaille sur les positions (la page est souvent en paysage, le texte tourné)
-  function pdfPouleItems(items) {
-    var RK = "(NC|N°\\s?\\d{1,3}|-?\\d{1,2}\\/\\d|-?15|30|40|0)", NM = new RegExp("^(.+?)\\s+" + RK + "(?:\\s*\\([^)]*\\))?$");
-    var pairs = [], poule = "", title = "";
-    items.forEach(function (it) { var pm = it.s.match(/^poule\s*n?°?\s*([A-Z0-9]{1,3})$/i); if (pm && !poule) poule = pm[1].toUpperCase(); if (!title && /individuel/i.test(it.s)) title = it.s; });
-    var uv = function (it) { var n = Math.hypot(it.a, it.b) || 1, ca = it.a / n, sb = it.b / n; return { u: it.x * ca + it.y * sb, v: -it.x * sb + it.y * ca }; };
-    var names = items.filter(function (it) { return NM.test(it.s) && !/^\(/.test(it.s); }).map(function (it) { var m = it.s.match(NM), q = uv(it); return { p: it.p, name: m[1].trim(), rank: m[2], u: q.u, v: q.v }; });
-    items.filter(function (it) { return /^vs\.?$/i.test(it.s); }).forEach(function (vs) {
-      var q = uv(vs), row = names.filter(function (n) { return n.p === vs.p && Math.abs(n.v - q.v) < 7; });
-      var L = row.filter(function (n) { return n.u < q.u; }).sort(function (a, b) { return b.u - a.u; })[0], R = row.filter(function (n) { return n.u > q.u; }).sort(function (a, b) { return a.u - b.u; })[0];
-      if (L && R) pairs.push({ a: { name: L.name, rank: L.rank }, b: { name: R.name, rank: R.rank } });
-    });
-    var ppl = []; pairs.forEach(function (p) { [p.a, p.b].forEach(function (x) { if (!ppl.some(function (y) { return samePerson(y.name, x.name); })) ppl.push({ name: x.name, rank: x.rank }); }); });
-    return { pairs: pairs, ppl: ppl, poule: poule, title: title };
-  }
-  function pdfPoule(lines) {
-    var RK = "(NC|N°\\s?\\d{1,3}|-?\\d{1,2}\\/\\d|-?15|30|40|0)";
-    var who = function (x) { var m = String(x || "").split("\t")[0].trim().match(new RegExp("^(.+?)\\s+" + RK + "(?:\\s*\\([^)]*\\))?\\s*$")) || String(x || "").trim().match(new RegExp("^(.+?)\\s+" + RK + "\\b")); return m ? { name: m[1].trim(), rank: m[2] } : null; };
-    var pairs = [], poule = "", title = "";
-    lines.forEach(function (l) {
-      var pm = l.match(/\bpoule\s*n?°?\s*([A-Z0-9]{1,3})\b/i); if (pm && !poule) poule = pm[1].toUpperCase();
-      if (!title && /individuel/i.test(l)) title = l.replace(/\t.*$/, "");
-      var parts = l.split(/\s*\bVs\b\s*/); if (parts.length !== 2) return;
-      var a = who(parts[0].split("\t").pop()), b = who(parts[1]); if (a && b) pairs.push({ a: a, b: b });
-    });
-    var ppl = []; pairs.forEach(function (p) { [p.a, p.b].forEach(function (x) { if (!ppl.some(function (y) { return samePerson(y.name, x.name); })) ppl.push({ name: x.name, rank: x.rank }); }); });
-    return { pairs: pairs, ppl: ppl, poule: poule, title: title };
-  }
-  function pdfNm(n) { var w = String(n || "").split(/\s+/), up = w.filter(function (x) { return x.length > 1 && x === x.toUpperCase() && /[A-ZÀ-Ý]/.test(x); }), lo = w.filter(function (x) { return up.indexOf(x) < 0; }); return (lo.join(" ") + " " + up.join(" ")).trim(); }
-  // Applique la feuille de poule (PDF) à la poule lue : qui reçoit, et les joueurs manquants
-  function applyPdf(P, R) {
-    var me = P.ppl.filter(function (x) { return x.me; })[0], meN = me ? me.name : [(S.tenup.me || {}).prenom, (S.tenup.me || {}).nom].filter(Boolean).join(" ") || S.profile.name || "";
-    var rule = P.hostLeft || 1, n = 0;
-    R.ppl.forEach(function (x) { if (samePerson(meN, x.name)) return; if (!P.ppl.some(function (y) { return samePerson(y.name, x.name); })) P.ppl.push({ name: pdfNm(x.name), rank: T.normRank(x.rank) || x.rank, tel: "", st: NATIVE ? "busy" : "", fromPdf: 1 }); });
-    if (!me && meN) P.ppl.forEach(function (y) { if (samePerson(y.name, meN)) y.me = true; });
-    R.pairs.forEach(function (pr) {
-      var aMe = samePerson(meN, pr.a.name), bMe = samePerson(meN, pr.b.name); if (aMe === bMe) return;
-      var opp = aMe ? pr.b : pr.a, y = P.ppl.filter(function (z) { return !z.me && samePerson(z.name, opp.name); })[0]; if (!y) return;
-      if (!y.rank) y.rank = T.normRank(opp.rank) || opp.rank;
-      y.host = (aMe ? rule > 0 : rule < 0) ? "me" : "him"; n++;
-    });
-    P.pdfN = n; P.hostGuess = !P.hostLeft; P.pdfNoMe = !meN || !R.pairs.some(function (pr) { return samePerson(meN, pr.a.name) || samePerson(meN, pr.b.name); });
-    impMissing(P);
-  }
-  function impMissing(P) { P.missing = [P.ppl.some(function (x) { return !x.me; }) && !P.ppl.some(function (x) { return x.tel; }) ? "les numéros" : "", !P.to ? "la date limite" : "", !P.resUrl ? "le lien des résultats" : ""].filter(Boolean); }
-  // 3.46.4 (Yann) : PDF lu d'abord, puis le mail collé en plus : numéros, club, date limite, lien et règle « qui reçoit »
-  function impMerge(P, txt, R) {
-    var M = mailParse(txt);
-    M.ppl.forEach(function (m) {
-      var y = P.ppl.filter(function (z) { return samePerson(z.name, m.name); })[0];
-      if (y) { if (m.tel) y.tel = m.tel; if (m.club && !y.club) y.club = m.club; if (m.rank && !y.rank) y.rank = m.rank; if (m.me) y.me = true; }
-      else P.ppl.push(Object.assign(m, { st: NATIVE && !m.me ? "busy" : "" }));
-    });
-    if (M.title) { P.title = M.title; P.kind = M.kind; P.name = M.name + (!M.poule && R && R.poule ? " · Poule " + R.poule : ""); }
-    if (M.to) P.to = M.to; if (M.resUrl) P.resUrl = M.resUrl; if (M.hostLeft) P.hostLeft = M.hostLeft;
-    if (R) applyPdf(P, R); else impMissing(P);
-  }
-  function trImpPdf(file) {
-    if (!window.MonteePdf) return;
-    UI.trImp = UI.trImp || { text: "" }; UI.trImp.pdfBusy = true; render();
-    (MonteePdf.itemsFromFile ? MonteePdf.itemsFromFile(file).then(function (it) { var R0 = pdfPouleItems(it); return R0.pairs.length ? R0 : MonteePdf.linesFromFile(file).then(pdfPoule); }) : MonteePdf.linesFromFile(file).then(pdfPoule)).then(function (R) {
-      var I0 = UI.trImp; I0.pdfBusy = false; I0.pdfR = R;
-      if (!R.pairs.length) { render(); toast("Je n'ai pas trouvé de rencontres « A Vs B » dans ce PDF."); return; }
-      var ta = document.querySelector("[data-ti=text]"); if (ta) I0.text = ta.value;
-      if (!I0.p) {
-        I0.p = mailParse(I0.text || "");
-        if (!I0.p.title) { I0.p.name = "Indivs" + (R.poule ? " · Poule " + R.poule : ""); I0.p.kind = "champ"; I0.p.fmt = "poule"; I0.p.missing = (I0.p.missing || []).filter(function (m) { return m !== "le nom de l'épreuve"; }); }
-        else if (R.poule && !I0.p.poule) I0.p.name += " · Poule " + R.poule;
-      }
-      applyPdf(I0.p, R); render(); window.scrollTo(0, 0); impLookup();
-      toast(I0.p.pdfNoMe ? "PDF lu, mais je ne t'y trouve pas : choisis « Qui reçoit » à la main." : "PDF lu : « Qui reçoit » rempli pour " + plural(I0.p.pdfN, "match", "matchs") + ".");
-    }).catch(function () { UI.trImp.pdfBusy = false; render(); toast("Impossible de lire ce PDF."); });
   }
   function mailParse(txt) {
     var lines = String(txt || "").replace(/\r/g, "").split("\n").map(function (l) { return l.replace(/\s+/g, " ").trim(); }).filter(Boolean);
     var out = { title: "", poule: "", kind: "champ", fmt: "poule", to: "", ppl: [] };
-    var TEL = /((?:\+33\s?|0)\s?[1-9](?:[\s.\-]?\d{2}){4})/;
+    var TEL = TEL_RX;
+    var STOPW = /\b(vous|votre|vos|nous|le|la|les|des|du|de|pour|poule|simple|simples|messieurs|dames|championnat|individuel|tennis|cordialement|bonjour|attention|date|lien|matchs?|résultats?|comité|club|série|seniors?|jeunes)\b/i;
     var me = S.tenup.me || {}, mt = nameTokens([me.prenom, me.nom].filter(Boolean).join(" ") || S.profile.name || "");
     lines.forEach(function (l) {
       if (!out.title && /championnat|individuel|indiv|tournoi|open|tmc/i.test(l) && l.length < 120) out.title = l;
       var pm = l.match(/\b(?:poule|Poule|POULE)\s*n?°?\s*(\d{1,3}|[A-Z])(?![A-Za-zÀ-ÿ])/); if (pm && !out.poule) out.poule = pm[1].toUpperCase(); // 3.46.4 : pas « poule re(çoit) »
-      var m = l.match(TEL); if (!m) return;
-      var nm = l.slice(0, m.index).replace(/[\s\-–—:,;|•·]+$/, "").replace(/^[\s\-–—•·*\d.)]+/, "").trim();
+      var m = l.match(TEL), nm, tel = "";
+      if (m) { nm = l.slice(0, m.index); tel = telNorm(m[1]); }
+      else {
+        // 4.21.2 (Yann) : numéro illisible ou absent, mais « Prénom Nom - … » avec des chiffres ou un mail : le joueur est importé quand même
+        var sp = l.match(/^(.{3,50}?)\s+[\-–—:|]\s*(.*[\d@].*)$/); if (!sp) return;
+        nm = sp[1]; if (STOPW.test(nm) || !nm.split(" ").every(function (x) { return /^[A-Za-zÀ-ÿ'\-]+\.?$/.test(x.replace(/^[\-–—•·*]+/, "")) || !x; })) return;
+        var dg = telNorm(sp[2].split(/[\/,;]| ou /)[0]); if (/^(0[1-9]\d{8}|\+[1-9]\d{7,13})$/.test(dg)) tel = dg; // sinon, sans numéro
+      }
+      nm = nm.replace(/[\s\-–—:,;|•·]+$/, "").replace(/^[\s\-–—•·*\d.)]+/, "").trim();
       if (!nm || nm.split(" ").length < 2 || /\d/.test(nm) || nm.length > 50) return;
       var tk = nameTokens(nm), mine = mt.length >= 2 && mt.every(function (t) { return tk.indexOf(t) >= 0; });
-      out.ppl.push({ name: nm, tel: m[1].replace(/[^\d+]/g, ""), me: mine });
+      if (out.ppl.some(function (y) { return y.name === nm; })) return;
+      out.ppl.push({ name: nm, tel: tel, me: mine });
     });
     var tb = tableParse(txt, TEL);
     if (tb.length >= 2) out.ppl = tb.map(function (x) { var tk = nameTokens(x.name); return Object.assign(x, { me: mt.length >= 2 && mt.every(function (t) { return tk.indexOf(t) >= 0; }) }); });
@@ -4908,7 +4853,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     out.resUrl = out.resUrl.replace(/[.,;:]+$/, "");
     // 3.45.1 : mail copié en partie : sans numéros, on prend les lignes qui ressemblent à « Prénom Nom »
     if (!out.ppl.length) {
-      var STOPW = /\b(vous|votre|vos|nous|le|la|les|des|du|de|pour|poule|simple|simples|messieurs|dames|championnat|individuel|tennis|cordialement|bonjour|attention|date|lien|matchs?|résultats?|comité|club|série|seniors?|jeunes)\b/i;
       lines.forEach(function (l) {
         var w = l.split(" ");
         if (w.length < 2 || w.length > 4 || /\d|@|:|\//.test(l) || STOPW.test(l) || l.length > 40) return;
@@ -4981,43 +4925,39 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       return s + "<h1>Le mail de ta poule</h1>" + '<p class="lead" style="margin-top:-8px">Copie le mail du comité et colle-le ici. Montée lit le nom de l\'épreuve, tes adversaires, leurs numéros et la date limite.</p>' +
         '<textarea class="ti-t" data-ti="text" placeholder="Touche ici, puis « Coller »" rows="9">' + esc(I0.text || "") + "</textarea>" +
 
-        '<label class="btn soft ti-pdf">' + (I0.pdfBusy ? '<span class="spin"></span> Lecture du PDF…' : CLIP_IC + " Joindre le PDF de la poule (facultatif)") + '<input type="file" accept="application/pdf,.pdf" data-a="trImpPdf" hidden></label>' +
-        '<span class="small">Le PDF du comité donne les rencontres : Montée en déduit qui reçoit.</span>' +
-        '<div class="spacer"></div><button class="btn primary" data-a="trImpRead">Lire le mail</button></div>';
+        '<button class="btn primary" data-a="trImpRead">Lire le mail du comité</button></div>';
     }
     var ppl = P.ppl.filter(function (x) { return !x.me; }), me = P.ppl.filter(function (x) { return x.me; })[0];
     // 3.46.4 (retour testeur) : mail collé dans la mauvaise épreuve (ex. mail des 3S dans les Seniors+)
-    var into = I0.into && tourOf(I0.into);
+    var into = I0.into && tourOf(I0.into), warn = "";
     if (into && !I0.keep && into.kind === "champ" && P.kind === "champ") {
       var ka = insKey(into.name), kb = insKey(P.title || P.name);
       if ((ka.s && kb.s && ka.s !== kb.s) || ((ka.s || ka.plus || kb.s || kb.plus) && ka.plus !== kb.plus && (kb.s || kb.plus))) {
         var alt = toursAll().filter(function (y) { return y !== into && y.kind === "champ" && !tourOver(y) && insSame(y, { name: P.title || P.name }, "champ", null); })[0];
-        s += '<div class="card ti-warn"><b>Ce mail ne semble pas être celui de « ' + esc(into.name) + " »</b><span class=\"small\">Il parle de « " + esc(P.name) + " ».</span>" +
-          (alt ? '<button class="btn primary" data-a="trImpTarget" data-v="' + esc(alt.id) + '">Le mettre dans « ' + esc(alt.name) + " »</button>" : '<button class="btn primary" data-a="trImpTarget" data-v="">En faire une nouvelle épreuve</button>') +
-          '<button class="linkbtn" data-a="trImpTarget" data-v="' + esc(into.id) + '" data-k="keep">Garder ici quand même</button></div>';
+        // 4.21.2 (Yann) : l'avertissement après ce qui a été lu, sans contour, en clair et avec des boutons courts
+        var evS = function (n) { return String(n || "").replace(/^Indivs\s+/i, "").replace(/\s*·\s*Poule.*$/i, "").replace(/\s*\b20\d\d\b/, "").trim() || n; };
+        warn = '<div class="card ti-warn"><div class="ti-wh"><span class="ti-wi" aria-hidden="true">!</span><span class="ti-wt"><b>Ce n\'est pas la bonne épreuve</b><span class="small">Tu l\'as collé dans <b>' + esc(evS(into.name)) + "</b>, mais ce mail parle de ta poule de <b>" + esc(evS(P.name || P.title)) + "</b>.</span></span></div>" +
+          (alt ? '<button class="btn primary" data-a="trImpTarget" data-v="' + esc(alt.id) + '">Le ranger dans les ' + esc(evS(alt.name)) + "</button>" : '<button class="btn primary" data-a="trImpTarget" data-v="">En faire une nouvelle épreuve</button>') +
+          '<button class="linkbtn" data-a="trImpTarget" data-v="' + esc(into.id) + '" data-k="keep">Garder dans les ' + esc(evS(into.name)) + "</button></div>";
       }
     }
     s += '<span class="eyebrow" style="color:var(--gazon)">Lu dans ton mail</span><h1 class="tq-t" style="margin-top:-6px">' + esc(P.name) + "</h1>" +
-      '<p class="lead" style="margin-top:-8px">' + esc([P.kind === "champ" ? "Championnat individuel" : "Tournoi", P.fmt === "poule" ? "poule" : "", P.to ? "jusqu'au " + fdate(P.to) : ""].filter(Boolean).join(" · ")) + "</p>";
+      '<p class="lead" style="margin-top:-8px">' + esc([P.kind === "champ" ? "Championnat individuel" : "Tournoi", P.fmt === "poule" ? "poule" : "", P.to ? "jusqu'au " + fdate(P.to) : ""].filter(Boolean).join(" · ")) + "</p>" + warn;
     if (!ppl.length) return s + '<div class="card"><b>Aucun adversaire trouvé</b><span class="small">Montée cherche des lignes « Prénom Nom - 06 12 34 56 78 ». Vérifie que tu as copié tout le mail.</span></div><button class="btn" data-a="trImpBack">‹ Revenir au mail</button></div>';
     var nBusy = ppl.filter(function (x) { return x.st === "busy"; }).length, nOk = ppl.filter(function (x) { return x.st === "ok"; }).length;
     var nErr = ppl.filter(function (x) { return x.st === "err"; }).length;
-    s += (P.fmt === "poule" ? (P.pdfN ? '<div class="ti-pdfok">' + I.check + "<span>PDF lu : « Qui reçoit » rempli pour " + plural(P.pdfN, "match", "matchs") + (P.hostGuess ? " (le joueur de gauche reçoit : règle habituelle, vérifie)" : "") + ".</span></div>" :
-        '<label class="btn soft small ti-pdf">' + (I0.pdfBusy ? '<span class="spin"></span> Lecture du PDF…' : CLIP_IC + " Joindre le PDF de la poule") + '<input type="file" accept="application/pdf,.pdf" data-a="trImpPdf" hidden></label>' + (P.hostLeft ? '<span class="small">Ton mail dit que le joueur de ' + (P.hostLeft > 0 ? "gauche" : "droite") + " de la poule reçoit : avec le PDF, Montée remplit « Qui reçoit » tout seul.</span>" : "")) : "");
-    s += '<div class="card ti-l"><span class="eyebrow">' + plural(ppl.length, "adversaire") + (!NATIVE ? "" : nBusy ? " · recherche sur Ten'Up (" + (ppl.length - nBusy) + "/" + ppl.length + ")" : " · " + nOk + " retrouvé" + (nOk > 1 ? "s" : "") + " sur Ten'Up") + "</span>" + (NATIVE && nBusy ? '<span class="ti-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + ppl.length + '" aria-valuenow="' + (ppl.length - nBusy) + '"><i style="width:' + Math.max(6, Math.round(100 * (ppl.length - nBusy) / ppl.length)) + '%"></i></span>' : "") + ppl.map(function (x) {
-      var j = P.ppl.indexOf(x), right = x.auto && x.st === "ok" ? '<span class="ti-auto"><span class="tq-rk">' + esc(x.rank || "") + '</span><button class="linkbtn" data-a="trImpOpen" data-v="' + j + '">changer</button></span>' : x.st === "busy" ? '<span class="ti-busy"><i></i>Ten\'Up…</span>' : x.rank ? '<span class="tq-rk">' + esc(x.rank) + "</span>" : x.st === "many" ? '<button class="ti-q" data-a="trImpOpen" data-v="' + j + '">Lequel ? ' + I.next + "</button>" : '<button class="linkbtn ti-w" data-a="trImpOpen" data-v="' + j + '">Choisir ›</button>';
-      var open = I0.open === j, sub = (x.auto && x.club ? clubCase(x.club) + " · choisi d'après le club" : "") || (x.club ? clubCase(x.club) : "") || (x.st === "busy" ? "" : x.st === "err" ? (/connecte/.test(x.err || "") ? "Ta session Ten'Up a expiré" : /maintenance/.test(x.err || "") ? "Ten'Up est en maintenance" : "Ten'Up n'a pas répondu") : x.st === "none" ? "Pas trouvé sur Ten'Up : choisis son classement" : x.st === "many" ? x.hits.length + " joueurs à ce nom sur Ten'Up" : NATIVE || x.rank ? "" : "Classement à choisir");
-      var r = '<div class="ti-r"><span class="tq-av">' + esc(initials(x.name)) + '</span><span class="grow"><b>' + esc(trNm(x.name)) + "</b><small>" + esc([sub, telFmt(x.tel)].filter(Boolean).join(" · ")) + "</small></span>" + right + "</div>";
-      // 3.46.3 (testeur) : qui reçoit, saisi pendant que le mail est encore sous les yeux
-      if (P.fmt === "poule") r += '<div class="ti-host"><span>Qui reçoit ?</span>' + [["me", "Chez toi"], ["him", "Chez lui"]].map(function (h) { return '<button class="tq-pill' + (x.host === h[0] ? " on" : "") + '" data-a="trImpHost" data-v="' + j + '" data-k="' + h[0] + '">' + (h[0] === "me" ? HOME_IC + " " : "") + h[1] + "</button>"; }).join("") + "</div>";
+    s += '<div class="card ti-l"><span class="eyebrow">' + plural(ppl.length, "adversaire") + (!NATIVE ? "" : nBusy ? " · recherche sur Ten'Up (" + (ppl.length - nBusy) + "/" + ppl.length + ")" : " · " + nOk + " retrouvé" + (nOk > 1 ? "s" : "") + " sur Ten'Up") + "</span>" + (P.fmt === "poule" ? '<span class="small ti-hint">Touche qui reçoit pour chaque match' + (P.hostLeft ? " : le mail dit que le joueur de " + (P.hostLeft > 0 ? "gauche" : "droite") + " reçoit." : ".") + "</span>" : "") + (NATIVE && nBusy ? '<span class="ti-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + ppl.length + '" aria-valuenow="' + (ppl.length - nBusy) + '"><i style="width:' + Math.max(6, Math.round(100 * (ppl.length - nBusy) / ppl.length)) + '%"></i></span>' : "") + ppl.map(function (x) {
+      // 4.21.2 (Yann, maquette validée) : nom, puis classement (balle jaune) et club, puis numéro, puis qui reçoit ; l'action à droite du nom
+      var j = P.ppl.indexOf(x), right = x.auto && x.st === "ok" ? '<button class="linkbtn" data-a="trImpOpen" data-v="' + j + '">changer</button>' : x.st === "busy" ? '<span class="ti-busy"><i></i>Ten\'Up…</span>' : x.rank ? "" : x.st === "many" ? '<button class="ti-q" data-a="trImpOpen" data-v="' + j + '">Lequel ? ' + I.next + "</button>" : '<button class="linkbtn ti-w" data-a="trImpOpen" data-v="' + j + '">Choisir ›</button>';
+      var open = I0.open === j, sub = (x.auto && x.club ? clubCase(x.club) + " · d'après le club" : "") || (x.club ? clubCase(x.club) : "") || (x.st === "busy" ? "" : x.st === "err" ? (/connecte/.test(x.err || "") ? "Ta session Ten'Up a expiré" : /maintenance/.test(x.err || "") ? "Ten'Up est en maintenance" : "Ten'Up n'a pas répondu") : x.st === "none" ? "Pas trouvé sur Ten'Up : choisis son classement" : x.st === "many" ? x.hits.length + " joueurs à ce nom sur Ten'Up" : NATIVE || x.rank ? "" : "Classement à choisir");
+      var r = '<div class="ti-r ti-r2"><span class="tq-av">' + esc(initials(x.name)) + '</span><span class="grow"><span class="ti-nm"><b>' + esc(trNm(x.name)) + "</b>" + right + '</span>' + (x.rank || sub ? '<small class="ti-sub">' + (x.rank ? '<b class="rk-tag">' + esc(x.rank) + "</b>" : "") + "<span>" + esc(sub) + "</span></small>" : "") + (x.tel ? "<small>" + esc(telFmt(x.tel)) + "</small>" : "") +
+        (P.fmt === "poule" ? '<span class="ti-hp">' + [["me", "Chez toi"], ["him", "Chez lui"]].map(function (h) { return '<button class="tq-pill' + (x.host === h[0] ? " on" : "") + '" data-a="trImpHost" data-v="' + j + '" data-k="' + h[0] + '">' + (h[0] === "me" ? HOME_IC + " " : "") + h[1] + "</button>"; }).join("") + "</span>" : "") + "</span></div>";
       var hmList = x.hits && (x.st === "many" || (x.auto && open)) ? x.hits : null;
       if (hmList && (x.st === "many" || open)) r += '<div class="ti-hm">' + hmList.map(function (h, k) { var on = x.tid && String(h.id) === String(x.tid); return '<button class="ti-hc' + (on ? " on" : "") + '" data-a="trImpHit" data-v="' + j + '" data-k="' + k + '"><b class="tq-rk">' + esc(T.normRank(h.rank) || h.rank || "?") + '</b><span class="grow"><b>' + esc(clubCase(h.club || "Club inconnu")) + "</b><small>" + esc([h.ville, h.age ? h.age + " ans" : ""].filter(Boolean).join(" · ") || nameCase([h.prenom, h.nom].join(" "))) + "</small></span>" + (on ? '<i class="ti-ck">' + I.check + "</i>" : "") + "</button>"; }).join("") + "</div>";
       if (open && x.st !== "many") { var cur = curIdx(), lo = Math.max(0, (cur < 0 ? 0 : cur) - 6); r += '<div class="tq-rks ti-ch">' + ["NC"].concat((E.ECHELONS || []).slice(lo, lo + 13)).map(function (k) { return '<button class="tq-pill' + (x.rank === k ? " on" : "") + '" data-a="trImpRk" data-v="' + j + '" data-k="' + k + '">' + k + "</button>"; }).join("") + "</div>"; }
       return r;
     }).join("") + "</div>" +
-      (P.missing && P.missing.length && I0.pdfR && !String(I0.text || "").trim() ? '<div class="ti-miss ti-addm"><b>Le PDF ne donne pas ' + esc(P.missing.join(", ")) + ".</b> Colle aussi le mail du comité : Montée complète tout." +
-        (I0.addMail ? '<textarea class="ti-t" data-ti="text2" rows="6" placeholder="Touche ici, puis « Coller »"></textarea><button class="btn primary small" data-a="trImpMerge">Lire le mail</button>' : '<button class="btn small pe-alt" data-a="trImpAddMail">' + PASTE_IC + " Coller le mail</button>") + "</div>" :
-      P.missing && P.missing.length ? '<div class="ti-miss"><b>Pas trouvé dans ton texte :</b> ' + esc(P.missing.join(", ")) + ". Rien de grave : tu pourras " + (P.missing.length > 1 ? "les" : "l'") + " ajouter ensuite sur la page de l'épreuve : « Modifier » pour le nom et les dates" + (P.missing.indexOf("le lien des résultats") >= 0 ? ", « Ajouter le lien » pour les résultats" : "") + (P.missing.indexOf("les numéros") >= 0 ? ", et le numéro de chaque joueur en touchant son nom" : "") + ".</div>" : "") +
+      (P.missing && P.missing.length ? '<div class="ti-miss"><b>Pas trouvé dans ton texte :</b> ' + esc(P.missing.join(", ")) + ". Rien de grave : tu pourras " + (P.missing.length > 1 ? "les" : "l'") + " ajouter ensuite sur la page de l'épreuve : « Modifier » pour le nom et les dates" + (P.missing.indexOf("le lien des résultats") >= 0 ? ", « Ajouter le lien » pour les résultats" : "") + (P.missing.indexOf("les numéros") >= 0 ? ", et le numéro de chaque joueur en touchant son nom" : "") + ".</div>" : "") +
       (P.resUrl ? '<div class="card ti-u"><span class="eyebrow">Lien pour envoyer tes résultats</span><span class="ti-uv">' + esc(P.resUrl.replace(/^https?:\/\//, "")) + '</span><span class="small">Montée le garde dans ton épreuve : un tap pour l\'ouvrir après chaque match.</span></div>' : "") +
       (nErr && !nBusy ? '<button class="btn small" data-a="trImpRetry">Relancer la recherche Ten\'Up (' + nErr + ")</button>" : "") +
       (me ? '<span class="small">✓ Toi (' + esc(trNm(me.name)) + ") retiré de la liste. Les numéros restent sur ton téléphone.</span>" : '<span class="small">Les numéros restent sur ton téléphone.</span>') +
@@ -5085,8 +5025,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var go = NATIVE && nameSplits(R.q || "").length;
     return '<div class="tq-sb"><span class="tq-mag">' + TQ_MAG + '</span><input type="search" enterkeyhint="search" data-tq="q" value="' + esc(R.q || "") + '" placeholder="' + (alt ? "Prénom et nom, ou q4" : "Prénom et nom, ex. : Julien Moreau") + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="tq-go" data-a="trFind"' + (go ? "" : " hidden") + ">" + (UI.trBusy ? "…" : "Chercher") + '</button></div><div id="tq-live" class="tq-live">' + trLive(R) + "</div>";
   }
-  function trCard(o, k) {
+  function trCard(o, k, chg) {
     var nm = trNm(o.name) || "Un joueur " + (o.rank || ""), ag = ageOfX(o);
+    // 4.21.2 (Yann) : en poule, le classement en petite balle jaune devant (norme .rk-tag) et « changer » en clair
+    if (chg) { var nn = trNm(o.name); return '<div class="tq-card tq-card2"><span class="tq-av big">' + esc(nn ? initials(nn) : "?") + '</span><span class="grow"><b>' + esc(nn || "Ton adversaire") + "</b><small>" + (o.rank ? '<b class="rk-tag">' + esc(o.rank) + "</b>" : "") + "<span>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</span></small></span>" + (chg === true ? '<button class="linkbtn tq-chg" data-a="trClear" data-v="' + k + '">changer</button>' : "") + "</div>" +
+      (o.tid ? '<button class="linkbtn tq-fiche" data-a="plOpen" data-v="' + esc(o.tid) + '">Voir sa fiche : palmarès, plan de jeu ›</button>' : "") }
     return '<div class="tq-card"><span class="tq-av big">' + esc(/^qualifié/.test(nm) ? "Q" : initials(nm)) + '</span><span class="grow"><b>' + esc(nm) + "</b><small>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : /^qualifié/.test(nm) ? "Pas encore connu" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</small></span>" + (o.rank ? '<b class="tq-big">' + esc(o.rank) + "</b>" : "") + '<button class="tq-x" data-a="trClear" data-v="' + k + '" aria-label="Changer">' + I.cross + "</button></div>" +
       (o.tid ? '<button class="linkbtn tq-fiche" data-a="plOpen" data-v="' + esc(o.tid) + '">Voir sa fiche : palmarès, plan de jeu ›</button>' : "");
   }
@@ -5105,7 +5048,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function plSchedSheet(t) {
     var x = t.pool[UI.plSched];
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="plSchedClose"></div><div class="sheet tq-sheet" role="dialog" aria-modal="true" aria-label="Programmer le match"><span class="sheet-grab"></span>' +
-      '<div class="tq-hd"><b>Programmer le match</b><span>' + esc(trNm(x.name)) + "</span></div>" +
+      tqHead("Programmer le match", trNm(x.name), "plSchedClose") +
       '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (x.day ? " v" : "") + '"><input type="date" id="ps-day" data-tn="psday" value="' + esc(x.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('id="ps-time"', x.time, "Heure") + '<em></em></span></div>' +
       hostSeg(UI.plHost != null ? UI.plHost : x.host || "", "plHost") +
       '<span class="small">Montée te le rappelle la veille au soir' + (x.tid ? ", avec ton plan de jeu" : "") + ".</span>" +
@@ -5126,25 +5069,32 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var RES_V = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>';
     var RES_D = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="trScClose"></div><div class="sheet big tq-sheet" role="dialog" aria-modal="true" aria-label="Ton résultat"><span class="sheet-grab"></span>' +
-      '<div class="tq-hd"><b>Ton ' + esc(trLab(R.i).toLowerCase()) + '</b><button class="linkbtn tq-hm" data-a="trScRound" aria-label="Changer l\'adversaire, le jour ou l\'heure">' + PEN_IC + "Modifier</button></div>" +
+      '<div class="sh-head tq-hd"><b>Ton ' + esc(trLab(R.i).toLowerCase()) + '</b><button class="linkbtn tq-hm" data-a="trScRound" aria-label="Changer l\'adversaire, le jour ou l\'heure">' + PEN_IC + "Modifier</button></div>" +
       '<span class="tq-rs-who">Contre ' + esc(r.opp && r.opp.name ? trNm(r.opp.name) : trWho(r)) + (rk ? ' <span class="rk-tag">' + esc(rk) + "</span>" : "") + (r.day ? " · " + esc(dayLab(r.day)) : "") + "</span>" +
       '<div class="field"><div class="seg res" aria-label="Résultat"><button data-a="dset" data-k="result" data-v="V" class="rv' + (d.result === "V" ? " on" : "") + '">' + RES_V + 'Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (d.result === "D" ? " on" : "") + '">' + RES_D + "Défaite</button></div></div>" +
       (d.result ? trScScore(d, r.opp && r.opp.name ? trNm(r.opp.name) : "", !!r.res) : "") +
       '<div class="tq-rs-b"><button class="btn soft" data-a="trScClose">Annuler</button><button class="btn primary" data-a="trScSave"' + (d.result ? "" : " disabled") + ">Enregistrer</button></div>" +
       "</div>";
   }
+  // 4.21.2 (Yann) : même en-tête que les autres feuilles (titre à gauche, croix à droite), l'épreuve en petit dessous
+  function tqHead(title, sub, close) { return '<div class="sh-head tq-hd"><b>' + esc(title) + '</b><button class="iconbtn sm" data-a="' + close + '" aria-label="Fermer">' + I.cross + "</button></div>" + (sub ? '<span class="small tq-sub">' + esc(sub) + "</span>" : ""); }
+  function trPoolFoot(t, R) {
+    return (R.i !== "new" && (t.pool[+R.i] || {}).res ? '<button class="linkbtn" data-a="trUndo" data-k="pool" data-i="' + R.i + '" style="align-self:center">Retirer le résultat (' + t.pool[+R.i].res + ")</button>" : "") +
+      (R.i !== "new" ? '<span class="small" style="text-align:center">Pour retirer ce joueur de la poule : « Modifier la poule ».</span>' : "");
+  }
   function trRoundSheet(t) {
     var R = UI.trR, pool = R.k === "pool", alt = !pool && R.mode === "alt";
-    var lab = pool ? "Match de poule" : trLab(R.i === "new" ? (t.rounds || []).length : +R.i);
+    var addP = pool && R.i === "new"; // 4.21.2 (Yann) : « + Ajouter un adversaire » ajoute un joueur à la poule, pas un match
+    var lab = addP ? "Nouvel adversaire" : pool ? "Match de poule" : trLab(R.i === "new" ? (t.rounds || []).length : +R.i);
     var s = '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="trClose"></div><div class="sheet big tq-sheet" role="dialog" aria-modal="true" aria-label="Ton tour"><span class="sheet-grab"></span>' +
-      '<div class="tq-hd"><b>' + esc(lab) + "</b><span>" + esc(t.name || "") + "</span></div>" +
+      tqHead(lab, t.name, "trClose") +
       (pool ? "" : '<div class="tq-seg"><button class="' + (alt ? "" : "on") + '" data-a="trMode" data-v="one">Un adversaire</button><button class="' + (alt ? "on" : "") + '" data-a="trMode" data-v="alt">Le vainqueur de…</button></div>');
     if (!alt) {
       if (R.name || R.rank) {
-        s += trCard(R, 0);
+        s += trCard(R, 0, addP ? true : pool ? "fixe" : false); // 4.21.2 (Yann) : un match de poule ne change pas de joueur
         var g = R.rank ? trGain(R.rank) : null, p = R.rank && !oppWait(R.tid) ? trP(R.rank, R.tid, R.name) : null;
         if (R.rank && oppWait(R.tid)) s += '<div class="tq-stake"><span>Si tu gagnes</span><b>' + (g > 0 ? "+" + g + " pts · " : "") + WAIT_P + "</b></div>";
-        else if (p != null) s += '<div class="tq-stake"><span>Si tu gagnes</span><b>' + (g > 0 ? "+" + g + " pts · " : g === 0 ? "aucun point · " : "") + p + " % de chances</b></div>";
+        else if (p != null) s += '<div class="tq-stake"><span>Si tu gagnes <b>' + (g > 0 ? "+" + g + " pts" : g === 0 ? "aucun point" : "") + '</b></span><span class="tq-odds">Tes chances ' + oddsBallI(p, 36) + "</span></div>"; // 4.21.2 (Yann) : la balle des chances, comme partout
       } else s += trSearchHtml(R);
     } else {
       R.alt = R.alt || [{}, {}];
@@ -5157,13 +5107,23 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       });
       if (NATIVE && R.alt.some(function (a) { return a && a.tid; })) s += '<div class="tq-watch"><i></i><span>Dès que leur match est sur Ten\'Up, Montée te prévient et met ton tour à jour.</span></div>';
     }
-    if (pool && t.kind === "champ") s += hostSeg(R.host || "", "trHost");
-    if (pool) s += '<span class="tq-lab">Son numéro · facultatif</span><div class="tq-sb"><span class="tq-mag">' + CALL_IC + '</span><input type="tel" inputmode="tel" data-tr="tel" value="' + esc(telFmt(R.tel || "")) + '" placeholder="06 12 34 56 78" autocomplete="off"></div>';
+    // 4.21.2 (Yann, maquette validée) : en poule, d'abord la recherche ; ensuite un encart (qui reçoit, numéro, date) et le bouton
+    if (pool) {
+      if (!(R.name || R.rank)) return s + (R.q ? "" : viduel("toi", "Qui rejoint ta poule ?", "Cherche-le par son nom. Ensuite, tu complètes qui reçoit, son numéro et la date.")) + trPoolFoot(t, R) + "</div>";
+      var row = function (l, r) { return '<div class="tq-er"><span class="tq-el2">' + l + "</span>" + r + "</div>"; };
+      s += '<div class="tq-enc">' +
+        (t.kind === "champ" ? row("Qui reçoit ?", '<span class="tq-hp">' + [["me", "Chez toi"], ["him", "Chez lui"]].map(function (h) { return '<button class="tq-pill' + (R.host === h[0] ? " on" : "") + '" data-a="trHost" data-v="' + h[0] + '">' + (h[0] === "me" ? HOME_IC + " " : "") + h[1] + "</button>"; }).join("") + "</span>") : "") +
+        row("Son numéro", '<input class="tq-ein" type="tel" inputmode="tel" data-tr="tel" value="' + esc(telFmt(R.tel || "")) + '" placeholder="Ajouter" autocomplete="off" aria-label="Son numéro">') +
+        row("Date du match", '<span class="tq-dt"><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '" aria-label="Date du match"><em>Pas encore fixée ›</em></span>' + (R.day ? '<span class="tn-dd v">' + hSel('data-tr="time"', R.time, "Heure") + "<em></em></span>" : "") + "</span>") +
+        "</div>" +
+        '<button class="btn primary" data-a="trSave">' + (addP ? "Ajouter " + esc(trNm(R.name).split(" ")[0] || "ce joueur") + " à ma poule" : "Enregistrer") + "</button>" + trPoolFoot(t, R) + "</div>";
+      return s;
+    }
     // 3.45 (Yann) : en poule (ou épreuve longue), la date se saisit directement, pas de pastilles qui défilent
     var longEv = pool || (t.to && t.from && (E.parseDate(t.to) - E.parseDate(t.from)) / 864e5 > 7);
-    s += '<span class="tq-lab">Quand ?</span>' + (longEv ? '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('data-tr="time"', R.time, "—") + '<em></em></span></div>' :
+    s += '<span class="tq-lab">' + (addP ? "Ton match · si la date est déjà fixée" : "Quand ?") + "</span>" + (longEv ? '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('data-tr="time"', R.time, "—") + '<em></em></span></div>' :
       trDays(t, R) + '<label class="tq-h"><span>Heure · si tu la connais</span>' + hSel('data-tr="time"', R.time, "—") + '</label>') +
-      '<button class="btn primary" data-a="trSave">' + (pool ? "Enregistrer ce match" : "Enregistrer le " + esc(lab.toLowerCase())) + "</button>" +
+      '<button class="btn primary" data-a="trSave">' + (addP ? "Ajouter à ma poule" : pool ? "Enregistrer ce match" : "Enregistrer le " + esc(lab.toLowerCase())) + "</button>" +
       (pool && R.i !== "new" && (t.pool[+R.i] || {}).res ? '<button class="linkbtn" data-a="trUndo" data-k="pool" data-i="' + R.i + '" style="align-self:center">Retirer le résultat (' + t.pool[+R.i].res + ")</button>" : "") +
       (R.i !== "new" && !pool ? '<button class="linkbtn" data-a="trRoundDel" style="align-self:center;color:var(--terre)">Supprimer ce tour</button>' : "") +
       (R.i !== "new" && pool ? '<span class="small" style="text-align:center">Pour retirer ce joueur de la poule : « Modifier la poule ».</span>' : "") + "</div>";
@@ -18663,8 +18623,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     } catch (e) {}
     // Prochain adversaire (dernier joueur consulté)
     if (S.lastScout && S.lastScout.name) d.scout = S.lastScout;
-    var plW = plans().filter(function (x) { return dGap(x.day) >= 0; })[0];
-    if (plW) d.scout = Object.assign({}, S.lastScout && S.lastScout.id === plW.id ? S.lastScout : { id: plW.id, rank: plW.rank, p: plW.p }, { name: plW.name, when: dayLab(plW.day) });
+    // 4.23.1 (Yann : le widget restait sur un match plus lointain) : le match le plus proche, quel qu'il soit, lu comme « Ce qui arrive »
+    var nxW = nextMatch();
+    if (nxW) d.scout = Object.assign({}, S.lastScout && S.lastScout.id === nxW.id ? S.lastScout : { id: nxW.id, rank: nxW.rank, p: nxW.p, tip: nxW.pl ? "" : nxW.sub, tipS: "" }, { name: nxW.name, when: nxW.when });
     // Joueurs suivis : les nouvelles d'abord (montée, match joué), puis le dernier à avoir joué
     try {
       d.follows = Object.keys(S.follow || {}).map(function (k) {
@@ -18757,6 +18718,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   // 4.7 : ce que rapporte une victoire contre le prochain adversaire (le même calcul que la carte « Ton match » d'Ace : coStake)
   function watchWinPts() { var o = coUpMatches(30)[0]; if (!o) return null; var st = coStake(o); return st && st.g ? { n: o.name || "", g: st.g } : null; }
+  // 4.23.1 : LE prochain match (match prévu, tour de tournoi ou match de poule avec un adversaire connu), le plus proche en date.
+  // Lu dans « Ce qui arrive » (friseItems), pour que le widget, la montre et l'accueil montrent le même match.
+  function nextMatch() {
+    var z = null; try { z = friseItems().filter(function (x) { return !x.dim && !x.todo && (x.pl || (x.t && x.oid)) && dGap(x.d) >= 0; })[0]; } catch (e) {}
+    if (!z) return null;
+    var when = dayLab(z.d) + (z.time ? " " + z.time.replace(":", "h") : "");
+    if (z.pl) return { id: String(z.pl.id), name: z.pl.name || "", rank: z.pl.rank || "", p: z.pl.p != null ? z.pl.p : null, day: z.d, when: when, pl: z.pl };
+    var nm = String(z.title || "").replace(/<[^>]+>/g, "").split(" · "), pc = /(\d+) %/.exec(z.st || "");
+    return { id: String(z.oid), name: nm[0], rank: nm[1] || "", p: pc ? +pc[1] : null, day: z.d, when: when, sub: String(z.sub || "").replace(/<[^>]+>/g, "") };
+  }
   function widgetMore(d) {
     try { if (S.matches.length) d.ace = aceNow(); } catch (e) {}
     var fr = []; try { fr = friseItems().filter(function (z) { return !z.dim; }); } catch (e) {}
@@ -18766,10 +18737,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     try { d.chances = watchChances(); } catch (e) {}
     // Prochain match : le match prévu, sinon le prochain tour de tournoi ou match de poule avec un adversaire connu
     var mt = fr.filter(function (z) { return (z.pl || (z.t && z.oid)) && dGap(z.d) >= 0 && dGap(z.d) <= 14; })[0];
-    if (mt && !mt.pl && !(d.scout && d.scout.when)) {
-      var nm = String(mt.title || "").split(" · "), pc = /(\d+) %/.exec(mt.st || "");
-      d.scout = { id: String(mt.oid), name: nm[0], rank: nm[1] || "", p: pc ? +pc[1] : null, when: dayLab(mt.d) + (mt.time ? " " + mt.time.replace(":", "h") : ""), tip: mt.sub || "", tipS: "" };
-    }
     // 3.81 : pile intelligente (iPhone) : quels widgets comptent aujourd'hui
     var R = {}, set = function (ks, v) { ks.forEach(function (k) { R[k] = Math.max(R[k] || 0, v); }); };
     var m0 = fr.filter(function (z) { return (z.pl || z.t || z.team) && !z.todo && !z.rel && !z.bd; })[0];
@@ -18849,8 +18816,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 3.27 : cartes de la montre et nouvelles complications
     var forces = []; try { forces = myStrengths().slice(0, 4).map(function (x) { var L = fzLab(x); return { h: L.h, s: L.s, t: L.t, v: x.v, n: x.n }; }); } catch (e) {}
     var serve = null; try { serve = watchServe(); } catch (e) {}
-    var nx = null, plN = plans().filter(function (x) { return dGap(x.day) >= 0; })[0], ls = S.lastScout || {};
-    if (plN) nx = { id: plN.id, name: plN.name, rank: plN.rank || "", when: dayLab(plN.day), p: plN.p != null ? plN.p : null, h2h: ls.id === plN.id ? ls.h2h || "" : "", tip: ls.id === plN.id ? ls.tip || "" : "", tipS: ls.id === plN.id ? ls.tipS || "" : "", mode: ls.id === plN.id && ls.k ? ls.k : null, gap: ls.id === plN.id ? ls.gap : null };
+    var nx = null, plN = nextMatch(), ls = S.lastScout || {}; // 4.23.1 : le match le plus proche (prévu, tournoi ou poule), comme le widget
+    if (plN) nx = { id: plN.id, name: plN.name, rank: plN.rank || "", when: plN.when, p: plN.p != null ? plN.p : null, h2h: ls.id === plN.id ? ls.h2h || "" : "", tip: ls.id === plN.id ? ls.tip || "" : "", tipS: ls.id === plN.id ? ls.tipS || "" : "", mode: ls.id === plN.id && ls.k ? ls.k : null, gap: ls.id === plN.id ? ls.gap : null };
     else if (ls.name) nx = { id: ls.id || "", name: nameCase(ls.name), rank: ls.rank || "", when: "", p: ls.p != null ? ls.p : null, h2h: ls.h2h || "", tip: ls.tip || "", tipS: ls.tipS || "", mode: ls.k || null, gap: ls.gap != null ? ls.gap : null };
     if (nx) Object.assign(nx, watchCoach(nx.name));
     if (nx && nx.p != null) nx.pc = ballHexWatch(nx.p); // 4.16 : couleur de la balle des chances (même calcul que l'iPhone)
@@ -21094,12 +21061,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     trImpOpen: function (el) { UI.trImp.open = UI.trImp.open === +el.dataset.v ? null : +el.dataset.v; render(); },
     trImpHit: function (el) { var x = UI.trImp.p.ppl[+el.dataset.v], h = x && x.hits && x.hits[+el.dataset.k]; if (!h) return; Object.assign(x, { st: "ok", auto: 0, name: nameCase([h.prenom, h.nom].join(" ")), rank: T.normRank(h.rank) || h.rank || "", club: h.club || "", tid: String(h.id || ""), hit: h }); UI.trImp.open = null; render(); },
     trImpTarget: function (el) { if (!UI.trImp) return; if (el.dataset.k === "keep") UI.trImp.keep = 1; UI.trImp.into = el.dataset.v || null; if (!el.dataset.v) UI.trImp.noAuto = 1; render(); window.scrollTo(0, 0); },
-    trImpAddMail: function () { UI.trImp.addMail = true; render(); setTimeout(function () { var t = document.querySelector("[data-ti=text2]"); if (t) t.focus(); }, 60); },
-    trImpMerge: function () {
-      var I0 = UI.trImp, ta = document.querySelector("[data-ti=text2]"), v = ta ? ta.value : ""; if (!I0 || !I0.p || !v.trim()) { toast("Colle d'abord le mail."); return; }
-      I0.text = v; I0.addMail = false; impMerge(I0.p, v, I0.pdfR); if (document.activeElement) document.activeElement.blur(); render(); window.scrollTo(0, 0); impLookup();
-      var nT = I0.p.ppl.filter(function (x) { return !x.me && x.tel; }).length; toast(nT ? plural(nT, "numéro ajouté", "numéros ajoutés") + "." : "Mail lu.");
-    },
+
     trImpHost: function (el) { var x = UI.trImp && UI.trImp.p && UI.trImp.p.ppl[+el.dataset.v]; if (!x) return; x.host = x.host === el.dataset.k ? "" : el.dataset.k; var y = window.scrollY; render(); window.scrollTo(0, y); haptic("light"); },
     trImpRk: function (el) { var x = UI.trImp.p.ppl[+el.dataset.v]; if (!x) return; x.rank = el.dataset.k; UI.trImp.open = null; render(); },
     trImpCreate: function () {
@@ -21195,7 +21157,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (R.k === "pool") {
         if (!String(R.name || "").trim() && !R.rank) { toast(R.q ? "Choisis-le dans la liste, ou indique son classement." : "Indique ton adversaire, ou au moins son classement."); return; }
         t.pool = t.pool || [];
-        var x = { id: R.i === "new" ? uid() : t.pool[+R.i].id, tel: String(R.tel || "").replace(/[^\d+]/g, ""), name: String(R.name || "").trim(), rank: R.rank || "", club: (R.club || "").trim(), tid: R.tid || "", hit: R.hit || null, day: R.day || "", time: R.time || "", host: R.host || "", res: R.i === "new" ? null : t.pool[+R.i].res };
+        var x = { id: R.i === "new" ? uid() : t.pool[+R.i].id, tel: telNorm(R.tel), name: String(R.name || "").trim(), rank: R.rank || "", club: (R.club || "").trim(), tid: R.tid || "", hit: R.hit || null, day: R.day || "", time: R.time || "", host: R.host || "", res: R.i === "new" ? null : t.pool[+R.i].res };
         if (R.i === "new") t.pool.push(x); else t.pool[+R.i] = Object.assign(t.pool[+R.i], x);
         if (x.day && (!t.to || x.day > t.to)) t.to = x.day;
         trPlan(t, x.tid, x.name, x.rank, x.day); t.poolAt = 0;
@@ -22368,7 +22330,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     } else if (el.dataset.a === "notifSwitch") {
       if (el.checked) { delete S.notifOff; askNotif(); } else { S.notif = false; S.notifOff = 1; save(); if (LN) LN.cancel({ notifications: [1001, 1002, 1003, 1004, 1100, 1101, 1102, 1103, 1200, 1201, 1202, 1400].map(function (i) { return { id: i }; }) }).catch(function () {}); lastPlanKey = ""; lastTimingKey = ""; lastCoachKey = ""; try { syncNative(); } catch (e) {} render(); }
     } else if (el.dataset.a === "pdfFile" && el.files && el.files[0]) { importPdfFile(el.files[0]);
-    } else if (el.dataset.a === "trImpPdf" && el.files && el.files[0]) { trImpPdf(el.files[0]); el.value = "";
     } else if (el.dataset.a === "importFile" && el.files && el.files[0]) {
       var fr = new FileReader();
       fr.onload = function () {
