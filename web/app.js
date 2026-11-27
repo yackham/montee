@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.27.3",
+    VERSION: "4.27.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -5723,9 +5723,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (SK) hiT = kidName(); // 4.15 : sur son profil, son nom (pas de « Salut »)
     // 3.71.3 (Yann, maquette v4 validée) : jour de match, victoire de la veille ou montée détectée mettent la barre en avant
     // (contour couleur, pastille sur l'avatar, surtitre, action à droite) ; la ligne du haut redevient la date.
-    var spK = null, spH = "";
+    var spK = null, spH = "", zA = "", zL = ""; // 4.27.4 (Yann, 27/11) : la zone haute ne mène plus au profil (« Mon profil » est dans le pied) ; elle fait comme son action (Plan → Ace, Noter, Partager)
     try {
-      var NX = svg('<path d="M9 6l6 6-6 6"/>', 2.4), cta = function (t, a, h, v) { return '<span class="hd-cta" role="button" data-a="' + a + '"' + (h ? ' data-h="' + esc(h) + '"' : "") + (v ? ' data-v="' + esc(v) + '"' : "") + ">" + t + NX + "</span>"; };
+      var NX = svg('<path d="M9 6l6 6-6 6"/>', 2.4), cta = function (t, a, h, v) { zL = t; zA = ' data-a="' + a + '"' + (h ? ' data-h="' + esc(h) + '"' : "") + (v ? ' data-v="' + esc(v) + '"' : ""); return '<span class="hd-cta" role="button" data-a="' + a + '"' + (h ? ' data-h="' + esc(h) + '"' : "") + (v ? ' data-v="' + esc(v) + '"' : "") + ">" + t + NX + "</span>"; };
       if (jm) {
         var shN = function (n) { n = nameCase(n); return n.length > 18 ? n.replace(/^(\S)[^\s-]*(-(\S)[^\s-]*)?\s+/, function (z, a, b, c) { return a + "." + (c ? "-" + c + "." : "") + " "; }) : n; }, jt = shN(String(jm.title || "").replace(/ · .*/, "")); var jr = (String(jm.title || "").match(/ · (.+)$/) || [])[1] || "", jst = jm.st && /%$/.test(jm.st) ? jm.st.replace(" %", " %") + " de chances" : "";
         spK = { c: "var(--balle)", i: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/>' };
@@ -5742,9 +5742,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         spK = { c: "var(--balle)", i: '<path d="M12 19V5M5 12l7-7 7 7"/>' };
         spH = '<span class="hd-k">Montée détectée</span><span class="hd-big">Tu montes <span class="rk-tag">' + esc(S.ahead.rank) + "</span></span><small>à la sortie du " + aheadDay() + "</small></span>" + cta("Partager", "shareMontee");
       }
-    } catch (e) { spK = null; }
+    } catch (e) { spK = null; zA = ""; }
     if (spK && !S.demo) dl0 = '<span class="small hd-d">' + esc((JOURS[d.getDay()] + " " + dN(d) + " " + MOIS[d.getMonth()]).replace(/^./, function (x) { return x.toUpperCase(); })) + "</span>";
-    var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })(); av0 = kidHdAv(av0); // 4.15 : « Qui regardes-tu ? »
+    var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })(); av0 = kidHdAv(av0).replace('<span class="hd-av', '<span data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '" class="hd-av'); // 4.27.4 (Yann) : la photo seule mène encore au profil ; 4.15 : « Qui regardes-tu ? »
     // 3.70.9 (Yann, maquette 1) : la roue des réglages, discrète, en face de la date ; la barre de profil prend toute la largeur
     var wkH0 = ""; if (S.matches.length && p.status !== "top") { try { wkH0 = weekHtml(c); } catch (e) { wkH0 = ""; } }
     // 4.4.6 (Yann, maquette accueil validée le 24/11) : plus de date ; Ace et sa bulle à gauche, la roue dans un rond à droite ;
@@ -5752,8 +5752,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var nEp = 0; try { nEp = toursOn().length; } catch (e) {}
     // 4.20.2 (Yann, 26/11 ; Davy ne voyait pas que la carte mène au profil) : « Mon profil » devient une entrée nommée du pied, la carte garde ses couleurs ; sur le profil d'un enfant : Profils, Sa saison, Ses matchs (son palmarès)
     var hdFt = '<div class="hd-ft hd-ft3">' + (SK ? '<button data-a="goProfil"><i>' + svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/>', 2.2) + "</i>Profils</button>" : '<button data-a="goProfil"><i>' + I.user + "</i>Mon profil</button>") + '<button data-a="goSeasonCard"><i>' + svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', 2.2) + "</i>Ma saison</button>" + (SK ? '<button data-a="hdGo" data-h="#/palmares"><i>' + I.list + "</i>Ses matchs</button>" : '<button data-a="hdGo" data-h="#/tournoi"><i>' + TOUR_IC + "</i>Mes épreuves" + (nEp ? '<span class="hd-n">' + nEp + "</span>" : "") + "</button>") + "</div>"; // 4.17 : ses tournois restent dans son compte Ten'Up // 4.5.1 (Yann) : Mes épreuves à droite, sous le pouce
-    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + aceHd(!!wkH0) + (S.demo ? dl0 : "") + '<button class="act-ic hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r hd-pc"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + ' data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '">' + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div>" + hdFt + "</div></div></div>" : av0 +
-      '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span>" + svg('<path d="M9 6l6 6-6 6"/>', 2.4) + "</div>" + hdFt + "</div></div></div>");
+    var aceH0 = aceHd(!!wkH0); if (!spK || !zA) zL = "", zA = UI.coHomeA || ' data-a="ace" data-v=""'; // sans moment fort : le conseil d'Ace du jour ; sans conseil : la conversation avec Ace (jamais le profil)
+    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + aceH0 + (S.demo ? dl0 : "") + '<button class="act-ic hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r hd-pc"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + (zA ? zA + ' role="button" tabindex="0" aria-label="' + (zL || "Parler avec Ace") + '"' : "") + ">" + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div>" + hdFt + "</div></div></div>" : av0 +
+      '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span></div>" + hdFt + "</div></div></div>");
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
     // 4.1 (Yann, audit densité validé le 23/11) : le lundi, la carte d'Ace parle déjà du match de la semaine : pas de 2e bulle d'Ace au-dessus
@@ -11478,6 +11479,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // la toucher ouvre Ace sur ce sujet (la bulle disparaît une fois lue). Le lundi, la carte de la semaine parle déjà : la pastille suffit.
     // 4.4.8 (Yann) : Ace dit toujours sa phrase en arrivant, même déjà lue ; le point rouge et le rebond restent pour ce qui est nouveau
     var bub = !!t && !noBub;
+    UI.coHomeA = t ? ' data-a="' + (t.a ? t.a : t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + esc(t.v || "") + '"' : ""; // 4.27.4 : la zone haute de la carte profil ouvre ce même conseil
     return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="' + (t && t.a ? t.a : t && t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot && !bub ? '<span class="ace-dot"></span>' : "") + "</span></button>" +
       (bub ? '<button class="hd-bub" data-a="' + (t.a ? t.a : t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + esc(t.v || "") + '"><i aria-hidden="true"></i><span>' + esc(t.t) + "</span></button>" : "");
   }
@@ -21371,7 +21373,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var tid = pool ? r.tid : r.opp && r.opp.tid; if (tid) S.plans = (S.plans || []).filter(function (x) { return x.id !== String(tid); });
       var mx = trMatchOf(r);
       if (pool) { if (t.resUrl) UI.resNudge = t.id; annToast(mx, r.res === "V" ? "Bravo !" + (t.resUrl ? " Pense à l'envoyer au comité." : "") : "Noté." + (t.resUrl ? " Pense à l'envoyer au comité." : ""), r.res === "V"); render(); if (t.resUrl) window.scrollTo(0, 0); return; }
-      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { var nx = { tid: t.id, day: r.day, lab: trLab(t.rounds.length) }; if (mx && qaPending(mx)) { UI.qaNext = nx; UI.qaOne = mx.id; UI.qa = null; UI.qaSheet = true; toast("Bravo ! Raconte-moi ce match, puis ton " + nx.lab + ".", true); } else { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Ajoute ton " + nx.lab + ".", true); } } /* 4.27.3 (Yann) : d'abord annoter le match qu'on vient de jouer, ensuite le tour suivant */ else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
+      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { var nx = { tid: t.id, day: r.day, lab: trLab(t.rounds.length) }; if (mx && qaPending(mx)) { UI.qaNext = nx; UI.qaOne = mx.id; UI.qa = null; UI.qaSheet = true; toast("Bravo ! Raconte-moi ce match, puis ton " + nx.lab + ".", true); } else { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Ajoute ton " + nx.lab + ".", true); } } /* 4.27.4 (Yann) : d'abord annoter le match qu'on vient de jouer, ensuite le tour suivant */ else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
       else {
         annToast(mx, "Noté.");
         // fin de parcours : plus de prochain match nulle part (accueil, montre, notifications)
@@ -21446,7 +21448,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 3.73 : Ma montée (onglets) et la Balle
     mmTab: function (el) { UI.mmTab = el.dataset.v; var y = window.scrollY; render(); window.scrollTo(0, y); },
     more: function (el) { UI.more = UI.more || {}; UI.more[el.getAttribute("data-v")] = 1; render(); }, // 4.1 : « N autres › », partout le même
-    ace: function (el) { if (el.classList.contains("ace-peek")) { S.aceTap = 1; haptic("light"); } var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg") || el.classList.contains("hd-bub"))) m.op[UI.coHomeId] = Date.now(); if (el.dataset.v || !(UI.aceT && UI.aceT.t.length)) aceAsk(el.dataset.v || ""); else aceResume(); Array.prototype.forEach.call(document.querySelectorAll(".wow-bub"), function (b) { b.remove(); }); save(); render(); haptic("light"); },
+    ace: function (el) { if (el.classList.contains("ace-peek")) { S.aceTap = 1; haptic("light"); } var m = coMem(); if (UI.coHomeId && (el.classList.contains("ace-hd") || el.classList.contains("ace-hcg") || el.classList.contains("hd-bub") || (el.classList.contains("hd-id") && !el.classList.contains("hd-sp")))) m.op[UI.coHomeId] = Date.now(); if (el.dataset.v || !(UI.aceT && UI.aceT.t.length)) aceAsk(el.dataset.v || ""); else aceResume(); Array.prototype.forEach.call(document.querySelectorAll(".wow-bub"), function (b) { b.remove(); }); save(); render(); haptic("light"); },
     aceQ: function (el) { aceAsk(el.dataset.v || ""); render(); },
     aceClose: function () { UI.ace = null; UI.aceT = null; render(); }, // 4.21 : le ✕ (fil ou bulle) est la seule fin de la conversation
     aceTickle: function (el) { var b = el.querySelector(".cbl-b > div"); if (b && window.Balle && Balle.play2 && !b._busy) { haptic("light"); Balle.play2(b, "rire", 1300, b._base); } }, // 4.4 : on touche Ace, il rit
