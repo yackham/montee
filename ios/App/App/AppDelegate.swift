@@ -1054,6 +1054,8 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
                     if #available(iOS 15.0, *) { out["digest"] = n.scheduledDeliverySetting == .enabled ? "on" : "off" }
                 }
                 if last > 0 { out["last"] = last }
+                let next = UserDefaults.standard.double(forKey: "montee.bgNext")
+                if next > 0 { out["next"] = next }
                 out["log"] = UserDefaults.standard.stringArray(forKey: "montee.bgLog") ?? []
                 call.resolve(out)
             }
@@ -1453,15 +1455,40 @@ enum MonteeSummary {
 }
 
 enum MonteeBackground {
+    /// 4.26.5 : une demande déjà en attente n'est plus repoussée. Avant, chaque ouverture de Montée, chaque passage
+    /// en arrière-plan et chaque réveil discret (Santé, montre, widgets) redemandait « dans 3 h » : tant que Montée
+    /// était réveillée au moins une fois toutes les 3 h, l'heure prévue reculait sans fin et iOS ne lançait jamais la lecture.
+    /// On ne remplace la demande que si aucune n'attend, ou si un moment utile (fin de match, sortie) arrive plus tôt.
     static func schedule() {
-        let request = BGAppRefreshTaskRequest(identifier: kRefreshTaskId)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: nextDelay())
-        submit(request, "court")
-        let long = BGProcessingTaskRequest(identifier: kProcessTaskId)
-        long.requiresNetworkConnectivity = true
-        long.requiresExternalPower = false
-        long.earliestBeginDate = Date(timeIntervalSinceNow: nextDelay())
-        submit(long, "long")
+        let want = Date(timeIntervalSinceNow: nextDelay())
+        BGTaskScheduler.shared.getPendingTaskRequests { pending in
+            DispatchQueue.main.async {
+                let at = { (id: String) -> Date? in pending.first(where: { $0.identifier == id }).map { $0.earliestBeginDate ?? Date.distantPast } }
+                let r0 = at(kRefreshTaskId), p0 = at(kProcessTaskId)
+                if r0 == nil || r0! > want.addingTimeInterval(60) {
+                    let request = BGAppRefreshTaskRequest(identifier: kRefreshTaskId)
+                    request.earliestBeginDate = want
+                    submit(request, "court")
+                }
+                if p0 == nil || p0! > want.addingTimeInterval(60) {
+                    let long = BGProcessingTaskRequest(identifier: kProcessTaskId)
+                    long.requiresNetworkConnectivity = true
+                    long.requiresExternalPower = false
+                    long.earliestBeginDate = want
+                    submit(long, "long")
+                }
+                // Affiché dans Réglages › Notifications : à partir de quand iOS peut relancer Montée
+                let next = min(r0.map { min($0, want) } ?? want, p0.map { min($0, want) } ?? want)
+                UserDefaults.standard.set(next.timeIntervalSince1970, forKey: "montee.bgNext")
+            }
+        }
+    }
+
+    /// handle() : la demande qui vient de s'exécuter n'est plus en attente, on en pose une neuve.
+    static func scheduleFresh() {
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: kRefreshTaskId)
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: kProcessTaskId)
+        schedule()
     }
 
     /// 4.25.1 : iOS refuse-t-il la demande de réveil ? (1 = actualisation indisponible, 2 = trop de demandes,
@@ -1499,7 +1526,7 @@ enum MonteeBackground {
     }
 
     static func handle(task: BGTask, timeout: TimeInterval) {
-        schedule()
+        scheduleFresh()
         if busy { task.setTaskCompleted(success: true); return }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "montee.bgLast") // 3.59 : affiché dans Réglages › Notifications
         guard let script = MonteeStore.script, MonteeStore.state != nil else {
