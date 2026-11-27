@@ -1456,12 +1456,22 @@ enum MonteeBackground {
     static func schedule() {
         let request = BGAppRefreshTaskRequest(identifier: kRefreshTaskId)
         request.earliestBeginDate = Date(timeIntervalSinceNow: nextDelay())
-        try? BGTaskScheduler.shared.submit(request)
+        submit(request, "court")
         let long = BGProcessingTaskRequest(identifier: kProcessTaskId)
         long.requiresNetworkConnectivity = true
         long.requiresExternalPower = false
         long.earliestBeginDate = Date(timeIntervalSinceNow: nextDelay())
-        try? BGTaskScheduler.shared.submit(long)
+        submit(long, "long")
+    }
+
+    /// 4.25.1 : iOS refuse-t-il la demande de réveil ? (1 = actualisation indisponible, 2 = trop de demandes,
+    /// 3 = identifiant non autorisé). Noté une fois dans le journal, sans répéter la même ligne.
+    static func submit(_ r: BGTaskRequest, _ kind: String) {
+        do { try BGTaskScheduler.shared.submit(r) } catch {
+            let code = "refus-ios:\(kind):\((error as NSError).code)"
+            let last = (UserDefaults.standard.stringArray(forKey: "montee.bgLog") ?? []).last ?? ""
+            if !last.hasSuffix("|" + code) { log(code) }
+        }
     }
 
     /// Une seule lecture à la fois (les deux tâches peuvent tomber ensemble).
