@@ -2986,7 +2986,7 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-dt .tn-dd:not(.v) input[type=date] { color: transparent; width: 150px; }
 .tq-dt input[type=date]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; opacity: 0; cursor: pointer; }
 .tq-dt .tn-dd em { left: auto; right: 0; color: var(--gazon); font-weight: 600; white-space: nowrap; }
-.tq-stake { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 0 2px; margin-top: -4px; }
+.tq-stake { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 4px 2px; margin: 2px 0; } /* 4.26.4 (Yann) : la balle des chances respire entre la carte du joueur et l'encart */
 .tq-stake span { color: var(--muted); }
 .tq-ou { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; margin: -4px 0; }
 .tq-ou i { flex: 1; height: 1px; background: var(--line); }
