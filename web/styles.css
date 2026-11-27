@@ -3060,8 +3060,8 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .topbar .linkbtn { color: var(--page-ink); }
 /* 3.42.4 : contrastes des thèmes Montée+ (Yann) */
 /* Feuilles : Indoor et Nocturne gardent leurs couleurs (plus le gris de Nuit) */
-:root[data-theme="nuit"]:is([data-skin="indoor"], [data-skin="nocturne"]) .sheet { background: linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, #fff 6%) 0, var(--bg) 140px); }
-:root[data-theme="nuit"]:is([data-skin="indoor"], [data-skin="nocturne"]) .sheet .card { background: color-mix(in srgb, var(--card) 80%, #fff 8%); }
+:root[data-theme="nuit"][data-skin] .sheet { background: linear-gradient(180deg, color-mix(in srgb, var(--card) 85%, #fff 6%) 0, var(--bg) 140px); }
+:root[data-theme="nuit"][data-skin] .sheet .card { background: color-mix(in srgb, var(--card) 80%, #fff 8%); }
 /* Rétro : le chiffre de l'objectif sur le panneau vert */
 :root[data-skin="retro"] .tl-i.goal .tl-c b, :root[data-skin="retro"] .tl-i.goal .tl-d { color: #F1E7D2; }
 /* Terre / Dur : ce qui est posé directement sur le fond coloré */
