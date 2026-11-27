@@ -24,6 +24,7 @@ App tennis pour compétiteurs (Capacitor iOS + Android, montre Apple en Swift). 
 - Classement d'un joueur : petite balle jaune devant (`.rk-tag`, `rkTagOf()`) quand le contexte s'y prête. Une même info = une seule représentation.
 - Cartes blanches / neutres : pas de gros aplats de couleur (vert, jaune-vert, kaki), pas de liseré coloré sur le côté ; couleur en accent seulement (texte, pastille à fond doux teinté de sa couleur, jamais de contour : décision du 26/11).
 - Feuilles de détail qui réutilisent une liste : lignes à plat séparées d'un trait fin, sans carte autour.
+- Feuilles de saisie ou d'édition d'un match (match de poule, tour de tournoi, programmer un match) : un seul rendu, carte joueur `trCard()` avec « changer » calé à droite, puis un encart doux `.tq-enc` de lignes `tqRow()` (`tqHostRow`, `tqDateRow`, `tqTimeRow`). JAMAIS de lien « Voir sa fiche » dans ces feuilles (Yann, 27/11). Match à venir : date à partir d'aujourd'hui (`trDayMin`), heure de 8 h à 22 h par 15 min (`hSelM`).
 - À garder : les 3 anneaux de l'accueil, « Ce qui arrive », carte Sortie, « Points à défendre », cartes paliers de l'Activité.
 - Tout chiffre affiché a une définition ou un détail touchable. Noms d'exemple génériques (jamais de vrais joueurs ou testeurs). Thèmes sans marques de tournois.
 - Moderne, sportif, chaleureux, lisible ; pas de refonte pour moderniser.
