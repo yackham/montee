@@ -8105,6 +8105,10 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 :root:root:root .tq-sheet .seg { background: color-mix(in srgb, var(--ink) 9%, transparent); }
 :root:root:root .tq-sheet .tq-rs-b .btn.soft { background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); }
 .tq-sheet .field:has(> .seg.res) { margin-bottom: 12px; }
+/* 4.22.0 (Yann) : sous-titre collé au titre, de l'air avant Victoire/Défaite ; tableau d'arbitre lisible sur le fond de la feuille (fond doux, sans contour) */
+.tq-sheet .tq-rs-who { margin-top: -10px; }
+.tq-sheet .field:has(> .seg.res) { margin-top: 10px; }
+:root .tq-sbf .sb { box-shadow: none; background: linear-gradient(color-mix(in srgb, var(--ink) 12%, transparent), color-mix(in srgb, var(--ink) 12%, transparent)) 0 50% / 100% 1px no-repeat, color-mix(in srgb, var(--ink) 6%, transparent); }
 .tq-rs-who { font-size: 13.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tq-rs-b { display: flex; gap: 10px; } .tq-rs-b .btn { flex: 1; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
