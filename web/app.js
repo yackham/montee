@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.27.3",
+    VERSION: "4.27.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -5723,7 +5723,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (SK) hiT = kidName(); // 4.15 : sur son profil, son nom (pas de « Salut »)
     // 3.71.3 (Yann, maquette v4 validée) : jour de match, victoire de la veille ou montée détectée mettent la barre en avant
     // (contour couleur, pastille sur l'avatar, surtitre, action à droite) ; la ligne du haut redevient la date.
-    var spK = null, spH = "", zA = "", zL = ""; // 4.27.3 (Yann, 27/11) : la zone haute ne mène plus au profil (« Mon profil » est dans le pied) ; elle fait comme son action (Plan → Ace, Noter, Partager)
+    var spK = null, spH = "", zA = "", zL = ""; // 4.27.4 (Yann, 27/11) : la zone haute ne mène plus au profil (« Mon profil » est dans le pied) ; elle fait comme son action (Plan → Ace, Noter, Partager)
     try {
       var NX = svg('<path d="M9 6l6 6-6 6"/>', 2.4), cta = function (t, a, h, v) { zL = t; zA = ' data-a="' + a + '"' + (h ? ' data-h="' + esc(h) + '"' : "") + (v ? ' data-v="' + esc(v) + '"' : ""); return '<span class="hd-cta" role="button" data-a="' + a + '"' + (h ? ' data-h="' + esc(h) + '"' : "") + (v ? ' data-v="' + esc(v) + '"' : "") + ">" + t + NX + "</span>"; };
       if (jm) {
@@ -5744,7 +5744,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       }
     } catch (e) { spK = null; zA = ""; }
     if (spK && !S.demo) dl0 = '<span class="small hd-d">' + esc((JOURS[d.getDay()] + " " + dN(d) + " " + MOIS[d.getMonth()]).replace(/^./, function (x) { return x.toUpperCase(); })) + "</span>";
-    var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })(); av0 = kidHdAv(av0).replace('<span class="hd-av', '<span data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '" class="hd-av'); // 4.27.3 (Yann) : la photo seule mène encore au profil ; 4.15 : « Qui regardes-tu ? »
+    var av0 = (function () { var ph = myPhoto(), nm = S.profile.name || ((S.tenup.me || {}).prenom) || ""; return '<span class="hd-av">' + (ph ? '<img src="' + esc(ph) + '" alt="">' : esc((nm.charAt(0) || "?").toUpperCase())) + "</span>"; })(); av0 = kidHdAv(av0).replace('<span class="hd-av', '<span data-a="goProfil" role="button" tabindex="0" aria-label="Mon profil, classement ' + esc(rk0 || "?") + '" class="hd-av'); // 4.27.4 (Yann) : la photo seule mène encore au profil ; 4.15 : « Qui regardes-tu ? »
     // 3.70.9 (Yann, maquette 1) : la roue des réglages, discrète, en face de la date ; la barre de profil prend toute la largeur
     var wkH0 = ""; if (S.matches.length && p.status !== "top") { try { wkH0 = weekHtml(c); } catch (e) { wkH0 = ""; } }
     // 4.4.6 (Yann, maquette accueil validée le 24/11) : plus de date ; Ace et sa bulle à gauche, la roue dans un rond à droite ;
@@ -11479,7 +11479,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // la toucher ouvre Ace sur ce sujet (la bulle disparaît une fois lue). Le lundi, la carte de la semaine parle déjà : la pastille suffit.
     // 4.4.8 (Yann) : Ace dit toujours sa phrase en arrivant, même déjà lue ; le point rouge et le rebond restent pour ce qui est nouveau
     var bub = !!t && !noBub;
-    UI.coHomeA = t ? ' data-a="' + (t.a ? t.a : t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + esc(t.v || "") + '"' : ""; // 4.27.3 : la zone haute de la carte profil ouvre ce même conseil
+    UI.coHomeA = t ? ' data-a="' + (t.a ? t.a : t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + esc(t.v || "") + '"' : ""; // 4.27.4 : la zone haute de la carte profil ouvre ce même conseil
     return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="' + (t && t.a ? t.a : t && t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot && !bub ? '<span class="ace-dot"></span>' : "") + "</span></button>" +
       (bub ? '<button class="hd-bub" data-a="' + (t.a ? t.a : t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + esc(t.v || "") + '"><i aria-hidden="true"></i><span>' + esc(t.t) + "</span></button>" : "");
   }
@@ -21373,7 +21373,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var tid = pool ? r.tid : r.opp && r.opp.tid; if (tid) S.plans = (S.plans || []).filter(function (x) { return x.id !== String(tid); });
       var mx = trMatchOf(r);
       if (pool) { if (t.resUrl) UI.resNudge = t.id; annToast(mx, r.res === "V" ? "Bravo !" + (t.resUrl ? " Pense à l'envoyer au comité." : "") : "Noté." + (t.resUrl ? " Pense à l'envoyer au comité." : ""), r.res === "V"); render(); if (t.resUrl) window.scrollTo(0, 0); return; }
-      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { var nx = { tid: t.id, day: r.day, lab: trLab(t.rounds.length) }; if (mx && qaPending(mx)) { UI.qaNext = nx; UI.qaOne = mx.id; UI.qa = null; UI.qaSheet = true; toast("Bravo ! Raconte-moi ce match, puis ton " + nx.lab + ".", true); } else { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Ajoute ton " + nx.lab + ".", true); } } /* 4.27.3 (Yann) : d'abord annoter le match qu'on vient de jouer, ensuite le tour suivant */ else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
+      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { var nx = { tid: t.id, day: r.day, lab: trLab(t.rounds.length) }; if (mx && qaPending(mx)) { UI.qaNext = nx; UI.qaOne = mx.id; UI.qa = null; UI.qaSheet = true; toast("Bravo ! Raconte-moi ce match, puis ton " + nx.lab + ".", true); } else { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Ajoute ton " + nx.lab + ".", true); } } /* 4.27.4 (Yann) : d'abord annoter le match qu'on vient de jouer, ensuite le tour suivant */ else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
       else {
         annToast(mx, "Noté.");
         // fin de parcours : plus de prochain match nulle part (accueil, montre, notifications)
