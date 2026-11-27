@@ -1056,7 +1056,13 @@
     var tel = String(d.telephoneJa || "").replace(/[^\d+]/g, ""), mail = String(d.mailJa || "").trim(), out = { cat: String(d.libelleCategorie || ""), closing: d.dateCloture ? String(d.dateCloture).slice(0, 10) : "",
       opens: d.dateOuvertureInscriptionEnLigne ? String(d.dateOuvertureInscriptionEnLigne).slice(0, 10) : "", online: !!d.inscriptionEnLigne, payOnline: !!d.paiementEnLigne, payReq: !!d.paiementEnLigneObligatoire, insReq: !!d.inscriptionEnLigneObligatoire,
       eps: (d.epreuveList || []).map(function (e) { var ty = String(e.typeEpreuve || ""); return { id: String(e.id || ""), name: String(e.nomEpreuve || e.epreuveLibelle || ""), aud: ageTxt(e), sex: /^[SD]D$/.test(ty) ? "F" : /^[SD]M$/.test(ty) ? "H" : "", dbl: /^D/.test(ty) || /double|mixte/i.test(e.nomEpreuve || "") }; }) };
-    if (tel || mail) out.ja = { name: "", tel: tel, mail: mail };
+    // 4.26.4 (relevé public du 27/11/2026, Seloncourt 305438 et Héricourt 211199) : le nom du juge-arbitre est dans « engagement »
+    var eg = d.engagement || {}, jn = [eg.prenomEngagement, eg.nomEngagement].filter(Boolean).join(" ").trim();
+    if (tel || mail || jn) out.ja = { name: jn, tel: tel, mail: mail };
+    // horaires et balles : Ten'Up envoie des codes ; on n'affiche que ceux dont on a vu le libellé sur la page Ten'Up (jamais de supposition)
+    var HOR = { "2": "Semaine à partir de 18 h et week-end" }, BAL = { "5801": "Wilson US Open" };
+    if (HOR[String(d.codeHoraire)]) out.hours = HOR[String(d.codeHoraire)];
+    if (BAL[String(d.modeleBalle)]) out.balls = BAL[String(d.modeleBalle)];
     // 4.11 (fiches publiques relevées le 25/11/2026) : surfaces (codes), couvert, dotation (espèces + lots, en €), TMC
     var sf = []; (d.codeSurfaces || []).forEach(function (c) { var l = SURF[String(c).toUpperCase()]; if (l && sf.indexOf(l) < 0) sf.push(l); });
     if (sf.length) out.surf = sf;
@@ -1079,6 +1085,8 @@
       // 4.11.1 (relevé public du 25/11) : âges autorisés (ex. Senior : 19 à 44 ans), sexe, ouverture et clôture des inscriptions de CETTE épreuve
       if (x.ageMinAutorise != null) e.aMin = +x.ageMinAutorise; if (x.ageMaxAutorise != null) e.aMax = +x.ageMaxAutorise;
       if (!e.sex) e.sex = x.messieurs && !x.dames ? "H" : x.dames && !x.messieurs ? "F" : ""; if (x.double || x.mixte) e.dbl = true;
+      // 4.26.4 (relevé 27/11 : Seloncourt « Inscription sur liste d'attente » = open false ; Héricourt ouvertes = open true)
+      if (x.open === false) e.full = true;
       if (x.dateHeureClotureInscription) e.close = String(x.dateHeureClotureInscription).slice(0, 10); if (x.dateHeureOuvertureInscription) e.open = String(x.dateHeureOuvertureInscription).slice(0, 10);
       // places publiques : quotaInscrit / quotaAttente par échelon de classement (le nombre d'inscrits, lui, n'est pas public)
       var qs = function (L) { var n = 0; (L || []).forEach(function (q) { n += +(q && q.nombre) || 0; }); return n; }; if (qs(x.quotaInscrit)) e.quota = qs(x.quotaInscrit); if (qs(x.quotaAttente)) e.qWait = qs(x.quotaAttente);

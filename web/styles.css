@@ -7634,6 +7634,10 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 .h2-ed svg { width: 15px; height: 15px; }
 /* 4.26.3 (contrastes) : sur le fond travaillé de Terre et Dur, le lien du titre prend l'encre de la page comme les autres liens posés sur le fond */
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen h2 > .h2-ed { color: var(--page-ink); }
+/* 4.26.4 (Yann : « dommage que le bouton soit caché au scroll ») : l'action d'une fiche de tournoi reste fixée en bas de la feuille */
+.tz-cta { position: sticky; bottom: calc(-18px - var(--sab)); z-index: 2; display: flex; flex-direction: column; gap: 6px; margin: 14px -18px calc(-18px - var(--sab)); padding: 12px 18px calc(12px + var(--sab)); background: var(--bg); box-shadow: 0 -12px 18px -14px rgba(0,0,0,.45); }
+:root[data-theme="nuit"] .tz-cta { background: #1E2025; }
+.tz-cta .tz-foot { margin: 0 4px; text-align: center; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.

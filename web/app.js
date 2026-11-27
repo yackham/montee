@@ -2044,12 +2044,21 @@
   }
   // 4.9.2 (Yann : « À régler m'ouvre toutes mes inscriptions ») : la page de CETTE inscription, où Ten'Up propose le paiement
   function insPayUrl(m) { var x = String(m.dispoUrl || "").match(/^(\/user\/mes-inscriptions\/[^\/?#]+)/); return x ? x[1] : "/user/mes-inscriptions"; }
+  // 4.26.4 (Yann : « on ne remonte pas les infos du tournoi ») : surface, horaires et balles lus sur la fiche Ten'Up, mêmes lignes partout
+  function tzMoreRows(x, row, noSurf) {
+    var sf = x.surf || [], cv = x.cov === "in" ? "couverts" : x.cov === "out" ? "extérieurs" : x.cov === "mix" ? "couverts et extérieurs" : "", r = "";
+    if (sf.length && !noSurf) r += row("Surface", esc(sf.join(", ") + (cv ? ", " + cv : "")), "");
+    if (x.hours) r += row("Horaires", esc(x.hours), "");
+    if (x.balls) r += row("Balles", esc(x.balls), "");
+    return r;
+  }
   function tzPratique(t) {
     var i = t.ins || {}, m = i.more || {}, num = tuNum(t.tuid), r = "", j = m.ja;
     var where = m.addr || [insCase(i.club || ""), insCase(i.city || "")].filter(Boolean).join(", "), short = m.place ? insCase(m.place) + (i.city ? ", " + insCase(i.city) : "") : where;
     if (where) r += tzLine1("Lieu", m.place && m.addr ? esc(insCase(m.place)) + '<small class="tz-sub">' + esc(m.addr) + "</small>" : esc(short), itinIc(where, m.lat, m.lng));
     r += j ? tzLine1("Juge-arbitre", esc(j.name ? nameCase(j.name) : "Le juge-arbitre du tournoi"), (j.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(j.tel) + '"') : "") + (j.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(j.mail) + '"') : ""))
       : tzLine1("Juge-arbitre", "Sur la page du tournoi", num ? '<button class="tz-act" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="Le tournoi">Voir</button>' : "");
+    r += tzMoreRows(m, tzLine1);
     var D = tzDispo(m.dispoLim);
     // 4.9.3 (Yann) : plus modifiables, elles restent consultables (avec le juge-arbitre à portée en cas de souci)
     r += tzLine1("Indispos", esc(D.txt), NATIVE && S.tenup.linked ? (D.ok ? tzIc("edit", "Modifier tes indispos", 'href="#/dispos/' + esc(t.id) + '"') : tzIc("eye", "Voir tes indispos", 'href="#/dispos/' + esc(t.id) + '"')) : D.ok ? tzIc("edit", "Modifier tes indispos sur Ten'Up", 'data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos"') : "", D.ok ? "" : "tz-mute");
@@ -2136,6 +2145,7 @@
     var td = E.iso(today());
     if (ep && ep.open && ep.open > td) return { k: "soon", txt: "Inscriptions à partir du " + fdate(ep.open).replace(/ \d{4}$/, "") };
     if (cl && close == null) return { k: "closed", txt: /complet/i.test(t.closeWhy || "") ? "Complet : inscriptions closes" : "Inscriptions closes" };
+    if (ep && ep.full) return { k: "wait", txt: "Inscription sur liste d'attente" }; // 4.26.4 (Yann) : ce que Ten'Up affiche quand l'épreuve est pleine
     return null;
   }
   function tzWhy(v) { // la phrase d'Ace, tirée du même calcul : des faits (agenda, distance, sorties du classement), jamais un pronostic
@@ -2239,7 +2249,7 @@
   function tzFiche(t, quiet) { // épreuves, clôture, juge-arbitre et lieu lus sur la fiche Ten'Up du tournoi, gardés avec le tournoi trouvé
     if (!NATIVE || !S.tenup.linked) return Promise.resolve();
     return tenupQuery("fiche", { t: t.id, light: quiet ? 1 : 0 }).then(function (r) {
-      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat", "surf", "cov", "cash", "lots", "tmc", "kind", "payReq", "insReq", "closeWhy"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
+      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat", "surf", "cov", "cash", "lots", "tmc", "kind", "payReq", "insReq", "closeWhy", "hours", "balls"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
       if (quiet) return; save(); if (UI.sheet && UI.sheet.k === "tz") render();
     });
   }
@@ -2550,7 +2560,7 @@
       esc(e === null ? "Pas de simple pour toi" : e && !e.wait ? [e.fmt === "tmc" ? "TMC" : t.kind === "indiv" ? "Indivs" : cap1(e.name.replace(/\s*\(.*\)$/, "").replace(/\s+senior\b/i, "").toLowerCase()), e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ") : "Lue sur Ten'Up…"));
     g += cell("Courts", sf.length ? surfPic(sf[0]) + esc(sf[0]) : "—", esc(sf.length > 1 ? "et " + sf.slice(1).join(", ").toLowerCase() : t.cov === "in" ? "Couverts" : t.cov === "out" ? "Extérieurs" : t.cov === "mix" ? "Couverts et extérieurs" : sf.length ? "" : "Pas indiqué"));
     g += cell("Dotation", tot ? TZ_CUP + esc(tot.toLocaleString("fr-FR") + " €") : "—", esc(tot ? (t.cash && t.lots ? t.cash + " € en espèces, " + t.lots + " € en lots" : t.cash ? "En espèces" : "En lots") : "Pas indiquée"));
-    var iv = v.ins && v.ins.k === "soon" ? ["Bientôt", v.ins.txt.replace(/^Inscriptions /, ""), "tzv-w"] : v.cl && v.close == null ? ["Closes", (/complet/i.test(t.closeWhy || "") ? "Complet, depuis le " : "Depuis le ") + fdate(v.cl).replace(/ \d{4}$/, ""), "tzv-w"]
+    var iv = v.ins && v.ins.k === "soon" ? ["Bientôt", v.ins.txt.replace(/^Inscriptions /, ""), "tzv-w"] : v.ins && v.ins.k === "wait" ? ["Liste d'attente", "L'épreuve est pleine", "tzv-w"] : v.cl && v.close == null ? ["Closes", (/complet/i.test(t.closeWhy || "") ? "Complet, depuis le " : "Depuis le ") + fdate(v.cl).replace(/ \d{4}$/, ""), "tzv-w"]
       : v.cl ? ["Ouvertes", "Jusqu'au " + fdate(v.cl).replace(/ \d{4}$/, ""), v.close <= 7 ? "tzv-w" : "tzv-ok"] : ["Ouvertes", "Sur Ten'Up", "tzv-ok"];
     g += cell("Inscriptions", esc(iv[0]), esc(iv[1]), iv[2]);
     b += '<div class="tzv-g">' + g + "</div>";
@@ -2559,14 +2569,14 @@
     var say = v.clash.length ? "Attention, ça tombe en même temps que " + v.clash.map(function (x) { return x.t.replace(/^Indispo : /, "ton indispo : "); }).join(" et ") + "."
       : "Rien d'autre ces jours-là, et " + (open ? esc(when) : pwX("tes victoires compteront à la sortie du 2 déc.")) + ".";
     b += '<div class="tzv-ace" role="button" tabindex="0" data-a="ace" data-v="tz:' + esc(t.id) + '">' + coBall("tzv" + t.id, v.clash.length ? "concentree" : "repos", "sm") + '<span class="tzv-bub">' + (v.clash.length ? esc(say) : say) + "</span></div>";
-    var pr = tzLieu(t, [t.club, t.city].filter(Boolean).map(insCase).join(", ")) + tzJa(t, num);
+    var pr = tzLieu(t, [t.club, t.city].filter(Boolean).map(insCase).join(", ")) + tzJa(t, num) + tzMoreRows(t, tzRow, true); // la surface est déjà dans la case « Courts »
     if (t.payReq) pr += tzRow("Paiement", "En ligne, obligatoire pour être inscrit", ""); else if (t.payOnline) pr += tzRow("Paiement", "En ligne ou sur place", "");
     if (e && !e.wait && e.fmt === "tmc") pr += tzRow("Format", "TMC : plusieurs matchs, même si tu perds le premier", ""); else if (t.kind === "indiv") pr += tzRow("Format", "Indivs : une poule, puis un tableau", "");
     if ((!t.ja || !t.ja.name || t.eps == null) && !(UI.tzFi || {})[t.id] && NATIVE && S.tenup.linked) { UI.tzFi = UI.tzFi || {}; UI.tzFi[t.id] = 1; setTimeout(function () { tzFiche(t); }, 600); } // 4.6.0 : épreuves et juge-arbitre en direct (Yann)
     return { title: t.name, hd: tzHeart(t.id), sub: [fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), t.club ? insCase(t.club) : ""].filter(Boolean).join(" · "),
-      body: b + '<div class="tzv-h">Pratique</div><div class="tz-sh">' + pr + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
-        (mine ? '<button class="btn primary" data-a="tzMineGo" data-v="' + esc(mine.id) + '">' + (mine.wait ? "Tu es en liste d'attente : voir" : "Tu es inscrit : voir") + '</button><p class="small tz-foot">' + (mine.wait ? "Montée te prévient dès que tu es pris." : "Ton inscription est dans Mes épreuves.") + "</p>"
-          : '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>') };
+      body: b + '<div class="tzv-h">Pratique</div><div class="tz-sh blk tz-blk tz-c">' + pr + "</div>" + // 4.26.4 (Yann) : la section Pratique dans un encart, comme les autres sections (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
+        '<div class="tz-cta">' + (mine ? '<button class="btn primary" data-a="tzMineGo" data-v="' + esc(mine.id) + '">' + (mine.wait ? "Tu es en liste d'attente : voir" : "Tu es inscrit : voir") + '</button><p class="small tz-foot">' + (mine.wait ? "Dès que tu passes au tableau, Montée te prévient." : "Ton inscription est dans Mes épreuves.") + "</p>"
+          : '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>') + "</div>" }; // 4.26.4 (Yann) : le bouton reste visible en bas de la feuille
   };
   var REFRESH_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>';
   function agoLab(ts) { var m = Math.round((Date.now() - ts) / 6e4); return m < 2 ? "à l'instant" : m < 60 ? "il y a " + m + " min" : m < 1440 ? "il y a " + Math.round(m / 60) + " h" : "il y a " + plural(Math.round(m / 1440), "jour"); }
