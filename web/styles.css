@@ -7602,6 +7602,7 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 :root[data-theme="nuit"] :is(.p-ic, .cp-ib:not(.fort):not(.lock)) { color: color-mix(in srgb, var(--c) 70%, var(--ink)); }
 :root[data-skin="retro"] .sj1-go { color: #FBF5E7; }
 .seg.res button svg { opacity: .8; }
+.sc-stamp { color: color-mix(in srgb, var(--sc-r) 68%, var(--ink)); } /* le tampon « Confidentiel » en fond doux : texte un ton plus franc */
 
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
