@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.25.0",
+    VERSION: "4.26.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2564,7 +2564,7 @@
   function insLab(t) { var i = t.ins; if (!i) return ""; return t.wait ? "Liste d'attente" : i.due > 0 ? "À payer " + i.due + " €" : i.ok ? "Inscrit" + (i.paid && i.fee ? " · payé" : "") : "Inscription en cours"; }
   // 3.44 : la poule (indivs). Tes matchs dans t.pool ; les matchs des autres, lus sur leurs fiches Ten'Up (t.poolX)
   function ageOfX(x) { if (!x) return null; var h = x.hit || {}, sc = x.tid && S.scout && S.scout[x.tid]; return h.age || (sc && sc.profil && sc.profil.age) || null; }
-  function poolMembers(t) { return [{ me: true, name: "Toi", rank: lab(curIdx() < 0 ? 0 : curIdx()) }].concat((t.pool || []).map(function (x) { return { name: x.name, rank: x.rank, tid: x.tid, hit: x.hit, age: ageOfX(x) }; })); }
+  function poolMembers(t) { return [{ me: true, name: "Toi", rank: lab(curIdx() < 0 ? 0 : curIdx()) }].concat((t.pool || []).map(function (x) { return { id: x.id, name: x.name, rank: x.rank, tid: x.tid, hit: x.hit, age: ageOfX(x) }; })); }
   // 3.70.8 (Yann : les matchs de poule de Davy homologués sur Ten'Up, dans son palmarès, mais 0-0 dans la poule) : un match de ton palmarès
   // pendant la poule, contre un joueur de la poule, dans cette épreuve, compte dans la poule. Avant, seul le résultat noté à la main
   // dans la poule (ou un match saisi dans Montée et rattaché) comptait : un match importé de Ten'Up n'y entrait jamais.
@@ -2591,7 +2591,7 @@
     if (poolAutoLink(t)) { try { save(); } catch (e) {} }
     var g = [];
     // 3.47 : le score saisi dans la fiche du match (« Ajouter le score ») sert au départage
-    (t.pool || []).forEach(function (x) { if (x.res) { var mm = poolMyMatch(t, x); g.push({ a: "Toi", b: x.name, w: x.res === "V" ? "a" : "b", sc: x.score || (mm && mm.score) || poolScoreFromHim(t, x) || "", me: true, mid: mm ? mm.id : "", date: (mm && mm.date) || x.day || "" }); } });
+    (t.pool || []).forEach(function (x) { if (x.res) { var mm = poolMyMatch(t, x); g.push({ a: "Toi", b: x.name, ai: "toi", bi: x.id, w: x.res === "V" ? "a" : "b", sc: x.score || (mm && mm.score) || poolScoreFromHim(t, x) || "", me: true, mid: mm ? mm.id : "", date: (mm && mm.date) || x.day || "" }); } });
     (t.poolX || []).forEach(function (x) { g.push(x); });
     return g;
   }
@@ -2603,7 +2603,7 @@
     var mm = L.filter(function (m) { return m.id === "tr" + x.id || (tw && m.id === tw); })[0];
     if (mm && mm.score) return mm;
     var lo = t.from ? E.iso(new Date(E.parseDate(t.from).getTime() - 7 * 864e5)) : "", ref = x.day ? E.parseDate(x.day).getTime() : 0;
-    var C = L.filter(function (m) { return m !== mm && m.date && m.date >= lo && m.result === x.res && !m.dbl && !m.wo && (x.tid && m.oid ? String(m.oid) === String(x.tid) : !!(m.opp && nameTokens(m.opp).length >= 2 && samePerson(m.opp, trNm(x.name)))); }) // nom complet seulement (pas « T. Martin » pour un autre Martin)
+    var C = L.filter(function (m) { return m !== mm && m.date && m.date >= lo && m.result === x.res && !m.dbl && !m.wo && (x.tid && m.oid ? String(m.oid) === String(x.tid) : !!(m.opp && !isAnon(m.opp) && nameTokens(m.opp).length >= 2 && samePerson(m.opp, trNm(x.name)))); }) // nom complet seulement (pas « T. Martin » pour un autre Martin)
       .sort(function (a, b) { return (b.score ? 1 : 0) - (a.score ? 1 : 0) || (ref ? Math.abs(E.parseDate(a.date).getTime() - ref) - Math.abs(E.parseDate(b.date).getTime() - ref) : (a.date < b.date ? 1 : -1)); });
     return C[0] && (C[0].score || !mm) ? C[0] : mm || null;
   }
@@ -2817,8 +2817,9 @@
             if (an.length === 1) o = an[0];
           }
           if (!o) return;
-          var k = [x.name, o.name].sort().join("|") + "|" + row.date; if (found[k]) return;
-          found[k] = { a: nameCase(x.name), b: nameCase(o.name), w: row.result === "V" ? "a" : "b", sc: row.score || "", date: row.date };
+          // 4.26.0 (Yann : deux anonymes dans la poule) : rangé par joueur (id), plus par nom : deux joueurs au même nom restent distincts
+          var k = [x.id || x.name, o.id || o.name].sort().join("|") + "|" + row.date; if (found[k]) return;
+          found[k] = { a: nameCase(x.name), b: nameCase(o.name), ai: x.id || "", bi: o.id || "", w: row.result === "V" ? "a" : "b", sc: row.score || "", date: row.date };
         });
       });
       t.poolX = Object.keys(found).map(function (k) { return found[k]; }); save(); try { scheduleTimingNotif(); } catch (e) {} try { syncNative(); } catch (e) {} show();
@@ -3169,13 +3170,15 @@
   function poolStand(t) {
     var mem = poolMembers(t), games = poolGames(t), n = mem.length;
     var key = function (nm) { return nm === "Toi" ? "toi" : nameKey(nm); };
+    // 4.26.0 (Yann : deux joueurs anonymes) : un match est rattaché au joueur par son id quand on l'a, le nom ne sert que pour les anciens relevés
+    var on = function (gm, sd, m) { var gi = gm[sd + "i"], mi = m.me ? "toi" : m.id; return gi && mi ? gi === mi : key(gm[sd]) === key(m.me ? "Toi" : m.name); };
     var st = mem.map(function (m) {
-      var k = key(m.name), res = [];
-      games.forEach(function (gm) { if (key(gm.a) === k) res.push(gm.w === "a" ? "V" : "D"); else if (key(gm.b) === k) res.push(gm.w === "b" ? "V" : "D"); });
+      var res = [];
+      games.forEach(function (gm) { if (on(gm, "a", m)) res.push(gm.w === "a" ? "V" : "D"); else if (on(gm, "b", m)) res.push(gm.w === "b" ? "V" : "D"); });
       var v = res.filter(function (x) { return x === "V"; }).length; while (res.length < n - 1) res.push("");
       // 3.47 (retour testeur) : départage comme au comité : victoires, puis sets gagnés − perdus, puis jeux gagnés − perdus
       var sd = 0, gd = 0, scN = 0;
-      games.forEach(function (gm) { var side = key(gm.a) === k ? 0 : key(gm.b) === k ? 1 : -1; if (side < 0 || !gm.sc) return; var ss = String(gm.sc).match(/\d{1,2}\s*[-\/]\s*\d{1,2}/g) || []; if (!ss.length) return; scN++;
+      games.forEach(function (gm) { var side = on(gm, "a", m) ? 0 : on(gm, "b", m) ? 1 : -1; if (side < 0 || !gm.sc) return; var ss = String(gm.sc).match(/\d{1,2}\s*[-\/]\s*\d{1,2}/g) || []; if (!ss.length) return; scN++;
         ss.forEach(function (x) { var q = x.split(/[-\/]/).map(function (y) { return +y; }), a = side === 0 ? q[0] : q[1], b2 = side === 0 ? q[1] : q[0]; if (a > b2) sd++; else if (b2 > a) sd--; if (Math.max(a, b2) <= 7) gd += a - b2; }); });
       // 3.55 (retour testeur : un joueur à 0-0 classé devant ceux à 0-1) : classement aux points, victoire 2, défaite 1 ; qui n'a pas joué a 0 point
       var d = res.filter(function (x) { return x === "D"; }).length;
@@ -3194,7 +3197,7 @@
     var played = games.slice().sort(function (a, b) { return ((b.me ? 1 : 0) - (a.me ? 1 : 0)) || (String(b.date || "") > String(a.date || "") ? 1 : String(b.date || "") < String(a.date || "") ? -1 : 0); });
     var lead = function (gm) { if (gm.me) { var v = gm.w === "a"; return '<span class="pl-lead"><span class="pl-ok ' + (v ? "v" : "d") + '" aria-label="' + (v ? "Victoire" : "Défaite") + '">' + (v ? "V" : "D") + "</span></span>"; } var dd = gm.date && E.parseDate(String(gm.date).slice(0, 10)); return '<span class="pl-lead">' + (dd && !isNaN(dd) ? '<span class="pl-dt">' + dd.getDate() + "<br>" + MOIS[dd.getMonth()] + "</span>" : "") + "</span>"; };
     // 3.75.0 : quand la frise est là (Montée+ et une projection lisible), elle remplace « Programmés / À programmer »
-    var fz = !PLUS_LOCK() && (UI.plEdit !== t.id) && poolTiming(t).length > 0;
+    var fz = !PLUS_LOCK() && poolTiming(t).length > 0;
     s += poolTimingHtml(t);
     var todo = (t.pool || []).map(function (x, i) { return { x: x, i: i }; }).filter(function (z) { return !z.x.res; });
     s += '<div class="card pl-m pl-flat">' + (played.length ? '<span class="eyebrow">Les résultats · ' + plural(played.length, "match", "matchs") + "</span>" : "") + (played.length ? played.map(function (gm) {
@@ -3217,19 +3220,31 @@
         (when ? '<span class="pl-wl">' + when + "</span>" : "") +
         (past ? '<span class="tq-res pl-rs"><button class="chip" data-a="trRes" data-k="pool" data-v="V" data-i="' + z.i + '">J\'ai gagné</button><button class="chip" data-a="trRes" data-k="pool" data-v="D" data-i="' + z.i + '">J\'ai perdu</button></span>' : "") + "</div>";
     };
-    if (UI.plEdit !== t.id && !fz) {
+    if (!fz) {
       var sched = todo.filter(function (z) { return z.x.day; }).sort(function (a, b) { return a.x.day < b.x.day ? -1 : 1; }), open = todo.filter(function (z) { return !z.x.day; });
       if (sched.length) s += '<span class="eyebrow pl-h">Programmés · ' + plural(sched.length, "match") + "</span>" + sched.map(prow).join("");
       if (open.length) s += '<span class="eyebrow pl-h' + (sched.length ? " pl-sep" : "") + '">À programmer · ' + plural(open.length, "match") + "</span>" + open.map(prow).join("");
     }
     // 3.45 (Yann) : « Modifier la poule » : ajouter, corriger ou retirer un adversaire (forfait, désistement…)
-    if (UI.plEdit === t.id) {
-      s += '<div class="pl-ed"><div class="pl-eh"><span class="eyebrow">Modifier la poule</span><button class="pl-done" data-a="plEdit">Terminé</button></div>' + (t.pool || []).map(function (x, i) {
+    s += "</div>"; // 4.26.0 (Yann) : « Modifier » passe à droite du titre « Ta poule » et ouvre la feuille plEdSheet
+    return s;
+  }
+  // 4.26.0 (Yann) : « Modifier la poule » dans une feuille (gabarit des feuilles : titre, sous-titre, liste, action en bas)
+  function plEdSheet(t) {
+    var n = (t.pool || []).length;
+    return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="plEdit"></div><div class="sheet big tq-sheet" role="dialog" aria-modal="true" aria-label="Modifier la poule"><span class="sheet-grab"></span>' +
+      '<div class="sh-head tq-hd"><b>Modifier la poule</b></div><span class="tq-rs-who">' + esc(t.name || "") + " · " + plural(n, "adversaire", "adversaires") + "</span>" +
+      '<div class="blk pl-ed">' + (t.pool || []).map(function (x, i) {
         return '<div class="pl-er"><span class="grow"><b>' + esc(trNm(x.name) || "Un " + (x.rank || "joueur")) + (x.rank ? ' <span class="muted">· ' + esc(x.rank) + "</span>" : "") + "</b>" + (x.res ? "<small>match joué (" + (x.res === "V" ? "victoire" : "défaite") + ")</small>" : "") + '</span><button class="pl-ic" data-a="trRound" data-k="pool" data-i="' + i + '" aria-label="Modifier">' + svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', 2) + '</button><button class="pl-ic pl-del" data-a="plDel" data-i="' + i + '" aria-label="Retirer de la poule">' + svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>', 2) + "</button></div>";
-      }).join("") + '<button class="tq-add pl-new" data-a="trRound" data-k="pool" data-i="new">+ Ajouter un adversaire</button></div></div>';
-    } else s += '<button class="linkbtn pl-add" data-a="plEdit">' + svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', 2) + " Modifier la poule</button></div>";
+      }).join("") + "</div>" +
+      '<button class="btn soft" data-a="trRound" data-k="pool" data-i="new">' + I.plus + " Ajouter un adversaire</button>" +
+      '<button class="btn primary" data-a="plEdit">Terminé</button></div>';
+  }
+  // 4.26.0 (Yann) : la carte des coordonnées sort de la poule pour aller dans « Infos pratiques »
     // 3.75.0 (Yann) : « Les coordonnées » de toute la poule (SMS, appel), un numéro manquant s'ajoute d'un geste
-    if (fz && (t.pool || []).length) {
+  function ctcHtml(t) {
+    var s = "";
+    if ((t.pool || []).length) { // 4.26.0 : visibles même sans projection de classement (avant, la carte dépendait du « bon moment »)
       var telF = function (n) { var d = String(n).replace(/\D/g, ""); return d.length === 10 ? d.replace(/(\d\d)(?=\d)/g, "$1 ") : String(n); };
       s += '<div class="card ctc"><span class="eyebrow">Les coordonnées · ' + plural((t.pool || []).length, "joueur", "joueurs") + "</span>" + (t.pool || []).map(function (x, i) {
         var nm = esc(trNm(x.name) || "Un joueur"), tap = x.tid ? ' data-a="plOpen" data-v="' + esc(x.tid) + '"' : ' data-a="trRound" data-k="pool" data-i="' + i + '"';
@@ -4742,16 +4757,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var bil = ren ? trB : trB ? dockAce(trB, trS, trT, null, (poule ? "poule:" : "tour:") + t.id) : coachBubble(trS, trT); // 3.73
       if (t.ins) s += '<div class="ins-st"><span class="ins-p' + (t.wait ? " w" : t.ins.due > 0 ? " d" : "") + '">' + esc(insLab(t)) + "</span><span class=\"small\">" + esc([t.ins.cat, t.ins.club && t.ins.club !== t.ins.city ? insCase(t.ins.club) : "", insCase(t.ins.city || "")].filter(Boolean).join(" · ")) + '</span></div>';
       // 4.22.0 (Yann, choix B) : deux onglets, « Mon tournoi » (bilan, chemin ou poule) et « Infos pratiques » (lieu, juge-arbitre, indispos, paiement)
-      var prat = t.ins && t.tuid && !over && !ren, tq = prat && UI.tqTab && UI.tqTab.id === t.id ? UI.tqTab.v : "jeu";
-      if (prat) s += '<div class="seg pl-tabs tq-tabs" role="tablist"><button data-a="tqTab" data-v="jeu" class="' + (tq === "jeu" ? "on" : "") + '" aria-pressed="' + (tq === "jeu") + '">Mon tournoi</button><button data-a="tqTab" data-v="prat" class="' + (tq === "prat" ? "on" : "") + '" aria-pressed="' + (tq === "prat") + '">Infos pratiques</button></div>';
-      if (prat) insFiche(t);
-      if (tq === "prat") { s += tzPratique(t).replace("<h2>Pratique</h2>", ""); trOppSync(t); }
+      // 4.26.0 (Yann) : en poule, les coordonnées des joueurs vont aussi dans « Infos pratiques »
+      var tzOk = t.ins && t.tuid && !over && !ren, ctc = poule && !ren ? ctcHtml(t) : "", prat = tzOk || (!!ctc && !over), tq = prat && UI.tqTab && UI.tqTab.id === t.id ? UI.tqTab.v : "jeu";
+      if (prat) s += '<div class="seg pl-tabs tq-tabs" role="tablist"><button data-a="tqTab" data-v="jeu" class="' + (tq === "jeu" ? "on" : "") + '" aria-pressed="' + (tq === "jeu") + '">' + (poule ? "Ma poule" : "Mon tournoi") + '</button><button data-a="tqTab" data-v="prat" class="' + (tq === "prat" ? "on" : "") + '" aria-pressed="' + (tq === "prat") + '">Infos pratiques</button></div>';
+      if (tzOk) insFiche(t);
+      if (tq === "prat") { s += (tzOk ? tzPratique(t).replace("<h2>Pratique</h2>", "") : "") + ctc; trOppSync(t); }
       else {
       s += bil;
       if (!(poule && t.kind === "champ" && !(t.pool || []).length && !t.resUrl)) s += resLinkHtml(t);
       trOppSync(t); // 3.47.3 : la fiche Ten'Up des adversaires du tableau, pour un % identique à leur fiche
       if (poule && !(t.pool || []).length && UI.plEdit !== t.id) s += "<h2>Ta poule</h2>" + poolEmptyHtml(t);
-      else if (poule) { s += "<h2>Ta poule</h2>" + poolHtml(t); poolSync(t); }
+      else if (poule) { s += '<h2 class="h2-act">Ta poule<button class="linkbtn h2-ed" data-a="plEdit" aria-label="Modifier la poule">' + PEN_IC + "Modifier</button></h2>" + poolHtml(t) + (prat ? "" : ctc); poolSync(t); }
       if (!poule || rs.length) s += "<h2>" + (poule ? "Phase finale" : "Ton chemin") + '</h2><div class="card tq-path">' + (rs.length ? trPath(t, false) : '<span class="small">Ajoute ton 1er tour : ton adversaire (ou les deux joueurs dont tu attends le vainqueur), le jour et l\'heure.</span>') + "</div>";
       // 3.45.6 (Yann) : en indivs, la suite de la poule est une autre épreuve Ten'Up (poule suivante ou tableau) : pas de « phase finale » ici
       if (!over && !poule && t.kind === "champ" && !rs.length) s += '<button class="btn" data-a="trImportInto">' + PASTE_IC + " Coller le mail du comité</button>"; // 3.46.3 : indivs en tableau : le mail donne ton 1er adversaire
@@ -4759,10 +4775,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       }
     }
     // 3.45.6 (Yann) : une épreuve venue de Ten'Up existe tant que tu y es inscrit : on ne la supprime pas, on peut vider ce que tu as saisi
-    if (UI.tqTab && UI.tqTab.id === t.id && UI.tqTab.v === "prat" && t.ins && t.tuid && !over) { /* rien sous les infos pratiques */ }
+    if (UI.tqTab && UI.tqTab.id === t.id && UI.tqTab.v === "prat" && ((t.ins && t.tuid) || t.fmt === "poule") && !over) { /* rien sous les infos pratiques */ }
     else if (t.tuid) { var anyR = (t.rounds || []).length || (t.pool || []).length; if (anyR) s += '<button class="linkbtn" data-a="trWipe" style="align-self:center;color:var(--terre)">Effacer ce que j\'ai saisi</button>'; }
     else s += '<button class="linkbtn tr-del" data-a="trDel" style="align-self:center">Supprimer cette épreuve</button>';
     if (UI.trR) s += trRoundSheet(t);
+    else if (UI.plEdit === t.id && (t.pool || []).length) s += plEdSheet(t);
     if (UI.trSc && UI.trSc.id === t.id && (t.rounds || [])[UI.trSc.i]) s += trScSheet(t);
     if (UI.plSched != null && (t.pool || [])[UI.plSched]) s += plSchedSheet(t);
     return s + "</div>";
@@ -5024,8 +5041,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function trCard(o, k, chg) {
     var nm = trNm(o.name) || "Un joueur " + (o.rank || ""), ag = ageOfX(o);
     // 4.21.2 (Yann) : en poule, le classement en petite balle jaune devant (norme .rk-tag) et « changer » en clair
-    if (chg) { var nn = trNm(o.name); return '<div class="tq-card tq-card2"><span class="tq-av big">' + esc(nn ? initials(nn) : "?") + '</span><span class="grow"><b>' + esc(nn || "Ton adversaire") + "</b><small>" + (o.rank ? '<b class="rk-tag">' + esc(o.rank) + "</b>" : "") + "<span>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</span></small></span>" + (chg === true ? '<button class="linkbtn tq-chg" data-a="trClear" data-v="' + k + '">changer</button>' : "") + "</div>" +
-      (o.tid ? '<button class="linkbtn tq-fiche" data-a="plOpen" data-v="' + esc(o.tid) + '">Voir sa fiche : palmarès, plan de jeu ›</button>' : "") }
+    if (chg) { var nn = trNm(o.name); return '<div class="tq-card tq-card2"><span class="tq-av big">' + esc(nn ? initials(nn) : "?") + '</span><span class="grow"><b>' + esc(nn || "Ton adversaire") + "</b><small>" + (o.rank ? '<b class="rk-tag">' + esc(o.rank) + "</b>" : "") + "<span>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</span></small></span>" + (chg === true ? '<button class="linkbtn tq-chg" data-a="trClear" data-v="' + k + '">changer</button>' : "") + "</div>"; } // 4.26.0 (Yann) : en poule, plus de lien « Voir sa fiche » ici (pas l'intérêt dans cette feuille)
     return '<div class="tq-card"><span class="tq-av big">' + esc(/^qualifié/.test(nm) ? "Q" : initials(nm)) + '</span><span class="grow"><b>' + esc(nm) + "</b><small>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : /^qualifié/.test(nm) ? "Pas encore connu" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</small></span>" + (o.rank ? '<b class="tq-big">' + esc(o.rank) + "</b>" : "") + '<button class="tq-x" data-a="trClear" data-v="' + k + '" aria-label="Changer">' + I.cross + "</button></div>" +
       (o.tid ? '<button class="linkbtn tq-fiche" data-a="plOpen" data-v="' + esc(o.tid) + '">Voir sa fiche : palmarès, plan de jeu ›</button>' : "");
   }
@@ -21083,7 +21099,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (!askOk("Retirer " + (trNm(x.name) || "ce joueur") + " de la poule ?" + (x.res ? " Le match déclaré quitte aussi ton palmarès." : ""))) return;
       if (x.res) { x.res = null; x.noAuto = 1; trMatchSync(t, x, true); }
       if (x.tid) S.plans = (S.plans || []).filter(function (y) { return y.id !== String(x.tid); });
-      t.pool.splice(i, 1); t.poolAt = 0; t.poolX = (t.poolX || []).filter(function (g) { return !sameName(g.a, x.name) && !sameName(g.b, x.name); });
+      t.pool.splice(i, 1); t.poolAt = 0; t.poolX = (t.poolX || []).filter(function (g) { return g.ai || g.bi ? g.ai !== x.id && g.bi !== x.id : !sameName(g.a, x.name) && !sameName(g.b, x.name); }); // 4.26.0 : par id (deux anonymes)
       save(); haptic("light"); toast((trNm(x.name) || "Joueur") + " retiré de la poule."); render();
     },
     trImpBack: function () { UI.trImp.p = null; render(); },
