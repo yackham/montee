@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.25.2",
+    VERSION: "4.25.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -11372,7 +11372,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     try { jm = friseItems().filter(function (z) { return z.d === t0 && !z.todo && !z.rel && !z.dim && !z.team && !z.bd; })[0]; } catch (e) {}
     // 3.75 : priorité au match qui arrive (aujourd'hui, demain), puis aux nouveaux résultats Ten'Up, puis au match saisi, puis à la victoire qui sort du bilan
     var nm = null; try { nm = coUpMatches(1)[0]; } catch (e) {}
-    if (nm) tips.push({ id: nm.id, hot: 1, t: coWhen(nm) + " contre " + (nm.name || "un " + nm.rank) + " : ton match est prêt", v: "next" });
+    // 4.25.3 (Yann, 27/11 : « Ace me parle de mon match d'indiv alors que j'ai match aujourd'hui ») : le jour du match, sa bulle reste dessus même déjà ouverte,
+    // et aucune bulle ne parle d'un match plus lointain que le prochain (nextMatch, le même que la carte, le widget et la montre)
+    var nxD = null; try { var nxM = nextMatch(); nxD = nxM ? nxM.day : null; } catch (e) {}
+    var later = function (d) { return !!nxD && (d ? d > nxD : dGap(nxD) <= 1); }; // un match à caler attend le lendemain du match
+    if (nm) tips.push({ id: nm.id, hot: dGap(nm.d) > 0 ? 1 : 0, t: coWhen(nm) + " contre " + (nm.name || "un " + nm.rank) + " : ton match est prêt", v: "next" });
     var N = null; try { N = coNews(3); } catch (e) {}
     if (N) tips.push({ id: "news:" + N.n.at, hot: 1, t: "Nouveau sur Ten'Up : " + plural(N.ms.length, "résultat") + ". On regarde ce qui a changé ?", v: "news" });
     if (hier && hier.result === "D") tips.push({ id: "home:loss:" + hier.id, t: "Défaite " + hj + ", ça arrive. On regarde ce qui vient ensuite ?", v: "loss" });
@@ -11382,9 +11386,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var oW = null; try { oW = c.proj.status !== "top" ? coNextOut(c) : null; } catch (e) {}
     if (oW && oW.days <= 21) tips.push({ id: "when:" + oW.iso, hot: 1, t: "Ta victoire contre un " + oW.rank + " sort de ton bilan le " + oW.dt + " : une victoire d'ici là la compense.", v: "when" });
     toursAll().filter(function (t) { return !tourOver(t) && (!t.to || t.to >= t0); }).forEach(function (t) {
-      if (t.fmt === "poule") { var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }); if (left.length) { var plU = left.filter(function (x) { return !x.day; }), plN = left.filter(function (x) { return x.day && x.day >= t0; }).sort(function (a, b) { return a.day < b.day ? -1 : 1; })[0]; // 4.11.2 (Yann : « ils sont calés ») : une date posée = un match calé
+      if (t.fmt === "poule") { var left = (t.pool || []).filter(function (x) { return !x.res && x.name; }); if (left.length) { var plU = left.filter(function (x) { return !x.day; }), plN = left.filter(function (x) { return x.day && x.day >= t0; }).sort(function (a, b) { return a.day < b.day ? -1 : 1; })[0]; if (later(plN ? plN.day : null)) return; // 4.11.2 (Yann : « ils sont calés ») : une date posée = un match calé
         tips.push({ id: "home:pl:" + t.id + ":" + left.length + ":" + plU.length, t: plU.length ? (plU.length > 1 ? plU.length + " matchs de poule à caler" : "Un match de poule à caler") + ", on regarde ?" : plN ? "Poule : " + (nameCase(plN.name).split(" ")[0] || "ton prochain match") + " " + (plN.day === t0 ? "aujourd'hui" : "le " + fdate(plN.day)) + ", on le prépare ?" : "Des scores de poule à entrer ?", v: "poule:" + t.id }); } }
-      else { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r && r.day && r.day >= t0 && !(nm && nm.t === t)) tips.push({ id: "home:tb:" + t.id + ":" + r.day, t: "Ton prochain tour " + (r.day === t0 ? "aujourd'hui" : "le " + fdate(r.day)) + " : on le prépare ?", v: "tour:" + t.id }); }
+      else { var r = (t.rounds || []).filter(function (x) { return !x.res; })[0]; if (r && r.day && r.day >= t0 && !(nm && nm.t === t) && !later(r.day)) tips.push({ id: "home:tb:" + t.id + ":" + r.day, t: "Ton prochain tour " + (r.day === t0 ? "aujourd'hui" : "le " + fdate(r.day)) + " : on le prépare ?", v: "tour:" + t.id }); }
     });
     if (c.proj.status !== "top" && c.proj.next) { var gap = Math.max(0, c.proj.next.norme - c.proj.next.total); tips.push({ id: "home:up:" + gap, t: c.proj.status === "montee" ? "Tu montes " + lab(c.proj.projected) + " à la sortie. On en parle ?" : gap ? upTipT(c, gap) : "Il te manque une victoire pour " + c.proj.next.label + ", on voit laquelle ?", v: "up" }); }
     if (!tips.length && (!hier || hier.result !== "D")) {
