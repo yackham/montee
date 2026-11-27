@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.24.3",
+    VERSION: "4.24.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -4552,12 +4552,14 @@
       var opp = tmNm(r.a === me ? r.bn : r.an), t1 = tmMine(c, r), s1 = t1.s, d1 = t1.d, played = s1.length + d1.length > 0;
       var pl = (PL[k] || {})[me], arrow = pl && prev ? (pl < prev ? ' <span class="up">↗</span>' : pl > prev ? ' <span class="dn">↘</span>' : "") : ""; if (pl) prev = pl;
       var plT = pl ? (pl === 1 ? "1re" : pl + "e") : "";
-      var mine = played ? '<span class="tf-ml"><span class="tf-toi">TOI</span>' + s1.map(function (m) { return '<span class="tf-m"><i class="s ' + m.result + '"></i>Simple ' + m.result + "</span>"; }).join("") + d1.map(function (m) { return '<span class="tf-m"><i class="d ' + m.result + '"></i>Double ' + m.result + "</span>"; }).join("") + "</span>" : "";
-      return '<a class="tf-it" href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"><span class="tf-d">' + (j ? "J" + j.j : "") + "<small>" + d.getDate() + "/" + (d.getMonth() + 1) + '</small></span><span class="tf-rl"><span class="tf-dot ' + res + '">' + res + '</span></span><span class="tf-bx' + (played ? " me" : "") + '"><span class="tf-r1"><span>' + (home ? "contre " : "à ") + esc(opp) + (home ? ' <i class="tm-dom" title="reçoit">⌂</i>' : "") + '</span><b class="tf-sc ' + res + '">' + (r.f ? "forfait" : (a != null ? a : "") + "–" + (b != null ? b : "")) + "</b></span>" + mine +
-        (plT || !played ? '<small class="tf-pl">' + (played || c.cl ? "Après la journée : " : "Tu n'as pas joué" + (plT ? " · " : "")) + (plT ? "<b>" + plT + "</b>" + arrow : "") + "</small>" : "") + "</span></a>";
+      // 4.24.4 (Yann, 27/11, piste K3) : 2e ligne = place de l'équipe à gauche, « Toi » + tes matchs à droite (carrés/ronds de l'effectif, kpRes), ou « pas joué »
+      var lc = function (ms) { return ms.map(function (m) { return m.result === "V" ? "v" : m.result === "D" ? "d" : "n"; }); };
+      var mine = played ? '<span class="tf-me">Toi' + (s1.length ? kpRes(lc(s1), "s") : "") + (d1.length ? kpRes(lc(d1), "d") : "") + "</span>" : c.cl ? "" : '<span class="tf-no">pas joué</span>';
+      return '<a class="tf-it" href="#/rencontre/' + esc(c.id) + "/" + esc(r.id) + '"><span class="tf-d">' + (j ? "J" + j.j : "") + "<small>" + d.getDate() + "/" + (d.getMonth() + 1) + '</small></span><span class="tf-rl"><span class="tf-dot ' + res + '">' + res + '</span></span><span class="tf-bx"><span class="tf-r1"><span>' + (home ? "contre " : "à ") + esc(opp) + (home ? ' <i class="tm-dom" title="reçoit">⌂</i>' : "") + '</span><b class="tf-sc ' + res + '">' + (r.f ? "forfait" : (a != null ? a : "") + "–" + (b != null ? b : "")) + "</b></span>" +
+        ((plT || mine) ? '<span class="tf-r2"><small class="tf-pl">' + (plT ? "Équipe <b>" + plT + "</b>" + arrow : "") + "</small>" + mine + "</span>" : "") + "</span></a>";
     }).join("");
     return '<div class="card tf"><span class="eyebrow">' + (c.cl ? "La saison, journée par journée" : "Ta saison, journée par journée") + '</span><div class="tf-l">' + items + "</div>" +
-      '<span class="small">Point de couleur : le résultat de la rencontre. Encadré : tu as joué ce jour-là (carré : simple, rond : double). Place de l\'équipe après la journée' + (nT ? " (sur " + nT + ")" : "") + ", recalculée depuis les résultats ; la dernière est celle de Ten'Up. Touche une journée : la feuille de match.</span></div>";
+      '<span class="small">Point de couleur : le résultat de la rencontre. À droite : tes matchs ce jour-là (carré : simple, rond : double ; vert : gagné). Place de l\'équipe après la journée' + (nT ? " (sur " + nT + ")" : "") + ", recalculée depuis les résultats ; la dernière est celle de Ten'Up. Touche une journée : la feuille de match.</span></div>";
   }
   // 3.50 : la feuille de match d'une rencontre. Ten'Up ne documente pas son format : on reconnaît les matchs à leurs joueurs
   // (objets avec nom / prénom) et leurs sets (petits tableaux de nombres), le côté de chaque joueur au nom de sa clé (…1 / …2, domicile / extérieur).
@@ -11033,6 +11035,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!free) UI.jkUsed = id;
     return true;
   }
+  // 4.24.4 (Yann, 27/11, maquette validée) : visuel des états vides = Ace + un accessoire du tennis
+  var EMP_PROPS = {
+    mur: '<svg width="92" height="78" viewBox="0 0 92 78" aria-hidden="true"><g fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" opacity=".7"><rect x="4" y="10" width="84" height="56" rx="6"/><path d="M4 28h84M4 46h84M30 10v18M62 10v18M18 28v18M48 28v18M76 28v18M30 46v20M62 46v20"/></g><path d="M0 72h92" stroke="var(--muted)" stroke-width="2" opacity=".4"/></svg>',
+    cible: '<svg width="92" height="78" viewBox="0 0 92 78" aria-hidden="true"><g fill="none" stroke-width="3"><circle cx="58" cy="34" r="24" stroke="var(--muted)" opacity=".45"/><circle cx="58" cy="34" r="14" stroke="var(--muted)" opacity=".7"/><circle cx="58" cy="34" r="5" fill="var(--balle)" stroke="none"/></g><path d="M14 70l9-26h6l9 26z" fill="var(--terre)" opacity=".85"/><path d="M8 72h36" stroke="var(--muted)" stroke-width="2" opacity=".4"/></svg>',
+    court: '<svg width="92" height="78" viewBox="0 0 92 78" aria-hidden="true"><g fill="none" stroke="var(--muted)" stroke-width="2" opacity=".65"><rect x="10" y="6" width="72" height="66" rx="3"/><path d="M10 39h72M24 6v66M68 6v66M24 22h44M24 56h44M46 22v34"/></g><path d="M8 39h76" stroke="var(--ink)" stroke-width="2.5" opacity=".5"/></svg>'
+  };
+  function empIll(prop, mood) { var a = coBall("vide:" + prop, mood, "xl"); return '<div class="emp-ill">' + (prop === "mur" ? a + EMP_PROPS[prop] : EMP_PROPS[prop] + a) + "</div>"; }
   function jkLine(id, t) { return jk(id) ? '<p class="jk">' + t + "</p>" : ""; }
   function coMem() { var m = S.coach || (S.coach = {}); m.no = m.no || {}; m.scr = m.scr || {}; m.seen = m.seen || {}; m.op = m.op || {}; return m; }
   function coPurge(m) { var t = Date.now() - 45 * 864e5; ["no", "op"].forEach(function (k) { Object.keys(m[k]).forEach(function (id) { if (m[k][id] < t) delete m[k][id]; }); }); Object.keys(m.seen).forEach(function (id) { if (m.seen[id].t < t) delete m.seen[id]; }); }
@@ -11078,7 +11087,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var seen = false, keep = sc.querySelector(".ace-prio .ace-peek .cbl-b");
     Array.prototype.forEach.call(sc.querySelectorAll(".ace-off, .ace-gone"), function (el) { el.classList.remove("ace-off", "ace-gone"); });
     Array.prototype.forEach.call(sc.querySelectorAll(".cbl-b"), function (el) {
-      if ((el.classList.contains("xs") && !el.closest(".bo-ace")) || el.closest(".mmo-det, .tcar, .ace-hd, .hd-dr, .pdj-h")) return;
+      if ((el.classList.contains("xs") && !el.closest(".bo-ace")) || el.closest(".mmo-det, .tcar, .ace-hd, .hd-dr, .pdj-h, .emp-ill")) return;
       var pk = el.closest(".ace-peek");
       if (keep ? el === keep : !seen) { seen = true; return; }
       if (pk) { pk.classList.add("ace-off"); var cd = pk.closest(".card"); if (cd) cd.classList.add("ace-gone"); }
@@ -12151,7 +12160,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 3.45.2 (Yann) : deux tuiles en haut d'Activité : ce qui arrive (épreuves, matchs prévus) et tes tournois
     if (!chips.length && act !== "t") s += actStatsHtml() + (SK ? "" : euCardHtml()); // 3.94 : ta saison en euros
     if (!list.length && !dbl.length) {
-      s += '<div class="card empty"><b>' + (all.length ? "Rien ici" : "Pas encore de match") + '</b><span class="small">' + (all.length ? "Aucun match pour ce filtre." : "Récupère ton palmarès Ten'Up ou ajoute un match.") + "</span>" +
+      s += '<div class="card empty">' + (all.length ? empIll("court", "surpris") : "") + '<b>' + (all.length ? "Rien ici" : "Pas encore de match") + '</b><span class="small">' + (all.length ? "Aucun match pour ce filtre." : "Récupère ton palmarès Ten'Up ou ajoute un match.") + "</span>" +
         (all.length ? "" : (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button>') + "</div>"; // 3.57 (audit parcours P5)
     }
     // Doubles mêlés aux simples, par date
@@ -12256,11 +12265,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       }).join("");
     })();
     if (UI.palSheet) {
-      var ch = function (k, v, t) { var on = (k === "res" ? fRes : fType) === v; return '<button class="chip' + (on ? " on" : "") + '" data-a="palSet" data-k="' + k + '" data-v="' + v + '">' + t + "</button>"; };
+      var ch = function (k, v, t) { var on = (k === "res" ? fRes : fType) === v; return '<button class="' + (on ? "on" : "") + '" data-a="palSet" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + on + '">' + t + "</button>"; }; // 4.24.4 (Yann, 27/11) : choix en rail, comme les onglets
       var nRes = all.filter(function (m) { return fRes === "all" || m.result === (fRes === "v" ? "V" : "D"); }).length * (fType === "d" ? 0 : 1) + (fType === "s" ? 0 : (S.doubles || []).filter(function (m) { return fRes === "all" || m.result === (fRes === "v" ? "V" : "D"); }).length);
       s += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="palSheet"></div><div class="sheet act-sheet" role="dialog" aria-modal="true" aria-label="Afficher"><span class="sheet-grab"></span><b style="font-size:19px">Afficher</b>' +
-        '<span class="m2-lab">Résultat</span><div class="chips">' + ch("res", "all", "Tout") + ch("res", "v", "Victoires") + ch("res", "d", "Défaites") + "</div>" +
-        ((S.doubles || []).length ? '<span class="m2-lab">Type</span><div class="chips">' + ch("type", "all", "Simples et doubles") + ch("type", "s", "Simples") + ch("type", "d", "Doubles") + "</div>" : "") +
+        '<span class="m2-lab">Résultat</span><div class="seg" role="group" aria-label="Résultat">' + ch("res", "all", "Tout") + ch("res", "v", "Victoires") + ch("res", "d", "Défaites") + "</div>" +
+        ((S.doubles || []).length ? '<span class="m2-lab">Type</span><div class="seg" role="group" aria-label="Type">' + ch("type", "all", "Tous") + ch("type", "s", "Simples") + ch("type", "d", "Doubles") + "</div>" : "") +
         '<button class="btn primary" data-a="palSheet">Voir ' + plural(nRes, "match", "matchs") + "</button></div>";
     }
     return s + "</div>" + tabbar("palmares");
@@ -12460,7 +12469,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // Palmarès › Entraînements : toutes tes séances, par mois (celles de la montre avec leur courbe)
   function trainListHtml() {
     var tr = (S.trainings || []).filter(function (t) { return t.date; }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : (b.at || 0) - (a.at || 0); });
-    var s = tr.length ? "" : '<div class="card empty"><b>Pas encore d\'entraînement</b>' + jkLine("a-mur", "Rien ici. Le mur du club se sent un peu seul.") + '<span class="small">Touche + pour en ajouter un' + (IOS ? ", ou lance « Entraînement » sur ta montre" : "") + '.</span></div>';
+    var s = tr.length ? "" : '<div class="card empty">' + empIll("mur", "dort") + '<b>Pas encore d\'entraînement</b>' + jkLine("a-mur", "Rien ici. Le mur du club se sent un peu seul.") + '<span class="small">Touche + pour en ajouter un' + (IOS ? ", ou lance « Entraînement » sur ta montre" : "") + '.</span></div>';
     var cur = "";
     s += '<div class="stack" style="gap:8px">';
     tr.forEach(function (t) {
@@ -16024,7 +16033,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // K4 : la page du chantier
   V.chantier = function () {
     var C = S.chantier, s = '<div class="screen ch-scr">' + topbar("", "Entraînements");
-    if (!C) return s + '<div class="card empty"><b>Pas de chantier en cours</b><span class="small">Un point à travailler, un test chiffré à chaque séance, une cible et une date.</span><button class="btn primary" data-a="chOpen">Choisir mon chantier</button></div>' + chOldHtml() + "</div>";
+    if (!C) return s + '<div class="card empty">' + empIll("cible", "reflexion") + '<b>Pas de chantier en cours</b><span class="small">Un point à travailler, un test chiffré à chaque séance, une cible et une date.</span><button class="btn primary" data-a="chOpen">Choisir mon chantier</button></div>' + chOldHtml() + "</div>";
     var last = chLast(C), wk = chWeek(C), dl = Math.max(0, Math.round((E.parseDate(C.end) - today()) / 864e5)), T = C.tests || [];
     s += '<div class="ch-h">' + catLab(C.cat, "ton chantier") + '<h1 class="sj-h1">' + esc(C.t) + '</h1><span class="small">Depuis le ' + esc(chFmtD(C.start)) + " · semaine " + wk + " sur " + C.weeks + " · J-" + dl + "</span></div>";
     var gain = last ? last.v - C.base : 0, nextP = last ? Math.min(C.target, last.v + 1) : C.base + 1;
@@ -16364,7 +16373,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- 3 · Pause ou blessure ----------
   var PZ_WHY = [["blessure", "Blessure"], ["fatigue", "Fatigue"], ["vacances", "Vacances"], ["autre", "Autre"]];
-  var PZ_LEN = [["0", "Je ne sais pas"], ["14", "2 semaines"], ["30", "1 mois"]];
+  var PZ_LEN = [["0", "Pas sûr"], ["14", "14 jours"], ["30", "1 mois"]];
   function pauseOn() { var p = S.pause; return !!(p && p.from && (!p.until || p.until >= E.iso(today()))); }
   function pauseBack() { var b = S.pauseBack; if (!b || !b.d) return null; var g = -dGap(b.d); return g >= 0 && g < 21 && !b.hide ? { b: b, wk: Math.floor(g / 7) } : null; }
   function pauseWhyLab(k) { var w = PZ_WHY.filter(function (x) { return x[0] === k; })[0]; return w ? w[1].toLowerCase() : "pause"; }
@@ -16400,13 +16409,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   DET.pause = function () {
     var p = UI.pzDraft || (UI.pzDraft = { why: (S.pause && S.pause.why) || "blessure", len: "0", until: "" });
-    var chip = function (k, v, l, on) { return '<button class="chip' + (on ? " on" : "") + '" data-a="pzSet" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + !!on + '">' + l + "</button>"; };
+    var chip = function (k, v, l, on) { return '<button class="' + (on ? "on" : "") + '" data-a="pzSet" data-k="' + k + '" data-v="' + v + '" aria-pressed="' + !!on + '">' + l + "</button>"; };
     var c = ctx(), pr = c.proj, mt = "";
     try { if (pr && pr.status !== "top" && c.cur > 0) mt = pr.kept ? "Ton maintien à " + obRk(effRank()) + " est protégé : ta pause n'y change rien." : pr.margin >= 0 ? "Ton maintien à " + obRk(effRank()) + " est déjà assuré pour la sortie du " + esc(fdate(pr.release).replace(/\.$/, "")) + ". Ta pause n'y change rien." : "Attention : ton maintien à " + obRk(effRank()) + " n'est pas encore assuré pour la sortie du " + esc(fdate(pr.release).replace(/\.$/, "")) + "."; } catch (e) {}
     var on = pauseOn();
     return { title: on ? "Ta pause" : "Tu fais une pause ?", sub: "Montée se met en veille, et t'aide à revenir.", body:
-      '<span class="ob-lbl">Pourquoi</span><div class="chips">' + PZ_WHY.map(function (w) { return chip("why", w[0], w[1], p.why === w[0]); }).join("") + "</div>" +
-      '<span class="ob-lbl">Jusqu\'à quand</span><div class="chips">' + PZ_LEN.map(function (w) { return chip("len", w[0], w[1], p.len === w[0]); }).join("") + chip("len", "d", "Une date", p.len === "d") + "</div>" +
+      '<span class="ob-lbl">Pourquoi</span><div class="seg pz-seg" role="group" aria-label="Pourquoi">' + PZ_WHY.map(function (w) { return chip("why", w[0], w[1], p.why === w[0]); }).join("") + "</div>" +
+      '<span class="ob-lbl">Jusqu\'à quand</span><div class="seg pz-seg" role="group" aria-label="Jusqu\'à quand">' + PZ_LEN.map(function (w) { return chip("len", w[0], w[1], p.len === w[0]); }).join("") + chip("len", "d", "Une date", p.len === "d") + "</div>" +
       (p.len === "d" ? '<input type="date" class="ob-date" data-pz="until" value="' + esc(p.until || "") + '" min="' + E.iso(today()) + '" aria-label="Fin de ta pause">' : "") +
       '<span class="ob-lbl">Pendant ta pause</span>' +
       '<div class="ob-li"><i>✓</i><span>Ace ne te relance plus sur tes matchs et tes entraînements.</span></div>' +
