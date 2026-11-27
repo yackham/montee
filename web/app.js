@@ -5113,7 +5113,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function tqRow(l, r, cls) { return '<div class="tq-er' + (cls ? " " + cls : "") + '"><span class="tq-el2">' + l + "</span>" + r + "</div>"; }
   function tqHostRow(v, act) { return tqRow("Qui reçoit ?", '<span class="tq-hp">' + [["me", "Chez toi"], ["him", "Chez lui"]].map(function (h) { return '<button class="tq-pill' + (v === h[0] ? " on" : "") + '" data-a="' + act + '" data-v="' + h[0] + '">' + (h[0] === "me" ? HOME_IC + " " : "") + h[1] + "</button>"; }).join("") + "</span>"); }
   function tqDateRow(t, day, dA) { return tqRow("Date du match", '<span class="tq-dt"><span class="tn-dd' + (day ? " v" : "") + '"><input type="date" ' + dA + ' value="' + esc(day || "") + '" min="' + trDayMin(t) + '" aria-label="Date du match"><em>Pas encore fixée ›</em></span></span>'); }
-  function tqTimeRow(time, tA) { return tqRow("Heure", '<span class="tq-dt"><span class="tn-dd v">' + hSelM(tA + ' aria-label="Heure du match"', time, "Pas encore fixée") + "<em></em></span></span>"); }
+  // 4.26.4 (Yann : « les deux Pas encore fixée n'ont pas le même look ») : l'heure vide s'affiche comme la date vide (lien vert « Pas encore fixée › »)
+  function tqTimeRow(time, tA) { return tqRow("Heure", '<span class="tq-dt"><span class="tn-dd' + (time ? " v" : "") + '">' + hSelM(tA + ' data-fx="1" aria-label="Heure du match"', time, "Pas encore fixée") + "<em>Pas encore fixée ›</em></span></span>"); }
   function trPoolFoot(t, R) {
     return (R.i !== "new" && (t.pool[+R.i] || {}).res ? '<button class="linkbtn" data-a="trUndo" data-k="pool" data-i="' + R.i + '" style="align-self:center">Retirer le résultat (' + t.pool[+R.i].res + ")</button>" : "") +
       (R.i !== "new" ? '<span class="small" style="text-align:center">Pour retirer ce joueur de la poule : « Modifier la poule ».</span>' : "");
@@ -22301,6 +22302,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     else if (el.dataset.rf && UI.rsFlow) UI.rsFlow[el.dataset.rf] = el.value;
     else if (el.dataset.ti && UI.trImp) UI.trImp.text = el.value;
     else if (el.dataset.tn && el.type === "date" && el.parentNode) el.parentNode.classList.toggle("v", !!el.value);
+    else if (el.dataset.fx && el.parentNode) el.parentNode.classList.toggle("v", !!el.value); // 4.26.4 : heure choisie, le lien vert laisse place à l'heure
     else if (el.dataset.tq && UI.trR) {
       UI.trR.q = el.value;
       var lv = document.getElementById("tq-live"); if (lv) lv.innerHTML = trLive(UI.trR);
