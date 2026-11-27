@@ -2972,39 +2972,35 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-enc { display: flex; flex-direction: column; background: var(--chip); border-radius: 16px; padding: 0 14px; }
 .tq-er { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .tq-er:last-child { border-bottom: 0; }
+/* 4.26.4 : ligne à pastilles (jours d'une épreuve courte) : libellé au-dessus, pastilles en pleine largeur */
+.tq-er.tq-erc { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 0; }
 .tq-el2 { flex: 1; min-width: 0; font-weight: 600; }
 .tq-hp { display: flex; gap: 6px; }
 .tq-hp .tq-pill { display: inline-flex; align-items: center; gap: 4px; padding: 7px 11px; font-size: 12.5px; background: color-mix(in srgb, var(--ink) 8%, transparent); }
 .tq-hp .tq-pill.on { background: var(--ink); color: var(--bg); }
 .tq-ein { flex: 0 1 170px; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; text-align: right; padding: 8px 0; }
-.tq-ein::placeholder { color: var(--gazon); font-weight: 600; opacity: 1; }
+.tq-ein::placeholder { color: var(--gazon); font-weight: 600; font-size: 15px; opacity: 1; } /* 4.26.4 (Yann) : même taille que « Pas encore fixée » ; le champ garde 16 px (pas de zoom iOS) */
 .tq-dt { display: flex; gap: 6px; align-items: center; }
 .tq-dt .tn-dd { position: relative; }
 .tq-dt .tn-dd input[type=date], .tq-dt .tn-dd select { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; text-align: right; padding: 8px 0; -webkit-appearance: none; appearance: none; }
 .tq-dt .tn-dd:not(.v) input[type=date] { color: transparent; width: 150px; }
+.tq-dt .tn-dd:not(.v) select { color: transparent; width: 150px; background-image: none; }
 .tq-dt input[type=date]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; opacity: 0; cursor: pointer; }
 .tq-dt .tn-dd em { left: auto; right: 0; color: var(--gazon); font-weight: 600; white-space: nowrap; }
-.tq-big { font-size: 20px !important; flex: none; }
-.tq-x { border: 0; background: none; color: var(--muted); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex: none; padding: 0; }
-.tq-x svg { width: 16px; height: 16px; }
-.tq-stake { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 0 2px; margin-top: -4px; }
+.tq-stake { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 4px 2px; margin: 2px 0; } /* 4.26.4 (Yann) : la balle des chances respire entre la carte du joueur et l'encart */
 .tq-stake span { color: var(--muted); }
 .tq-ou { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; margin: -4px 0; }
 .tq-ou i { flex: 1; height: 1px; background: var(--line); }
 .tq-add { border: 1px dashed var(--line); background: none; color: var(--muted); font: inherit; font-size: 14px; font-weight: 700; border-radius: 16px; padding: 16px; }
 .tq-watch { display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px; color: var(--muted); line-height: 1.35; }
 .tq-watch i { width: 8px; height: 8px; border-radius: 4px; background: var(--ink); opacity: .5; flex: none; margin-top: 5px; }
-.tq-days { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-top: -6px; }
+.tq-days { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .tq-days::-webkit-scrollbar { display: none; }
-.tq-day { flex: none; min-width: 52px; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px; border: 0; border-radius: 14px; background: var(--chip); color: var(--ink); font: inherit; }
+.tq-day { flex: none; min-width: 52px; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 4px; border: 0; border-radius: 14px; background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); font: inherit; }
 .tq-days.fit .tq-day { flex: 1; min-width: 0; }
 .tq-day small { font-size: 11px; font-weight: 700; opacity: .7; }
 .tq-day b { font-size: 16px; }
 .tq-day.on { background: var(--ink); color: var(--bg); }
-.tq-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--chip); border-radius: 14px; padding: 4px 14px; }
-.tq-h span { font-size: 13.5px; color: var(--muted); }
-.tq-h select.tsel { text-align-last: right; }
-.tq-h input, .tq-h select.tsel { border: 0; background: none; color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; text-align: right; min-width: 80px; min-height: 40px; outline: none; -webkit-appearance: none; appearance: none; }
 .tq-stake b { font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
 .tq-stake { align-items: center; }
 .tq-stake b { color: var(--ink); }
@@ -3216,7 +3212,6 @@ button.ts-t { border: 0; font: inherit; color: var(--ink); text-align: left; }
 .pl-r.tap { cursor: pointer; }
 
 .pl-age { font-weight: 500; white-space: nowrap; }
-.tq-fiche { align-self: flex-start; font-size: 13.5px; padding: 0; margin-top: -4px; }
 .sheet.big.tq-sheet:has(.tq-sb) { height: 88vh; height: 88dvh; }
 .ins-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: -12px; font-size: 13px; color: var(--muted); }
 .ins-go { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 13px; font-weight: 700; flex: none; }
@@ -3273,7 +3268,6 @@ button.ts-t { border: 0; font: inherit; color: var(--ink); text-align: left; }
 .tq-ed .tq-rd { margin-top: 0; }
 .tq-eb { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
 /* 3.46.2 : qui reçoit (indivs) */
-.hs-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 /* 3.46.3 : import du mail · qui reçoit */
 
 /* 3.46.4 : PDF de la poule */
@@ -7641,6 +7635,10 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 .h2-ed svg { width: 15px; height: 15px; }
 /* 4.26.3 (contrastes) : sur le fond travaillé de Terre et Dur, le lien du titre prend l'encre de la page comme les autres liens posés sur le fond */
 :is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen h2 > .h2-ed { color: var(--page-ink); }
+/* 4.26.4 (Yann : « dommage que le bouton soit caché au scroll ») : l'action d'une fiche de tournoi reste fixée en bas de la feuille */
+.tz-cta { position: sticky; bottom: calc(-18px - var(--sab)); z-index: 2; display: flex; flex-direction: column; gap: 6px; margin: 14px -18px calc(-18px - var(--sab)); padding: 12px 18px calc(12px + var(--sab)); background: var(--bg); box-shadow: 0 -12px 18px -14px rgba(0,0,0,.45); }
+:root[data-theme="nuit"] .tz-cta { background: #1E2025; }
+.tz-cta .tz-foot { margin: 0 4px; text-align: center; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.

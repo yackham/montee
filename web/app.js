@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.26.3",
+    VERSION: "4.26.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2044,12 +2044,21 @@
   }
   // 4.9.2 (Yann : « À régler m'ouvre toutes mes inscriptions ») : la page de CETTE inscription, où Ten'Up propose le paiement
   function insPayUrl(m) { var x = String(m.dispoUrl || "").match(/^(\/user\/mes-inscriptions\/[^\/?#]+)/); return x ? x[1] : "/user/mes-inscriptions"; }
+  // 4.26.4 (Yann : « on ne remonte pas les infos du tournoi ») : surface, horaires et balles lus sur la fiche Ten'Up, mêmes lignes partout
+  function tzMoreRows(x, row, noSurf) {
+    var sf = x.surf || [], cv = x.cov === "in" ? "couverts" : x.cov === "out" ? "extérieurs" : x.cov === "mix" ? "couverts et extérieurs" : "", r = "";
+    if (sf.length && !noSurf) r += row("Surface", esc(sf.join(", ") + (cv ? ", " + cv : "")), "");
+    if (x.hours) r += row("Horaires", esc(x.hours), "");
+    if (x.balls) r += row("Balles", esc(x.balls), "");
+    return r;
+  }
   function tzPratique(t) {
     var i = t.ins || {}, m = i.more || {}, num = tuNum(t.tuid), r = "", j = m.ja;
     var where = m.addr || [insCase(i.club || ""), insCase(i.city || "")].filter(Boolean).join(", "), short = m.place ? insCase(m.place) + (i.city ? ", " + insCase(i.city) : "") : where;
     if (where) r += tzLine1("Lieu", m.place && m.addr ? esc(insCase(m.place)) + '<small class="tz-sub">' + esc(m.addr) + "</small>" : esc(short), itinIc(where, m.lat, m.lng));
     r += j ? tzLine1("Juge-arbitre", esc(j.name ? nameCase(j.name) : "Le juge-arbitre du tournoi"), (j.tel ? tzIc("tel", "Appeler le juge-arbitre", 'href="tel:' + esc(j.tel) + '"') : "") + (j.mail ? tzIc("mail", "Écrire au juge-arbitre", 'href="mailto:' + esc(j.mail) + '"') : ""))
       : tzLine1("Juge-arbitre", "Sur la page du tournoi", num ? '<button class="tz-act" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="Le tournoi">Voir</button>' : "");
+    r += tzMoreRows(m, tzLine1);
     var D = tzDispo(m.dispoLim);
     // 4.9.3 (Yann) : plus modifiables, elles restent consultables (avec le juge-arbitre à portée en cas de souci)
     r += tzLine1("Indispos", esc(D.txt), NATIVE && S.tenup.linked ? (D.ok ? tzIc("edit", "Modifier tes indispos", 'href="#/dispos/' + esc(t.id) + '"') : tzIc("eye", "Voir tes indispos", 'href="#/dispos/' + esc(t.id) + '"')) : D.ok ? tzIc("edit", "Modifier tes indispos sur Ten'Up", 'data-a="tzTu" data-v="' + esc(m.dispoUrl || "/user/mes-inscriptions") + '" data-t="Tes indispos"') : "", D.ok ? "" : "tz-mute");
@@ -2136,6 +2145,7 @@
     var td = E.iso(today());
     if (ep && ep.open && ep.open > td) return { k: "soon", txt: "Inscriptions à partir du " + fdate(ep.open).replace(/ \d{4}$/, "") };
     if (cl && close == null) return { k: "closed", txt: /complet/i.test(t.closeWhy || "") ? "Complet : inscriptions closes" : "Inscriptions closes" };
+    if (ep && ep.full) return { k: "wait", txt: "Inscription sur liste d'attente" }; // 4.26.4 (Yann) : ce que Ten'Up affiche quand l'épreuve est pleine
     return null;
   }
   function tzWhy(v) { // la phrase d'Ace, tirée du même calcul : des faits (agenda, distance, sorties du classement), jamais un pronostic
@@ -2239,7 +2249,7 @@
   function tzFiche(t, quiet) { // épreuves, clôture, juge-arbitre et lieu lus sur la fiche Ten'Up du tournoi, gardés avec le tournoi trouvé
     if (!NATIVE || !S.tenup.linked) return Promise.resolve();
     return tenupQuery("fiche", { t: t.id, light: quiet ? 1 : 0 }).then(function (r) {
-      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat", "surf", "cov", "cash", "lots", "tmc", "kind", "payReq", "insReq", "closeWhy"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
+      if (!r || r.error) return; ["ja", "addr", "place", "lat", "lng", "eps", "closing", "opens", "online", "payOnline", "cat", "surf", "cov", "cash", "lots", "tmc", "kind", "payReq", "insReq", "closeWhy", "hours", "balls"].forEach(function (k) { if (r[k] != null && t[k] == null) t[k] = r[k]; }); if (r.ja && r.ja.name && t.ja && !t.ja.name) t.ja.name = r.ja.name;
       if (quiet) return; save(); if (UI.sheet && UI.sheet.k === "tz") render();
     });
   }
@@ -2296,10 +2306,13 @@
   var DZ_N = { iso: ["", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."], sun0: ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."], sun1: ["", "dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."] };
   function dzH(h) { var m = String(h || "").match(/^(\d\d):(\d\d)/); return m ? (+m[1]) + "\u00a0h" + (m[2] !== "00" ? m[2] : "") : ""; } // 4.10 : « 22 h » ne se coupe jamais
   // 4.10 (Yann) : les heures se choisissent de 15 en 15 min partout (la roue iOS d'un champ « time » ignore le pas) ; .value reste « HH:MM »
-  function hSel(attrs, v, empty) { v = String(v || "").slice(0, 5); var o = empty ? '<option value=""' + (v ? "" : " selected") + ">" + esc(empty) + "</option>" : "", seen = false;
-    for (var m = 0; m < 24 * 60; m += 15) { var hm = ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + (m % 60)).slice(-2);
+  // 4.26.4 (Yann) : l'heure d'un match se choisit de 8 h à 22 h (personne ne joue la nuit) ; les autres heures (indispos, séances) gardent la journée entière
+  function hSelM(attrs, v, empty) { return hSel(attrs, v, empty, [8 * 60, 22 * 60]); }
+  function hSel(attrs, v, empty, rg) { v = String(v || "").slice(0, 5); var o = empty ? '<option value=""' + (v ? "" : " selected") + ">" + esc(empty) + "</option>" : "", seen = false;
+    for (var m = rg ? rg[0] : 0; m <= (rg ? rg[1] : 24 * 60 - 15); m += 15) { var hm = ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + (m % 60)).slice(-2);
       if (!seen && v && v < hm && /^\d\d:\d\d$/.test(v)) { o += '<option value="' + v + '" selected>' + dzH(v) + "</option>"; seen = true; }
       o += '<option value="' + hm + '"' + (hm === v ? " selected" : "") + ">" + dzH(hm) + "</option>"; if (hm === v) seen = true; }
+    if (!seen && /^\d\d:\d\d$/.test(v)) o += '<option value="' + v + '" selected>' + dzH(v) + "</option>"; // une heure déjà notée hors de la plage reste affichée
     if (!empty && !v) o = o.replace('value="18:00"', 'value="18:00" selected');
     return '<select class="tsel" ' + attrs + ">" + o + "</select>"; }
   function dzSl(z) { return dzH(z.from) + "\u00a0– " + dzH(z.to); }
@@ -2547,7 +2560,7 @@
       esc(e === null ? "Pas de simple pour toi" : e && !e.wait ? [e.fmt === "tmc" ? "TMC" : t.kind === "indiv" ? "Indivs" : cap1(e.name.replace(/\s*\(.*\)$/, "").replace(/\s+senior\b/i, "").toLowerCase()), e.fee ? e.fee + " €" : ""].filter(Boolean).join(" · ") : "Lue sur Ten'Up…"));
     g += cell("Courts", sf.length ? surfPic(sf[0]) + esc(sf[0]) : "—", esc(sf.length > 1 ? "et " + sf.slice(1).join(", ").toLowerCase() : t.cov === "in" ? "Couverts" : t.cov === "out" ? "Extérieurs" : t.cov === "mix" ? "Couverts et extérieurs" : sf.length ? "" : "Pas indiqué"));
     g += cell("Dotation", tot ? TZ_CUP + esc(tot.toLocaleString("fr-FR") + " €") : "—", esc(tot ? (t.cash && t.lots ? t.cash + " € en espèces, " + t.lots + " € en lots" : t.cash ? "En espèces" : "En lots") : "Pas indiquée"));
-    var iv = v.ins && v.ins.k === "soon" ? ["Bientôt", v.ins.txt.replace(/^Inscriptions /, ""), "tzv-w"] : v.cl && v.close == null ? ["Closes", (/complet/i.test(t.closeWhy || "") ? "Complet, depuis le " : "Depuis le ") + fdate(v.cl).replace(/ \d{4}$/, ""), "tzv-w"]
+    var iv = v.ins && v.ins.k === "soon" ? ["Bientôt", v.ins.txt.replace(/^Inscriptions /, ""), "tzv-w"] : v.ins && v.ins.k === "wait" ? ["Liste d'attente", "L'épreuve est pleine", "tzv-w"] : v.cl && v.close == null ? ["Closes", (/complet/i.test(t.closeWhy || "") ? "Complet, depuis le " : "Depuis le ") + fdate(v.cl).replace(/ \d{4}$/, ""), "tzv-w"]
       : v.cl ? ["Ouvertes", "Jusqu'au " + fdate(v.cl).replace(/ \d{4}$/, ""), v.close <= 7 ? "tzv-w" : "tzv-ok"] : ["Ouvertes", "Sur Ten'Up", "tzv-ok"];
     g += cell("Inscriptions", esc(iv[0]), esc(iv[1]), iv[2]);
     b += '<div class="tzv-g">' + g + "</div>";
@@ -2556,14 +2569,14 @@
     var say = v.clash.length ? "Attention, ça tombe en même temps que " + v.clash.map(function (x) { return x.t.replace(/^Indispo : /, "ton indispo : "); }).join(" et ") + "."
       : "Rien d'autre ces jours-là, et " + (open ? esc(when) : pwX("tes victoires compteront à la sortie du 2 déc.")) + ".";
     b += '<div class="tzv-ace" role="button" tabindex="0" data-a="ace" data-v="tz:' + esc(t.id) + '">' + coBall("tzv" + t.id, v.clash.length ? "concentree" : "repos", "sm") + '<span class="tzv-bub">' + (v.clash.length ? esc(say) : say) + "</span></div>";
-    var pr = tzLieu(t, [t.club, t.city].filter(Boolean).map(insCase).join(", ")) + tzJa(t, num);
+    var pr = tzLieu(t, [t.club, t.city].filter(Boolean).map(insCase).join(", ")) + tzJa(t, num) + tzMoreRows(t, tzRow, true); // la surface est déjà dans la case « Courts »
     if (t.payReq) pr += tzRow("Paiement", "En ligne, obligatoire pour être inscrit", ""); else if (t.payOnline) pr += tzRow("Paiement", "En ligne ou sur place", "");
     if (e && !e.wait && e.fmt === "tmc") pr += tzRow("Format", "TMC : plusieurs matchs, même si tu perds le premier", ""); else if (t.kind === "indiv") pr += tzRow("Format", "Indivs : une poule, puis un tableau", "");
     if ((!t.ja || !t.ja.name || t.eps == null) && !(UI.tzFi || {})[t.id] && NATIVE && S.tenup.linked) { UI.tzFi = UI.tzFi || {}; UI.tzFi[t.id] = 1; setTimeout(function () { tzFiche(t); }, 600); } // 4.6.0 : épreuves et juge-arbitre en direct (Yann)
     return { title: t.name, hd: tzHeart(t.id), sub: [fdate(t.from) + (t.to && t.to !== t.from ? " – " + fdate(t.to) : ""), t.club ? insCase(t.club) : ""].filter(Boolean).join(" · "),
-      body: b + '<div class="tzv-h">Pratique</div><div class="tz-sh">' + pr + "</div>" + (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
-        (mine ? '<button class="btn primary" data-a="tzMineGo" data-v="' + esc(mine.id) + '">' + (mine.wait ? "Tu es en liste d'attente : voir" : "Tu es inscrit : voir") + '</button><p class="small tz-foot">' + (mine.wait ? "Montée te prévient dès que tu es pris." : "Ton inscription est dans Mes épreuves.") + "</p>"
-          : '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>') };
+      body: b + '<div class="tzv-h">Pratique</div><div class="tz-sh blk tz-blk tz-c">' + pr + "</div>" + // 4.26.4 (Yann) : la section Pratique dans un encart, comme les autres sections (open ? "" : '<div class="pa-cta"><span><b>Avec Montée+</b> : le bon moment pour chaque tournoi : avant la sortie du classement, avant que tes points sortent.</span><button class="mp-pill" data-a="goSoutenirComp"><span class="ch-plus">Montée+</span>Essayer 1 mois offert ›</button></div>') +
+        '<div class="tz-cta">' + (mine ? '<button class="btn primary" data-a="tzMineGo" data-v="' + esc(mine.id) + '">' + (mine.wait ? "Tu es en liste d'attente : voir" : "Tu es inscrit : voir") + '</button>' /* 4.26.4 (Yann) : plus de phrase sous le bouton */
+          : '<button class="btn primary" data-a="tzTu" data-v="/tournoi/' + esc(num) + '" data-t="S\'inscrire">S\'inscrire sur Ten\'Up</button><p class="small tz-foot">Ten\'Up s\'ouvre dans Montée avec ta connexion : tu choisis ton épreuve, tes indispos et tu paies sur Ten\'Up. Ton inscription arrive ensuite dans Mes épreuves.</p>') + "</div>" }; // 4.26.4 (Yann) : le bouton reste visible en bas de la feuille
   };
   var REFRESH_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>';
   function agoLab(ts) { var m = Math.round((Date.now() - ts) / 6e4); return m < 2 ? "à l'instant" : m < 60 ? "il y a " + m + " min" : m < 1440 ? "il y a " + Math.round(m / 60) + " h" : "il y a " + plural(Math.round(m / 1440), "jour"); }
@@ -5044,15 +5057,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var go = NATIVE && nameSplits(R.q || "").length;
     return '<div class="tq-sb"><span class="tq-mag">' + TQ_MAG + '</span><input type="search" enterkeyhint="search" data-tq="q" value="' + esc(R.q || "") + '" placeholder="' + (alt ? "Prénom et nom, ou q4" : "Prénom et nom, ex. : Julien Moreau") + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="tq-go" data-a="trFind"' + (go ? "" : " hidden") + ">" + (UI.trBusy ? "…" : "Chercher") + '</button></div><div id="tq-live" class="tq-live">' + trLive(R) + "</div>";
   }
+  // 4.21.2 (Yann) : le classement en petite balle jaune devant (norme .rk-tag) et « changer » en clair, calé à droite
+  // 4.26.4 (Yann) : une seule carte joueur pour toutes les feuilles de saisie, jamais de lien « Voir sa fiche » ; chg = "fixe" : pas de « changer »
   function trCard(o, k, chg) {
-    var nm = trNm(o.name) || "Un joueur " + (o.rank || ""), ag = ageOfX(o);
-    // 4.21.2 (Yann) : en poule, le classement en petite balle jaune devant (norme .rk-tag) et « changer » en clair
-    if (chg) { var nn = trNm(o.name); return '<div class="tq-card tq-card2"><span class="tq-av big">' + esc(nn ? initials(nn) : "?") + '</span><span class="grow"><b>' + esc(nn || "Ton adversaire") + "</b><small>" + (o.rank ? '<b class="rk-tag">' + esc(o.rank) + "</b>" : "") + "<span>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</span></small></span>" + (chg === true ? '<button class="linkbtn tq-chg" data-a="trClear" data-v="' + k + '">changer</button>' : "") + "</div>"; } // 4.26.0 (Yann) : en poule, plus de lien « Voir sa fiche » ici (pas l'intérêt dans cette feuille)
-    return '<div class="tq-card"><span class="tq-av big">' + esc(/^qualifié/.test(nm) ? "Q" : initials(nm)) + '</span><span class="grow"><b>' + esc(nm) + "</b><small>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : /^qualifié/.test(nm) ? "Pas encore connu" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</small></span>" + (o.rank ? '<b class="tq-big">' + esc(o.rank) + "</b>" : "") + '<button class="tq-x" data-a="trClear" data-v="' + k + '" aria-label="Changer">' + I.cross + "</button></div>" +
-      (o.tid ? '<button class="linkbtn tq-fiche" data-a="plOpen" data-v="' + esc(o.tid) + '">Voir sa fiche : palmarès, plan de jeu ›</button>' : "");
+    var nn = trNm(o.name), ag = ageOfX(o), q = /^qualifié/i.test(nn || "");
+    return '<div class="tq-card tq-card2"><span class="tq-av big">' + esc(q ? "Q" : nn ? initials(nn) : "?") + '</span><span class="grow"><b>' + esc(nn || "Ton adversaire") + "</b><small>" + (o.rank ? '<b class="rk-tag">' + esc(o.rank) + "</b>" : "") + "<span>" + esc([o.club || o.note || (o.tid ? "Ten'Up" : q ? "Pas encore connu" : "Classement saisi à la main"), ag ? ag + " ans" : ""].filter(Boolean).join(" · ")) + "</span></small></span>" + (chg !== "fixe" ? '<button class="linkbtn tq-chg" data-a="trClear" data-v="' + k + '">changer</button>' : "") + "</div>";
   }
+  // 4.26.4 (Yann) : la date d'un match à venir se choisit à partir d'aujourd'hui (et pas avant le début de l'épreuve)
+  function trDayMin(t) { var d = E.iso(today()); return t && t.from && t.from > d ? t.from : d; }
   function trDays(t, R) {
-    var from = t.from || E.iso(today()), d0 = E.parseDate(from), end = E.iso(new Date(d0.getTime() + 6 * 864e5)); if (t.to && t.to > end) end = t.to;
+    var from = trDayMin(t), d0 = E.parseDate(from), end = E.iso(new Date(d0.getTime() + 6 * 864e5)); if (t.to && t.to > end) end = t.to;
     if (R.day && R.day > end) end = R.day;
     var out = [], d = new Date(d0.getTime());
     while (E.iso(d) <= end && out.length < 31) { out.push(E.iso(d)); d = new Date(d.getTime() + 864e5); }
@@ -5060,15 +5074,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   // 3.45 : programmer un match de poule : date et heure en saisie directe, « Retirer la date » (jamais supprimer le joueur)
   // 3.46.2 (Yann) : en indivs, qui reçoit ? (chez toi / chez lui)
-  function hostSeg(v, act) { return '<span class="tq-lab">Qui reçoit ?</span><div class="tq-seg hs-seg"><button class="' + (v === "me" ? "on" : "") + '" data-a="' + act + '" data-v="me">' + HOME_IC + ' Chez toi</button><button class="' + (v === "him" ? "on" : "") + '" data-a="' + act + '" data-v="him">Chez lui</button></div>'; }
   function hostLab(x) { return x && x.host === "me" ? "chez toi" : x && x.host === "him" ? "chez lui" : ""; }
   var HOME_IC = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>';
   function plSchedSheet(t) {
     var x = t.pool[UI.plSched];
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="plSchedClose"></div><div class="sheet tq-sheet" role="dialog" aria-modal="true" aria-label="Programmer le match"><span class="sheet-grab"></span>' +
       tqHead("Programmer le match", trNm(x.name), "plSchedClose") +
-      '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (x.day ? " v" : "") + '"><input type="date" id="ps-day" data-tn="psday" value="' + esc(x.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('id="ps-time"', x.time, "Heure") + '<em></em></span></div>' +
-      hostSeg(UI.plHost != null ? UI.plHost : x.host || "", "plHost") +
+      '<div class="tq-enc">' + (t.kind === "champ" ? tqHostRow(UI.plHost != null ? UI.plHost : x.host || "", "plHost") : "") + tqDateRow(t, x.day, 'id="ps-day" data-tn="psday"') + tqTimeRow(x.time, 'id="ps-time"') + "</div>" +
       '<span class="small">Montée te le rappelle la veille au soir' + (x.tid ? ", avec ton plan de jeu" : "") + ".</span>" +
       '<button class="btn primary" data-a="plSchedSave">Enregistrer</button>' +
       (x.day ? '<button class="linkbtn" data-a="plSchedClear" style="align-self:center">Retirer la date</button>' : "") + "</div>";
@@ -5096,6 +5108,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   // 4.21.2 (Yann) : même en-tête que les autres feuilles (titre à gauche, croix à droite), l'épreuve en petit dessous
   function tqHead(title, sub, close) { return '<div class="sh-head tq-hd"><b>' + esc(title) + '</b><button class="iconbtn sm" data-a="' + close + '" aria-label="Fermer">' + I.cross + "</button></div>" + (sub ? '<span class="small tq-sub">' + esc(sub) + "</span>" : ""); }
+  // 4.26.4 (Yann : « faut une cohérence dans tes écrans ») : une seule façon de saisir un match à venir, dans toutes les feuilles
+  // (match de poule, tour de tournoi, programmer un match) : un encart doux, des lignes à plat (libellé à gauche, valeur calée à droite)
+  function tqRow(l, r, cls) { return '<div class="tq-er' + (cls ? " " + cls : "") + '"><span class="tq-el2">' + l + "</span>" + r + "</div>"; }
+  function tqHostRow(v, act) { return tqRow("Qui reçoit ?", '<span class="tq-hp">' + [["me", "Chez toi"], ["him", "Chez lui"]].map(function (h) { return '<button class="tq-pill' + (v === h[0] ? " on" : "") + '" data-a="' + act + '" data-v="' + h[0] + '">' + (h[0] === "me" ? HOME_IC + " " : "") + h[1] + "</button>"; }).join("") + "</span>"); }
+  function tqDateRow(t, day, dA) { return tqRow("Date du match", '<span class="tq-dt"><span class="tn-dd' + (day ? " v" : "") + '"><input type="date" ' + dA + ' value="' + esc(day || "") + '" min="' + trDayMin(t) + '" aria-label="Date du match"><em>Pas encore fixée ›</em></span></span>'); }
+  // 4.26.4 (Yann : « les deux Pas encore fixée n'ont pas le même look ») : l'heure vide s'affiche comme la date vide (lien vert « Pas encore fixée › »)
+  function tqTimeRow(time, tA) { return tqRow("Heure", '<span class="tq-dt"><span class="tn-dd' + (time ? " v" : "") + '">' + hSelM(tA + ' data-fx="1" aria-label="Heure du match"', time, "Pas encore fixée") + "<em>Pas encore fixée ›</em></span></span>"); }
   function trPoolFoot(t, R) {
     return (R.i !== "new" && (t.pool[+R.i] || {}).res ? '<button class="linkbtn" data-a="trUndo" data-k="pool" data-i="' + R.i + '" style="align-self:center">Retirer le résultat (' + t.pool[+R.i].res + ")</button>" : "") +
       (R.i !== "new" ? '<span class="small" style="text-align:center">Pour retirer ce joueur de la poule : « Modifier la poule ».</span>' : "");
@@ -5109,7 +5128,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       (pool ? "" : '<div class="tq-seg"><button class="' + (alt ? "" : "on") + '" data-a="trMode" data-v="one">Un adversaire</button><button class="' + (alt ? "on" : "") + '" data-a="trMode" data-v="alt">Le vainqueur de…</button></div>');
     if (!alt) {
       if (R.name || R.rank) {
-        s += trCard(R, 0, addP ? true : pool ? "fixe" : false); // 4.21.2 (Yann) : un match de poule ne change pas de joueur
+        s += trCard(R, 0, pool && !addP ? "fixe" : ""); // 4.26.4 : « changer » calé à droite, comme en poule // 4.21.2 (Yann) : un match de poule ne change pas de joueur
         var g = R.rank ? trGain(R.rank) : null, p = R.rank && !oppWait(R.tid) ? trP(R.rank, R.tid, R.name) : null;
         if (R.rank && oppWait(R.tid)) s += '<div class="tq-stake"><span>Si tu gagnes</span><b>' + (g > 0 ? "+" + g + " pts · " : "") + WAIT_P + "</b></div>";
         else if (p != null) s += '<div class="tq-stake"><span>Si tu gagnes <b>' + (g > 0 ? "+" + g + " pts" : g === 0 ? "aucun point" : "") + '</b></span><span class="tq-odds">Tes chances ' + oddsBallI(p, 36) + "</span></div>"; // 4.21.2 (Yann) : la balle des chances, comme partout
@@ -5128,19 +5147,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.21.2 (Yann, maquette validée) : en poule, d'abord la recherche ; ensuite un encart (qui reçoit, numéro, date) et le bouton
     if (pool) {
       if (!(R.name || R.rank)) return s + (R.q ? "" : viduel("toi", "Qui rejoint ta poule ?", "Cherche-le par son nom. Ensuite, tu complètes qui reçoit, son numéro et la date.")) + trPoolFoot(t, R) + "</div>";
-      var row = function (l, r) { return '<div class="tq-er"><span class="tq-el2">' + l + "</span>" + r + "</div>"; };
       s += '<div class="tq-enc">' +
-        (t.kind === "champ" ? row("Qui reçoit ?", '<span class="tq-hp">' + [["me", "Chez toi"], ["him", "Chez lui"]].map(function (h) { return '<button class="tq-pill' + (R.host === h[0] ? " on" : "") + '" data-a="trHost" data-v="' + h[0] + '">' + (h[0] === "me" ? HOME_IC + " " : "") + h[1] + "</button>"; }).join("") + "</span>") : "") +
-        row("Son numéro", '<input class="tq-ein" type="tel" inputmode="tel" data-tr="tel" value="' + esc(telFmt(R.tel || "")) + '" placeholder="Ajouter" autocomplete="off" aria-label="Son numéro">') +
-        row("Date du match", '<span class="tq-dt"><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '" aria-label="Date du match"><em>Pas encore fixée ›</em></span>' + (R.day ? '<span class="tn-dd v">' + hSel('data-tr="time"', R.time, "Heure") + "<em></em></span>" : "") + "</span>") +
+        (t.kind === "champ" ? tqHostRow(R.host, "trHost") : "") +
+        tqRow("Son numéro", '<input class="tq-ein" type="tel" inputmode="tel" data-tr="tel" value="' + esc(telFmt(R.tel || "")) + '" placeholder="Ajouter" autocomplete="off" aria-label="Son numéro">') +
+        tqDateRow(t, R.day, 'data-tr="day" data-tn="trday"') + tqTimeRow(R.time, 'data-tr="time"') +
         "</div>" +
         '<button class="btn primary" data-a="trSave">' + (addP ? "Ajouter " + esc(trNm(R.name).split(" ")[0] || "ce joueur") + " à ma poule" : "Enregistrer") + "</button>" + trPoolFoot(t, R) + "</div>";
       return s;
     }
     // 3.45 (Yann) : en poule (ou épreuve longue), la date se saisit directement, pas de pastilles qui défilent
     var longEv = pool || (t.to && t.from && (E.parseDate(t.to) - E.parseDate(t.from)) / 864e5 > 7);
-    s += '<span class="tq-lab">' + (addP ? "Ton match · si la date est déjà fixée" : "Quand ?") + "</span>" + (longEv ? '<div class="tn-d field ps-d"><span>Le</span><span class="tn-dd' + (R.day ? " v" : "") + '"><input type="date" data-tr="day" data-tn="trday" value="' + esc(R.day || "") + '"><em>choisir</em></span><span>à</span><span class="tn-dd v">' + hSel('data-tr="time"', R.time, "—") + '<em></em></span></div>' :
-      trDays(t, R) + '<label class="tq-h"><span>Heure · si tu la connais</span>' + hSel('data-tr="time"', R.time, "—") + '</label>') +
+    // 4.26.4 : même encart que la poule ; une épreuve courte garde ses pastilles de jours (dans l'encart), une longue le calendrier
+    s += '<div class="tq-enc">' + (longEv ? tqDateRow(t, R.day, 'data-tr="day" data-tn="trday"') : tqRow("Jour", trDays(t, R), "tq-erc")) + tqTimeRow(R.time, 'data-tr="time"') + "</div>" +
       '<button class="btn primary" data-a="trSave">' + (addP ? "Ajouter à ma poule" : pool ? "Enregistrer ce match" : "Enregistrer le " + esc(lab.toLowerCase())) + "</button>" +
       (pool && R.i !== "new" && (t.pool[+R.i] || {}).res ? '<button class="linkbtn" data-a="trUndo" data-k="pool" data-i="' + R.i + '" style="align-self:center">Retirer le résultat (' + t.pool[+R.i].res + ")</button>" : "") +
       (R.i !== "new" && !pool ? '<button class="linkbtn" data-a="trRoundDel" style="align-self:center;color:var(--terre)">Supprimer ce tour</button>' : "") +
@@ -16524,7 +16542,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var head = '<span class="ob-eb"><span class="eyebrow">Entre deux matchs' + (tour ? " · " + esc(tour) : "") + '</span><span class="ob-tag ok">Aujourd\'hui</span></span>';
     var hm = obHm(B.time);
     if (!hm) return '<div class="card ob-c">' + head + '<b class="ob-t">À quelle heure est ton prochain match ?</b><span class="ob-s">' + esc(what) + " contre " + esc(who) + " " + obRk(rk) + ". Avec l'heure, Montée te dit quand manger, récupérer et t'échauffer.</span>" +
-      '<div class="ob-time">' + hSel('data-btw="t" aria-label="Heure du prochain match"', "", "Heure") + '<button class="btn primary small" data-a="btwSet">Valider</button></div></div>';
+      '<div class="ob-time">' + hSelM('data-btw="t" aria-label="Heure du prochain match"', "", "Heure") + '<button class="btn primary small" data-a="btwSet">Valider</button></div></div>';
     var now = new Date(), at = new Date(today().getTime()); at.setHours(hm.h, hm.m, 0, 0);
     var left = Math.round((at - now) / 60000);
     if (left < -15) return "";
@@ -22284,6 +22302,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     else if (el.dataset.rf && UI.rsFlow) UI.rsFlow[el.dataset.rf] = el.value;
     else if (el.dataset.ti && UI.trImp) UI.trImp.text = el.value;
     else if (el.dataset.tn && el.type === "date" && el.parentNode) el.parentNode.classList.toggle("v", !!el.value);
+    else if (el.dataset.fx && el.parentNode) el.parentNode.classList.toggle("v", !!el.value); // 4.26.4 : heure choisie, le lien vert laisse place à l'heure
     else if (el.dataset.tq && UI.trR) {
       UI.trR.q = el.value;
       var lv = document.getElementById("tq-live"); if (lv) lv.innerHTML = trLive(UI.trR);
