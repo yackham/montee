@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.22.1",
+    VERSION: "4.23.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -18532,8 +18532,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     } catch (e) {}
     // Prochain adversaire (dernier joueur consulté)
     if (S.lastScout && S.lastScout.name) d.scout = S.lastScout;
-    var plW = plans().filter(function (x) { return dGap(x.day) >= 0; })[0];
-    if (plW) d.scout = Object.assign({}, S.lastScout && S.lastScout.id === plW.id ? S.lastScout : { id: plW.id, rank: plW.rank, p: plW.p }, { name: plW.name, when: dayLab(plW.day) });
+    // 4.23.1 (Yann : le widget restait sur un match plus lointain) : le match le plus proche, quel qu'il soit, lu comme « Ce qui arrive »
+    var nxW = nextMatch();
+    if (nxW) d.scout = Object.assign({}, S.lastScout && S.lastScout.id === nxW.id ? S.lastScout : { id: nxW.id, rank: nxW.rank, p: nxW.p, tip: nxW.pl ? "" : nxW.sub, tipS: "" }, { name: nxW.name, when: nxW.when });
     // Joueurs suivis : les nouvelles d'abord (montée, match joué), puis le dernier à avoir joué
     try {
       d.follows = Object.keys(S.follow || {}).map(function (k) {
@@ -18626,6 +18627,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   // 4.7 : ce que rapporte une victoire contre le prochain adversaire (le même calcul que la carte « Ton match » d'Ace : coStake)
   function watchWinPts() { var o = coUpMatches(30)[0]; if (!o) return null; var st = coStake(o); return st && st.g ? { n: o.name || "", g: st.g } : null; }
+  // 4.23.1 : LE prochain match (match prévu, tour de tournoi ou match de poule avec un adversaire connu), le plus proche en date.
+  // Lu dans « Ce qui arrive » (friseItems), pour que le widget, la montre et l'accueil montrent le même match.
+  function nextMatch() {
+    var z = null; try { z = friseItems().filter(function (x) { return !x.dim && !x.todo && (x.pl || (x.t && x.oid)) && dGap(x.d) >= 0; })[0]; } catch (e) {}
+    if (!z) return null;
+    var when = dayLab(z.d) + (z.time ? " " + z.time.replace(":", "h") : "");
+    if (z.pl) return { id: String(z.pl.id), name: z.pl.name || "", rank: z.pl.rank || "", p: z.pl.p != null ? z.pl.p : null, day: z.d, when: when, pl: z.pl };
+    var nm = String(z.title || "").replace(/<[^>]+>/g, "").split(" · "), pc = /(\d+) %/.exec(z.st || "");
+    return { id: String(z.oid), name: nm[0], rank: nm[1] || "", p: pc ? +pc[1] : null, day: z.d, when: when, sub: String(z.sub || "").replace(/<[^>]+>/g, "") };
+  }
   function widgetMore(d) {
     try { if (S.matches.length) d.ace = aceNow(); } catch (e) {}
     var fr = []; try { fr = friseItems().filter(function (z) { return !z.dim; }); } catch (e) {}
@@ -18635,10 +18646,6 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     try { d.chances = watchChances(); } catch (e) {}
     // Prochain match : le match prévu, sinon le prochain tour de tournoi ou match de poule avec un adversaire connu
     var mt = fr.filter(function (z) { return (z.pl || (z.t && z.oid)) && dGap(z.d) >= 0 && dGap(z.d) <= 14; })[0];
-    if (mt && !mt.pl && !(d.scout && d.scout.when)) {
-      var nm = String(mt.title || "").split(" · "), pc = /(\d+) %/.exec(mt.st || "");
-      d.scout = { id: String(mt.oid), name: nm[0], rank: nm[1] || "", p: pc ? +pc[1] : null, when: dayLab(mt.d) + (mt.time ? " " + mt.time.replace(":", "h") : ""), tip: mt.sub || "", tipS: "" };
-    }
     // 3.81 : pile intelligente (iPhone) : quels widgets comptent aujourd'hui
     var R = {}, set = function (ks, v) { ks.forEach(function (k) { R[k] = Math.max(R[k] || 0, v); }); };
     var m0 = fr.filter(function (z) { return (z.pl || z.t || z.team) && !z.todo && !z.rel && !z.bd; })[0];
@@ -18718,8 +18725,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 3.27 : cartes de la montre et nouvelles complications
     var forces = []; try { forces = myStrengths().slice(0, 4).map(function (x) { var L = fzLab(x); return { h: L.h, s: L.s, t: L.t, v: x.v, n: x.n }; }); } catch (e) {}
     var serve = null; try { serve = watchServe(); } catch (e) {}
-    var nx = null, plN = plans().filter(function (x) { return dGap(x.day) >= 0; })[0], ls = S.lastScout || {};
-    if (plN) nx = { id: plN.id, name: plN.name, rank: plN.rank || "", when: dayLab(plN.day), p: plN.p != null ? plN.p : null, h2h: ls.id === plN.id ? ls.h2h || "" : "", tip: ls.id === plN.id ? ls.tip || "" : "", tipS: ls.id === plN.id ? ls.tipS || "" : "", mode: ls.id === plN.id && ls.k ? ls.k : null, gap: ls.id === plN.id ? ls.gap : null };
+    var nx = null, plN = nextMatch(), ls = S.lastScout || {}; // 4.23.1 : le match le plus proche (prévu, tournoi ou poule), comme le widget
+    if (plN) nx = { id: plN.id, name: plN.name, rank: plN.rank || "", when: plN.when, p: plN.p != null ? plN.p : null, h2h: ls.id === plN.id ? ls.h2h || "" : "", tip: ls.id === plN.id ? ls.tip || "" : "", tipS: ls.id === plN.id ? ls.tipS || "" : "", mode: ls.id === plN.id && ls.k ? ls.k : null, gap: ls.id === plN.id ? ls.gap : null };
     else if (ls.name) nx = { id: ls.id || "", name: nameCase(ls.name), rank: ls.rank || "", when: "", p: ls.p != null ? ls.p : null, h2h: ls.h2h || "", tip: ls.tip || "", tipS: ls.tipS || "", mode: ls.k || null, gap: ls.gap != null ? ls.gap : null };
     if (nx) Object.assign(nx, watchCoach(nx.name));
     if (nx && nx.p != null) nx.pc = ballHexWatch(nx.p); // 4.16 : couleur de la balle des chances (même calcul que l'iPhone)
