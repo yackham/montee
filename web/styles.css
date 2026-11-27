@@ -2962,7 +2962,7 @@ body.kb .tabbar, body.kb .savebar, body.kb .gw-b { display: none !important; }
 .tq-pill.on { background: var(--ink); color: var(--bg); }
 .tq-card { display: flex; align-items: center; gap: 12px; background: var(--chip); border-radius: 16px; padding: 12px 10px 12px 14px; }
 /* 4.21.2 (Yann) : ajout d'un adversaire de poule : carte du joueur, puis un encart à lignes plates */
-.tq-card2 .grow { min-width: 0; }
+.tq-card2 .grow { min-width: 0; flex: 1; } /* 4.26.0 : « changer » tout à droite */
 .tq-card2 .grow > b { display: block; overflow-wrap: anywhere; line-height: 1.25; }
 .tq-card2 small { display: flex; align-items: center; gap: 6px; margin-top: 3px; min-width: 0; }
 .tq-card2 small > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3138,7 +3138,7 @@ button.ts-t { border: 0; font: inherit; color: var(--ink); text-align: left; }
 .pl-del { color: var(--terre); }
 
 .linkbtn.pl-add svg { width: 16px; height: 16px; }
-.pl-er .grow { flex: 1; } .pl-ed > .eyebrow.pl-h { margin-top: 0; }
+.pl-er .grow { flex: 1; } .pl-ed > .pl-er:first-child { border-top: 0; padding-top: 4px; } .pl-ed > .eyebrow.pl-h { margin-top: 0; }
 
 .tq-rd { margin-top: 8px; }
 .pl-eh { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
@@ -7635,6 +7635,10 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 :root[data-theme="nuit"] .pl-r.me :is(.pl-tb, .pl-pt) { color: color-mix(in srgb, var(--ink) 82%, transparent); }
 :root[data-theme="nuit"] .mt-c.hot .mt-st { background: rgba(0,0,0,.2); color: var(--ink); }
 
+/* 4.26.0 (Yann) : l'action d'une section sur la ligne de son titre, calée à droite (comme « Modifier » des feuilles) */
+h2.h2-act { display: flex; align-items: center; gap: 8px; }
+.h2-ed { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 0 2px; min-height: 36px; font-size: 14px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.h2-ed svg { width: 15px; height: 15px; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.
