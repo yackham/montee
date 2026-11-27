@@ -124,7 +124,7 @@ workflows:
         # Mettre 1 pour construire SANS les widgets iPhone (si le profil « fr.montennis.app.widgets » pose problème)
         SANS_WIDGETS_IOS: 0
       node: 20
-      xcode: latest
+      xcode: 27.2  # SDK iOS 27 exigé par Apple dès avril 2027 (ITMS-90725). Version stable figée : « latest » restait sur 26.x
     scripts:
       - name: Dézipper le projet
         script: |
@@ -188,7 +188,7 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       node: 20
-      xcode: latest
+      xcode: 27.2  # SDK iOS 27 exigé par Apple dès avril 2027 (ITMS-90725). Version stable figée : « latest » restait sur 26.x
     scripts:
       - name: Dézipper le projet
         script: |
