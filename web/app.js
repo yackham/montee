@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.26.4",
+    VERSION: "4.26.5",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -19964,6 +19964,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return s + "</div>";
   };
   // 3.59 (Yann : « je reçois les notifs seulement quand j'ouvre l'appli ») : on montre si iOS laisse Montée vérifier en arrière-plan
+  // 4.26.5 : à partir de quand iOS peut relancer Montée (iOS choisit le moment exact, souvent un peu après)
+  function nextTx(t) { var d = new Date(t), hm = String(d.getHours()).padStart(2, "0") + " h " + String(d.getMinutes()).padStart(2, "0"); return t <= Date.now() ? "dès maintenant" : (E.iso(d) === E.iso(new Date()) ? "dès " : "le " + fdate(E.iso(d)) + " dès ") + hm; }
   function bgStatusHtml() {
     if (!NATIVE || !Tenup || typeof Tenup.bgStatus !== "function") return "";
     if (!UI.bgSt) { UI.bgSt = { wait: 1 }; Promise.resolve(Tenup.bgStatus()).then(function (r) { UI.bgSt = r || {}; if (route() === "notifs") render(); }, function () { UI.bgSt = {}; }); return ""; }
@@ -19986,7 +19988,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!IOS && B.battery === "optimized") tips.push("Réglages Android › Applications › Montée › Batterie › Sans restriction : sinon certains téléphones coupent la vérification quand l'écran est éteint.");
     if (IOS) tips.push("Ne ferme pas Montée en la balayant vers le haut : iOS ne la réveille plus jusqu'à ta prochaine ouverture.");
     var rows = LG.slice(0, 6).map(function (x) { var d = new Date(x.t), m = /^notif:(\d+)$/.exec(x.r), m8 = /^nuit:(\d+)$/.exec(x.r), ri = /^refus-ios:/.test(x.r), lab2 = m ? plural(+m[1], "notification") + " envoyée" + (+m[1] > 1 ? "s" : "") : m8 ? plural(+m8[1], "notification") + " pour 8 h" : ri ? "iOS refuse le réveil (" + x.r.slice(10) + ")" : RL[x.r] || x.r; return '<div class="nf-lg"><span>' + esc(fdate(E.iso(d)) + " · " + String(d.getHours()).padStart(2, "0") + " h " + String(d.getMinutes()).padStart(2, "0")) + "</span><b>" + esc(lab2) + "</b></div>"; }).join("");
-    return '<h2 class="nf-gh">Vérification en arrière-plan</h2><div class="nf-grp nf-bg"><div class="nf-row"><span class="nf-r"><b>' + (ok ? "Active" : "Coupée") + "</b><small>Dernière vérification : " + esc(when) + '</small></span><span class="nf-dot ' + (ok && h != null && h < 24 ? "ok" : "ko") + '"></span></div>' +
+    return '<h2 class="nf-gh">Vérification en arrière-plan</h2><div class="nf-grp nf-bg"><div class="nf-row"><span class="nf-r"><b>' + (ok ? "Active" : "Coupée") + "</b><small>Dernière vérification : " + esc(when) + (IOS && B.next ? esc(" · prochaine possible " + nextTx(B.next * 1000)) : "") + '</small></span><span class="nf-dot ' + (ok && h != null && h < 24 ? "ok" : "ko") + '"></span></div>' +
       (rows ? '<div class="nf-log"><small>Les derniers passages</small>' + rows + "</div>" : "") +
       '<div class="nf-tips">' + tips.map(function (t) { return '<span class="small">' + esc(t) + "</span>"; }).join("") + "</div></div>";
   }
