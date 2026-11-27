@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.27.0",
+    VERSION: "4.27.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -921,6 +921,8 @@
     if (UI.leaveAsk) html += leaveSheet();
     if (UI.sheet) html += sheetHtml();
     if (UI.jj) html += jjHtml();
+    // 4.26.5 : le toast « Annoter » d'un tour gagné vient une fois la feuille du tour suivant fermée (enregistrée ou non), et parle du match gagné
+    if (UI.annLater && !UI.trR) { var aL = S.matches.filter(function (x) { return x.id === UI.annLater; })[0]; UI.annLater = null; if (aL) setTimeout(function () { annToast(aL, (aL.result === "V" ? "Victoire" : "Défaite") + " contre " + (aL.opp && !isAnon(aL.opp) ? nameCase(aL.opp) : "un " + aL.oppRank) + " notée.", aL.result === "V"); }, 350); }
     if (UI.qaSheet && UI.qaOne && !qaList().some(function (x) { return x.id === UI.qaOne; })) { UI.qaSheet = false; UI.qaOne = null; }
     if (UI.qaSheet && parts[0] === "" && !qaList().length) UI.qaSheet = false;
     if (UI.qaSheet && (parts[0] === "" || UI.qaOne)) html += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="qaClose"></div><div class="sheet qa-sheet" role="dialog" aria-modal="true" aria-label="Annoter ton match"><span class="sheet-grab"></span>' + qaFormHtml() + "</div>";
@@ -2033,14 +2035,25 @@
     var g = dGap(lim); return g < 0 ? { ok: false, txt: "Plus modifiables depuis le " + fdate(lim) } : { ok: true, txt: g === 0 ? "Modifiables jusqu'à ce soir" : "Modifiables jusqu'au " + fdate(lim) };
   }
   function insFiche(t) { // 4.6.0 : le téléphone et le mail du juge-arbitre, et le point GPS du lieu, viennent de la fiche publique (une fois)
-    var i = t.ins, m = i.more = i.more || {}; if ((m.fiAt && (m.fiV >= 2 || (m.ja && m.ja.name))) || !NATIVE || !S.tenup.linked || offline() || (UI.insFi || {})[t.tuid]) return;
+    var i = t.ins, m = i.more = i.more || {}; if ((m.fiAt && m.fiV >= 3) || !NATIVE || !S.tenup.linked || offline() || (UI.insFi || {})[t.tuid]) return;
     UI.insFi = UI.insFi || {}; UI.insFi[t.tuid] = 1;
     setTimeout(function () { tenupQuery("fiche", { t: t.tuid }).then(function (r) {
-      if (!r || r.error) return; m.fiAt = Date.now(); m.fiV = 2; var ja = m.ja || { name: "", tel: "", mail: "" };
+      if (!r || r.error) return; m.fiAt = Date.now(); m.fiV = 3; if (r.surf) m.surf = r.surf; if (r.cov) m.cov = r.cov; // 4.26.5 : surface(s) et courts couverts, pour préremplir tes matchs var ja = m.ja || { name: "", tel: "", mail: "" };
       if (r.ja) { ja.name = ja.name || r.ja.name || ""; ja.tel = ja.tel || r.ja.tel || ""; ja.mail = ja.mail || r.ja.mail || ""; } // 4.9.2 : le nom, lu sur la page du tournoi if (ja.name || ja.tel || ja.mail) m.ja = ja;
       ["addr", "place", "lat", "lng"].forEach(function (k) { if (m[k] == null && r[k] != null) m[k] = r[k]; });
       save(); render();
     }); }, 300);
+  }
+  // 4.26.5 (Yann, 27/11) : l'épreuve d'un match (tour, poule ou épreuve choisie à la saisie) et les conditions que Ten'Up donne déjà
+  function matchTour(m) {
+    if (!m) return null; if (m.tour) { var t0 = tourOf(m.tour); if (t0) return t0; }
+    if (/^tr/.test(m.id || "")) return toursAll().filter(function (t) { return (t.rounds || []).concat(t.pool || []).some(function (r) { return r && ("tr" + r.id === m.id || r.twin === m.id); }); })[0] || null;
+    return null;
+  }
+  function tourCond(t, pref) { // une seule surface sur la fiche : c'est elle ; plusieurs : celle que tu as donnée si elle en fait partie. Courts tous couverts / tous dehors : le lieu.
+    var mo = t && t.ins && t.ins.more || {}, sf = mo.surf || [], su = sf.length === 1 ? sf[0] : pref && sf.indexOf(pref) >= 0 ? pref : "";
+    if (t && t.ins && !mo.surf && !mo.cov) insFiche(t);
+    return { surface: SURFACES.indexOf(su) >= 0 ? su : "", indoor: mo.cov === "in" ? true : mo.cov === "out" ? false : null };
   }
   // 4.9.2 (Yann : « À régler m'ouvre toutes mes inscriptions ») : la page de CETTE inscription, où Ten'Up propose le paiement
   function insPayUrl(m) { var x = String(m.dispoUrl || "").match(/^(\/user\/mes-inscriptions\/[^\/?#]+)/); return x ? x[1] : "/user/mes-inscriptions"; }
@@ -5177,7 +5190,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (i < 0 && o.name) { var d0 = r.day && dGap(r.day) <= 0 ? r.day : E.iso(today()); var tw = S.matches.filter(function (x) { return !/^tr/.test(x.id) && x.date && Math.abs(E.parseDate(x.date) - E.parseDate(d0)) <= 2 * 864e5 && x.opp && samePerson(x.opp, trNm(o.name)); })[0]; if (tw) { r.mx = 1; r.twin = tw.id; return; } }
     var m = i >= 0 ? S.matches[i] : { id: id, surface: "", indoor: null, racketId: "", string: "", tension: null, tensionCross: null, feel: null, note: "", score: "" };
     Object.assign(m, { date: r.day && dGap(r.day) <= 0 ? r.day : E.iso(today()), opp: o.name ? trNm(o.name) : "", oppRank: (function () { var d = r.day && dGap(r.day) <= 0 ? r.day : E.iso(today()), k = (o.tid || o.oid) && Math.abs(dGap(d)) <= 3 ? rkOn(o, d) : ""; return T.normRank(k || o.rank) || k || o.rank; })(), result: r.res, wo: false, kind: t.kind === "champ" ? "champ" : "tournoi", comp: t.name || "", source: "tournoi", oid: o.tid || "", oclub: o.club || "" });
-    if (i < 0) S.matches.push(m);
+    if (i < 0) { var tc2 = tourCond(t); if (tc2.surface) m.surface = tc2.surface; if (tc2.indoor != null) m.indoor = tc2.indoor; S.matches.push(m); } // 4.26.5 : conditions de la fiche Ten'Up
     r.mx = 1;
   }
   // 3.44.2 : « le vainqueur de A / B » : dès que leur match est sur Ten'Up, le tour se met à jour tout seul
@@ -8137,6 +8150,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     D: [["bien", "Bien joué", '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>'], ["absent", "Pas dans le match", '<rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2M6 10v4"/>'], ["fort", "Il était plus fort", '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'], ["tendu", "Tendu sur les points clés", '<path d="M3 12h4l3-8 4 16 3-8h4"/>'], ["fautes", "Trop de fautes", '<circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/>'], ["fatigue", "Coup de fatigue", '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/><path d="M3 3l18 18"/>'], ["cond", "Conditions difficiles", '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7"/>']],
     V: [["bien", "Bien joué", '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>'], ["calme", "Calme sur les points clés", '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>'], ["plan", "Le plan a marché", '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'], ["aide", "Il m'a aidé", '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12"/>'], ["service", "Mon service a porté", '<path d="M4 20C8 14 11 11 15 9"/><circle cx="18" cy="6.5" r="3"/>'], ["physique", "Physiquement au-dessus", '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>'], ["revenu", "Revenu de loin", '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>']]
   };
+  // 4.26.6 (Yann) : dans « Annote ton match », chaque raison = titre court + mini descriptif, tuiles de même hauteur (libellés complets inchangés ailleurs)
+  var FELT_TD = {
+    V: { bien: ["Bien joué", "J'ai joué à mon niveau"], calme: ["Sang-froid", "Calme aux points clés"], plan: ["Le plan", "Ma tactique a marché"], aide: ["Ses fautes", "Il m'a donné des points"], service: ["Le service", "Mon service a porté"], physique: ["Le physique", "Plus frais que lui"], revenu: ["Revenu de loin", "J'ai renversé le match"] },
+    D: { bien: ["Bien joué", "Bon niveau quand même"], absent: ["Pas dedans", "Jamais dans le match"], fort: ["Plus fort", "Il était au-dessus"], tendu: ["Tendu", "Crispé aux points clés"], fautes: ["Les fautes", "Trop de fautes directes"], fatigue: ["La fatigue", "Coup de mou physique"], cond: ["Conditions", "Vent, chaleur, terrain…"] }
+  };
   function feltLabel(m, k) { var l = (FELT[m.result === "V" ? "V" : "D"].concat(FELT.V, FELT.D)).filter(function (x) { return x[0] === k; })[0]; return l ? l[1].replace("Il était plus fort", m.oppSexe === "F" ? "Elle était plus forte" : "Il était plus fort") : k; }
   var GSTY = { fond: "Fond de court", poly: "Tout terrain", filet: "Attaquant au filet", contre: "Contreur", defense: "Défenseur", service: "Gros serveur" };
   var ARM2TR = { service: "service", cd: "cd", revers: "revers", volee: "volee", physique: "physique", mental: "mental", defense: "regul" };
@@ -10681,14 +10699,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         var others = bag().filter(function (r) { return r.id !== main.id && !brokenNow(r); });
         if (others.length === 1) main = others[0]; else { main = null; rkOpen = others.length > 1; }
       }
-      UI.qa = { id: m.id, rkOpen: rkOpen, racketId: main ? main.id : "", surface: m.surface || last.surface || "", indoor: m.indoor != null ? m.indoor : (last.indoor != null ? last.indoor : null), feel: m.feel || 0, more: false };
-      if (!m.surface && m.indoor == null && (last.surface || last.indoor != null)) UI.qa.pre = { surface: last.surface || "", indoor: last.indoor != null ? last.indoor : null };
+      var tc = tourCond(matchTour(m), m.surface || last.surface); // 4.26.5 : d'abord ce que Ten'Up dit du tournoi, puis ton dernier match
+      UI.qa = { id: m.id, rkOpen: rkOpen, racketId: main ? main.id : "", surface: m.surface || tc.surface || last.surface || "", indoor: m.indoor != null ? m.indoor : tc.indoor != null ? tc.indoor : (last.indoor != null ? last.indoor : null), feel: m.feel || 0, more: false };
+      if ((tc.surface || tc.indoor != null) && (!m.surface || m.surface === tc.surface) && (m.indoor == null || m.indoor === tc.indoor)) UI.qa.pre = { surface: tc.surface || "", indoor: tc.indoor, tu: true };
+      else if (!m.surface && m.indoor == null && (last.surface || last.indoor != null)) UI.qa.pre = { surface: last.surface || "", indoor: last.indoor != null ? last.indoor : null };
     }
     var q = UI.qa, total = list.length + (UI.qaRun || 0), pos = (UI.qaRun || 0) + 1;
     var chip = function (a, v, on, label) { return '<button class="chip' + (on ? " on" : "") + '" data-a="' + a + '" data-v="' + esc(String(v)) + '" aria-pressed="' + on + '">' + esc(label) + "</button>"; };
     // 3.55.3 (Yann, maquette validée) : feuille plus compacte : le match sur une ligne, raquette, surface et lieu dans une carte neutre
     // (sélecteurs à onglets), les ressentis en grille 2 colonnes (liseré, pas d'aplat), « Plus tard » en lien
-    var seg = function (a, items) { return '<span class="an-seg" role="group">' + items.map(function (x) { return '<button class="' + (x.on ? "on" : "") + '" data-a="' + a + '" data-v="' + esc(String(x.v)) + '" aria-pressed="' + !!x.on + '">' + esc(x.l) + "</button>"; }).join("") + "</span>"; };
+    var seg = function (a, items) { return '<span class="seg res" role="group">' + items.map(function (x) { return '<button class="' + (x.on ? "on" : "") + '" data-a="' + a + '" data-v="' + esc(String(x.v)) + '" aria-pressed="' + !!x.on + '">' + esc(x.l) + "</button>"; }).join("") + "</span>"; };
     var V = m.result === "V", s = '<div class="card qa an">';
     if (done) s += '<span class="qa-done" role="status">' + I.check + " " + esc(done.label) + " : annoté</span>";
     s += '<div class="an-h"><span class="eyebrow">Annote ton match</span>' + (total > 1 ? '<span class="an-pos"><span class="small">' + pos + " sur " + total + '</span><span class="an-st">' + Array.apply(null, Array(Math.min(total, 8))).map(function (_, i) { return '<i class="' + (i < pos ? "on" : "") + '"></i>'; }).join("") + "</span></span>" : "") + "</div>";
@@ -10701,11 +10721,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 3.55.3 (Yann) : 8 surfaces possibles : la surface retenue sur une ligne, la liste complète s'ouvre au toucher (les plus jouées d'abord)
     var SH = { "Autre": "Autre (gymnase, parquet…)" }, order = qaSurfaces("").concat(SURFACES).filter(function (x, i, a) { return a.indexOf(x) === i; });
     var surfRow = q.more ? '<div class="an-list" role="listbox">' + order.map(function (x) { var on = q.surface === x; return '<button class="an-li' + (on ? " on" : "") + '" role="option" aria-selected="' + on + '" data-a="qaSurface" data-v="' + esc(x) + '"><span>' + surfPic(x) + esc(SH[x] || x) + "</span>" + (on ? I.check : "") + "</button>"; }).join("") + "</div>"
-      : '<button class="an-rkb" data-a="qaMore"><span>' + (q.surface ? surfPic(q.surface) + "<b>" + esc(SH[q.surface] || q.surface) + "</b>" : '<span class="an-ph">Choisir</span>') + '</span><span class="an-go">' + (q.surface ? "Changer " : "") + I.next + "</span></button>";
-    s += '<div class="an-c"><div class="an-row"><span class="an-k">Raquette</span>' + rkRow + '</div><div class="an-row"><span class="an-k">Surface</span>' + surfRow + '</div><div class="an-row"><span class="an-k">Lieu</span>' + seg("qaIndoor", [{ v: "1", l: "Intérieur", on: q.indoor === true }, { v: "0", l: "Extérieur", on: q.indoor === false }]) + "</div></div>";
-    if (q.pre && (q.surface === q.pre.surface || q.indoor === q.pre.indoor)) s += '<span class="an-pre">Surface et lieu repris de ton dernier match annoté : change-les si besoin.</span>';
+      : '<button class="an-rkb" data-a="qaMore"><span>' + (q.surface ? surfPic(q.surface) + "<b>" + esc(SH[q.surface] || q.surface) + "</b>" : '<span class="an-ph">Choisir la surface</span>') + '</span><span class="an-go">' + (q.surface ? "Changer " : "") + I.next + "</span></button>";
+    s += '<div class="an-c"><div class="an-row">' + rkRow + '</div><div class="an-row">' + surfRow + '</div><div class="an-row">' + seg("qaIndoor", [{ v: "1", l: "Intérieur", on: q.indoor === true }, { v: "0", l: "Extérieur", on: q.indoor === false }]) + "</div></div>";
+    if (q.pre && (q.surface === q.pre.surface || q.indoor === q.pre.indoor)) s += '<span class="an-pre">' + (q.pre.tu ? (q.pre.surface && q.pre.indoor != null ? "Surface et lieu" : q.pre.surface ? "Surface" : "Lieu") + " d'après la fiche du tournoi sur Ten'Up : change si besoin." : "Surface et lieu repris de ton dernier match annoté : change-les si besoin.") + "</span>";
     var qf = q.felt || [];
-    s += '<div class="an-fh"><span class="an-k">' + (V ? "Ce qui a fait la différence" : "Comment tu l'as senti") + '</span><small>facultatif</small></div><div class="an-g">' + FELT[V ? "V" : "D"].map(function (x) { var a = qf.indexOf(x[0]) >= 0; return '<button class="an-t ' + (V ? "V" : "D") + (a ? " on" : "") + '" data-a="qaFelt" data-v="' + x[0] + '" aria-pressed="' + a + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + x[2] + "</svg><span>" + esc(x[1]) + "</span></button>"; }).join("") + "</div>";
+    s += '<div class="an-fh"><span class="an-k">' + (V ? "Ce qui a fait la différence" : "Comment tu l'as senti") + '</span><small>facultatif</small></div><div class="an-g">' + FELT[V ? "V" : "D"].map(function (x) { var a = qf.indexOf(x[0]) >= 0; return '<button class="an-t ' + (V ? "V" : "D") + (a ? " on" : "") + '" data-a="qaFelt" data-v="' + x[0] + '" aria-pressed="' + a + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + x[2] + "</svg>" + (function () { var td = FELT_TD[V ? "V" : "D"][x[0]]; return td ? '<span class="an-tt"><b>' + esc(td[0]) + "</b><small>" + esc(td[1]) + "</small></span>" : "<span>" + esc(x[1]) + "</span>"; })() + "</button>"; }).join("") + "</div>";
     s += '<div class="an-f"><button class="btn balle" data-a="qaSave">' + (list.length > 1 ? "Enregistrer · suivant" : "Enregistrer") + '</button><button class="an-later" data-a="qaSkip">Plus tard</button></div></div>';
     return s;
   }
@@ -13194,6 +13214,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (official && (isAnon(m.opp) || m.oppTenup != null)) s += '<h2>Tes annotations · l\'adversaire</h2><div class="form"><div class="field"><label for="m-opp">Son nom</label><input id="m-opp" type="text" data-d="opp" value="' + esc(isAnon(m.opp) ? "" : m.opp) + '" placeholder="Masqué sur Ten\'Up : qui était-ce ?" autocomplete="off"><span class="small">Ten\'Up affiche « Anonyme ». Le nom que tu mets ici sert à tes stats et à tes notes pour la revanche.</span></div></div>';
     if (official) s += revHint(m.opp, m.id);
     if (!official && (isNew || UI.mEdit) && !m.tourSet && toursOpen(m.date).length) { m.tour = tourGuess(m); var tt1 = m.tour && tourOf(m.tour); if (tt1 && !m.kindSet) m.kind = tt1.kind === "champ" ? "champ" : "tournoi"; }
+    if (!official && isNew && m.tour && m._tc !== m.tour) { var tc1 = tourCond(tourOf(m.tour), m.surface); m._tc = m.tour; if (tc1.surface) m.surface = tc1.surface; if (tc1.indoor != null) m.indoor = tc1.indoor; } // 4.26.5 : la surface de l'épreuve (fiche Ten'Up), une fois par épreuve choisie
     if (!official && (isNew || UI.mEdit)) {
       var fRes =
       '<div class="field"><div class="seg res" aria-label="Résultat"><button data-a="dset" data-k="result" data-v="V" class="rv' + (m.result === "V" ? " on" : "") + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (m.result === "D" ? " on" : "") + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>Défaite</button></div>' +
@@ -21348,7 +21369,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var tid = pool ? r.tid : r.opp && r.opp.tid; if (tid) S.plans = (S.plans || []).filter(function (x) { return x.id !== String(tid); });
       var mx = trMatchOf(r);
       if (pool) { if (t.resUrl) UI.resNudge = t.id; annToast(mx, r.res === "V" ? "Bravo !" + (t.resUrl ? " Pense à l'envoyer au comité." : "") : "Noté." + (t.resUrl ? " Pense à l'envoyer au comité." : ""), r.res === "V"); render(); if (t.resUrl) window.scrollTo(0, 0); return; }
-      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; annToast(mx, "Bravo ! Ajoute ton " + trLab(t.rounds.length) + ".", true); } else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
+      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Ajoute ton " + trLab(t.rounds.length) + ".", true); if (mx && qaPending(mx)) UI.annLater = mx.id; } /* 4.26.5 (Yann) : la feuille du tour suivant s'ouvre : « Annoter » attend qu'elle soit fermée */ else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
       else {
         annToast(mx, "Noté.");
         // fin de parcours : plus de prochain match nulle part (accueil, montre, notifications)
