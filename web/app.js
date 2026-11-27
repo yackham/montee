@@ -5118,10 +5118,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var st = d.sets || [], w = st.filter(function (x) { return x[0] > x[1]; }).length, l = st.length - w;
     // 4.22.0 (Yann) : en modifiant le score d'un match déjà saisi, on peut aussi le remettre en « pas encore joué »
     if (UI.scoreManual || UI.scoreEdit != null || !(w === 2 || l === 2)) return scoreHtml(d) + (played ? '<button class="linkbtn sbd-nj" data-a="trScDel">Le match n\'a pas encore été joué</button>' : "");
-    // 4.22.0 (Yann : « un truc joli, genre un scoreur ») : tableau de score façon écran de court, le vainqueur marqué d'une balle
-    var row = function (me) { var won = me ? w === 2 : l === 2; return '<div class="sbd-r' + (won ? " win" : "") + '"><span class="sbd-n">' + (won ? '<i class="sbd-b" aria-hidden="true"></i>' : "") + esc(me ? "Toi" : who || "Adversaire") + "</span>" +
-      st.map(function (x) { var a = me ? x[0] : x[1], b2 = me ? x[1] : x[0]; return '<span class="sbd-s' + (a > b2 ? " w" : "") + '">' + a + "</span>"; }).join("") + "</div>"; };
-    return '<div class="field"><span class="sbd-h"><span class="lbl">Score</span><button class="linkbtn sbd-ed" data-a="trScRe">Modifier</button></span><div class="sbd">' + row(true) + row(false) + "</div></div>";
+    // 4.22.0 (Yann : « réutilise ») : le tableau d'arbitre de la fiche match (sbHtml), « Modifier » sur la ligne de son titre
+    return '<div class="field tq-sbf">' + sbHtml({ opp: who || "Adversaire" }, setsTb(d.score), w === 2).replace("</small>", '</small><button class="linkbtn sbd-ed" data-a="trScRe">Modifier</button>') + "</div>";
   }
   function trScSheet(t) {
     var R = UI.trSc, r = t.rounds[R.i], d = UI.draft || {}, rk = r.res ? rkNow(r.opp || {}, true) : trRk(r);
