@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.24.1",
+    VERSION: "4.24.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -11033,6 +11033,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!free) UI.jkUsed = id;
     return true;
   }
+  // 4.24.2 (Yann, 27/11, maquette validée) : visuel des états vides = Ace + un accessoire du tennis
+  var EMP_PROPS = {
+    mur: '<svg width="92" height="78" viewBox="0 0 92 78" aria-hidden="true"><g fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" opacity=".7"><rect x="4" y="10" width="84" height="56" rx="6"/><path d="M4 28h84M4 46h84M30 10v18M62 10v18M18 28v18M48 28v18M76 28v18M30 46v20M62 46v20"/></g><path d="M0 72h92" stroke="var(--muted)" stroke-width="2" opacity=".4"/></svg>',
+    cible: '<svg width="92" height="78" viewBox="0 0 92 78" aria-hidden="true"><g fill="none" stroke-width="3"><circle cx="58" cy="34" r="24" stroke="var(--muted)" opacity=".45"/><circle cx="58" cy="34" r="14" stroke="var(--muted)" opacity=".7"/><circle cx="58" cy="34" r="5" fill="var(--balle)" stroke="none"/></g><path d="M14 70l9-26h6l9 26z" fill="var(--terre)" opacity=".85"/><path d="M8 72h36" stroke="var(--muted)" stroke-width="2" opacity=".4"/></svg>',
+    court: '<svg width="92" height="78" viewBox="0 0 92 78" aria-hidden="true"><g fill="none" stroke="var(--muted)" stroke-width="2" opacity=".65"><rect x="10" y="6" width="72" height="66" rx="3"/><path d="M10 39h72M24 6v66M68 6v66M24 22h44M24 56h44M46 22v34"/></g><path d="M8 39h76" stroke="var(--ink)" stroke-width="2.5" opacity=".5"/></svg>'
+  };
+  function empIll(prop, mood) { var a = coBall("vide:" + prop, mood, "xl"); return '<div class="emp-ill">' + (prop === "mur" ? a + EMP_PROPS[prop] : EMP_PROPS[prop] + a) + "</div>"; }
   function jkLine(id, t) { return jk(id) ? '<p class="jk">' + t + "</p>" : ""; }
   function coMem() { var m = S.coach || (S.coach = {}); m.no = m.no || {}; m.scr = m.scr || {}; m.seen = m.seen || {}; m.op = m.op || {}; return m; }
   function coPurge(m) { var t = Date.now() - 45 * 864e5; ["no", "op"].forEach(function (k) { Object.keys(m[k]).forEach(function (id) { if (m[k][id] < t) delete m[k][id]; }); }); Object.keys(m.seen).forEach(function (id) { if (m.seen[id].t < t) delete m.seen[id]; }); }
@@ -11078,7 +11085,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var seen = false, keep = sc.querySelector(".ace-prio .ace-peek .cbl-b");
     Array.prototype.forEach.call(sc.querySelectorAll(".ace-off, .ace-gone"), function (el) { el.classList.remove("ace-off", "ace-gone"); });
     Array.prototype.forEach.call(sc.querySelectorAll(".cbl-b"), function (el) {
-      if ((el.classList.contains("xs") && !el.closest(".bo-ace")) || el.closest(".mmo-det, .tcar, .ace-hd, .hd-dr, .pdj-h")) return;
+      if ((el.classList.contains("xs") && !el.closest(".bo-ace")) || el.closest(".mmo-det, .tcar, .ace-hd, .hd-dr, .pdj-h, .emp-ill")) return;
       var pk = el.closest(".ace-peek");
       if (keep ? el === keep : !seen) { seen = true; return; }
       if (pk) { pk.classList.add("ace-off"); var cd = pk.closest(".card"); if (cd) cd.classList.add("ace-gone"); }
@@ -12151,7 +12158,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 3.45.2 (Yann) : deux tuiles en haut d'Activité : ce qui arrive (épreuves, matchs prévus) et tes tournois
     if (!chips.length && act !== "t") s += actStatsHtml() + (SK ? "" : euCardHtml()); // 3.94 : ta saison en euros
     if (!list.length && !dbl.length) {
-      s += '<div class="card empty"><b>' + (all.length ? "Rien ici" : "Pas encore de match") + '</b><span class="small">' + (all.length ? "Aucun match pour ce filtre." : "Récupère ton palmarès Ten'Up ou ajoute un match.") + "</span>" +
+      s += '<div class="card empty">' + (all.length ? empIll("court", "surpris") : "") + '<b>' + (all.length ? "Rien ici" : "Pas encore de match") + '</b><span class="small">' + (all.length ? "Aucun match pour ce filtre." : "Récupère ton palmarès Ten'Up ou ajoute un match.") + "</span>" +
         (all.length ? "" : (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button>') + "</div>"; // 3.57 (audit parcours P5)
     }
     // Doubles mêlés aux simples, par date
@@ -12460,7 +12467,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // Palmarès › Entraînements : toutes tes séances, par mois (celles de la montre avec leur courbe)
   function trainListHtml() {
     var tr = (S.trainings || []).filter(function (t) { return t.date; }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : (b.at || 0) - (a.at || 0); });
-    var s = tr.length ? "" : '<div class="card empty"><b>Pas encore d\'entraînement</b>' + jkLine("a-mur", "Rien ici. Le mur du club se sent un peu seul.") + '<span class="small">Touche + pour en ajouter un' + (IOS ? ", ou lance « Entraînement » sur ta montre" : "") + '.</span></div>';
+    var s = tr.length ? "" : '<div class="card empty">' + empIll("mur", "dort") + '<b>Pas encore d\'entraînement</b>' + jkLine("a-mur", "Rien ici. Le mur du club se sent un peu seul.") + '<span class="small">Touche + pour en ajouter un' + (IOS ? ", ou lance « Entraînement » sur ta montre" : "") + '.</span></div>';
     var cur = "";
     s += '<div class="stack" style="gap:8px">';
     tr.forEach(function (t) {
@@ -16024,7 +16031,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // K4 : la page du chantier
   V.chantier = function () {
     var C = S.chantier, s = '<div class="screen ch-scr">' + topbar("", "Entraînements");
-    if (!C) return s + '<div class="card empty"><b>Pas de chantier en cours</b><span class="small">Un point à travailler, un test chiffré à chaque séance, une cible et une date.</span><button class="btn primary" data-a="chOpen">Choisir mon chantier</button></div>' + chOldHtml() + "</div>";
+    if (!C) return s + '<div class="card empty">' + empIll("cible", "reflexion") + '<b>Pas de chantier en cours</b><span class="small">Un point à travailler, un test chiffré à chaque séance, une cible et une date.</span><button class="btn primary" data-a="chOpen">Choisir mon chantier</button></div>' + chOldHtml() + "</div>";
     var last = chLast(C), wk = chWeek(C), dl = Math.max(0, Math.round((E.parseDate(C.end) - today()) / 864e5)), T = C.tests || [];
     s += '<div class="ch-h">' + catLab(C.cat, "ton chantier") + '<h1 class="sj-h1">' + esc(C.t) + '</h1><span class="small">Depuis le ' + esc(chFmtD(C.start)) + " · semaine " + wk + " sur " + C.weeks + " · J-" + dl + "</span></div>";
     var gain = last ? last.v - C.base : 0, nextP = last ? Math.min(C.target, last.v + 1) : C.base + 1;

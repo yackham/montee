@@ -343,6 +343,8 @@ input[role=switch]:checked::after { transform: translateX(20px); }
 .ill { display: block; width: 100%; height: auto; }
 .welcome-ill { margin: 4px -4px 0; }
 .card.empty .ill { max-width: 240px; margin: 0 auto 6px; }
+.card.empty .emp-ill { display: flex; align-items: flex-end; justify-content: center; gap: 6px; margin: 6px 0 8px; }
+.card.empty .emp-ill .cbl-b { margin: 0; }
 .band { border-radius: 22px; overflow: hidden; height: 84px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.04); }
 .band .ill { height: 100%; }
 .card.hero { position: relative; overflow: hidden; }
