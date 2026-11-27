@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.24.0",
+    VERSION: "4.24.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -19886,7 +19886,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var B = UI.bgSt; if (B.wait) return "";
     // 3.69 : journal des passages (iPhone et Android) : « heure|résultat », pour savoir POURQUOI peu de notifications arrivent
     var LG = (B.log || []).map(function (x) { var q = String(x).split("|"); return { t: +q[0] * 1000, r: q[1] || "" }; }).filter(function (x) { return x.t > 0; }).reverse();
-    var RL = { rien: "rien de nouveau", deconnecte: "Ten'Up déconnecté : reconnecte-toi", timeout: "Ten'Up trop lent, réessayé plus tard", "timeout-page": "Ten'Up n'a pas répondu à temps", "timeout-lecture": "lecture de Ten'Up trop longue", maintenance: "Ten'Up en maintenance", erreur: "erreur de lecture", interrompu: "arrêté par le téléphone (temps écoulé)", "sans-lecture": "rien à lire pour l'instant" };
+    var RL = { rien: "rien de nouveau", deconnecte: "Ten'Up déconnecté : reconnecte-toi", timeout: "Ten'Up trop lent, réessayé plus tard", "timeout-page": "Ten'Up n'a pas répondu à temps", "direct-ko": "lecture directe refusée, page Ten'Up essayée", "timeout-lecture": "lecture de Ten'Up trop longue", maintenance: "Ten'Up en maintenance", erreur: "erreur de lecture", interrompu: "arrêté par le téléphone (temps écoulé)", "sans-lecture": "rien à lire pour l'instant" };
     var ok = IOS ? B.refresh === "available" : true, lastT = B.last ? B.last * 1000 : LG.length ? LG[0].t : 0, last = lastT ? new Date(lastT) : null, h = last ? Math.round((Date.now() - lastT) / 3600e3) : null;
     var when = last ? (h < 1 ? "il y a moins d'une heure" : h < 48 ? "il y a " + h + " h" : "le " + fdate(E.iso(last))) : "jamais pour l'instant";
     var tips = [];
