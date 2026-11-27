@@ -5674,7 +5674,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (jm) {
         var shN = function (n) { n = nameCase(n); return n.length > 18 ? n.replace(/^(\S)[^\s-]*(-(\S)[^\s-]*)?\s+/, function (z, a, b, c) { return a + "." + (c ? "-" + c + "." : "") + " "; }) : n; }, jt = shN(String(jm.title || "").replace(/ · .*/, "")); var jr = (String(jm.title || "").match(/ · (.+)$/) || [])[1] || "", jst = jm.st && /%$/.test(jm.st) ? jm.st.replace(" %", " %") + " de chances" : "";
         spK = { c: "var(--balle)", i: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/>' };
-        spH = '<span class="hd-k">Jour de match' + (jm.time ? " · " + esc(jm.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h")) : "") + '</span><b class="hd-2' + (jt.length > 20 ? " lg" : "") + '">Contre ' + esc(jt) + "</b><small>" + (jr ? '<span class="rk-tag">' + esc(jr) + "</span>" : "") + (jst ? '<span class="hd-x">' + (jr ? "· " : "") + esc(jst) + "</span>" : "") + "</small></span>" + (jt ? cta("Plan", "ace", "", "vs:" + nameKey(String(jm.title || "").replace(/ · .*/, ""))) : jm.href ? cta("Plan", "hdGo", jm.href) : ""); // 4.25.1 (Yann, 27/11) : « Plan » ouvre la conversation d'Ace sur ce match, le tournoi vient en suite
+        spH = '<span class="hd-k">Jour de match' + (jm.time ? " · " + esc(jm.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h")) : "") + '</span><b class="hd-2' + (jt.length > 20 ? " lg" : "") + '">Contre ' + esc(jt) + "</b><small>" + (jr ? '<span class="rk-tag">' + esc(jr) + "</span>" : "") + (jst ? '<span class="hd-x">' + (jr ? "· " : "") + esc(jst) + "</span>" : "") + "</small></span>" + (function () { // 4.25.1 (Yann, 27/11) : « Plan » ouvre toujours la conversation d'Ace ; le tournoi vient en suite (« Voir le tournoi »)
+          var jn = String(jm.title || "").replace(/ · .*/, ""), vq = jn && !/^(un |une |ton adversaire)/i.test(jn) ? "vs:" + nameKey(jn) : "", aq2 = "";
+          try { aq2 = vq && coMatchFind(vq) ? vq : jm.t ? (jm.t.fmt === "poule" ? "poule:" : "plan:") + jm.t.id : vq; } catch (e) { aq2 = vq; } // sans le nom du gars : Ace parle du tour, avec « Voir le tournoi »
+          return aq2 ? cta("Plan", "ace", "", aq2) : jm.href ? cta("Plan", "hdGo", jm.href) : "";
+        })();
       } else if (hier && hier.result === "V") {
         spK = { c: "var(--gazon)", i: '<path d="M5 12l5 5 9-10"/>' };
         var shN2 = function (n) { n = nameCase(n); return n.length > 18 ? n.replace(/^(\S)[^\s-]*(-(\S)[^\s-]*)?\s+/, function (z, a, b, c) { return a + "." + (c ? "-" + c + "." : "") + " "; }) : n; };
@@ -11237,6 +11241,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   function coAgo(iso) { var g = -dGap(iso); return g <= 0 ? "aujourd'hui" : g === 1 ? "hier" : g < 14 ? "il y a " + g + " jours" : g < 60 ? "il y a " + Math.round(g / 7) + " semaines" : "en " + MOIS_L[E.parseDate(iso).getMonth()]; }
   function coMatchFind(q) {
+    if (/^plan:/.test(q)) { // 4.25.1 (Yann, 27/11) : « Plan » de l'accueil sans le nom du gars : ton prochain tour, tel qu'on le connaît
+      var tp = tourOf(q.slice(5)), td0 = E.iso(today()), rL = tp ? (tp.rounds || []).filter(function (x) { return !x.res; }) : [], rp = rL.filter(function (x) { return x.day === td0; })[0] || rL[0], op = rp && rp.opp || {};
+      return rp ? { d: rp.day || "", time: rp.time || "", name: op.name ? trNm(op.name) : "", rank: op.rank ? rkShow(op, rp.day) : "", tid: op.tid || "", t: tp, comp: tp.name || "Tournoi", href: "#/tournoi/" + tp.id, key: "" } : null;
+    }
     var up = coUpMatches(30); if (q === "next") return up[0] || null;
     var key = q.slice(3), o = up.filter(function (x) { return x.key === key; })[0]; if (o) return o;
     var h = coH2h(key);
@@ -11252,17 +11260,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var o = coMatchFind(q), A = [], F = [], XH = "", p = c.proj, sup = isSup();
     if (!o) return { a: ["Ajoute ton prochain match (tableau, poule ou match prévu) : je te le prépare."], f: [], facts: [], x: "", mood: "reflexion" };
     var st = coStake(o), pc = st.p, g = st.g, h = coH2h(o.key), nx = p.status !== "top" ? p.next : null, nm = esc(o.name || "ton adversaire");
-    A.push("<b>" + (pc == null ? "Je n'ai pas encore de quoi calculer tes chances" : pc >= 60 ? "Tu pars favori : " + pc + " % de chances" : pc >= 40 ? "Match jouable : " + pc + " % de chances" : "Il part favori, rien d'impossible : " + pc + " % de chances") + ".</b>" +
+    if (!o.name) A.push("<b>Ton adversaire n'est pas encore connu.</b> Voici ton plan général ; dès que tu as son nom, je te prépare le match en détail."); // 4.25.1
+    if (o.name || pc != null) A.push("<b>" + (pc == null ? "Je n'ai pas encore de quoi calculer tes chances" : pc >= 60 ? "Tu pars favori : " + pc + " % de chances" : pc >= 40 ? "Match jouable : " + pc + " % de chances" : "Il part favori, rien d'impossible : " + pc + " % de chances") + ".</b>" +
       (nx && g ? (nx.total < nx.norme && nx.total + g >= nx.norme ? " Gagne-le et tu passes la norme " + esc(nx.label) + "." : " Gagne-le et ton bilan passe à " + (nx.total + g) + " / " + nx.norme + ".") : ""));
     var d = coD(), wk = d ? coWeak(d) : null;
     if (sup && wk && CP_HOW[wk.k] && CP_HOW[wk.k].m) A.push("<b>Ta consigne :</b> " + esc(CP_HOW[wk.k].m.charAt(0).toLowerCase() + CP_HOW[wk.k].m.slice(1)));
     // 4.11.2 (Yann : « j'ai pas son nom mais tu me proposes de voir sa fiche, et ça plante ») : pas de nom = pas de fiche ; le tournoi reste dans « Voir le tournoi »
     var fiche = !o.name ? "" : o.tid ? "#/joueur/" + encodeURIComponent(o.tid) : h ? "#/adversaire/" + encodeURIComponent(o.key) : "";
     var last = h ? E.parseDate(h.ms[0].date) : null;
-    XH += acCard(o.d ? "Ton match" : "Contre lui", acRow({ l: nm + acRk(o.rank), s: (o.d ? esc(coWhen(o)) + (o.comp ? " · " : "") : "") + esc(o.comp || (o.rank ? "classé " + o.rank : "")), href: fiche || null }) +
+    XH += acCard(o.d ? "Ton match" : "Contre lui", acRow({ l: (o.name ? nm : o.rank ? "Un " + esc(o.rank) : "Adversaire à venir") + (o.name ? acRk(o.rank) : ""), s: (o.d ? esc(coWhen(o)) + (o.comp ? " · " : "") : "") + esc(o.comp || (o.rank ? "classé " + o.rank : "")), href: fiche || null }) +
       (pc != null ? acRow({ l: "Tes chances", v: oddsBallI(pc, 40) }) : "") +
       (nx && g ? acRow({ l: "Une victoire rapporte", s: "dans ton bilan " + esc(nx.label), v: "+" + g, cl: "g", sheet: ["mmBilan", "up"] }) : "") +
-      acRow(h ? { l: "Face-à-face", s: plural(h.ms.length, "match", "matchs") + ", " + (h.ms[0].result === "V" ? "gagné" : "perdu") + " le dernier" + (last ? " en " + last.getFullYear() : ""), v: h.v + "-" + h.d, cl: h.v > h.d ? "g" : h.v < h.d ? "r" : "", sheet: ["h2hm", o.key] } : { l: "Face-à-face", s: "première fois contre lui" }) +
+      (!o.name ? "" : acRow(h ? { l: "Face-à-face", s: plural(h.ms.length, "match", "matchs") + ", " + (h.ms[0].result === "V" ? "gagné" : "perdu") + " le dernier" + (last ? " en " + last.getFullYear() : ""), v: h.v + "-" + h.d, cl: h.v > h.d ? "g" : h.v < h.d ? "r" : "", sheet: ["h2hm", o.key] } : { l: "Face-à-face", s: "première fois contre lui" })) +
       (pc != null ? '<span class="acd-f">La balle : tes chances, d\'après tes résultats contre les ' + esc(o.rank) + " et les siens</span>" : ""));
     var f = coForm(o.tid);
     if (f) XH += acCard("Lui, en ce moment", f.rows.map(function (r) { return acRow({ sq: r.result, l: "Contre un " + esc(r.oppRank || "joueur non classé"), s: esc(coAgo(r.date)) + (r.score ? " · " + esc(r.score) : "") }); }).join("") + '<span class="acd-f">Tiré de sa fiche Ten\'Up' + (f.at ? ", lue " + esc(agoLab(f.at)) : "") + "</span>");
@@ -11417,7 +11426,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 3.75 : les sujets « du moment » (hors tuiles : ils passent par « Pour toi, maintenant », la bulle ou la fiche adversaire)
     var up = null; try { up = coUpMatches(30)[0]; if (up) { var ug = dGap(up.d); Q.push(["feed", "next", coWhen(up) + " contre " + (up.name || "un " + up.rank) + ", je fais quoi ?", ug === 0 ? "Ton match d'aujourd'hui" : ug === 1 ? "Ton match de demain" : "Ton prochain match", up.name || up.rank, "versus", coIcK(up)]); } } catch (e) {}
     try { var Nw = coNews(); if (Nw) Q.push(["feed", "news", "Qu'est-ce qui a changé ?", "Nouveau sur Ten'Up", plural(Nw.ms.length, "résultat"), "spark"]); } catch (e) {}
-    var aq = UI.ace && UI.ace.q || ""; if (/^vs:/.test(aq)) { var ov = coMatchFind(aq); if (ov) Q.push(["feed", aq, "Prépare-moi le match contre " + ov.name, "Contre lui", ov.name, "versus"]); }
+    var aq = UI.ace && UI.ace.q || ""; if (/^plan:/.test(aq)) { var pq = coMatchFind(aq); if (pq) Q.push(["feed", aq, pq.d && !dGap(pq.d) ? "Prépare-moi mon match d'aujourd'hui" : "Prépare-moi mon prochain tour", "Ton plan", pq.comp, "versus"]); }
+    if (/^vs:/.test(aq)) { var ov = coMatchFind(aq); if (ov) Q.push(["feed", aq, "Prépare-moi le match contre " + ov.name, "Contre lui", ov.name, "versus"]); }
     if (p.status !== "top" && p.next) { var gap = Math.max(0, p.next.norme - p.next.total);
       Q.push(["now", "up", p.status === "descente" ? "Comment je reste " + lab(cur) + " ?" : "Comment je monte " + p.next.label + " ?", p.status === "descente" ? "Rester " + lab(cur) : "Monter " + p.next.label, p.status === "montee" ? "Tu montes le " + fdate(p.release) : gap ? "Il manque " + plural(gap, "pt") : "Il manque une victoire", "chart"]); }
     // 4.9 (Yann, 25/11/2026) : on touche Ace posé sur une carte, sa conversation s'ouvre sur cette carte (sujets « card », jamais en tuile)
@@ -11580,7 +11590,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function coAnswer(c, q) {
     var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], XH = "", mood = "repos", pl = null, k = q.split(":");
     try { pl = pistes(c); } catch (e) {}
-    if (k[0] === "next" || k[0] === "vs") return coMatchAns(c, q);
+    if (k[0] === "next" || k[0] === "vs" || k[0] === "plan") return coMatchAns(c, q);
     if (k[0] === "tz") return tzWhyAns(c, k[1] || "");
     if (k[0] === "news") return coNewsAns(c);
     if (/^dv-/.test(q)) { var dv = null; try { dv = dvAns(q); } catch (e) {} if (dv) return dv; }
@@ -11867,8 +11877,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (an && lastQ && lastQ[1] === q) {
         more = an.f.map(function (f) { return f[3] ? '<button data-a="sheet" data-k="' + esc(f[3][0]) + '" data-v="' + esc(f[3][1] || "") + '"><i>↳</i>' + esc(f[0]) + "</button>" : f[2] ? '<button data-a="coachGo" data-h="' + esc(f[2]) + '"><i>↳</i>' + esc(f[0]) + "</button>" : '<button data-a="aceQ" data-v="' + esc(f[1]) + '"><i>↳</i>' + esc(f[0]) + "</button>"; });
         Q = coQs(c);
-        var nxK = /^vs:/.test(q) ? (coMatchFind("next") || {}).key : null; // 4.25.1 : « je fais quoi ? » sur le match dont on parle déjà ne revient pas en suite
-        Q.filter(function (x) { return x[1] !== q && !(x[1] === "next" && nxK && nxK === q.slice(3)) && an.f.every(function (f) { return f[1] !== x[1]; }); }).sort(function (a, b) { return (UI.aceVis[a[1]] ? 1 : 0) - (UI.aceVis[b[1]] ? 1 : 0) || (a[0] === lastQ[0] ? 0 : 1) - (b[0] === lastQ[0] ? 0 : 1); }).slice(0, Math.max(2, 4 - an.f.length)).forEach(function (x) { more.push('<button data-a="aceQ" data-v="' + esc(x[1]) + '"><i>↳</i>' + esc(x[2]) + "</button>"); });
+        var nxO = /^(vs|plan):/.test(q) ? coMatchFind("next") || {} : {}, nxK = /^vs:/.test(q) ? nxO.key : null, nxP = /^plan:/.test(q) ? coMatchFind(q) : null; // 4.25.1 : « je fais quoi ? » sur le match dont on parle déjà ne revient pas en suite
+        Q.filter(function (x) { return x[1] !== q && !(x[1] === "next" && ((nxK && nxK === q.slice(3)) || (nxP && nxO.t === nxP.t && nxO.d === nxP.d))) && an.f.every(function (f) { return f[1] !== x[1]; }); }).sort(function (a, b) { return (UI.aceVis[a[1]] ? 1 : 0) - (UI.aceVis[b[1]] ? 1 : 0) || (a[0] === lastQ[0] ? 0 : 1) - (b[0] === lastQ[0] ? 0 : 1); }).slice(0, Math.max(2, 4 - an.f.length)).forEach(function (x) { more.push('<button data-a="aceQ" data-v="' + esc(x[1]) + '"><i>↳</i>' + esc(x[2]) + "</button>"); });
         var seenM = {}; more = more.filter(function (h) { var k = h.replace(/<[^>]*>/g, "").replace(/^↳/, "").trim().toLowerCase(); if (seenM[k]) return false; seenM[k] = 1; return true; }); // chaque suggestion une seule fois
       }
       s = s.replace("%%MORE%%", more.length ? '<span class="ace-k">Tu peux aussi me demander</span><div class="ace-f">' + more.join("") + "</div>" : "");
