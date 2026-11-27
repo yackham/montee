@@ -6659,8 +6659,27 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function splitName(full) { return nameSplits(full)[0] || { prenom: "", nom: String(full || "").trim() }; }
   // 3.44.3 : l'iPhone n'a qu'un lecteur Ten'Up invisible : une 2e lecture lancée pendant la 1re l'arrête
   // (elle finissait en « délai dépassé » → « pas trouvé »). Toutes les lectures passent donc l'une après l'autre.
-  var TQ_CHAIN = Promise.resolve(), TQ_PEND = {};
-  function tenupSerial(fn) { var p = TQ_CHAIN.then(fn, fn); TQ_CHAIN = p.then(function () {}, function () {}); return p; }
+  // 4.22.1 (Yann, 27/11 : « clairement faut qu'elle passe en tête ») : une lecture que tu demandes toi-même (recherche, Actualiser,
+  // fiche ouverte d'un toucher) passe devant les lectures de fond (suivis, équipes, adversaires) au lieu d'attendre derrière.
+  // Toujours une seule lecture à la fois : celle en cours finit, la tienne part juste après.
+  var TQ_Q = [], TQ_RUN = false, TQ_PEND = {}, TQ_USER = 0;
+  document.addEventListener("click", function () { TQ_USER = Date.now(); }, true);
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Enter") TQ_USER = Date.now(); }, true);
+  function tqUser() { return Date.now() - TQ_USER < 1500; }
+  function tqFront(it) { var i = 0; while (i < TQ_Q.length && TQ_Q[i].pri) i++; it.pri = 1; TQ_Q.splice(i, 0, it); }
+  function tqNext() {
+    if (TQ_RUN || !TQ_Q.length) return;
+    var it = TQ_Q.shift(), p; TQ_RUN = true;
+    try { p = Promise.resolve(it.fn()); } catch (e) { p = Promise.reject(e); }
+    p.then(it.res, it.rej).then(function () { TQ_RUN = false; tqNext(); });
+  }
+  function tenupSerial(fn, pri, key) {
+    return new Promise(function (res, rej) {
+      var it = { fn: fn, res: res, rej: rej, key: key || "" };
+      if (pri == null ? tqUser() : pri) tqFront(it); else TQ_Q.push(it);
+      tqNext();
+    });
+  }
   function tenupQuery(kind, args) {
     if (!NATIVE || !Tenup || !Tenup.query) return Promise.resolve({ error: "web" });
     // 4.15 : sur le profil de ton enfant, rien de ton compte (inscriptions, dispos, équipes, favoris) n'est lu ni écrit
@@ -6668,8 +6687,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.22.1 (audit perfs) : une même lecture déjà dans la file (même joueur, même recherche…) n'est pas relancée une 2e fois :
     // les écrans qui la demandent en même temps (adversaires, poule, suivis…) reçoivent le même résultat. Les écritures ne sont jamais regroupées.
     var rk = /Save$/.test(kind) ? "" : kind + "|" + JSON.stringify(args || {});
-    if (rk && TQ_PEND[rk]) return TQ_PEND[rk].then(function (x) { return x && typeof x === "object" ? JSON.parse(JSON.stringify(x)) : x; }); // une copie : chacun peut la modifier
-    var pr = tenupSerial(function () { return Tenup.query({ script: T.queryScript(kind, args) }); }).then(function (r) {
+    var pri = tqUser() || kind === "search" || (kind === "searchMany" && args && args.list && args.list.length === 1);
+    if (rk && TQ_PEND[rk]) {
+      if (pri) TQ_Q.forEach(function (it, i) { if (it.key === rk && !it.pri) { TQ_Q.splice(i, 1); tqFront(it); } }); // déjà en file en fond : elle passe devant
+      return TQ_PEND[rk].then(function (x) { return x && typeof x === "object" ? JSON.parse(JSON.stringify(x)) : x; }); // une copie : chacun peut la modifier
+    }
+    var pr = tenupSerial(function () { return Tenup.query({ script: T.queryScript(kind, args) }); }, pri, rk).then(function (r) {
       var pl = T.decode((r && r.data) || "");
       if (!pl) { tenupFail(""); return { error: "Ten'Up n'a pas répondu" }; }
       if (pl.error && /maintenance/.test(pl.error)) { tenupFail(pl.error); return { error: "Ten'Up est en maintenance : réessaie plus tard" }; }
