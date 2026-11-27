@@ -7707,7 +7707,7 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 /* 4.26.5 (Yann) : raquette, surface et lieu en petites tuiles séparées ; une couleur par raison, cochée = fond teinté + coche à la place de l'icône (texte inchangé : ni graisse ni taille) */
 .qa.an .an-c { background: none !important; padding: 0 !important; display: grid; gap: 8px; }
 .qa.an .an-row { background: var(--card); border-radius: 14px; border-top: 0; padding: 4px 12px; min-height: 48px; }
-.qa.an .an-row:last-child { background: none; padding: 0; min-height: 0; }
+.qa.an .an-row:last-child { padding: 6px; min-height: 0; } /* le rail Intérieur / Extérieur posé dans sa tuile, comme sur une carte */
 .an-t { --fb: #3FA06A; --fc: color-mix(in srgb, var(--fb) 68%, var(--ink)); position: relative; }
 .an-t[data-v="bien"] { --fb: #C2AC00; } .an-t[data-v="calme"], .an-t[data-v="tendu"] { --fb: #4A8FDB; } .an-t[data-v="plan"] { --fb: #3FA06A; }
 .an-t[data-v="aide"], .an-t[data-v="fatigue"] { --fb: #8E6BDB; } .an-t[data-v="service"], .an-t[data-v="fautes"] { --fb: #D8812F; }
