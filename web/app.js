@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.26.6",
+    VERSION: "4.27.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -891,7 +891,7 @@
       case "donnees": html = V.donnees(); break;
       case "methode": html = V.methode(); break;
       case "apropos": html = V.apropos(); break;
-      case "reglages": html = V.reglages(); break;
+      case "reglages": html = parts[1] === "apparence" ? V.rgApparence() : parts[1] === "affichage" ? V.rgAffichage() : V.reglages(); break;
       case "notifs": html = V.notifs(); break;
       case "zones": html = V.zones(); break;
       case "sante": html = V.sante(parts[1]); break;
@@ -19341,10 +19341,18 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       s += '<label class="card" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;cursor:pointer"><span><b style="display:block;font-size:15px">Notifications</b><span class="small">Nouveau match détecté, points, montée ou pas, jour de sortie</span></span>' +
         '<input type="checkbox" role="switch" data-a="notifSwitch"' + (S.notif ? " checked" : "") + "></label>";
       if (S.tenup.maintAt && Date.now() - S.tenup.maintAt < 6 * 3600e3) s += '<div class="alert"><span class="badge ko">' + I.warn + '</span><span>Ten\'Up était en maintenance ' + agoLab(S.tenup.maintAt) + '. Montée réessaie tout seul ; si ça bloque encore, touche « Réparer la connexion ».</span></div>';
-      s += '<button class="btn soft small" data-a="nativeRepair"' + (UI.loading ? " disabled" : "") + '>Réparer la connexion Ten\'Up</button><span class="small" style="margin-top:-6px">Si Ten\'Up reste bloqué (maintenance, « ne répond pas ») : Montée vide la page Ten\'Up gardée en mémoire et relit ton palmarès. Tu restes connecté.</span>';
-      s += '<button class="linkbtn" data-a="nativeLogout">Délier mon compte Ten\'Up</button>';
     }
-    if (S.onboarded && S.tenup.linked) s += '<button class="row ins-probe" data-a="insSync"><span class="grow"><span class="t">Mes inscriptions tournois</span><span class="s">' + (UI.insBusy ? "Lecture de Ten\'Up…" : S.insAt ? "Lues " + agoLab(S.insAt) + " · toucher pour actualiser" : "Ajoute tes tournois à venir à Mes épreuves") + "</span></span>" + I.next + "</button>";
+    // 4.27 (Yann, maquette v3) : tout en encarts. « Tirer l'écran vers le bas » vient des Réglages.
+    if (S.tenup.linked) {
+      var pull = (S.prefs && S.prefs.pull) || "normal";
+      s += "<h2>Synchronisation</h2><div class=\"list\">" +
+        (S.onboarded ? '<button class="row ins-probe" data-a="insSync"><span class="grow"><span class="t">Mes inscriptions tournois</span><span class="s">' + (UI.insBusy ? "Lecture de Ten\'Up…" : S.insAt ? "Lues " + agoLab(S.insAt) + " · toucher pour actualiser" : "Ajoute tes tournois à venir à Mes épreuves") + "</span></span>" + I.next + "</button>" : "") +
+        '<div class="row tu-pull"><span class="grow"><span class="t">Tirer l\'écran vers le bas</span><span class="s">Lance la synchro depuis l\'accueil, l\'activité ou les courbes</span></span><div class="seg">' +
+        [["normal", "Normal"], ["ferme", "Plus ferme"], ["off", "Désactivé"]].map(function (o) { return '<button data-a="setPull" data-v="' + o[0] + '" class="' + (pull === o[0] ? "on" : "") + '">' + o[1] + "</button>"; }).join("") + "</div></div></div>";
+      if (!S.tenup.expired) s += "<h2>Si ça bloque</h2><div class=\"list\">" +
+        '<button class="row" data-a="nativeRepair"' + (UI.loading ? " disabled" : "") + '><span class="grow"><span class="t">Réparer la connexion Ten\'Up</span><span class="s">Si Ten\'Up reste bloqué (maintenance, « ne répond pas ») : Montée vide la page Ten\'Up gardée en mémoire et relit ton palmarès. Tu restes connecté.</span></span>' + I.next + "</button>" +
+        '<button class="row tu-unl" data-a="nativeLogout"><span class="grow"><span class="t">Délier mon compte Ten\'Up</span></span></button></div>';
+    }
     if (!S.onboarded) s += '<div class="tu-or"><span>ou</span></div><div class="tu-alt"><button class="btn soft" data-a="skipImport">' + I.edit + ' Saisir mes matchs</button><button class="btn soft" data-a="demo">' + I.spark + " Voir un exemple</button></div>";
     return s;
   }
@@ -19915,10 +19923,51 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     s += diag + '<div class="savebar-space"></div><div class="savebar"><button class="btn primary" data-a="hcAddAll">' + (kept.length ? "Ajouter " + plural(kept.length, "entraînement") : "Terminer") + "</button></div>";
     return s + "</div>";
   };
+  // 4.27 (Yann, 27/11/2026, maquette v3 validée) : Réglages en sommaire, à la façon des réglages de l'iPhone.
+  // Chaque ligne ouvre directement l'écran final (jamais un écran qui en ouvre un autre), icône sur pastille teintée (pIc).
+  var RG_IC = {
+    bell: svg('<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>'),
+    pulse: svg('<path d="M3 12h4l2.5-6 5 12 2.5-6H21"/>'),
+    theme: svg('<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/>'),
+    eye: svg('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+    star: svg('<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>'),
+    upd: svg('<circle cx="12" cy="12" r="9"/><path d="M12 16V8M8.5 11.5 12 8l3.5 3.5"/>'),
+    mail: svg('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 7l8 6 8-6"/>')
+  };
+  // Une ligne du sommaire : lien (href) ou action (data-a), icône teintée, titre, sous-titre
+  function rgRow(go, c, ic, t, sub) {
+    var at = go.charAt(0) === "#" ? 'a class="row" href="' + go + '"' : 'button class="row" data-a="' + go + '"';
+    return "<" + at + ">" + pIc(c, ic) + '<span class="grow"><span class="t">' + t + "</span>" + (sub ? '<span class="s">' + sub + "</span>" : "") + "</span>" + I.next + "</" + at.split(" ")[0] + ">";
+  }
+  // En-tête d'un écran de réglages, comme sur l'iPhone : grande icône teintée, titre, une phrase de contexte
+  // k : l'animation de l'icône à l'ouverture (cloche qui sonne, œil qui cligne, thème qui tourne, pouls qui se dessine)
+  function rgHead(c, ic, t, txt, k) { return '<div class="card rg-hd' + (k ? " rg-" + k : "") + '">' + pIc(c, ic) + "<h1>" + t + "</h1><p>" + txt + "</p></div>"; }
   V.reglages = function () {
-    var cur = (S.prefs && S.prefs.theme) || "nuit", pull = (S.prefs && S.prefs.pull) || "normal";
-    var s = '<div class="screen">' + topbar("Réglages");
-    if (HC_OK) s += '<a class="row" href="#/sante" style="background:var(--card);border-radius:20px;margin-top:8px"><span class="grow"><span class="t">Santé connectée</span><span class="s">' + (hcOn() ? HC_NAME + " · tes séances de tennis arrivent toutes seules" : "Importe tes séances de tennis depuis ta montre (" + HC_NAME + ")") + "</span></span>" + (hcOn() ? '<span class="tag ok">Connecté</span>' : "") + I.next + "</a>";
+    var s = '<div class="screen rg-scr">' + topbar("Réglages");
+    var tu = S.tenup || {}, thN = (THEMES.filter(function (t) { return t[0] === ((S.prefs && S.prefs.theme) || "nuit"); })[0] || THEMES[2])[1];
+    var g1 = rgRow("#/tenup", "var(--terre)", I.tenup, "Ten'Up", !NATIVE ? "Importer tes matchs" : !tu.linked ? "Pas connecté" : tu.expired ? "Session expirée : reconnecte-toi" : "Connecté · tirer l'écran pour synchroniser");
+    if (NATIVE) g1 += rgRow("#/notifs", "var(--n-ko, #D64B3C)", RG_IC.bell, "Notifications", !S.notif ? "Coupées" : { ess: "L'essentiel", norm: "Normal", tout: "Tout" }[np("lvl")] + " · jamais entre 21 h et 8 h");
+    if (HC_OK) g1 += rgRow("#/sante", "var(--gazon)", I.heart, "Santé connectée", hcOn() ? HC_NAME + " · tes séances de tennis arrivent toutes seules" : "Importe tes séances de tennis depuis ta montre (" + HC_NAME + ")");
+    if (NATIVE) g1 += rgRow("#/zones", "var(--n-ko, #D64B3C)", RG_IC.pulse, "Tes zones cardio", ({ auto: "Automatique", kar: "Karvonen", man: "À la main" })[hrZones().mode] + (hrZones().max ? " · FC max " + hrZones().max : ""));
+    s += '<div class="list">' + g1 + "</div>";
+    s += '<div class="list">' + rgRow("#/reglages/apparence", "var(--bleu3)", RG_IC.theme, "Apparence", "Thème " + esc(thN) + (NATIVE ? ", widgets" : "")) +
+      rgRow("#/perso/home", "var(--balle)", I.home, "Personnaliser l'accueil", "Choisir les cartes et leur ordre") +
+      rgRow("#/perso/courbes", "var(--gazon)", I.chart, "Personnaliser les courbes", "") +
+      rgRow("#/reglages/affichage", "var(--terre)", RG_IC.eye, "Affichage", "Tu joues pour…, course du mois" + (myTeams(true).length ? ", équipes" : "")) + "</div>";
+    var rate = NATIVE && (!IOS || CONFIG.APPSTORE_ID), mail = !!CONFIG.CONTACT_EMAIL;
+    if (rate || mail) s += "<h2>Tu aimes Montée ?</h2><div class=\"list\">" +
+      (rate ? rgRow("rateApp", "var(--balle)", RG_IC.star, "Noter Montée", "Sur " + (IOS ? "l'App Store" : "le Play Store") + " : ça aide d'autres joueurs à la trouver") : "") +
+      (mail ? rgRow("contact", "var(--terre)", RG_IC.mail, "Écris-moi", "Une idée, un souci, ou juste un merci : je lis tout") : "") + "</div>";
+    s += '<div class="list">' + rgRow("openNotes", "var(--balle)", I.spark, "Quoi de neuf", "Les nouveautés de la version " + esc(CONFIG.VERSION)) +
+      (NATIVE && (!IOS || CONFIG.APPSTORE_ID) ? rgRow("openStore", "var(--bleu3)", RG_IC.upd, "Mettre à jour Montée", "Ouvre la fiche sur " + (IOS ? "l'App Store" : "le Play Store")) : "") +
+      rgRow("#/donnees", "var(--gazon)", I.save, "Sauvegarder mes données", "") +
+      rgRow("#/apropos", "var(--muted)", I.info, "À propos", "Version " + esc(CONFIG.VERSION)) + "</div>";
+    return s + "</div>";
+  };
+  // Réglages › Apparence : thème de l'appli et thème des widgets (inchangés, déplacés depuis l'écran Réglages)
+  V.rgApparence = function () {
+    var cur = (S.prefs && S.prefs.theme) || "nuit";
+    var s = '<div class="screen">' + topbar("", "Réglages") + rgHead("var(--bleu3)", RG_IC.theme, "Apparence", NATIVE ? "Les couleurs de Montée, et celles de tes widgets sur l'écran d'accueil." : "Les couleurs de Montée.", "spin");
     s += "<h2>Thème de l'appli</h2><div class=\"themes\">" + THEMES.filter(function (t) { return !t[3] || PLUS; }).map(function (t) {
       var sw = THEME_SW[t[0] === "auto" ? "lin" : t[0]], on = cur === t[0];
       var mini = function (w, cls) { return '<span class="th-prev' + (cls || "") + '" style="background:' + w[0] + '"><i class="hh" style="background:' + w[3] + '"></i><i class="c1" style="background:' + w[1] + '"></i><i class="c2" style="background:' + w[1] + '"></i><i class="ac" style="background:' + w[2] + '"></i></span>'; };
@@ -19934,23 +19983,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var on = wcur === o[0], prev = o[0] === "app" ? (function () { var a = THEME_SW[themeNow()] || THEME_SW.lin, c = themeNow() === "nuit" ? WT.nuit : themeNow() === "lin" ? WT.lin : [a[0], a[3], a[2]]; return wmini(c[0], c[1], c[2]); })() : wmini(WT[o[0]][0], WT[o[0]][1], WT[o[0]][2]);
       return '<button class="theme' + (on ? " on" : "") + '" data-a="setWTheme" data-v="' + o[0] + '" aria-pressed="' + on + '">' + prev + "<b>" + o[1] + "</b></button>";
     }).join("") + '</div><p class="small" style="margin-top:-4px">« Appli » : les widgets suivent le thème de l\'appli. Ils se mettent à jour à chaque ouverture de Montée.</p>';
-    if (NATIVE) s += '<a class="row" href="#/zones" style="background:var(--card);border-radius:20px;margin-top:8px"><span class="grow"><span class="t">Tes zones cardio</span><span class="s">' + ({ auto: "Automatique", kar: "Karvonen", man: "À la main" })[hrZones().mode] + (hrZones().max ? " · FC max " + hrZones().max : "") + "</span></span>" + I.next + "</a>";
-    if (NATIVE) s += '<a class="row" href="#/notifs" style="background:var(--card);border-radius:20px;margin-top:8px"><span class="grow"><span class="t">Notifications</span><span class="s">' + (!S.notif ? "Coupées" : { ess: "L'essentiel", norm: "Normal", tout: "Tout" }[np("lvl")] + " · jamais entre 21 h et 8 h") + "</span></span>" + I.next + "</a>";
-    s += '<h2>Synchronisation Ten\'Up</h2><div class="card" style="gap:10px"><b style="font-size:15px">Tirer l\'écran vers le bas</b><span class="small">Pour lancer la synchro depuis l\'accueil, le palmarès ou les courbes.</span><div class="seg">' +
-      [["normal", "Normal"], ["ferme", "Plus ferme"], ["off", "Désactivé"]].map(function (o) { return '<button data-a="setPull" data-v="' + o[0] + '" class="' + (pull === o[0] ? "on" : "") + '">' + o[1] + "</button>"; }).join("") + "</div>" +
-      '<a class="btn soft small" href="#/tenup" style="background:var(--chip)">' + I.link + " Ton compte Ten'Up</a></div>";
-    s += "<h2>Affichage</h2><div class=\"list\">" +
-      '<a class="row" href="#/perso/home"><span class="grow"><span class="t">Personnaliser l\'accueil</span><span class="s">Choisir les cartes et leur ordre</span></span>' + I.next + "</a>" +
-      '<a class="row" href="#/perso/courbes"><span class="grow"><span class="t">Personnaliser les courbes</span></span>' + I.next + "</a>" +
+    return s + "</div>";
+  };
+  // Réglages › Affichage : ce qui s'affiche ou non (réglages inchangés, déplacés depuis l'écran Réglages)
+  V.rgAffichage = function () {
+    var s = '<div class="screen">' + topbar("", "Réglages") + rgHead("var(--terre)", RG_IC.eye, "Affichage", "Ce que Montée met en avant pour toi, et ce que tu préfères ne pas voir.", "blink");
+    s += '<div class="list">' +
       '<button class="row" data-a="sheet" data-k="whyPick" data-v="1"><span class="grow"><span class="t">Tu joues surtout pour…</span><span class="s">' + (WHY[S.why] ? WHY[S.why].t : S.why === "mix" ? "Un peu de tout" : "Pas encore répondu") + "</span></span>" + I.next + "</button>" +
       '<label class="row" style="cursor:pointer"><span class="grow"><span class="t">Course du mois</span><span class="s">Un classement du mois entre toi et des joueurs que tu suis, en haut de Suivis</span></span><input type="checkbox" role="switch" data-a="raceToggle"' + (raceOn() ? " checked" : "") + "></label>" +
-      (IOS && (S.prefs || {}).hideWatchCard ? '<button class="row" data-a="showWatchCard"><span class="grow"><span class="t">Réafficher « Ton service »</span><span class="s">La carte Apple Watch dans les Courbes</span></span>' + I.next + "</button>" : "") + "</div>";
-    s += "<h2>Montée</h2><div class=\"list\">" +
-      '<button class="row" data-a="openNotes"><span class="grow"><span class="t">Quoi de neuf</span><span class="s">Les nouveautés de la version ' + esc(CONFIG.VERSION) + "</span></span>" + I.next + "</button>" +
-      (NATIVE && (!IOS || CONFIG.APPSTORE_ID) ? '<button class="row" data-a="openStore"><span class="grow"><span class="t">Mettre à jour Montée</span><span class="s">Ouvre la fiche sur ' + (IOS ? "l\'App Store" : "le Play Store") + '</span></span>' + I.next + "</button>" : "") +
-      '<a class="row" href="#/donnees"><span class="grow"><span class="t">Sauvegarder mes données</span></span>' + I.next + "</a>" +
       (myTeams(true).length ? '<label class="row" style="cursor:pointer"><span class="grow"><span class="t">Mes équipes</span><span class="s">Ton équipe dans Mes épreuves et « Ce qui arrive »</span></span><input type="checkbox" role="switch" data-a="teamsToggle"' + (!(S.prefs || {}).teamsOff ? " checked" : "") + "></label>" : "") +
-      '<a class="row" href="#/apropos"><span class="grow"><span class="t">À propos</span><span class="s">Version ' + esc(CONFIG.VERSION) + "</span></span>" + I.next + "</a></div>";
+      (IOS && (S.prefs || {}).hideWatchCard ? '<button class="row" data-a="showWatchCard"><span class="grow"><span class="t">Réafficher « Ton service »</span><span class="s">La carte Apple Watch dans les Courbes</span></span>' + I.next + "</button>" : "") + "</div>";
     return s + "</div>";
   };
 
@@ -19961,8 +20003,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!UI.hkAsked) { UI.hkAsked = 1; hkProfile(); }
     // 3.53.3 : FC de repos / âge pas encore autorisés (autorisation demandée avant la 3.53.2) : on les demande une fois en ouvrant la page
     if (HC_OK && Tenup && Tenup.healthRequest && !(S.hk && S.hk.rest) && S.hkReq !== 2 && UI.hc && UI.hc.st && UI.hc.st.granted) { S.hkReq = 2; save(); setTimeout(function () { Promise.resolve(Tenup.healthRequest()).then(function () { setTimeout(hkProfile, 1200); }, function () {}); }, 400); }
-    var s = '<div class="screen hz-scr">' + topbar("", "Réglages") + '<h1 class="nf-h">Tes zones cardio</h1>' +
-      '<p class="nf-sub">Elles colorent tes courbes et calculent ton intensité, sur tes matchs et tes entraînements, anciens compris. Ta montre les utilise aussi, en direct.</p>';
+    var s = '<div class="screen hz-scr">' + topbar("", "Réglages") + rgHead("var(--n-ko, #D64B3C)", RG_IC.pulse, "Tes zones cardio", "Elles colorent tes courbes et calculent ton intensité, sur tes matchs et tes entraînements, anciens compris. Ta montre les utilise aussi, en direct.", "beat");
     s += '<div class="seg">' + [["auto", "Automatique"], ["kar", "Karvonen"], ["man", "À la main"]].map(function (x) { return '<button class="' + (mode === x[0] ? "on" : "") + '" data-a="hrzMode" data-v="' + x[0] + '">' + x[1] + "</button>"; }).join("") + "</div>";
     var row = function (k, lab, val, sub, step) { return '<div class="field inline"><span class="lbl">' + lab + '<span class="small" style="display:block;font-weight:400">' + sub + '</span></span><span class="stepper"><button data-a="hrzStep" data-k="' + k + '" data-v="-' + step + '" aria-label="' + lab + ' : baisser">−</button><span>' + val + '</span><button data-a="hrzStep" data-k="' + k + '" data-v="' + step + '" aria-label="' + lab + ' : monter">+</button></span></div>'; };
     if (mode === "auto") {
@@ -20015,7 +20056,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   V.notifs = function () {
     var s = '<div class="screen">' + topbar("", "Réglages");
-    s += '<h1 class="nf-h">Notifications</h1><p class="nf-sub">Seulement quand il y a du nouveau. Jamais entre 21 h et 8 h.</p>';
+    s += rgHead("var(--n-ko, #D64B3C)", RG_IC.bell, "Notifications", "Seulement quand il y a du nouveau. Jamais entre 21 h et 8 h.", "ring");
     s += '<label class="nf-grp nf-master"><span class="nf-r"><b>Notifications Montée</b><small>' + (S.notif ? "Activées" : "Coupées : active-les pour choisir lesquelles") + '</small></span><input type="checkbox" role="switch" data-a="notifSwitch"' + (S.notif ? " checked" : "") + "></label>";
     var pill = '<span class="cp-plus">Montée+</span>', lock = PLUS_LOCK();
     var row = function (k, t, sub, plus) {
@@ -21784,6 +21825,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     goApropos: function () { UI.menu = false; go("apropos"); },
     goProjection: function () { go("projection"); },
     goCoach: function () { go(PLUS_LOCK() ? "courbes" : "coach"); },
+    // 4.27 : « Noter Montée » (Réglages › Tu aimes Montée ?) : la page d'avis du store, sans plugin
+    rateApp: function () { var u = IOS ? "itms-apps://apps.apple.com/app/id" + CONFIG.APPSTORE_ID + "?action=write-review" : NATIVE ? "market://details?id=fr.montennis.app" : "https://play.google.com/store/apps/details?id=fr.montennis.app"; window.open(u, "_system"); },
     contact: function () { location.href = "mailto:" + CONFIG.CONTACT_EMAIL + "?subject=" + encodeURIComponent("Montée — mon avis"); },
     share: function () {
       UI.menu = false; render();
