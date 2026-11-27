@@ -7707,7 +7707,8 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 /* 4.26.5 (Yann) : raquette, surface et lieu en petites tuiles séparées ; une couleur par raison, cochée = fond teinté + coche à la place de l'icône (texte inchangé : ni graisse ni taille) */
 .qa.an .an-c { background: none !important; padding: 0 !important; display: grid; gap: 8px; }
 .qa.an .an-row { background: var(--card); border-radius: 14px; border-top: 0; padding: 4px 12px; min-height: 48px; }
-.qa.an .an-row:last-child { padding: 6px; min-height: 0; } /* le rail Intérieur / Extérieur posé dans sa tuile, comme sur une carte */
+.qa.an .an-row:last-child { background: none; padding: 0; min-height: 0; }
+.qa.an .seg.res { background: color-mix(in srgb, var(--ink) 9%, transparent) !important; } /* même rail que Victoire / Défaite */
 .an-t { --fb: #3FA06A; --fc: color-mix(in srgb, var(--fb) 68%, var(--ink)); position: relative; }
 .an-t[data-v="bien"] { --fb: #C2AC00; } .an-t[data-v="calme"], .an-t[data-v="tendu"] { --fb: #4A8FDB; } .an-t[data-v="plan"] { --fb: #3FA06A; }
 .an-t[data-v="aide"], .an-t[data-v="fatigue"] { --fb: #8E6BDB; } .an-t[data-v="service"], .an-t[data-v="fautes"] { --fb: #D8812F; }
@@ -7715,6 +7716,12 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 .qa.an .an-t svg, .qa.an .an-t.on svg { color: var(--fc) !important; }
 .qa.an .an-t.on { color: var(--ink) !important; background: color-mix(in srgb, var(--fc) 30%, var(--card)) !important; }
 .qa.an .an-t.on svg { visibility: hidden; }
+.qa.an .an-g { grid-auto-rows: 1fr; }
+.qa.an .an-t { min-height: 64px; align-items: center; }
+.an-tt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.an-tt b { font-size: 14px; font-weight: 700; line-height: 1.2; }
+.an-tt small { font-size: 12px; font-weight: 500; line-height: 1.25; color: var(--muted); }
+.qa.an .an-t.on .an-tt small { color: color-mix(in srgb, var(--ink) 72%, transparent); }
 .qa.an .an-t.on::before, .qa.an .an-t.on::after { content: ""; position: absolute; left: 10px; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%; background: var(--fc); }
 .qa.an .an-t.on::after { background: var(--card); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 12px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 12px no-repeat; }
 .sc-stamp { border-color: transparent !important; background: color-mix(in srgb, var(--sc-r) 16%, transparent); } /* le tampon « Confidentiel » : fond doux, plus de cadre */
