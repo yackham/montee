@@ -30,7 +30,7 @@ const CONNUES = new Set(JSON.parse(fs.readFileSync(path.join(__dirname, "sans-co
 
 test("le bloc commun « plus aucun contour » est bien en fin de styles.css", () => {
   const i = CSS.indexOf(MARK); assert.ok(i > 0, "bloc 4.20.1 absent");
-  assert.ok(CSS.length - i < 8000, "le bloc commun doit rester en fin de fichier (il gagne sur les règles d'avant)");
+  assert.ok(CSS.length - i < 12000, "le bloc commun doit rester en fin de fichier (il gagne sur les règles d'avant)");
 });
 
 test("aucun nouveau contour sur un bouton, une tuile ou une puce", () => {

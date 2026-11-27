@@ -1,0 +1,20 @@
+const { chromium } = require('playwright');const fs=require('fs'),path=require('path');
+const ROOT=process.env.WEB||path.join(__dirname,'../../web');
+const CAP=`(function(){const mk=()=>new Proxy({}, {get:(t,k)=>{ if(k==='then') return undefined; if(k==='storeOwned') return ()=>Promise.resolve({ids:PLUSIDS}); if(k==='addListener') return ()=>Promise.resolve({remove(){}}); return (...a)=>Promise.resolve({}); }});
+window.Capacitor={isNativePlatform:()=>true,getPlatform:()=>'ios',registerPlugin:()=>mk(),Plugins:new Proxy({},{get:()=>mk()})};})();`;
+const MIME={js:'application/javascript',css:'text/css',html:'text/html',png:'image/png',svg:'image/svg+xml',json:'application/json',webmanifest:'application/json'};
+exports.open=async function({plus=false,state=null,offline=false,dpr=1}={}){
+  const b=await chromium.launch();
+  const ctx=await b.newContext({viewport:{width:390,height:844},deviceScaleFactor:dpr});
+  await ctx.route(/^http:\/\/montee\.test\//,r=>{let u=new URL(r.request().url()).pathname;if(u==='/')u='/index.html';
+    if(u==='/vendor/capacitor.js')return r.fulfill({contentType:MIME.js,body:CAP.replace('PLUSIDS',plus?"['plus_vie']":"[]")});
+    const f=path.join(ROOT,u); if(!fs.existsSync(f))return r.fulfill({status:404,body:''});
+    r.fulfill({contentType:MIME[u.split('.').pop()]||'application/octet-stream',body:fs.readFileSync(f)});});
+  await ctx.route(/^https?:\/\/(?!montee\.test)/,r=>r.abort());
+  if(state) await ctx.addInitScript(s=>{ if(!sessionStorage.getItem('x')){localStorage.setItem('montee.v1',s);sessionStorage.setItem('x',1);} }, typeof state==='string'?state:JSON.stringify(state));
+  const p=await ctx.newPage(); p.errs=[]; p.on('pageerror',e=>p.errs.push(e.message));
+  return {b,ctx,p};
+};
+exports.go=async(p,r,w=1200)=>{await p.goto('about:blank');await p.goto('http://montee.test/'+r,{waitUntil:'domcontentloaded'});await p.waitForTimeout(w);};
+exports.shot=async(p,n,full=true)=>{await p.addStyleTag({content:'.tabbar,.toast,.mm-pill{position:static!important}'});await p.waitForTimeout(200);await p.screenshot({path:n+'.png',fullPage:full});};
+exports.text=async(p)=>p.evaluate(()=>(document.querySelector('.screen')||document.body).innerText.replace(/\n{2,}/g,'\n'));
