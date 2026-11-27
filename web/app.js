@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.25.1",
+    VERSION: "4.25.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -5674,7 +5674,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (jm) {
         var shN = function (n) { n = nameCase(n); return n.length > 18 ? n.replace(/^(\S)[^\s-]*(-(\S)[^\s-]*)?\s+/, function (z, a, b, c) { return a + "." + (c ? "-" + c + "." : "") + " "; }) : n; }, jt = shN(String(jm.title || "").replace(/ · .*/, "")); var jr = (String(jm.title || "").match(/ · (.+)$/) || [])[1] || "", jst = jm.st && /%$/.test(jm.st) ? jm.st.replace(" %", " %") + " de chances" : "";
         spK = { c: "var(--balle)", i: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6c3.5 3 3.5 9.8 0 12.8M18.4 5.6c-3.5 3-3.5 9.8 0 12.8"/>' };
-        spH = '<span class="hd-k">Jour de match' + (jm.time ? " · " + esc(jm.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h")) : "") + '</span><b class="hd-2' + (jt.length > 20 ? " lg" : "") + '">Contre ' + esc(jt) + "</b><small>" + (jr ? '<span class="rk-tag">' + esc(jr) + "</span>" : "") + (jst ? '<span class="hd-x">' + (jr ? "· " : "") + esc(jst) + "</span>" : "") + "</small></span>" + (function () { // 4.25.1 (Yann, 27/11) : « Plan » ouvre toujours la conversation d'Ace ; le tournoi vient en suite (« Voir le tournoi »)
+        spH = '<span class="hd-k">Jour de match' + (jm.time ? " · " + esc(jm.time.replace(/^0/, "").replace(":", " h ").replace(" h 00", " h")) : "") + '</span><b class="hd-2' + (jt.length > 20 ? " lg" : "") + '">Contre ' + esc(jt) + "</b><small>" + (jr ? '<span class="rk-tag">' + esc(jr) + "</span>" : "") + (jst ? '<span class="hd-x">' + (jr ? "· " : "") + esc(jst) + "</span>" : "") + "</small></span>" + (function () { // 4.25.2 (Yann, 27/11) : « Plan » ouvre toujours la conversation d'Ace ; le tournoi vient en suite (« Voir le tournoi »)
           var jn = String(jm.title || "").replace(/ · .*/, ""), vq = jn && !/^(un |une |ton adversaire)/i.test(jn) ? "vs:" + nameKey(jn) : "", aq2 = "";
           try { aq2 = vq && coMatchFind(vq) ? vq : jm.t ? (jm.t.fmt === "poule" ? "poule:" : "plan:") + jm.t.id : vq; } catch (e) { aq2 = vq; } // sans le nom du gars : Ace parle du tour, avec « Voir le tournoi »
           return aq2 ? cta("Plan", "ace", "", aq2) : jm.href ? cta("Plan", "hdGo", jm.href) : "";
@@ -11038,7 +11038,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // ---------- 3.73 : le coach, la Balle (Yann, 23/11/2026 : personnage, animations et maquettes validés) ----------
   // Ton : un copain qui t'aide avec tes chiffres, te dit le bon truc au bon moment et te relève après une défaite.
   // Tout reste dans le téléphone (pas de serveur) ; la Balle ne dit que des faits déjà dans l'app, reformulés en consigne.
-  // Une bulle par écran au plus. 4.25.1 (Yann, 27/11) : plus de « Pas utile », un conseil d'Ace doit toujours être utile.
+  // Une bulle par écran au plus. 4.25.2 (Yann, 27/11) : plus de « Pas utile », un conseil d'Ace doit toujours être utile.
   // Un conseil vu sur un écran n'est pas répété sur un autre pendant 21 jours.
   var CO_MUTE = 21 * 864e5;
   // 3.75 : petites touches d'humour (liste validée par Yann le 23/11/2026, chantier/09). Une au plus par écran ;
@@ -11059,7 +11059,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   };
   function empIll(prop, mood) { var a = coBall("vide:" + prop, mood, "xl"); return '<div class="emp-ill">' + (prop === "mur" ? a + EMP_PROPS[prop] : EMP_PROPS[prop] + a) + "</div>"; }
   function jkLine(id, t) { return jk(id) ? '<p class="jk">' + t + "</p>" : ""; }
-  function coMem() { var m = S.coach || (S.coach = {}); delete m.no; delete m.scr; /* 4.25.1 : mémoire de « Pas utile » retirée */ m.seen = m.seen || {}; m.op = m.op || {}; return m; }
+  function coMem() { var m = S.coach || (S.coach = {}); delete m.no; delete m.scr; /* 4.25.2 : mémoire de « Pas utile » retirée */ m.seen = m.seen || {}; m.op = m.op || {}; return m; }
   function coPurge(m) { var t = Date.now() - 45 * 864e5; Object.keys(m.op).forEach(function (id) { if (m.op[id] < t) delete m.op[id]; }); Object.keys(m.seen).forEach(function (id) { if (m.seen[id].t < t) delete m.seen[id]; }); }
   function coPick(scr, tips) {
     var m = coMem(), now = Date.now();
@@ -11208,7 +11208,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   // ---- 3.75 (Yann, 23/11 : « un super assistant qui propose de voir des cartes au bon moment ») ----
   // Une seule intervention à la fois (match > résultat > sortie de bilan > le reste), jamais de fenêtre qui s'ouvre seule,
-  // rien que des chiffres déjà calculés dans l'app. Pas de « Pas utile » (4.25.1).
+  // rien que des chiffres déjà calculés dans l'app. Pas de « Pas utile » (4.25.2).
   // Tes prochains matchs en simple (tableau, poule ou match prévu) dont on connaît l'adversaire, d'aujourd'hui à J+days
   function coUpMatches(days) {
     var td = E.iso(today()), lim = E.iso(new Date(today().getTime() + (days || 7) * 864e5)), out = [];
@@ -11241,7 +11241,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   function coAgo(iso) { var g = -dGap(iso); return g <= 0 ? "aujourd'hui" : g === 1 ? "hier" : g < 14 ? "il y a " + g + " jours" : g < 60 ? "il y a " + Math.round(g / 7) + " semaines" : "en " + MOIS_L[E.parseDate(iso).getMonth()]; }
   function coMatchFind(q) {
-    if (/^plan:/.test(q)) { // 4.25.1 (Yann, 27/11) : « Plan » de l'accueil sans le nom du gars : ton prochain tour, tel qu'on le connaît
+    if (/^plan:/.test(q)) { // 4.25.2 (Yann, 27/11) : « Plan » de l'accueil sans le nom du gars : ton prochain tour, tel qu'on le connaît
       var tp = tourOf(q.slice(5)), td0 = E.iso(today()), rL = tp ? (tp.rounds || []).filter(function (x) { return !x.res; }) : [], rp = rL.filter(function (x) { return x.day === td0; })[0] || rL[0], op = rp && rp.opp || {};
       return rp ? { d: rp.day || "", time: rp.time || "", name: op.name ? trNm(op.name) : "", rank: op.rank ? rkShow(op, rp.day) : "", tid: op.tid || "", t: tp, comp: tp.name || "Tournoi", href: "#/tournoi/" + tp.id, key: "" } : null;
     }
@@ -11283,7 +11283,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }
     if (acts) XH += '<div class="acd-acts">' + acts + "</div>";
     if (o.t && o.t.fmt === "poule") F.push(["Mes autres matchs de poule", "poule:" + o.t.id]);
-    if (o.t) F.push(["Voir le tournoi", "", o.href]); // 4.25.1 : aussi pour une poule (« Plan » de l'accueil arrive ici)
+    if (o.t) F.push(["Voir le tournoi", "", o.href]); // 4.25.2 : aussi pour une poule (« Plan » de l'accueil arrive ici)
     if (nx) F.push(["Comment je monte ?", "up"]);
     return { a: A, f: F, facts: [], x: XH, mood: pc != null && pc >= 60 ? "joie" : "concentree" };
   }
@@ -11877,7 +11877,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (an && lastQ && lastQ[1] === q) {
         more = an.f.map(function (f) { return f[3] ? '<button data-a="sheet" data-k="' + esc(f[3][0]) + '" data-v="' + esc(f[3][1] || "") + '"><i>↳</i>' + esc(f[0]) + "</button>" : f[2] ? '<button data-a="coachGo" data-h="' + esc(f[2]) + '"><i>↳</i>' + esc(f[0]) + "</button>" : '<button data-a="aceQ" data-v="' + esc(f[1]) + '"><i>↳</i>' + esc(f[0]) + "</button>"; });
         Q = coQs(c);
-        var nxO = /^(vs|plan):/.test(q) ? coMatchFind("next") || {} : {}, nxK = /^vs:/.test(q) ? nxO.key : null, nxP = /^plan:/.test(q) ? coMatchFind(q) : null; // 4.25.1 : « je fais quoi ? » sur le match dont on parle déjà ne revient pas en suite
+        var nxO = /^(vs|plan):/.test(q) ? coMatchFind("next") || {} : {}, nxK = /^vs:/.test(q) ? nxO.key : null, nxP = /^plan:/.test(q) ? coMatchFind(q) : null; // 4.25.2 : « je fais quoi ? » sur le match dont on parle déjà ne revient pas en suite
         Q.filter(function (x) { return x[1] !== q && !(x[1] === "next" && ((nxK && nxK === q.slice(3)) || (nxP && nxO.t === nxP.t && nxO.d === nxP.d))) && an.f.every(function (f) { return f[1] !== x[1]; }); }).sort(function (a, b) { return (UI.aceVis[a[1]] ? 1 : 0) - (UI.aceVis[b[1]] ? 1 : 0) || (a[0] === lastQ[0] ? 0 : 1) - (b[0] === lastQ[0] ? 0 : 1); }).slice(0, Math.max(2, 4 - an.f.length)).forEach(function (x) { more.push('<button data-a="aceQ" data-v="' + esc(x[1]) + '"><i>↳</i>' + esc(x[2]) + "</button>"); });
         var seenM = {}; more = more.filter(function (h) { var k = h.replace(/<[^>]*>/g, "").replace(/^↳/, "").trim().toLowerCase(); if (seenM[k]) return false; seenM[k] = 1; return true; }); // chaque suggestion une seule fois
       }
