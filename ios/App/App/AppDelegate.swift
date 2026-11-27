@@ -43,26 +43,65 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-    func applicationDidEnterBackground(_ application: UIApplication) {
-        MonteeBackground.schedule()
+    /// 4.27.2 : SDK iOS 27 (Xcode 27.2) : une app sans « scène » ne démarre plus sur iOS 27 (« a quitté » à l'ouverture).
+    /// Montée passe au cycle de vie par scène : l'écran, les liens (widgets, Ten'Up) et le passage en arrière-plan
+    /// sont désormais gérés par SceneDelegate ci-dessous ; iOS n'appelle plus les méthodes équivalentes de l'AppDelegate.
+    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        let config = UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+        config.delegateClass = SceneDelegate.self
+        config.storyboard = UIStoryboard(name: "Main", bundle: nil)
+        return config
     }
 
-    func applicationDidBecomeActive(_ application: UIApplication) {
-        MonteeBackground.dropMorning()
-    }
-
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    /// Lien ouvert (widget, retour de Ten'Up…), appelé par la scène.
+    static func open(url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) {
         // Toucher un widget : montee://open/… ou montee://slot/… ; la page l'exécute
         if url.scheme == "montee" {
             MonteeStore.action = url.absoluteString
             NotificationCenter.default.post(name: .monteeWidgetAction, object: nil)
-            return true
+            return
         }
-        return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
+        _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url, options: options)
     }
 
-    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    static func open(contexts: Set<UIOpenURLContext>) {
+        for ctx in contexts {
+            var o: [UIApplication.OpenURLOptionsKey: Any] = [.openInPlace: ctx.options.openInPlace]
+            if let src = ctx.options.sourceApplication { o[.sourceApplication] = src }
+            if let ann = ctx.options.annotation { o[.annotation] = ann }
+            open(url: ctx.url, options: o)
+        }
+    }
+
+    static func open(activity: NSUserActivity) {
+        _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, continue: activity, restorationHandler: { _ in })
+    }
+}
+
+/// 4.27.2 : la scène unique de Montée. La fenêtre et MainViewController viennent de Main.storyboard (Info.plist).
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        // Montée ouverte par un lien ou un widget alors qu'elle était fermée
+        if !connectionOptions.urlContexts.isEmpty { AppDelegate.open(contexts: connectionOptions.urlContexts) }
+        for a in connectionOptions.userActivities { AppDelegate.open(activity: a) }
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        AppDelegate.open(contexts: URLContexts)
+    }
+
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        AppDelegate.open(activity: userActivity)
+    }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        MonteeBackground.schedule()
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        MonteeBackground.dropMorning()
     }
 }
 
