@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.24.2",
+    VERSION: "4.24.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -11033,7 +11033,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!free) UI.jkUsed = id;
     return true;
   }
-  // 4.24.2 (Yann, 27/11, maquette validée) : visuel des états vides = Ace + un accessoire du tennis
+  // 4.24.4 (Yann, 27/11, maquette validée) : visuel des états vides = Ace + un accessoire du tennis
   var EMP_PROPS = {
     mur: '<svg width="92" height="78" viewBox="0 0 92 78" aria-hidden="true"><g fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" opacity=".7"><rect x="4" y="10" width="84" height="56" rx="6"/><path d="M4 28h84M4 46h84M30 10v18M62 10v18M18 28v18M48 28v18M76 28v18M30 46v20M62 46v20"/></g><path d="M0 72h92" stroke="var(--muted)" stroke-width="2" opacity=".4"/></svg>',
     cible: '<svg width="92" height="78" viewBox="0 0 92 78" aria-hidden="true"><g fill="none" stroke-width="3"><circle cx="58" cy="34" r="24" stroke="var(--muted)" opacity=".45"/><circle cx="58" cy="34" r="14" stroke="var(--muted)" opacity=".7"/><circle cx="58" cy="34" r="5" fill="var(--balle)" stroke="none"/></g><path d="M14 70l9-26h6l9 26z" fill="var(--terre)" opacity=".85"/><path d="M8 72h36" stroke="var(--muted)" stroke-width="2" opacity=".4"/></svg>',
@@ -19868,7 +19868,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var B = UI.bgSt; if (B.wait) return "";
     // 3.69 : journal des passages (iPhone et Android) : « heure|résultat », pour savoir POURQUOI peu de notifications arrivent
     var LG = (B.log || []).map(function (x) { var q = String(x).split("|"); return { t: +q[0] * 1000, r: q[1] || "" }; }).filter(function (x) { return x.t > 0; }).reverse();
-    var RL = { rien: "rien de nouveau", deconnecte: "Ten'Up déconnecté : reconnecte-toi", timeout: "Ten'Up trop lent, réessayé plus tard", "timeout-page": "Ten'Up n'a pas répondu à temps", "timeout-lecture": "lecture de Ten'Up trop longue", maintenance: "Ten'Up en maintenance", erreur: "erreur de lecture", interrompu: "arrêté par le téléphone (temps écoulé)", "sans-lecture": "rien à lire pour l'instant" };
+    var RL = { rien: "rien de nouveau", deconnecte: "Ten'Up déconnecté : reconnecte-toi", timeout: "Ten'Up trop lent, réessayé plus tard", "timeout-page": "Ten'Up n'a pas répondu à temps", "direct-ko": "lecture directe refusée, page Ten'Up essayée", "timeout-lecture": "lecture de Ten'Up trop longue", maintenance: "Ten'Up en maintenance", erreur: "erreur de lecture", interrompu: "arrêté par le téléphone (temps écoulé)", "sans-lecture": "rien à lire pour l'instant" };
     var ok = IOS ? B.refresh === "available" : true, lastT = B.last ? B.last * 1000 : LG.length ? LG[0].t : 0, last = lastT ? new Date(lastT) : null, h = last ? Math.round((Date.now() - lastT) / 3600e3) : null;
     var when = last ? (h < 1 ? "il y a moins d'une heure" : h < 48 ? "il y a " + h + " h" : "le " + fdate(E.iso(last))) : "jamais pour l'instant";
     var tips = [];

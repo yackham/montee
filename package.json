@@ -5,7 +5,8 @@
   "scripts": {
     "sync": "node scripts/copy-web.js && npx cap sync ios",
     "sync:android": "node scripts/copy-web.js && npx cap sync android",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "contrastes": "rm -rf /tmp/montee-contrastes && bash scripts/contrastes/runall.sh /tmp/montee-contrastes && python3 scripts/contrastes/ana.py /tmp/montee-contrastes && python3 scripts/contrastes/verif.py /tmp/montee-contrastes"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.9",
