@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.26.3",
+    VERSION: "4.26.4",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -921,6 +921,8 @@
     if (UI.leaveAsk) html += leaveSheet();
     if (UI.sheet) html += sheetHtml();
     if (UI.jj) html += jjHtml();
+    // 4.26.4 : le toast « Annoter » d'un tour gagné vient une fois la feuille du tour suivant fermée (enregistrée ou non), et parle du match gagné
+    if (UI.annLater && !UI.trR) { var aL = S.matches.filter(function (x) { return x.id === UI.annLater; })[0]; UI.annLater = null; if (aL) setTimeout(function () { annToast(aL, (aL.result === "V" ? "Victoire" : "Défaite") + " contre " + (aL.opp && !isAnon(aL.opp) ? nameCase(aL.opp) : "un " + aL.oppRank) + " notée.", aL.result === "V"); }, 350); }
     if (UI.qaSheet && UI.qaOne && !qaList().some(function (x) { return x.id === UI.qaOne; })) { UI.qaSheet = false; UI.qaOne = null; }
     if (UI.qaSheet && parts[0] === "" && !qaList().length) UI.qaSheet = false;
     if (UI.qaSheet && (parts[0] === "" || UI.qaOne)) html += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="qaClose"></div><div class="sheet qa-sheet" role="dialog" aria-modal="true" aria-label="Annoter ton match"><span class="sheet-grab"></span>' + qaFormHtml() + "</div>";
@@ -21287,7 +21289,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var tid = pool ? r.tid : r.opp && r.opp.tid; if (tid) S.plans = (S.plans || []).filter(function (x) { return x.id !== String(tid); });
       var mx = trMatchOf(r);
       if (pool) { if (t.resUrl) UI.resNudge = t.id; annToast(mx, r.res === "V" ? "Bravo !" + (t.resUrl ? " Pense à l'envoyer au comité." : "") : "Noté." + (t.resUrl ? " Pense à l'envoyer au comité." : ""), r.res === "V"); render(); if (t.resUrl) window.scrollTo(0, 0); return; }
-      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; annToast(mx, "Bravo ! Ajoute ton " + trLab(t.rounds.length) + ".", true); } else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
+      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Ajoute ton " + trLab(t.rounds.length) + ".", true); if (mx && qaPending(mx)) UI.annLater = mx.id; } /* 4.26.4 (Yann) : la feuille du tour suivant s'ouvre : « Annoter » attend qu'elle soit fermée */ else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
       else {
         annToast(mx, "Noté.");
         // fin de parcours : plus de prochain match nulle part (accueil, montre, notifications)
