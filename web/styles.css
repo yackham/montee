@@ -351,6 +351,16 @@ input[role=switch]:checked::after { transform: translateX(20px); }
 .tf-me { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; }
 .tf-me .kp-cl.s, .tf-me .kp-cl.d { min-width: 0; width: auto; }
 .tf-no { font-size: 12px; color: var(--muted); white-space: nowrap; }
+/* 4.25.0 (Yann, 27/11, maquette validée) : ajout d'un match en 3 étapes */
+.ms-h { display: flex; flex-direction: column; gap: 6px; margin: -6px 2px 2px; }
+.ms-rc .an-res { width: 40px; height: 40px; }
+.ms-rc .grow { flex: 1; min-width: 0; }
+.ms-rc b { display: block; font-size: 16px; line-height: 1.35; }
+.ms-pre { margin: 2px 4px 0; color: var(--muted); }
+.ms-next { width: 100%; margin-top: 6px; }
+.ms-n { font-size: 13px; font-weight: 700; color: var(--muted); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .ms-h, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .ms-n { color: var(--page-ink); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .ms-n { background: color-mix(in srgb, #000 16%, transparent); padding: 1px 8px; border-radius: 999px; } /* pastille douce : le blanc seul tombe à 4.49 sur l'argile clair */ /* en-tête d'étape sur le fond Terre/Dur, comme le titre */
 .seg.pz-seg button { font-size: 14px; padding: 0 2px; overflow-wrap: normal; word-break: normal; hyphens: none; }
 .band { border-radius: 22px; overflow: hidden; height: 84px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.04); }
 .band .ill { height: 100%; }
@@ -7381,7 +7391,16 @@ select.tsel { -webkit-appearance: none; appearance: none; font-family: inherit; 
 .lm-sk i { display: block; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--ink) 10%, transparent); animation: lmSk 1.4s ease-in-out infinite; animation-delay: calc(var(--i) * .15s); }
 .lm-sk i.a { width: 44px; height: 14px; flex: none; } .lm-sk span { flex: 1; display: flex; flex-direction: column; gap: 7px; } .lm-sk i.b { width: 52%; height: 12px; } .lm-sk i.c { width: 34%; }
 @keyframes lmSk { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .lm-sk i { animation: none; } }
+/* 4.25.0 (Yann, 27/11, maquette validée) : chargement en squelette partout où l'app lit Ten'Up (même bloc que .lm-sk) */
+.sk-b { display: block; height: 12px; border-radius: 6px; background: color-mix(in srgb, var(--ink) 10%, transparent); animation: lmSk 1.4s ease-in-out infinite; }
+.sk-card { gap: 12px; } .sk-card .lm-sk:first-child { border-top: 0; padding-top: 4px; }
+.sk-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sk-hd { display: flex; gap: 14px; align-items: center; margin: 6px 2px 4px; }
+.sk-hd .sk-b { flex: none; } .sk-hd .sk-c { flex: 1; min-width: 0; display: grid; gap: 8px; } .sk-hd .sk-c .sk-b { flex: initial; }
+.sk-nm { font-size: 24px; line-height: 1.15; }
+.sk-msg { display: flex; align-items: center; gap: 6px; color: var(--muted); margin: 2px 4px; }
+.lm-tu .rally-l, .kp-ld .rally-l, .ce-ld .rally-l, .lm-upd .rally-l, .ps-prog .rally-l { flex: none; }
+@media (prefers-reduced-motion: reduce) { .lm-sk i, .sk-b { animation: none; } }
 .lm-upd { display: flex; align-items: center; gap: 8px; } .lm-upd .spin { width: 12px; height: 12px; border-width: 2px; border-color: var(--line); border-top-color: var(--gazon); }
 /* 4.16.5 (Yann, 26/11, Face-à-face) : de l'air autour d'Ace et du bandeau « Prévu », et plus de contours en haut de la fiche */
 .card.id-dock.ff-say { margin-top: 76px; }

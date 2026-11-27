@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.24.5",
+    VERSION: "4.25.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -2656,6 +2656,17 @@
   // 3.70.8 : l'état de la synchro dans la barre de profil de l'accueil : un point et l'heure, touchable pour relire
   // 3.73.1 (Yann) : pendant une synchro Ten'Up, la petite balle fait l'échange au-dessus du filet (comme dans Réglages)
   var RALLY = '<span class="rally-l" aria-hidden="true"><i></i></span>';
+  // 4.25.0 (Yann, 27/11, maquette validée) : pendant une lecture Ten'Up, la forme de ce qui arrive (blocs qui se remplissent, comme lm-sk) + la petite balle qui fait l'échange
+  function skBar(w, h, r) { return '<i class="sk-b" style="width:' + w + (h ? ";height:" + h + "px" : "") + (r ? ";border-radius:" + r + "px" : "") + '"></i>'; }
+  function skRows(n) { var o = ""; for (var i = 0; i < n; i++) o += '<div class="lm-sk" style="--i:' + i + '"><i class="a"></i><span><i class="b"></i><i class="c"></i></span></div>'; return o; }
+  function skMsg(t) { return '<p class="small sk-msg" role="status">' + RALLY + t + "</p>"; }
+  function skList(t, n) { return '<div class="card sk-card" aria-hidden="true">' + skRows(n || 3) + "</div>" + skMsg(t); }
+  function skFiche(name, rank, t) {
+    return '<div class="sk-hd">' + skBar("56px", 56, 28) + '<span class="sk-c"><b class="sk-nm">' + esc(name || "") + "</b>" + (rank ? '<span><b class="rk-tag">' + esc(rank) + "</b></span>" : skBar("40%")) + "</span></div>" +
+      '<div class="card sk-card" aria-hidden="true"><span class="eyebrow">Le match</span>' + skBar("70%", 16) + skBar("92%") + skBar("60%") + "</div>" +
+      '<div class="card sk-card" aria-hidden="true"><span class="eyebrow">Sa saison</span><div class="sk-3">' + skBar("100%", 44, 12) + skBar("100%", 44, 12) + skBar("100%", 44, 12) + "</div>" + skBar("80%") + "</div>" +
+      '<div class="card sk-card" aria-hidden="true"><span class="eyebrow">Ses derniers matchs</span>' + skRows(3) + "</div>" + skMsg(t);
+  }
   function syMini() {
     if (!NATIVE || !S.tenup.linked) return "";
     var at = S.tenup.lastAuto || (S.tenup.lastImport ? E.parseDate(S.tenup.lastImport).getTime() : 0), run = !!UI.loading, err = (S.tenup.fails || 0) > 0, old = !at || Date.now() - at > 864e5;
@@ -2816,7 +2827,7 @@
   // 3.70.8 (Yann) : pendant la lecture des fiches de la poule, une barre qui avance et qui est lu
   function poolProgHtml(t) {
     var pg = UI.psProg && UI.psProg[t.id]; if (!NATIVE || !pg || !pg.n || !(UI.psBusy && UI.psBusy[t.id])) return "";
-    return '<div class="ps-prog"><span class="small"><span class="spin"></span>Lecture des fiches Ten\'Up · ' + Math.min(pg.d + 1, pg.n) + "/" + pg.n + (pg.nm ? " · " + esc(pg.nm) : "") + "</span>" +
+    return '<div class="ps-prog"><span class="small">' + RALLY + 'Lecture des fiches Ten\'Up · ' + Math.min(pg.d + 1, pg.n) + "/" + pg.n + (pg.nm ? " · " + esc(pg.nm) : "") + "</span>" +
       '<span class="ti-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + pg.n + '" aria-valuenow="' + pg.d + '"><i style="width:' + Math.max(6, Math.round(100 * pg.d / pg.n)) + '%"></i></span></div>';
   }
   // 3.44.2 (Montée+) : le bon moment pour jouer chaque adversaire de poule : sa projection Ten'Up à la prochaine sortie,
@@ -3507,11 +3518,12 @@
     var s = '<div class="lc-tab" data-k="lc-tab">';
     if (!clubOn()) return s + viduel("eq", "Toutes les équipes de " + nm, "Leur place, leurs scores du week-end, leurs saisons passées : lus sur Ten'Up, sans rien ressaisir.", seas) + '<button class="go-pill lc-go" data-a="clubTg">Voir les équipes du club</button></div>';
     var A0 = lcAll();
-    if (!A0.length) return s + '<div class="card"><span class="small">' + (UI.clubBusy ? '<span class="spin"></span> Lecture des équipes du club sur Ten\'Up…' : !(S.tenup || {}).linked ? "Relie ton compte Ten'Up pour lire les équipes du club." : ct.err ? "Ten'Up n'a pas répondu. " : "Aucune équipe trouvée pour l'instant. ") + "</span>" + (!UI.clubBusy && (S.tenup || {}).linked ? '<button class="lnk" data-a="clubRetry">Réessayer</button>' : "") + "</div></div>";
+    if (!A0.length && UI.clubBusy) return s + skList("Lecture des équipes du club sur Ten'Up…") + "</div>";
+    if (!A0.length) return s + '<div class="card"><span class="small">' + (UI.clubBusy ? "" : !(S.tenup || {}).linked ? "Relie ton compte Ten'Up pour lire les équipes du club." : ct.err ? "Ten'Up n'a pas répondu. " : "Aucune équipe trouvée pour l'instant. ") + "</span>" + (!UI.clubBusy && (S.tenup || {}).linked ? '<button class="lnk" data-a="clubRetry">Réessayer</button>' : "") + "</div></div>";
     var L = lcCur().sort(function (a, b) { return clubCat(a.c) < clubCat(b.c) ? -1 : clubCat(a.c) > clubCat(b.c) ? 1 : champNm(a.c) < champNm(b.c) ? -1 : champNm(a.c) > champNm(b.c) ? 1 : (+a.num || 0) - (+b.num || 0); });
     var W = { v: 0, n: 0, d: 0 }, nR = 0; L.forEach(function (x) { x.res.forEach(function (r) { W[r]++; nR++; }); });
     var nG = L.filter(function (x) { return x.pos === 1; }).length, n2 = L.filter(function (x) { return x.pos === 2; }).length, nL = L.filter(function (x) { return lcPosC(x) === "r"; }).length, F = UI.lcF || "";
-    if (UI.clubBusy) s += '<span class="small ce-ld"><span class="spin"></span> Mise à jour des équipes du club…</span>';
+    if (UI.clubBusy) s += '<span class="small ce-ld">' + RALLY + 'Mise à jour des équipes du club…</span>';
     else if (ct.err) s += '<span class="small ce-ld">Dernière mise à jour impossible. <button class="lnk" data-a="clubRetry">Réessayer</button></span>';
     // la saison en un coup d'œil
     var chip = function (k, n, lab, dot) { return n ? '<button class="' + (F === k ? "on" : "") + '" data-a="lcF" data-v="' + k + '" aria-pressed="' + (F === k) + '" style="--i:' + "g2r".indexOf(k) + '"><i class="' + dot + '"></i>' + lab + "</button>" : ""; };
@@ -4065,7 +4077,7 @@
     var tot = Math.max(UI.lmTot || 0, L.left), done = Math.max(0, tot - L.left), pc = tot ? Math.max(6, Math.round(100 * done / tot)) : 6;
     var step = L.sh ? "Feuilles de match des équipes · " + (UI.lmShTot - L.sh) + "/" + UI.lmShTot : "Classements des joueurs · " + (L.n - L.need.length) + "/" + L.n;
     var sk = [0, 1, 2].map(function (i) { return '<div class="lm-sk" style="--i:' + i + '"><i class="a"></i><span><i class="b"></i><i class="c"></i></span></div>'; }).join("");
-    return '<div class="lm-ld"><span class="lm-tu"><span class="spin"></span>Montée va chercher les infos sur Ten\'Up</span>' +
+    return '<div class="lm-ld"><span class="lm-tu">' + RALLY + 'Montée va chercher les infos sur Ten\'Up</span>' +
       '<span class="ti-prog" role="progressbar" aria-valuemin="0" aria-valuemax="' + tot + '" aria-valuenow="' + done + '"><i style="width:' + pc + '%"></i></span>' +
       '<span class="lm-step">' + esc(step) + "</span></div>" + sk +
       '<p class="lm-note">La première fois prend une minute ou deux. Ensuite, tout reste sur ton téléphone et seuls les changements sont relus.</p>';
@@ -4084,7 +4096,7 @@
   function lmCardIn(L) {
     if (L.loading) return lmHead(L.soon ? "Ils devraient monter" : "Ils montent", L.soon ? lmDayLab(L.nx) : "classement du " + dN(L.rel) + " " + MOIS[L.rel.getMonth()]) + '<div class="blk lc-list lm-card">' + lmLoadHtml(L) + "</div>";
     if (!L.n) return "";
-    var busy = (UI.lmBusy || UI.kpBusy) && L.left > 0, prog = busy ? '<p class="lm-note lm-upd"><span class="spin"></span> Mise à jour sur Ten\'Up · ' + (L.n - L.need.length) + "/" + L.n + " joueurs</p>" : "";
+    var busy = (UI.lmBusy || UI.kpBusy) && L.left > 0, prog = busy ? '<p class="lm-note lm-upd">' + RALLY + 'Mise à jour sur Ten\'Up · ' + (L.n - L.need.length) + "/" + L.n + " joueurs</p>" : "";
     if (L.pre) return lmHead("Ils devraient monter", lmDayLab(L.nx)) + '<div class="blk lc-list lm-card">' + L.eu.slice(0, 3).map(function (o, i) { return lmRow(o, true, i); }).join("") +
       '<p class="lm-note">Estimation d\'après leur simulation Ten\'Up. Le classement officiel tranche ' + JOURS[L.nx.getDay()] + ".</p>" + (busy ? prog : "") +
       '<a class="lc-more" href="#/montees">' + (L.eu.length > 1 ? "Les " + L.eu.length + " montées probables" : "Le détail") + " ›</a></div>";
@@ -4106,7 +4118,7 @@
       '<div class="lc-vnd">' + tile(U.length, pre ? "montées probables" : U.length > 1 ? "montées" : "montée", "v") + tile(D.length, pre ? "descentes probables" : D.length > 1 ? "descentes" : "descente", "d") + tile(L.n, "joueurs du club", "") + "</div></div>";
     var blk = function (t, A) { return A.length ? '<h3 class="lc-gh">' + t + "<small>" + A.length + '</small></h3><div class="blk lc-list">' + A.map(function (o) { return lmRow(o, pre, k++); }).join("") + "</div>" : ""; };
     s += blk("Dames", G.dam) + blk("Messieurs", G.mes) + blk("Jeunes", G.jeu) + blk(pre ? "Ils pourraient descendre" : "Ils descendent", D);
-    if (!U.length && !D.length) s += '<div class="card"><span class="small">' + (UI.lmBusy || UI.kpBusy ? '<span class="spin"></span> Lecture des classements sur Ten\'Up · ' + L.read + "/" + L.n + " joueurs" : "Personne n'a changé de classement à la sortie du " + dN(rl) + " " + MOIS_L[rl.getMonth()] + ".") + "</span></div>";
+    if (!U.length && !D.length) s += '<div class="card"><span class="small">' + (UI.lmBusy || UI.kpBusy ? RALLY + 'Lecture des classements sur Ten\'Up · ' + L.read + "/" + L.n + " joueurs" : "Personne n'a changé de classement à la sortie du " + dN(rl) + " " + MOIS_L[rl.getMonth()] + ".") + "</span></div>";
     s += '<p class="lm-note lm-foot">' + (pre ? "Estimation d'après la simulation Ten'Up de chacun, comme pour la flèche de l'effectif. Le classement officiel sort le " + lmDayLab(L.nx) + "." : "D'après le classement officiel publié le " + lmDayLab(L.rel) + ".") + " Joueurs du club : ceux qui ont joué au moins une rencontre par équipes pour le club cette saison.</p>";
     if (!pre && U.length) s += '<button class="go-pill lm-go" data-a="sheet" data-k="lmMsg">Féliciter sur WhatsApp</button>';
     return s + "</div>";
@@ -4292,7 +4304,7 @@
     A.sort(byRk); B.sort(byRk);
     var row = function (x) { var on = !!sel.on[x.id]; return '<button class="kp-r" data-a="kpCk" data-v="' + esc(x.id) + '" data-n="' + esc(x.n) + '" data-r="' + esc(x.r) + '" aria-pressed="' + on + '"><span class="kp-ck' + (on ? " on" : "") + '" aria-hidden="true">' + (on ? "✓" : "") + "</span>" + kpRkTag(x) + '<span class="grow"><b>' + esc(kpNm(x)) + "</b><small>" + esc(x.sub) + "</small></span></button>"; };
     var n = Object.keys(sel.on).length, ms = R.map(function (r) { return E.parseDate(String(r.d).slice(0, 10)).getMonth(); });
-    var body = (UI.kpBusy ? '<span class="small kp-ld"><span class="spin"></span> Lecture des feuilles de match sur Ten\'Up…</span>' : "") +
+    var body = (UI.kpBusy ? '<span class="small kp-ld">' + RALLY + 'Lecture des feuilles de match sur Ten\'Up…</span>' : "") +
       '<div class="kp-st">' + (prev ? "Ont joué dans cette équipe l'an passé" : "Dans cette équipe") + " <small>" + plural(A.filter(function (x) { return sel.on[x.id]; }).length, "coché", "cochés") + "</small></div>" + (A.length ? A.map(row).join("") : '<p class="kp-note">' + (UI.kpBusy ? "…" : "Aucune feuille de match de cette équipe pour l'instant.") + "</p>") +
       (B.length ? '<div class="kp-st">Autres joueurs du club <small>vus sur les feuilles</small></div>' + B.map(row).join("") : "") +
       '<div class="kp-add"><input type="text" data-kp="add" placeholder="Ajouter un joueur du club : prénom et nom" aria-label="Ajouter un joueur du club" autocomplete="off" value="' + esc(UI.kpAddT || "") + '"><button data-a="kpAdd" aria-label="Ajouter">+</button></div>' +
@@ -4333,7 +4345,7 @@
       return '<button data-a="sheet" data-k="kpJo" data-v="' + esc(c.id + "|" + p.id) + '" class="kp-r">' + kpRkTag(p) + '<span class="grow"><b>' + esc(kpNm(p)) + (x.b ? '<span class="kp-fl">brûlé</span>' : "") + kpMvi(mv) + "</b></span>" + kpRes(x.rs, "s") + kpRes(x.rsd, "d") + '<span class="pa-ch" aria-hidden="true">›</span></button>';
     }).join("");
     return '<h2 class="tm-gh">L\'effectif</h2><div class="card kp-eff"><span class="eyebrow">' + plural(P.length, "joueur") + " <small>dans ce championnat · " + plural(R.nR, "rencontre") + "</small></span>" +
-      (UI.kpBusy ? '<span class="small kp-ld"><span class="spin"></span> Lecture des feuilles de match…</span>' : "") + (rows ? '<div class="kp-hd" aria-hidden="true"><span class="kp-cl s"><i></i>Simple</span><span class="kp-cl d"><i></i>Double</span><span class="pa-ch">›</span></div>' + rows : '<p class="kp-note">Les joueurs apparaissent ici dès la 1re feuille de match, ou choisis-les toi-même.</p>') +
+      (UI.kpBusy ? '<span class="small kp-ld">' + RALLY + 'Lecture des feuilles de match…</span>' : "") + (rows ? '<div class="kp-hd" aria-hidden="true"><span class="kp-cl s"><i></i>Simple</span><span class="kp-cl d"><i></i>Double</span><span class="pa-ch">›</span></div>' + rows : '<p class="kp-note">Les joueurs apparaissent ici dès la 1re feuille de match, ou choisis-les toi-même.</p>') +
       (U.length ? '<button class="kp-more" data-a="sheet" data-k="kpDz" data-v="' + esc(c.id) + '"><span>Les dispos, rencontre par rencontre</span><span aria-hidden="true">›</span></button>' : "") +
       '<button class="kp-more" data-a="sheet" data-k="kpWho" data-v="' + esc(c.id) + '"><span>Ajouter un joueur du club</span><span aria-hidden="true">›</span></button></div>' +
       '<p class="kp-note kp-pn">Carré : un simple, rond : un double, dans ce championnat. Vert : gagné, orangé : perdu.' + (anyMv ? " Flèche : son classement à la sortie du " + JOURS[rel.getDay()] + " " + dN(rel) + " " + MOIS[rel.getMonth()] + " (simulation Ten'Up)." : "") + (anyB ? "<br>Brûlé (d'après la feuille de match Ten'Up) : il a déjà assez joué dans cette équipe ou une plus forte du club pour ne plus pouvoir jouer dans une équipe de numéro plus grand. Le nombre de rencontres dépend du règlement du championnat." : "") + "</p>";
@@ -4643,7 +4655,7 @@
         if (L && r.st === "T") { S.fdmCache3 = S.fdmCache3 || {}; S.fdmCache3[rid] = { at: Date.now(), L: L }; var ks = Object.keys(S.fdmCache3); if (ks.length > 30) delete S.fdmCache3[ks[0]]; save(); }
         if (route() === "rencontre/" + cid + "/" + rid) render();
       }); }
-      if (!F) return s + '<div class="card"><span class="small">' + (NATIVE ? '<span class="spin" style="border-top-color:var(--ink)"></span> Lecture de la feuille de match sur Ten\'Up…' : "La feuille de match se lit depuis l'appli iPhone ou Android.") + "</span></div></div>";
+      if (!F) return s + (NATIVE ? skList("Lecture de la feuille de match sur Ten'Up…", 4) : '<div class="card"><span class="small">La feuille de match se lit depuis l\'appli iPhone ou Android.</span></div>') + "</div>";
     }
     var pid = S.teams && S.teams.pid ? String(S.teams.pid) : "", who = function (p) { return pid && String(p.id) === pid ? "<b>Toi</b>" : esc(nameCase(p.n)) + (p.r ? ' <span class="muted">(' + esc(p.r) + ")</span>" : ""); };
     if (!F.L || !F.L.length) {
@@ -9111,7 +9123,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         UI.scoutTried[id] = 1; var spn = splitName(oi.name); UI.scoutBusy = id;
         setTimeout(function () { openScout({ id: id, nom: spn.nom, prenom: spn.prenom, rank: oi.rank }); }, 0);
       }
-      if (UI.scoutBusy === id) return s + '<div class="card empty"><b>Lecture de son palmarès sur Ten\'Up…</b><span class="small">' + (jk("tu-lent") ? "Ten'Up réfléchit… comme un 2e service à 5-5." : "Quelques secondes.") + '</span></div></div>';
+      if (UI.scoutBusy === id) return s + skFiche(oi ? nameCase(oi.name) : "", oi ? oi.rank : "", "Je lis son palmarès sur Ten'Up…" + (jk("tu-lent") ? " comme un 2e service à 5-5." : "")) + "</div>";
       return s + '<div class="card empty"><b>Fiche indisponible</b><span class="small">' + esc(UI.scoutErr || "Relance la recherche.") + '</span>' + (oi ? '<a class="btn soft small" href="#/adversaire/' + encodeURIComponent(oi.key) + '">Voir votre historique</a>' : "") + '<a class="btn soft small" href="#/faf">Revenir à la recherche</a></div></div>';
     }
     var pr = p.profil || {}, name = nameCase([pr.prenom, pr.nom].filter(Boolean).join(" ")), rows = p.rows || [], played = rows.filter(function (m) { return !m.wo && (m.result === "V" || m.result === "D"); });
@@ -13054,11 +13066,27 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       rows.map(function (x) { return '<div class="kv-r"><span>' + esc(x[0]) + "</span><b>" + esc(x[1]) + "</b></div>"; }).join("") +
       (note ? '<div class="ann-note">' + noteHtml(note) + "</div>" : '<button class="linkbtn ann-add" data-a="annEdit">+ Ton retour sur ce match</button>') + "</div>";
   }
+  // 4.25.0 : ajout d'un match en 3 étapes (en-tête de progression, rappel des étapes faites, derniers adversaires, bouton Suivant)
+  function msHead(n, t) { return '<div class="ms-h"><span class="eyebrow">' + t + '</span><span class="an-pos"><span class="ms-n">' + n + ' sur 3</span><span class="an-st" aria-hidden="true">' + [1, 2, 3].map(function (i) { return '<i class="' + (i <= n ? "on" : "") + '"></i>'; }).join("") + "</span></span></div>"; }
+  function msRecap(m) {
+    var t = (m.result === "V" ? "Victoire" : "Défaite") + (m.wo ? " par forfait" : "") + (m.opp ? " contre " + esc(nameCase(m.opp)) : "");
+    return '<button class="card cond-min ms-rc" data-a="mStep" data-v="1"><span class="an-res ' + esc(m.result) + '">' + esc(m.result) + '</span><span class="grow"><b>' + t + (m.oppRank ? " " + rkTagOf(m) : "") + (m.score && !m.wo ? " · " + esc(m.score) : "") + "</b><small>" + esc(fdate(m.date)) + '</small></span><span class="cond-ed">Modifier</span></button>';
+  }
+  function msOpps() {
+    var seen = {}, out = [];
+    knownMatches(false).filter(function (x) { return x.opp && !isAnon(x.opp) && x.source !== "exemple"; }).sort(byDateDesc).forEach(function (x) { var k = nameKey(x.opp); if (seen[k] || out.length >= 5) return; seen[k] = 1; out.push({ n: nameCase(x.opp), r: x.oppRank || "" }); });
+    return out;
+  }
+  function msRecents() {
+    var L = msOpps(); if (!L.length) return "";
+    return '<div class="field"><span class="lbl">Tes derniers adversaires</span><div class="chips">' + L.map(function (o, i) { return '<button class="chip" data-a="mOpp" data-v="' + i + '">' + esc(o.n) + (o.r ? ' <b class="rk-tag">' + esc(o.r) + "</b>" : "") + "</button>"; }).join("") + "</div></div>";
+  }
+  function msNext(n) { return '<button class="btn primary ms-next" data-a="mStep" data-v="' + n + '">Suivant</button>'; } // toujours lisible : s'il manque quelque chose, un toast le dit
   V.match = function (id) {
     var isNew = !id || id === "new";
     if (!isNew) tryMark("an");
     if (!UI.draft || UI.draft._for !== (id || "new")) {
-      var base = isNew ? { id: uid(), date: E.iso(today()), opp: "", oppRank: "", result: "V", wo: false, score: "", kind: "tournoi", surface: "", indoor: null, racketId: "", string: "", tension: null, tensionCross: null, feel: null, note: "", source: "manual" } :
+      var base = isNew ? { id: uid(), date: E.iso(today()), opp: "", oppRank: "", result: "", wo: false, score: "", kind: "tournoi", surface: "", indoor: null, racketId: "", string: "", tension: null, tensionCross: null, feel: null, note: "", source: "manual" } :
         JSON.parse(JSON.stringify(S.matches.filter(function (m) { return m.id === id; })[0] || histPromote(id, false) || {}));
       if (!base.id) { go("palmares"); return ""; }
       // Match neuf ou pas encore annoté : on présélectionne la raquette principale
@@ -13066,10 +13094,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         var main = racketFor("match");
         if (main) { base.racketId = main.id; base.string = main.string || ""; base.tension = main.tension || null; base.tensionCross = main.tensionCross != null ? main.tensionCross : null; base._auto = !isNew; }
       }
-      if (isNew && UI.mmPrefill) { var mp = UI.mmPrefill; UI.mmPrefill = null; base.opp = mp.opp; base.oppRank = mp.rank; base.result = mp.r; if (mp.score) base.score = mp.score; if (mp.minutes) base.minutes = mp.minutes; if (mp.feel) base.feel = mp.feel; if (mp.kind) base.kind = mp.kind; if (mp.serve) base.serve = mp.serve; if (mp.hr) base.hr = mp.hr; if (mp.kcal) base.kcal = mp.kcal; if (mp.date) base.date = mp.date; if (mp.wid) base._wid = mp.wid; if (mp.oid) base.oid = String(mp.oid); if (mp.watch) base.watch = true; if (mp.wev) { base.wev = mp.wev; base.wsrv = mp.wsrv; base.wfmt = mp.wfmt; } if (mp.wevT) base.wevT = mp.wevT; if (mp.wt0) base.wt0 = mp.wt0; if (mp.wmax) base.wmax = mp.wmax; }
+      if (isNew && UI.mmPrefill) { base._pre = UI.mmPrefill.score ? 3 : UI.mmPrefill.r ? 2 : 1; var mp = UI.mmPrefill; UI.mmPrefill = null; base.opp = mp.opp; base.oppRank = mp.rank; base.result = mp.r; if (mp.score) base.score = mp.score; if (mp.minutes) base.minutes = mp.minutes; if (mp.feel) base.feel = mp.feel; if (mp.kind) base.kind = mp.kind; if (mp.serve) base.serve = mp.serve; if (mp.hr) base.hr = mp.hr; if (mp.kcal) base.kcal = mp.kcal; if (mp.date) base.date = mp.date; if (mp.wid) base._wid = mp.wid; if (mp.oid) base.oid = String(mp.oid); if (mp.watch) base.watch = true; if (mp.wev) { base.wev = mp.wev; base.wsrv = mp.wsrv; base.wfmt = mp.wfmt; } if (mp.wevT) base.wevT = mp.wevT; if (mp.wt0) base.wt0 = mp.wt0; if (mp.wmax) base.wmax = mp.wmax; }
       // 3.55 (audit, validé) : un match neuf reprend les conditions de ta dernière saisie (surface, lieu)
       if (isNew) { var lastC = S.matches.filter(function (x) { return x.source !== "exemple" && (x.surface || x.indoor != null); }).sort(byDateDesc)[0]; if (lastC) { base.surface = SURFACES.indexOf(lastC.surface) >= 0 ? lastC.surface : ""; base.indoor = lastC.indoor != null ? lastC.indoor : null; } UI.condOpen = false; }
       if (isNew && UI.hcPrefillM) { var hm = UI.hcPrefillM; UI.hcPrefillM = null; base.date = hcIso(hm.start); base.minutes = hcMin(hm); base.hid = hm.id; base.hat = hm.start; }
+      if (isNew) UI.mStep = base._pre || 1; // 4.25.0 : un match déjà rempli (montre, calendrier, import) s'ouvre sur le contexte, à vérifier
       base._for = id || "new"; UI.draft = base; UI.gearOpen = false; UI.origKey = null; // nouveau brouillon : on reprend la référence « rien de modifié »
       base.sets = setsOf(base.score);
       UI.scoreEdit = null; UI.scoreOpen = false; UI.mEdit = false; UI.annEdit = false; UI.stb = base.sets[2] ? isSuperTb(base.sets[2], 2) : false;
@@ -13110,25 +13139,41 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (official && (isAnon(m.opp) || m.oppTenup != null)) s += '<h2>Tes annotations · l\'adversaire</h2><div class="form"><div class="field"><label for="m-opp">Son nom</label><input id="m-opp" type="text" data-d="opp" value="' + esc(isAnon(m.opp) ? "" : m.opp) + '" placeholder="Masqué sur Ten\'Up : qui était-ce ?" autocomplete="off"><span class="small">Ten\'Up affiche « Anonyme ». Le nom que tu mets ici sert à tes stats et à tes notes pour la revanche.</span></div></div>';
     if (official) s += revHint(m.opp, m.id);
     if (!official && (isNew || UI.mEdit) && !m.tourSet && toursOpen(m.date).length) { m.tour = tourGuess(m); var tt1 = m.tour && tourOf(m.tour); if (tt1 && !m.kindSet) m.kind = tt1.kind === "champ" ? "champ" : "tournoi"; }
-    if (!official && (isNew || UI.mEdit)) s += '<div class="form">' +
+    if (!official && (isNew || UI.mEdit)) {
+      var fRes =
       '<div class="field"><div class="seg res" aria-label="Résultat"><button data-a="dset" data-k="result" data-v="V" class="rv' + (m.result === "V" ? " on" : "") + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>Victoire</button><button data-a="dset" data-k="result" data-v="D" class="rd' + (m.result === "D" ? " on" : "") + '"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>Défaite</button></div>' +
-      '<label class="check"><input type="checkbox" data-d="wo"' + (m.wo ? " checked" : "") + "> Par forfait (WO)</label></div>" +
+      '<label class="check"><input type="checkbox" data-d="wo"' + (m.wo ? " checked" : "") + "> Par forfait (WO)</label></div>";
+      var fOpp =
       '<div class="field"><label for="m-opp">Adversaire</label>' + (mTuOn() ? '<div class="sbar sbf">' + svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', 2.2) + '<input id="m-opp" type="search" data-d="opp" list="opp-list" value="' + esc(m.opp) + '" placeholder="Prénom et nom" autocomplete="off" autocapitalize="words" enterkeyhint="search"><button class="sb-clr" data-a="mOppClr" aria-label="Effacer"' + (m.opp ? "" : " hidden") + ">" + I.cross + '</button><button class="sb-go' + (nameSplits(m.opp || "").length ? " ready" : "") + '" data-a="mTuFind"' + (UI.mBusy ? " disabled" : "") + ">" + (UI.mBusy ? "…" : "Chercher") + "</button></div>" : '<input id="m-opp" type="text" data-d="opp" list="opp-list" value="' + esc(m.opp) + '" placeholder="Prénom et nom, ex. : Julien Moreau" autocomplete="off" autocapitalize="words">') + oppDatalist() +
-        mTuHtml(m) + revHint(m.opp, m.id) + "</div>" +
+        mTuHtml(m) + revHint(m.opp, m.id) + "</div>";
+      var fRank =
       (function () { // 3.55 (audit, validé) : les 5 classements autour du tien d'abord, les autres dans la liste
         var cu = Math.max(0, c.cur), lo = Math.max(0, Math.min(cu - 2, 21 - 4)), near = []; for (var i = lo; i < lo + 5; i++) near.push(lab(i));
         var other = m.oppRank && near.indexOf(m.oppRank) < 0;
         return '<div class="field"><span class="lbl">Son classement le jour du match</span><div class="chips rk-near">' + near.map(function (r) { return '<button class="chip' + (m.oppRank === r ? " on" : "") + '" data-a="dset" data-k="oppRank" data-v="' + esc(r) + '">' + esc(r) + "</button>"; }).join("") + "</div>" +
           '<div class="rk-other"><label for="m-rank">' + (other ? "Classement" : "Autre classement") + '</label><select id="m-rank" data-d="oppRank">' + rankOpts + "</select></div></div>";
-      })() +
-      '<div class="field inline"><label for="m-date">Date</label><input id="m-date" type="date" data-d="date" value="' + esc(m.date) + '" max="' + E.iso(today()) + '"></div>' +
-      (m.wo ? "" : scoreHtml(m)) +
+      })();
+      var fDate =
+      '<div class="field inline"><label for="m-date">Date</label><input id="m-date" type="date" data-d="date" value="' + esc(m.date) + '" max="' + E.iso(today()) + '"></div>';
+      var fScore =
+      (m.wo ? "" : scoreHtml(m));
+      var fKind =
       '<div class="field"><span class="lbl">Type de match</span><div class="chips">' + KIND_ORDER.map(function (k) { return '<button class="chip' + (m.kind === k[0] ? " on" : "") + '" data-a="dset" data-k="kind" data-v="' + k[0] + '">' + (KIND_FORM[k[0]] || k[1]) + "</button>"; }).join("") + "</div>" +
-        (m.kind === "amical" ? '<span class="small">Non homologué : il compte dans tes stats et tes face-à-face, pas pour le classement.</span>' : m.kind === "libre" ? '<span class="small">Match libre homologué (feuille de match, saisi sur Ten\'Up) : il compte pour le classement, comme un tournoi.</span>' : "") + "</div>" +
+        (m.kind === "amical" ? '<span class="small">Non homologué : il compte dans tes stats et tes face-à-face, pas pour le classement.</span>' : m.kind === "libre" ? '<span class="small">Match libre homologué (feuille de match, saisi sur Ten\'Up) : il compte pour le classement, comme un tournoi.</span>' : "") + "</div>";
+      var fTour =
       (function () { var L = toursOpen(m.date); if (!L.length || m.kind === "amical" || m.kind === "libre") return ""; if (!m.tourSet) m.tour = tourGuess(m); var tt0 = m.tour && tourOf(m.tour); if (tt0 && !m.kindSet) m.kind = tt0.kind === "champ" ? "champ" : "tournoi";
         return '<div class="field"><span class="lbl">Épreuve</span><div class="chips">' + [{ id: "", name: "Aucune" }].concat(L).map(function (t) { return '<button class="chip' + ((m.tour || "") === t.id ? " on" : "") + '" data-a="dset" data-k="tour" data-v="' + esc(t.id) + '">' + esc(t.id ? m2Title(t.name || "Épreuve") : t.name) + "</button>"; }).join("") + "</div>" +
-          (m.tour ? '<span class="small">' + (tourRowFor(tourOf(m.tour) || {}, m.opp) ? "Le résultat sera reporté dans ton épreuve." : "Ce joueur n'est pas encore dans l'épreuve : il y sera ajouté avec ce résultat.") + "</span>" : "") + "</div>"; })() +
-      "</div>";
+          (m.tour ? '<span class="small">' + (tourRowFor(tourOf(m.tour) || {}, m.opp) ? "Le résultat sera reporté dans ton épreuve." : "Ce joueur n'est pas encore dans l'épreuve : il y sera ajouté avec ce résultat.") + "</span>" : "") + "</div>"; })();
+      var mst = isNew && !UI.mEdit ? UI.mStep || 1 : 0;
+      if (!mst) s += '<div class="form">' + fRes + fOpp + fRank + fDate + fScore + fKind + fTour + "</div>";
+      else {
+        // 4.25.0 (Yann, 27/11, maquette validée) : un match neuf se saisit en 3 étapes : le match (résultat, adversaire), le score, le contexte
+        s += msHead(mst, ["Le match", "Le score", "Le contexte"][mst - 1]) + (mst > 1 ? msRecap(m) : "");
+        if (mst === 1) return s + '<div class="form">' + fRes + fOpp + (m.opp ? "" : msRecents()) + fRank + "</div>" + msNext(2) + "</div>";
+        if (mst === 2) return s + '<div class="form">' + fScore + "</div>" + msNext(3) + "</div>";
+        s += (m.tour && !m.tourSet ? '<p class="small ms-pre">Déjà rempli d\'après tes épreuves en cours : vérifie et enregistre.</p>' : "") + '<div class="form">' + fDate + fKind + fTour + "</div>";
+      }
+    }
     // 3.42.3 : annotations déjà renseignées → résumé en lecture ; on rouvre le formulaire seulement si tu le demandes
     var mS = isNew ? null : (S.matches.filter(function (x) { return x.id === m.id; })[0] || null);
     var hasAnn = !!(mS && (mS.surface || mS.indoor != null || mS.racketId || String(mS.note || "").trim()));
@@ -19914,8 +19959,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.21.0",
+    v: "4.25.0",
     pages: [
+      // 4.25 (Yann, 27/11/2026, maquettes validées) : un match en 3 étapes, ta part de chaque journée d'équipe, le chargement en squelette
+      { hero: true, title: "Montée 4.25", text: "Ajouter un match va plus vite, ta saison d'équipe dit ce que tu as joué, et l'app te montre ce qui arrive pendant que Ten'Up répond." },
+      { tag: "Nouveau", tone: "rose", title: "Un match en 3 étapes", vis: "ms425", text: "D'abord victoire ou défaite et contre qui (tes derniers adversaires en un toucher), puis le score, puis le contexte, déjà rempli d'après tes épreuves." },
+      { tag: "Amélioré", tone: "bleu", title: "Ta part de chaque journée", vis: "tf425", text: "Dans la saison de ton équipe : « Toi » et tes matchs, carrés pour les simples, ronds pour les doubles, verts quand c'est gagné. Sinon, « pas joué »." },
+      { tag: "Amélioré", tone: "bleu", title: "Pendant que Ten'Up répond", vis: "sk425", text: "Plus d'écran vide : la forme de la fiche s'affiche tout de suite et se remplit, avec la petite balle qui fait l'échange." },
       // 4.21 (Yann, 26/11/2026, maquette validée) : la conversation avec Ace est un fil, gardé jusqu'au ✕ ; 4.20 : « À découvrir dans Montée »
       { hero: true, title: "Montée 4.21", text: "Avec Ace, rien ne se perd : tes questions et ses réponses s'empilent, et la conversation te suit d'une page à l'autre jusqu'à ce que tu la fermes." },
       { tag: "Nouveau", tone: "rose", title: "Toute la conversation", vis: "fil421", text: "Pose tes questions à la suite : chaque réponse, avec ses cartes, reste dans le fil. Remonte quand tu veux pour relire." },
@@ -20091,7 +20141,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-      var PHARES = ["fil421", "cont421", "dv420", "fol417", "kid417"]; // 4.21 : fil d'Ace, bulle, À découvrir ; puis suivis et profil de ton enfant // 4.18 : suivis (4.17) et profil de ton enfant v2 ; 5 pages max (ef416, kidf415 sortent)
+      var PHARES = ["ms425", "tf425", "sk425", "fil421", "cont421"]; // 4.25 : 3 étapes, ta part de la journée, squelette ; puis le fil d'Ace // 4.21 : fil d'Ace, bulle, À découvrir ; puis suivis et profil de ton enfant // 4.18 : suivis (4.17) et profil de ton enfant v2 ; 5 pages max (ef416, kidf415 sortent)
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -20117,6 +20167,12 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var nvMe = function (t) { return '<span style="align-self:flex-end;max-width:80%;padding:7px 11px;border-radius:16px 16px 5px 16px;background:#D4E64A;color:#15170F;font-size:12.5px;font-weight:700;text-align:left">' + t + "</span>"; };
     var nvAce = function (t) { return '<span style="align-self:flex-start;max-width:86%;padding:7px 11px;border-radius:16px;background:rgba(255,255,255,.08);font-size:12.5px;font-weight:600;text-align:left">' + t + "</span>"; };
     var nvCard = function (k2, v, c) { return '<span style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 11px;border-radius:14px;background:rgba(255,255,255,.06);font-size:12px"><span style="opacity:.75;font-weight:700;letter-spacing:.04em">' + k2 + '</span><b style="color:' + c + '">' + v + "</b></span>"; };
+    // 4.25 : 3 étapes, ta part de la journée, squelette (couleurs fixes, écran sombre, noms génériques)
+    if (k === "ms425") return nvc('<span style="display:flex;flex-direction:column;gap:7px">' + nvCard("1 · LE MATCH", "Victoire · J. Moreau", "#6FC28F") + nvCard("2 · LE SCORE", "6-3 6-4", "#F2F3F5") + nvCard("3 · LE CONTEXTE", "Tournoi", "#F2F3F5") + "</span>");
+    if (k === "tf425") { var nvSq = function (c, r) { return '<i style="display:inline-block;width:10px;height:10px;margin-left:4px;border-radius:' + r + ';background:' + c + '"></i>'; };
+      return nvc('<span style="display:flex;flex-direction:column;gap:7px">' + nvCard("J3 · ÉQUIPE 4E", "Toi" + nvSq("#6FC28F", "2px") + nvSq("#6FC28F", "50%"), "#F2F3F5") + nvCard("J4 · ÉQUIPE 5E", '<span style="opacity:.6;font-weight:600">pas joué</span>', "#F2F3F5") + nvCard("J5 · ÉQUIPE 5E", "Toi" + nvSq("rgba(232,138,94,.6)", "2px"), "#F2F3F5") + "</span>"); }
+    if (k === "sk425") { var nvB = function (w, h) { return '<i style="display:block;width:' + w + ';height:' + (h || 10) + 'px;border-radius:6px;background:rgba(255,255,255,.1)"></i>'; };
+      return nvc('<span style="display:flex;flex-direction:column;gap:8px;text-align:left"><b style="font-size:15px">Julien Moreau</b>' + nvB("70%", 14) + nvB("92%") + nvB("60%") + '<span style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' + nvB("100%", 34) + nvB("100%", 34) + nvB("100%", 34) + '</span><span style="font-size:12px;opacity:.7">Je lis son palmarès sur Ten\'Up…</span></span>'); }
     if (k === "fil421") return nvc('<span style="display:flex;flex-direction:column;gap:7px">' + nvMe("Je joue qui en premier dans ma poule ?") + nvAce("Thomas M. le 5 déc.") + nvCard("SI TU GAGNES", "+20 pts", "#6FC28F") + '<span style="align-self:center;font-size:11px;opacity:.6">17:52</span>' + nvMe("Comment je monte 15/1 ?") + nvAce("Le plus court : 2 victoires contre des 15/1.") + "</span>");
     if (k === "cont421") return nvc('<span style="display:flex;flex-direction:column;gap:8px;text-align:left"><span class="nv-k" style="color:#D4E64A">TA POULE</span>' + [["1", "Toi", "1-1"], ["2", "Julien Moreau", "1-0"]].map(function (x) { return '<span style="display:flex;gap:10px;font-size:12.5px;padding:4px 0"><b style="opacity:.6">' + x[0] + '</b><span style="flex:1">' + x[1] + "</span><b>" + x[2] + "</b></span>"; }).join("") +
       '<span style="align-self:flex-end;display:flex;align-items:center;gap:8px;margin-top:6px;padding:5px 6px 5px 5px;border-radius:26px;background:#D4E64A;color:#15170F;box-shadow:0 10px 24px -8px rgba(0,0,0,.6)"><span style="width:30px;height:30px;border-radius:50%;background:#15170F;display:grid;place-items:center"><span style="width:20px;height:20px;border-radius:50%;background:#D4E64A"></span></span><span><b style="display:block;font-size:12.5px">Continuer avec Ace</b><small style="font-size:11px;color:#3B4214">Monter 15/1 · Ta poule</small></span><span style="width:22px;height:22px;border-radius:50%;background:rgba(21,23,15,.12);display:grid;place-items:center;font-size:11px;font-weight:800">✕</span></span></span>');
@@ -20705,6 +20761,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       UI.hcPrefill = x; UI.draft = null; go("entrainement/new");
     },
     back: function () {
+      if (route() === "match/new" && UI.draft && UI.mStep > 1) { UI.mStep = UI.mStep === 3 && UI.draft.wo ? 1 : UI.mStep - 1; render(); window.scrollTo(0, 0); return; } // 4.25.0 : le retour remonte d'une étape
       if (isDirty()) { UI.leaveAsk = true; render(); return; }
       UI.draft = null; UI.racketDraft = null; UI.rkMenu = false; back();
     },
@@ -21685,6 +21742,15 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     projLevel: function (el) { UI.projLevel = +el.dataset.v; render(); },
     // fiche match
     trWork: function (el) { var t = UI.draft; if (!t) return; t.work = t.work || []; var i = t.work.indexOf(el.dataset.v); if (i >= 0) t.work.splice(i, 1); else t.work.push(el.dataset.v); haptic("light"); render(); },
+    // 4.25.0 : étapes de l'ajout d'un match
+    mStep: function (el) {
+      var m = UI.draft, n = +el.dataset.v; if (!m) return;
+      if (n > 1 && !(m.result === "V" || m.result === "D")) return toast("Choisis d'abord victoire ou défaite.");
+      if (n > 1 && !m.oppRank) return toast("Indique le classement de l'adversaire.");
+      if (n === 2 && m.wo) n = 3;
+      UI.mStep = n; render(); window.scrollTo(0, 0);
+    },
+    mOpp: function (el) { var o = msOpps()[+el.dataset.v]; if (!o || !UI.draft) return; UI.draft.opp = o.n; if (o.r) UI.draft.oppRank = o.r; render(); },
     dset: function (el) {
       var k = el.dataset.k, v = el.dataset.v;
       if (k === "kind" && UI.draft) UI.draft.kindSet = true;
@@ -21820,7 +21886,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (m.wo) m.minutes = null;
       if (!m.oppRank) return toast("Indique le classement de l'adversaire.");
       if (!m.date && m.source !== "tenup-pdf") return toast("Indique la date du match.");
-      var clean = Object.assign({}, m); delete clean._for; delete clean._tuName; delete clean._tuInfo; delete clean.sets; delete clean._auto; delete clean._wid;
+      var clean = Object.assign({}, m); delete clean._for; delete clean._pre; delete clean._tuName; delete clean._tuInfo; delete clean.sets; delete clean._auto; delete clean._wid;
       if (S.matches.some(function (x) { return x.id === clean.id; })) clean.noted = true; // 3.60.1 : enregistrer un match déjà là = il est annoté
       if (m._wid) S.watchIn = (S.watchIn || []).filter(function (x) { return x.wid !== m._wid; });
       var i = S.matches.findIndex(function (x) { return x.id === clean.id; });
