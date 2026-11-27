@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.26.1",
+    VERSION: "4.26.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -354,11 +354,16 @@
     UI.toastT = setTimeout(function () { t.remove(); }, msg.length > 60 ? 4500 : 2800);
   }
   // 4.18.2 (Yann : « Annuler ne fonctionne pas ») : un seul toast avec « Annuler », laissé 6 s ; le bouton est branché par l'écouteur des toasts (le toast vit hors de #app)
-  function toastUndo(msg, act) {
-    toast(msg); var tk = document.querySelector(".toast"); if (!tk) return;
+  function toastUndo(msg, act) { toastAct(msg, act, "Annuler"); }
+  // 4.26.2 : même toast avec une autre action (« Annoter »), data-v transmis à l'action
+  function toastAct(msg, act, lab, v, ok) {
+    toast(msg, ok); var tk = document.querySelector(".toast"); if (!tk) return;
     clearTimeout(UI.toastT); UI.toastT = setTimeout(function () { tk.remove(); }, 6000);
-    tk.insertAdjacentHTML("beforeend", ' <button type="button" class="tk-undo" data-a="' + act + '">Annuler</button>');
+    tk.insertAdjacentHTML("beforeend", ' <button type="button" class="tk-undo" data-a="' + act + '"' + (v ? ' data-v="' + esc(String(v)) + '"' : "") + ">" + esc(lab) + "</button>");
   }
+  // 4.26.2 (Yann, 27/11) : un résultat saisi vite (Ton chemin, poule) propose l'annotation sans l'imposer : « Annoter » dans le toast
+  function annToast(m, msg, ok) { if (m && qaPending(m)) toastAct(msg, "qaOpen", "Annoter", m.id, ok); else toast(msg, ok); }
+  function trMatchOf(r) { return r ? S.matches.filter(function (x) { return x.id === "tr" + r.id || (r.twin && x.id === r.twin); })[0] : null; }
 
   // ---------- Icônes ----------
   function svg(p, sw, extra) { return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + (extra || "") + ">" + p + "</svg>"; }
@@ -916,8 +921,9 @@
     if (UI.leaveAsk) html += leaveSheet();
     if (UI.sheet) html += sheetHtml();
     if (UI.jj) html += jjHtml();
+    if (UI.qaSheet && UI.qaOne && !qaList().some(function (x) { return x.id === UI.qaOne; })) { UI.qaSheet = false; UI.qaOne = null; }
     if (UI.qaSheet && parts[0] === "" && !qaList().length) UI.qaSheet = false;
-    if (UI.qaSheet && parts[0] === "") html += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="qaClose"></div><div class="sheet qa-sheet" role="dialog" aria-modal="true" aria-label="Annoter ton match"><span class="sheet-grab"></span>' + qaFormHtml() + "</div>";
+    if (UI.qaSheet && (parts[0] === "" || UI.qaOne)) html += '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="qaClose"></div><div class="sheet qa-sheet" role="dialog" aria-modal="true" aria-label="Annoter ton match"><span class="sheet-grab"></span>' + qaFormHtml() + "</div>";
     if (UI.actPlus) html += actPlusHtml();
     if (SK && !(UI.sheet && /^kid/.test(UI.sheet.k || ""))) html = html.slice(0, kvFrom) + kidVoice(html.slice(kvFrom));
     if (UI.ace) html += aceHtml(); // 3.73 : Ace, le coach
@@ -10643,7 +10649,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return '<button class="card qa1" data-a="qaOpen"><span class="eyebrow">' + (done ? I.check + " " + esc(done.label) + " : annoté · " : "") + "Annote " + (list.length > 1 ? "tes " + list.length + " matchs" : "ton match") + '</span><span class="qa1-r"><b>' + (m.result === "V" ? "Victoire" : "Défaite") + " contre " + esc(m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "un " + m.oppRank) + (list.length > 1 ? '<small class="qa1-more"> et ' + (list.length === 2 ? "1 autre" : list.length - 1 + " autres") + "</small>" : "") + '</b><span class="qa1-go">Annoter · 20 s ' + I.next + "</span></span></button>";
   }
   function qaFormHtml() {
-    var list = qaList(), done = UI.qaDone && Date.now() - UI.qaDone.at < 6000 ? UI.qaDone : null;
+    var list = UI.qaOne ? qaList().filter(function (x) { return x.id === UI.qaOne; }) : qaList(), done = UI.qaDone && Date.now() - UI.qaDone.at < 6000 ? UI.qaDone : null;
     if (!list.length) {
       if (!done) return "";
       return '<div class="card qa qa-end">' + I.check + '<span><b>Tes matchs récents sont annotés.</b><span class="small" style="color:inherit;opacity:.75;display:block">Montée s\'en sert pour tes stats.</span></span></div>';
@@ -11393,6 +11399,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var nxD = null; try { var nxM = nextMatch(); nxD = nxM ? nxM.day : null; } catch (e) {}
     var later = function (d) { return !!nxD && (d ? d > nxD : dGap(nxD) <= 1); }; // un match à caler attend le lendemain du match
     if (nm) tips.push({ id: nm.id, hot: dGap(nm.d) > 0 ? 1 : 0, t: coWhen(nm) + " contre " + (nm.name || "un " + nm.rank) + " : ton match est prêt", v: "next" });
+    // 4.26.2 (Yann, 27/11) : un match des 3 derniers jours pas encore annoté : Ace le demande (après le match qui arrive), sa bulle ouvre l'annotation
+    try { var d3 = E.iso(new Date(today().getTime() - 3 * 864e5)), qn = qaList().filter(function (x) { return x.date >= d3 && x.source !== "exemple"; })[0];
+      if (qn) tips.push({ id: "ann:" + qn.id, t: (qn.result === "V" ? "Victoire" : "Défaite") + " contre " + (qn.opp && !isAnon(qn.opp) ? nameCase(qn.opp) : "un " + qn.oppRank) + " : tu me racontes ? 30 s", v: qn.id, a: "qaOpen" }); } catch (e) {}
     var N = null; try { N = coNews(3); } catch (e) {}
     if (N) tips.push({ id: "news:" + N.n.at, hot: 1, t: "Nouveau sur Ten'Up : " + plural(N.ms.length, "résultat") + ". On regarde ce qui a changé ?", v: "news" });
     if (hier && hier.result === "D") tips.push({ id: "home:loss:" + hier.id, t: "Défaite " + hj + ", ça arrive. On regarde ce qui vient ensuite ?", v: "loss" });
@@ -11429,8 +11438,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // la toucher ouvre Ace sur ce sujet (la bulle disparaît une fois lue). Le lundi, la carte de la semaine parle déjà : la pastille suffit.
     // 4.4.8 (Yann) : Ace dit toujours sa phrase en arrivant, même déjà lue ; le point rouge et le rebond restent pour ce qui est nouveau
     var bub = !!t && !noBub;
-    return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="' + (t && t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot && !bub ? '<span class="ace-dot"></span>' : "") + "</span></button>" +
-      (bub ? '<button class="hd-bub" data-a="' + (t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + esc(t.v || "") + '"><i aria-hidden="true"></i><span>' + esc(t.t) + "</span></button>" : "");
+    return '<button class="ace-hd' + (dot ? " new" : "") + '" data-a="' + (t && t.a ? t.a : t && t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + (t ? esc(t.v) : "") + '" aria-label="Parler avec Ace, ton coach">' + '<span class="ace-bw">' + coBall("hd:" + (t ? t.id : ""), h.mood, "sm") + (dot && !bub ? '<span class="ace-dot"></span>' : "") + "</span></button>" +
+      (bub ? '<button class="hd-bub" data-a="' + (t.a ? t.a : t.v === "pa" ? "paOpen" : "ace") + '" data-v="' + esc(t.v || "") + '"><i aria-hidden="true"></i><span>' + esc(t.t) + "</span></button>" : "");
   }
   // 3.82.1 (Yann, maquette M1 du tour du 23/11) : la phrase d'Ace a sa carte sous le Salut (avant : bulle coupée dans l'en-tête)
   // La présentation d'Ace, une seule fois
@@ -20950,9 +20959,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     qaRkOpen: function () { UI.qa.rkOpen = true; render(); },
     qaIndoor: function (el) { var v = el.dataset.v === "1"; UI.qa.indoor = UI.qa.indoor === v ? null : v; render(); },
     qaFelt: function (el) { var q = UI.qa; q.felt = q.felt || []; var i = q.felt.indexOf(el.dataset.v); if (i >= 0) q.felt.splice(i, 1); else q.felt.push(el.dataset.v); haptic("light"); render(); },
-    qaSkip: function () { var m = S.matches.filter(function (x) { return x.id === UI.qa.id; })[0]; if (m) { m.qaSkip = true; save(); } UI.qa = null; UI.qaDone = null; toast("Tu le retrouves dans le Palmarès, onglet « À annoter »."); render(); },
-    qaOpen: function () { UI.qaSheet = true; render(); },
-    qaClose: function () { UI.qaSheet = false; render(); },
+    qaSkip: function () { var m = S.matches.filter(function (x) { return x.id === UI.qa.id; })[0]; if (m) { m.qaSkip = true; save(); } UI.qa = null; UI.qaDone = null; if (UI.qaOne) { UI.qaOne = null; UI.qaSheet = false; } toast("Tu le retrouves dans le Palmarès, onglet « À annoter »."); render(); },
+    qaOpen: function (el) { UI.qaOne = el && el.dataset && el.dataset.v || null; UI.qa = null; UI.qaSheet = true; var tk = document.querySelector(".toast"); if (tk && UI.qaOne) tk.remove(); render(); }, // 4.26.2 : data-v = un match précis (toast, bulle d'Ace)
+    qaClose: function () { UI.qaSheet = false; UI.qaOne = null; render(); },
     qaSave: function () {
       var q = UI.qa, m = q && S.matches.filter(function (x) { return x.id === q.id; })[0]; if (!m) return;
       if (!q.racketId && !q.surface && q.indoor == null && !q.feel && !(q.felt || []).length) { toast("Choisis au moins une info, ou touche « Plus tard »."); return; }
@@ -20966,7 +20975,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       S.lastQA = { surface: q.surface || (S.lastQA || {}).surface, indoor: q.indoor != null ? q.indoor : (S.lastQA || {}).indoor };
       UI.qaRun = qaList().length ? (UI.qaRun || 0) + 1 : 0;
       UI.qaDone = { at: Date.now(), label: (m.result === "V" ? "Victoire" : "Défaite") + " contre " + (m.opp && !isAnon(m.opp) ? m.opp : "un " + m.oppRank) };
-      UI.qa = null; save(); haptic("success"); render();
+      UI.qa = null; save(); haptic("success");
+      if (UI.qaOne) { UI.qaOne = null; UI.qaSheet = false; UI.qaRun = 0; UI.qaDone = null; render(); toast("Annoté, merci !", true); return; }
+      render();
       setTimeout(function () { if (UI.qaDone && Date.now() - UI.qaDone.at >= 5900) { UI.qaDone = null; if (route() === "") render(); } }, 6000);
     },
     photoMenu: function () { UI.photoMenu = true; render(); },
@@ -21274,9 +21285,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       TR_KIND = t.kind === "champ" ? "champ" : "tournoi"; if (el.dataset.v === "V" && rk) r.pts = trGain(rk) || 0; // les points, mesurés avant que le match n'entre dans le bilan
       r.res = el.dataset.v; trMatchSync(t, r, pool); save(); haptic(r.res === "V" ? "success" : "light");
       var tid = pool ? r.tid : r.opp && r.opp.tid; if (tid) S.plans = (S.plans || []).filter(function (x) { return x.id !== String(tid); });
-      if (pool) { if (t.resUrl) UI.resNudge = t.id; toast(r.res === "V" ? "Bravo !" + (t.resUrl ? " Pense à l'envoyer au comité." : "") : "Noté." + (t.resUrl ? " Pense à l'envoyer au comité." : "")); render(); if (t.resUrl) window.scrollTo(0, 0); return; }
-      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Ajoute ton " + trLab(t.rounds.length) + "."); } else toast("Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + "."); }
+      var mx = trMatchOf(r);
+      if (pool) { if (t.resUrl) UI.resNudge = t.id; annToast(mx, r.res === "V" ? "Bravo !" + (t.resUrl ? " Pense à l'envoyer au comité." : "") : "Noté." + (t.resUrl ? " Pense à l'envoyer au comité." : ""), r.res === "V"); render(); if (t.resUrl) window.scrollTo(0, 0); return; }
+      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; annToast(mx, "Bravo ! Ajoute ton " + trLab(t.rounds.length) + ".", true); } else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
       else {
+        annToast(mx, "Noté.");
         // fin de parcours : plus de prochain match nulle part (accueil, montre, notifications)
         t.cut = t.rounds.slice(+el.dataset.i + 1); t.rounds = t.rounds.slice(0, +el.dataset.i + 1); t.endedAt = E.iso(today());
         (t.rounds || []).forEach(function (x) { var id2 = x.opp && x.opp.tid; if (id2) S.plans = (S.plans || []).filter(function (y) { return y.id !== String(id2); }); });
