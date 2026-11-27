@@ -5607,7 +5607,6 @@ body { overflow-x: clip; overflow-wrap: break-word; }
 .cbl-t { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 15px; line-height: 1.42; }
 .cbl-ac { display: flex; flex-wrap: wrap; align-items: center; gap: 0 18px; }
 .cbl-ac button, .cbl-ac a { font: inherit; font-size: 14px; font-weight: 700; background: none; border: 0; padding: 0; min-height: 36px; display: inline-flex; align-items: center; color: var(--acc-ink); text-decoration: none; cursor: pointer; }
-.cbl-ac .cbl-no { color: var(--muted); font-weight: 600; }
 /* Ace : à côté de la roue des réglages sur l'accueil, puis son écran (sujets en tuiles, réponse en gros texte) */
 .cbl-b.sm { width: 40px; height: 44px; margin: 0; }
 .ace-hd { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 70%; border: 0; background: none; padding: 0; font: inherit; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -5845,7 +5844,6 @@ button.acr, a.acr { cursor: pointer; }
 .acd-acts .acd-btn { margin-top: 0; text-decoration: none; }
 .acd-acts .acd-f { margin-top: 0; }
 .acd-acts .acd-f svg { width: 14px; height: 14px; color: var(--gazon); }
-.acd-no { background: none; border: 0; padding: 8px 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
 .acf > .acd > .acd-acts { margin-top: auto; padding-top: 8px; }
 
 /* 3.74.2 (audit accessibilité) : zone tactile agrandie sans changer la mise en page (petits liens et pastilles < 30 px) */
