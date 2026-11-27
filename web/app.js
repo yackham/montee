@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.27.2",
+    VERSION: "4.27.3",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -362,6 +362,8 @@
     tk.insertAdjacentHTML("beforeend", ' <button type="button" class="tk-undo" data-a="' + act + '"' + (v ? ' data-v="' + esc(String(v)) + '"' : "") + ">" + esc(lab) + "</button>");
   }
   // 4.26.2 (Yann, 27/11) : un résultat saisi vite (Ton chemin, poule) propose l'annotation sans l'imposer : « Annoter » dans le toast
+  // 4.27.3 : après l'annotation du tour qu'on vient de gagner, la feuille du tour suivant s'ouvre (si on est toujours sur le tournoi)
+  function qaNextRound(msg, ok) { var nx = UI.qaNext; UI.qaNext = null; if (!nx || route() !== "tournoi/" + nx.tid) return false; var t = (S.tours || []).filter(function (x) { return x.id === nx.tid; })[0]; if (!t) return false; UI.trR = { i: "new", mode: "one", day: nx.day, alt: [{}, {}] }; UI.trHits = null; render(); toast((msg ? msg + " " : "") + "Ajoute ton " + nx.lab + ".", ok !== false); return true; }
   function annToast(m, msg, ok) { if (m && qaPending(m)) toastAct(msg, "qaOpen", "Annoter", m.id, ok); else toast(msg, ok); }
   function trMatchOf(r) { return r ? S.matches.filter(function (x) { return x.id === "tr" + r.id || (r.twin && x.id === r.twin); })[0] : null; }
 
@@ -21041,9 +21043,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     qaRkOpen: function () { UI.qa.rkOpen = true; render(); },
     qaIndoor: function (el) { var v = el.dataset.v === "1"; UI.qa.indoor = UI.qa.indoor === v ? null : v; render(); },
     qaFelt: function (el) { var q = UI.qa; q.felt = q.felt || []; var i = q.felt.indexOf(el.dataset.v); if (i >= 0) q.felt.splice(i, 1); else q.felt.push(el.dataset.v); haptic("light"); render(); },
-    qaSkip: function () { var m = S.matches.filter(function (x) { return x.id === UI.qa.id; })[0]; if (m) { m.qaSkip = true; save(); } UI.qa = null; UI.qaDone = null; if (UI.qaOne) { UI.qaOne = null; UI.qaSheet = false; } toast("Tu le retrouves dans le Palmarès, onglet « À annoter »."); render(); },
+    qaSkip: function () { var m = S.matches.filter(function (x) { return x.id === UI.qa.id; })[0]; if (m) { m.qaSkip = true; save(); } UI.qa = null; UI.qaDone = null; var one = !!UI.qaOne; if (UI.qaOne) { UI.qaOne = null; UI.qaSheet = false; } render(); if (!(one && qaNextRound("", false))) toast("Tu le retrouves dans le Palmarès, onglet « À annoter »."); },
     qaOpen: function (el) { UI.qaOne = el && el.dataset && el.dataset.v || null; UI.qa = null; UI.qaSheet = true; var tk = document.querySelector(".toast"); if (tk && UI.qaOne) tk.remove(); render(); }, // 4.26.2 : data-v = un match précis (toast, bulle d'Ace)
-    qaClose: function () { UI.qaSheet = false; UI.qaOne = null; render(); },
+    qaClose: function () { UI.qaSheet = false; UI.qaOne = null; render(); qaNextRound(); },
     qaSave: function () {
       var q = UI.qa, m = q && S.matches.filter(function (x) { return x.id === q.id; })[0]; if (!m) return;
       if (!q.racketId && !q.surface && q.indoor == null && !q.feel && !(q.felt || []).length) { toast("Choisis au moins une info, ou touche « Plus tard »."); return; }
@@ -21058,7 +21060,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       UI.qaRun = qaList().length ? (UI.qaRun || 0) + 1 : 0;
       UI.qaDone = { at: Date.now(), label: (m.result === "V" ? "Victoire" : "Défaite") + " contre " + (m.opp && !isAnon(m.opp) ? m.opp : "un " + m.oppRank) };
       UI.qa = null; save(); haptic("success");
-      if (UI.qaOne) { UI.qaOne = null; UI.qaSheet = false; UI.qaRun = 0; UI.qaDone = null; render(); toast("Annoté, merci !", true); return; }
+      if (UI.qaOne) { UI.qaOne = null; UI.qaSheet = false; UI.qaRun = 0; UI.qaDone = null; render(); if (!qaNextRound("Annoté, merci !", true)) toast("Annoté, merci !", true); return; }
       render();
       setTimeout(function () { if (UI.qaDone && Date.now() - UI.qaDone.at >= 5900) { UI.qaDone = null; if (route() === "") render(); } }, 6000);
     },
@@ -21369,7 +21371,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var tid = pool ? r.tid : r.opp && r.opp.tid; if (tid) S.plans = (S.plans || []).filter(function (x) { return x.id !== String(tid); });
       var mx = trMatchOf(r);
       if (pool) { if (t.resUrl) UI.resNudge = t.id; annToast(mx, r.res === "V" ? "Bravo !" + (t.resUrl ? " Pense à l'envoyer au comité." : "") : "Noté." + (t.resUrl ? " Pense à l'envoyer au comité." : ""), r.res === "V"); render(); if (t.resUrl) window.scrollTo(0, 0); return; }
-      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Ajoute ton " + trLab(t.rounds.length) + ".", true); if (mx && qaPending(mx)) UI.annLater = mx.id; } /* 4.26.5 (Yann) : la feuille du tour suivant s'ouvre : « Annoter » attend qu'elle soit fermée */ else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
+      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { var nx = { tid: t.id, day: r.day, lab: trLab(t.rounds.length) }; if (mx && qaPending(mx)) { UI.qaNext = nx; UI.qaOne = mx.id; UI.qa = null; UI.qaSheet = true; toast("Bravo ! Raconte-moi ce match, puis ton " + nx.lab + ".", true); } else { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Ajoute ton " + nx.lab + ".", true); } } /* 4.27.3 (Yann) : d'abord annoter le match qu'on vient de jouer, ensuite le tour suivant */ else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
       else {
         annToast(mx, "Noté.");
         // fin de parcours : plus de prochain match nulle part (accueil, montre, notifications)
