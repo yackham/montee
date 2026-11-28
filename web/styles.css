@@ -7672,6 +7672,7 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 /* 4.28.0 (Yann, 28/11) : « Ton match, point par point » (play.js) : frise des jeux, lignes d'Ace, pour la suite ; sans contour */
 .wp { gap: 12px; }
 .wp-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.wp-h2 { margin-top: 24px; } /* 4.31.0 : « Ton service, match après match » sur la fiche (Montée+) */
 .wp .sv2-h { margin: 0; }
 .wp-fr { display: flex; flex-direction: column; gap: 8px; }
 .wp-fs { display: flex; align-items: center; gap: 10px; }
@@ -7736,6 +7737,24 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 .wpx-v.lk { filter: blur(6px); user-select: none; }
 .wpx-t { position: relative; width: 100%; max-width: 30px; height: 90px; border-radius: 7px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
 .wpx-t i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 7px; } .wpx-t i.g { background: var(--gazon); } .wpx-t i.r { background: var(--terre); }
+/* 4.31.0 (Yann) : point fort / à travailler / dans ta moyenne, pastille à fond doux (sans contour), même règle colonnes et feuille */
+.wpx-t i.n, .wpx-t i.p { background: color-mix(in srgb, var(--ink) 30%, transparent); }
+.wpt { display: inline-flex; align-items: center; gap: 5px; border-radius: 99px; padding: 3px 9px; font-size: 11.5px; font-weight: 800; letter-spacing: 0; text-transform: none; white-space: nowrap; color: var(--muted); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.wpt::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 30%, transparent); }
+.wpt.g { color: var(--ink); background: color-mix(in srgb, var(--gazon) 16%, transparent); } .wpt.g::before { background: var(--gazon); }
+.wpt.r { color: var(--ink); background: color-mix(in srgb, var(--terre) 16%, transparent); } .wpt.r::before { background: var(--terre); }
+.wpt-h { display: inline-flex; align-items: center; gap: 8px; } .wpt-v.g { color: var(--gazon-dark); } .wpt-v.r { color: var(--terre-dark); }
+.wpt-k { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; } .wpt-k .wpt { font-size: 11px; padding: 2px 8px; }
+/* 4.31.0 (Yann) : le bilan d'Ace (à corriger, à garder, ton prochain match) en tête, les chiffres dans la feuille */
+.wpt.y { color: var(--ink); background: color-mix(in srgb, var(--balle) 16%, transparent); } .wpt.y::before { background: var(--ink); }
+.wbl { display: flex; flex-direction: column; } .wbl-h { display: flex; align-items: center; gap: 10px; margin: 6px 0 4px; } .wbl-h b { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.wbl-i, .wbl-ck { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px 0; border-top: 1px solid var(--line); } .wbl-h + .wbl-i, .wbl-h + .wbl-ck { border-top: 0; }
+.wbl-i p, .wbl-ck p, .wbl-nx p { margin: 0; font-size: 15px; line-height: 1.42; } .wbl-i p b { font-weight: 800; }
+.wbl-nx { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 4px; padding: 14px; border-radius: 14px; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.wbl-ob { align-self: stretch; display: flex; flex-direction: column; gap: 2px; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); } .wbl-ob b { font-size: 15.5px; font-weight: 800; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.wbl-nx .acr { align-self: stretch; border-top: 1px solid var(--line); padding-bottom: 0; }
+.wbl-more { border-top: 1px solid var(--line); } .wp-wbl { gap: 0; }
+.wp-enc .acr-sq.r { color: var(--terre-dark); } .wp-enc .acr-sq.g { color: var(--gazon-dark); } /* pastilles 1-2-3 de la feuille « Les chiffres du match » : lisibles en Lin */
 .wpx > div > small { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.2; min-height: 27px; }
 .wpp-sc { margin: 0 0 4px; }
 .ace-fp { margin-left: 6px; }
