@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.27.7",
+    VERSION: "4.27.8",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -9784,7 +9784,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     f.snap = now; f.rank = now.rank || f.rank; f.at = Date.now();
     if (news && (news.k === "up" || news.lvl || fresh.length)) { f.news = news; f.newsAt = Date.now(); f.seen = false; }
     if (notify && news && (news.k === "up" || fresh.length) && LN && S.notif && np("fol")) { // 4.17.0 (Yann) : tous ses résultats
-      try { LN.schedule({ notifications: [{ id: 3000 + (parseInt(id, 10) % 900 || 1), title: nameCase(f.name) + (news.k === "up" ? " est monté " + now.rank : " a joué"), body: news.t, extra: { url: "montee://open/joueur/" + id } }] }).catch(function () {}); } catch (e) {}
+      try { var fa8 = new Date(Date.now() + 5e3); if (fa8.getHours() >= 21 || fa8.getHours() < 8) { if (fa8.getHours() >= 21) fa8 = new Date(fa8.getTime() + 864e5); fa8.setHours(8, 0, 0, 0); } else fa8 = null; // 4.27.8 (Yann, notif reçue à 1 h) : jamais entre 21 h et 8 h, elle attend 8 h
+        LN.schedule({ notifications: [{ id: 3000000 + (parseInt(id, 10) % 1000000 || 1), schedule: fa8 ? { at: fa8 } : undefined, title: nameCase(f.name) + (news.k === "up" ? " est monté " + now.rank : " a joué"), body: news.t, extra: { url: "montee://open/joueur/" + id } }] }).catch(function () {}); } catch (e) {}
     }
     return news;
   }
