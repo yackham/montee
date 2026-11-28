@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.33.1",
+    VERSION: "4.33.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -9364,7 +9364,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (mixed) s = s.replace('<div class="seg pl-tabs"', '<div class="card ff-mixed"><span class="eyebrow">' + (her ? "Joueuse" : "Joueur") + '</span><span>Les classements ' + (her ? "femmes" : "hommes") + ' et ' + (her ? "hommes" : "femmes") + ' ne se comparent pas : pas de pronostic ni de plan de jeu. ' + (her ? "Son" : "Son") + ' palmarès et ses stats restent là.</span></div><div class="seg pl-tabs"');
     if (her) s = feminize(s);
     s = s.replace("<!--PLRK-->", prl.line); if (prl.sc) s = s.replace('<div class="seg pl-tabs"', prl.sc + '<div class="seg pl-tabs"');
-    if (!isMe) { var rvH = ""; try { rvH = revancheHtml(id, pr, rows, mine, od); } catch (e) {} if (rvH) s = s.replace('<div class="seg pl-tabs"', rvH + '<div class="seg pl-tabs"'); } // 3.48 (Yann)
+    // 4.33.2 (Yann, maquette validée le 28/11) : les onglets collés à l'en-tête, « La revanche » rangée en tête de l'onglet Plan de jeu
+    if (!isMe) { var rvH = ""; try { rvH = revancheHtml(id, pr, rows, mine, od); } catch (e) {}
+      if (rvH && mixed) s = s.replace('<div class="seg pl-tabs"', rvH + '<div class="seg pl-tabs"');
+      else if (rvH && tab === "plan") s = s.replace('>Palmarès</button></div>', '>Palmarès</button></div>' + rvH); } // 3.48 (Yann)
     s += '<p class="small">Les conseils ne s\'affichent que s\'ils s\'appuient sur au moins 5 matchs. Ten\'Up ne donne ni la durée ni la surface de ses matchs : le plan se base sur ses scores et son calendrier. Lu le ' + esc(fdate(p.at)) + ' · <button class="linkbtn" data-a="scoutReload" data-v="' + esc(id) + '" style="padding:0;min-height:0;font-size:inherit">actualiser</button></p>';
     return s + "</div>";
   };
