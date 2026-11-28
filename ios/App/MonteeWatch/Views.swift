@@ -1918,7 +1918,18 @@ struct EndView: View {
     @ObservedObject var vm = MatchVM.shared
     @ObservedObject var w = Workout.shared
     var won: Bool { (vm.live?.forced ?? M.winner ?? 0) == 0 }
+    /// 4.33 (Yann, maquette validée) : annoter le match juste après l'avoir enregistré
+    @ObservedObject var link = PhoneLink.shared
+    @State private var annOpen = false
+    var canAnn: Bool { guard let a = link.ctx.ann else { return false }; return !(won ? a.V : a.D).isEmpty }
     var body: some View {
+        if annOpen, let l = vm.live {
+            AnnFlow(won: won, t0: l.t0) { vm.close() }
+        } else {
+            endBody
+        }
+    }
+    var endBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
@@ -1945,8 +1956,19 @@ struct EndView: View {
                 if vm.live?.sent == true {
                     Text("✓ Envoyé à l'iPhone · séance Tennis enregistrée").font(.system(size: 12, weight: .bold)).foregroundColor(.gazon)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(vm.live?.hom == false ? "Match libre : sans effet sur le classement." : "Le résumé t'attend sur ton iPhone.")
-                        .font(.system(size: 11)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                    if vm.live?.hom == false || !canAnn {
+                        Text(vm.live?.hom == false ? "Match libre : sans effet sur le classement." : "Le résumé t'attend sur ton iPhone.")
+                            .font(.system(size: 11)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    // 4.33 : proposé une seule fois, ici, quand tu as déjà la montre en main ; « Fermer » ne change rien
+                    if canAnn {
+                        Button { annOpen = true } label: {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text("Annoter")
+                                Text("10 s").font(.system(size: 11.5, weight: .heavy)).opacity(0.65)
+                            }
+                        }.buttonStyle(PrimaryStyle())
+                    }
                     Button("Fermer") { vm.close() }.buttonStyle(Wide())
                 } else {
                     Button { vm.finish() } label: {
@@ -1983,6 +2005,217 @@ struct EndView: View {
     }
 }
 
+
+// MARK: - 4.33 : annoter le match depuis la montre (maquette validée par Yann le 28/11)
+// Les raisons, les surfaces, les raquettes et la surface / le lieu du jour viennent de l'iPhone (watchAnnCtx) : aucune liste recopiée ici.
+
+/// La couleur d'une raison comme sur l'iPhone en thème sombre : sa teinte mêlée de blanc (68 / 32)
+func feltColor(_ hex: String?) -> Color {
+    var h = (hex ?? "#3FA06A").trimmingCharacters(in: .whitespaces)
+    if h.hasPrefix("#") { h.removeFirst() }
+    guard h.count == 6, let v = UInt32(h, radix: 16) else { return .gazon }
+    let f = { (x: UInt32) -> Double in Double(x & 0xFF) / 255 * 0.68 + 0.32 }
+    return Color(red: f(v >> 16), green: f(v >> 8), blue: f(v))
+}
+/// Le picto de chaque raison (mêmes idées que les dessins de l'iPhone, en symboles de la montre)
+func feltIcon(_ k: String) -> String {
+    switch k {
+    case "bien": return "star"
+    case "calme": return "shield"
+    case "plan": return "target"
+    case "aide": return "gift"
+    case "service": return "tennisball"
+    case "physique": return "bolt"
+    case "revenu": return "arrow.counterclockwise"
+    case "absent": return "battery.25"
+    case "fort": return "chart.line.uptrend.xyaxis"
+    case "tendu": return "waveform.path.ecg"
+    case "fautes": return "xmark.circle"
+    case "fatigue": return "bolt.slash"
+    case "cond": return "wind"
+    default: return "circle"
+    }
+}
+
+/// Une tuile de raison : picto de couleur ; cochée = fond teinté 30 % + coche dans un rond de la couleur (texte inchangé)
+struct FeltTile: View {
+    let f: WFelt
+    let on: Bool
+    let tap: () -> Void
+    var body: some View {
+        let c = feltColor(f.c)
+        Button(action: tap) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle().fill(on ? c : c.opacity(0.16))
+                    Image(systemName: on ? "checkmark" : feltIcon(f.k)).font(.system(size: 12, weight: .heavy)).foregroundColor(on ? .black : c)
+                }.frame(width: 26, height: 26)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(f.t).font(.system(size: 13, weight: .heavy)).foregroundColor(.white).lineLimit(1)
+                    if let d = f.d, !d.isEmpty {
+                        Text(d).font(.system(size: 10.5, weight: .semibold)).foregroundColor(on ? .white.opacity(0.75) : .secondary).lineLimit(1).minimumScaleFactor(0.8)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 7).padding(.leading, 7).padding(.trailing, 9)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .background(ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.card)
+                if on { RoundedRectangle(cornerRadius: 14, style: .continuous).fill(c.opacity(0.30)) }
+            })
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// Une ligne d'une liste à choix (surface ou raquette)
+struct PickItem: Identifiable { let id: String; let t: String; let c: String? }
+
+/// Les 3 temps : les raisons, où tu as joué, c'est noté. Rien n'est obligatoire ; « Enregistrer » envoie à l'iPhone.
+struct AnnFlow: View {
+    let won: Bool
+    let t0: Date
+    let close: () -> Void
+    @ObservedObject var link = PhoneLink.shared
+    /// 0 raisons, 1 où, 2 liste des surfaces, 3 liste des raquettes, 4 c'est noté
+    @State private var step = 0
+    @State private var felt: [String] = []
+    @State private var surf = ""
+    @State private var indoor: Bool? = nil
+    @State private var rk = ""
+    @State private var ready = false
+    var A: WAnnCtx { link.ctx.ann ?? WAnnCtx() }
+    var body: some View {
+        Group {
+            switch step {
+            case 0: reasons
+            case 1: place
+            case 2: pickList((A.surfs ?? []).map { PickItem(id: $0.n, t: $0.n, c: $0.c) }, cur: surf) { surf = $0; step = 1 }
+            case 3: pickList((A.rk ?? []).map { PickItem(id: $0.id, t: $0.n, c: nil) }, cur: rk) { rk = $0; step = 1 }
+            default: noted
+            }
+        }
+        .onAppear {
+            guard !ready else { return }
+            ready = true
+            surf = A.pre?.s ?? ""; indoor = A.pre?.i; rk = A.rkId ?? ""
+        }
+    }
+    func bar(_ n: Int) -> some View {
+        HStack(spacing: 3) {
+            Capsule().fill(Color.balle).frame(height: 4)
+            Capsule().fill(n > 1 ? Color.balle : Color.card).frame(height: 4)
+        }.padding(.horizontal, 4)
+    }
+    var reasons: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 5) {
+                bar(1)
+                Text(won ? "Ce qui a fait la différence" : "Comment tu l'as senti").font(.system(size: 15, weight: .heavy))
+                    .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 4)
+                Text("Touche ce qui compte · facultatif").font(.system(size: 10.5, weight: .bold)).foregroundColor(.secondary).padding(.horizontal, 4)
+                ForEach(won ? A.V : A.D) { f in
+                    FeltTile(f: f, on: felt.contains(f.k)) {
+                        if let i = felt.firstIndex(of: f.k) { felt.remove(at: i) } else { felt.append(f.k) }
+                        WKInterfaceDevice.current().play(.click)
+                    }
+                }
+                Button("Suivant") { step = 1 }.buttonStyle(PrimaryStyle()).padding(.top, 2)
+            }
+        }
+    }
+    var surfColor: Color { Color(hexStr: A.surfs?.first(where: { $0.n == surf })?.c ?? "") ?? .terre }
+    var rkName: String? { A.rk?.first(where: { $0.id == rk })?.n }
+    var place: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 6) {
+                bar(2)
+                Text("Où tu as joué").font(.system(size: 15, weight: .heavy)).padding(.horizontal, 4)
+                VStack(spacing: 0) {
+                    Button { step = 2 } label: {
+                        row(surf.isEmpty ? "Choisir la surface" : surf, sub: surf.isEmpty ? nil : (A.pre?.s == surf ? (A.pre?.tu == true ? "d'après Ten'Up" : "comme ton dernier match") : nil), court: !surf.isEmpty)
+                    }.buttonStyle(.plain)
+                    if !(A.rk ?? []).isEmpty {
+                        Divider().overlay(Color.white.opacity(0.08))
+                        Button { step = 3 } label: {
+                            row(rkName ?? "Choisir ta raquette", sub: rkName != nil && rk == A.rkId ? "la principale" : nil, court: false)
+                        }.buttonStyle(.plain).disabled((A.rk ?? []).count < 2 && rkName != nil)
+                    }
+                }
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.card))
+                HStack(spacing: 0) {
+                    seg("Intérieur", indoor == true) { indoor = true }
+                    seg("Extérieur", indoor == false) { indoor = false }
+                }
+                .padding(3).background(Capsule().fill(Color.card))
+                Button("Enregistrer") { save() }.buttonStyle(PrimaryStyle()).padding(.top, 2)
+            }
+        }
+    }
+    func row(_ t: String, sub: String?, court: Bool) -> some View {
+        HStack(spacing: 8) {
+            if court {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 2.5).fill(surfColor)
+                    Rectangle().stroke(Color.white.opacity(0.85), lineWidth: 1).padding(.horizontal, 2.5).padding(.vertical, 2.5)
+                }.frame(width: 22, height: 14)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(t).font(.system(size: 13, weight: .heavy)).foregroundColor(.white).lineLimit(1).minimumScaleFactor(0.8)
+                if let s = sub { Text(s).font(.system(size: 10, weight: .semibold)).foregroundColor(.secondary).lineLimit(1) }
+            }
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.right").font(.system(size: 12, weight: .heavy)).foregroundColor(.gazon)
+        }
+        .padding(.horizontal, 10).frame(minHeight: 40).contentShape(Rectangle())
+    }
+    func seg(_ t: String, _ on: Bool, _ act: @escaping () -> Void) -> some View {
+        Button(action: act) {
+            Text(t).font(.system(size: 13, weight: .heavy)).foregroundColor(on ? .black : .secondary)
+                .frame(maxWidth: .infinity, minHeight: 32)
+                .background(Capsule().fill(on ? Color.white : .clear))
+        }.buttonStyle(.plain)
+    }
+    /// Liste à choix (surfaces, raquettes) : la couronne fait défiler, un toucher choisit et revient
+    func pickList(_ items: [PickItem], cur: String, pick: @escaping (String) -> Void) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(items) { it in
+                    Button { pick(it.id) } label: {
+                        HStack(spacing: 8) {
+                            if let c = it.c { RoundedRectangle(cornerRadius: 2.5).fill(Color(hexStr: c) ?? .terre).frame(width: 22, height: 14) }
+                            Text(it.t).font(.system(size: 13, weight: .heavy)).foregroundColor(.white).lineLimit(1).minimumScaleFactor(0.8)
+                            Spacer(minLength: 4)
+                            if it.id == cur { Image(systemName: "checkmark").font(.system(size: 12, weight: .heavy)).foregroundColor(.gazon) }
+                        }
+                        .padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 40)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(it.id == cur ? Color.gazon.opacity(0.22) : Color.card))
+                    }.buttonStyle(.plain)
+                }
+            }
+        }
+    }
+    var noted: some View {
+        VStack(spacing: 8) {
+            AceBall(mood: "fier", size: 70, replay: true)
+            Text("C'est noté").font(.system(size: 18, weight: .heavy))
+            Text("Je m'en sers pour tes stats. Tout reste modifiable sur ton iPhone.")
+                .font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onTapGesture { close() }
+    }
+    func save() {
+        let out = OutAnn(t0: t0.timeIntervalSince1970 * 1000, felt: felt, s: surf.isEmpty ? nil : surf, i: indoor, rk: rk.isEmpty ? nil : rk)
+        PhoneLink.shared.send(ann: out)
+        WKInterfaceDevice.current().play(.success)
+        step = 4
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { close() }
+    }
+}
 
 // MARK: - 3.46.5 : « À venir » et « Tes copains »
 

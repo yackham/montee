@@ -88,8 +88,8 @@
       var more = fresh.length > 1 ? " (et " + (fresh.length - 1) + " autre" + (fresh.length > 2 ? "s" : "") + " match" + (fresh.length > 2 ? "s" : "") + ")" : "";
       var nm = String(o.n || "").split(" "), sn = nm[0] + (nm[1] ? " " + nm[nm.length - 1].charAt(0).toUpperCase() + "." : "");
       var short = m0 ? sn + " " + (m0.result === "V" ? "bat" : "perd contre") + " un " + m0.oppRank : "";
-      if (ri != null && ro != null && ri > ro) out.push({ title: o.n + " est monté " + rank, body: "Il était " + o.r + "." + (what ? " " + what + more + "." : ""), short: sn + " monte " + rank, ess: true });
-      else if (m0) out.push({ title: o.n + " a joué", body: what + more + ".", short: short, ess: true });
+      if (ri != null && ro != null && ri > ro) out.push({ title: o.n + " est monté " + rank, body: "Il était " + o.r + "." + (what ? " " + what + more + "." : ""), short: sn + " monte " + rank, ess: true, url: "montee://open/joueur/" + x.id });
+      else if (m0) out.push({ title: o.n + " a joué", body: what + more + ".", short: short, ess: true, url: "montee://open/joueur/" + x.id });
       snap[x.id] = { n: o.n, r: rank || o.r, last: rows[0] ? rows[0].date : o.last };
     });
     return { notes: out, fol: snap };
@@ -126,12 +126,15 @@
   function capMore(st, more) {
     var lvl = (st.np || {}).lvl || "norm", wk = st.wk && st.wk.w === weekKey(nowD()) ? { w: st.wk.w, n: st.wk.n } : { w: weekKey(nowD()), n: 0 };
     var out = more.filter(function (n) { if (n.ess || lvl === "tout") return true; if (lvl === "ess" || wk.n >= 3) return false; wk.n++; return true; });
-    return { more: out.map(function (n) { return { title: n.title, body: n.body }; }), wk: wk };
+    return { more: out.map(function (n) { return n.url ? { title: n.title, body: n.body, url: n.url } : { title: n.title, body: n.body }; }), wk: wk }; // 4.33.1 : url = écran ouvert en touchant la notif
   }
   // ---- 3.49 : ta poule a bougé (fiches de tes adversaires de poule relues en arrière-plan) ----
   function pKey(date, a, b) { return date + "|" + [toks(a).join(" "), toks(b).join(" ")].sort().join("|"); }
   function samePl(a, b) { var ta = toks(a), tb = toks(b), n = ta.filter(function (t) { return tb.indexOf(t) >= 0; }).length; return n > 0 && n >= Math.min(2, ta.length, tb.length); }
   function first(n) { return String(n || "").split(" ")[0]; }
+  // 4.33.1 (Yann) : un match entre deux joueurs de ta poule joué dans un AUTRE tournoi ne fait pas bouger ta poule
+  var COMP_GEN = ["tournoi", "open", "tennis", "club", "poule", "poules", "individuel", "individuelle", "individuels", "championnat", "simple", "simples", "messieurs", "dames", "seniors", "senior", "des", "les", "tour"];
+  function sameComp(a, b) { var ta = toks(a).filter(function (t) { return COMP_GEN.indexOf(t) < 0; }), tb = toks(b).filter(function (t) { return COMP_GEN.indexOf(t) < 0; }); if (!ta.length || !tb.length) return true; return ta.some(function (t) { return tb.indexOf(t) >= 0; }); }
   function poolNotes(pl, st) {
     var T = root.MonteeTenup, out = [], P = (st.pool || []).map(function (q) { return Object.assign({}, q, { seen: (q.seen || []).slice() }); });
     (pl.fol || []).forEach(function (x) {
@@ -140,13 +143,14 @@
         var me = (q.mem || []).filter(function (m) { return String(m.id) === String(x.id); })[0]; if (!me) return;
         var rows = []; try { rows = T.rows(d.raw ? { raw: d.raw } : d) || []; } catch (e) {}
         rows.forEach(function (r) {
-          if (!r.ok || !r.date || r.date < (q.lo || "") || r.wo || !(r.result === "V" || r.result === "D")) return;
+          if (!r.ok || !r.date || r.date < (q.lo || "") || r.wo || r.dbl || !(r.result === "V" || r.result === "D")) return;
+          if (q.t && r.comp) { var qk = T.kindOf(q.t), rk = r.kind || T.kindOf(r.comp); if ((qk === "champ" && rk === "tournoi") || (qk === "tournoi" && rk === "champ") || !sameComp(q.t, r.comp)) return; }
           var o = (q.mem || []).filter(function (m) { return m !== me && ((r.oid && m.id && String(r.oid) === String(m.id)) || (!(r.oid && m.id) && samePl(m.n, r.opp))); })[0];
           if (!o) return;
           var k = pKey(r.date, me.n, o.n); if (q.seen.indexOf(k) >= 0) return; q.seen.push(k);
           var won = r.result === "V", W = won ? me : o, L = won ? o : me, sc = won ? r.score : invSc(r.score);
           var next = W.p != null ? " Il te reste " + first(W.n) + " à jouer : tes chances " + W.p + " %." : L.p != null ? " Tu joues encore " + first(L.n) + " : tes chances " + L.p + " %." : "";
-          out.push({ title: "Ta poule a bougé", body: W.n + " a battu " + L.n + (sc ? " " + sc : "") + "." + next, ess: true });
+          out.push({ title: "Ta poule a bougé", body: W.n + " a battu " + L.n + (sc ? " " + sc : "") + "." + next, ess: true, url: q.id ? "montee://open/tournoi/" + q.id : "" });
         });
       });
     });

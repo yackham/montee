@@ -138,7 +138,61 @@
     return cand;
   }
 
-  var api = { replay: replay, read: read, pressKey: pressKey };
+  // 4.32.0 (Yann, 28/11) : le match saisi sur le téléphone au changement de côté, jeu par jeu.
+  // G = { f: qui sert le 1er jeu (0 toi, 1 lui), fmt: "3" | "stb", s: [{ g: "1011…" (1 = jeu gagné), tb: [toi, lui] }] }
+  // Le tie-break d'un set compte comme un jeu du set (son score dans tb) ; le super tie-break est un set sans jeux (g "", tb).
+  // Le service alterne à chaque jeu, tie-break compris. Un seul calcul pour l'écran en direct, Ace, la fiche et le bilan.
+  function games(G) {
+    if (!G || !G.s) return null;
+    var srv = G.f ? 1 : 0, L = [], sets = [], cur = 0;
+    G.s.forEach(function (st, si) {
+      var a = 0, b = 0, g = String(st.g || "");
+      for (var i = 0; i < g.length; i++) {
+        var w = g.charAt(i) === "1", tb = a === 6 && b === 6;
+        L.push({ set: si, i: i, srv: tb ? -1 : srv, w: w, a: a, b: b, tb: tb });
+        if (w) a++; else b++; srv = 1 - srv;
+      }
+      if (!g.length && st.tb) { srv = 1 - srv; }
+      var me = g.length ? a : st.tb ? (st.tb[0] > st.tb[1] ? 1 : 0) : 0, him = g.length ? b : st.tb ? (st.tb[1] > st.tb[0] ? 1 : 0) : 0;
+      sets.push({ me: me, him: him, tb: st.tb || null, stb: !g.length && !!st.tb });
+    });
+    var mine = L.filter(function (x) { return x.srv === 0; }), his = L.filter(function (x) { return x.srv === 1; });
+    var tal = function (A, f) { var w = 0; A.forEach(function (x) { if (f(x)) w++; }); return [w, A.length]; };
+    var held = tal(mine, function (x) { return x.w; }), brk = tal(his, function (x) { return x.w; });
+    // le jeu d'après un break : ton service juste après l'avoir breaké (même set), et son service juste après qu'il t'a breaké
+    var aft = [0, 0], aftH = [0, 0];
+    L.forEach(function (x, k) { var n = L[k + 1]; if (!n || n.set !== x.set || n.tb) return;
+      if (x.srv === 1 && x.w && n.srv === 0) { aft[1]++; if (n.w) aft[0]++; }
+      if (x.srv === 0 && !x.w && n.srv === 1) { aftH[1]++; if (n.w) aftH[0]++; } });
+    var firstG = [0, 0]; sets.forEach(function (st, si) { var f = L.filter(function (x) { return x.set === si; })[0]; if (f) { firstG[1]++; if (f.w) firstG[0]++; } });
+    var run = function (w) { var best = { n: 0 }, c = 0, st = null; L.forEach(function (x) { if (x.w === w) { if (!c) st = x; c++; if (c > best.n) best = { n: c, set: st.set, a: st.a, b: st.b }; } else c = 0; }); return best; };
+    var tbs = sets.filter(function (x) { return x.tb; }), tb = [tbs.filter(function (x) { return x.tb[0] > x.tb[1]; }).length, tbs.length];
+    var won = sets.filter(function (x) { return x.me > x.him; }).length, lost = sets.filter(function (x) { return x.him > x.me; }).length;
+    var curve = [0]; L.forEach(function (x) { curve.push(curve[curve.length - 1] + (x.w ? 1 : -1)); });
+    // le tournant : dans le dernier set joué en jeux, la dernière égalité avant que le vainqueur du set ne s'échappe
+    var turn = null;
+    for (var si = sets.length - 1; si >= 0 && !turn; si--) {
+      if (sets[si].stb) continue; var gs = L.filter(function (x) { return x.set === si; }), t = null;
+      gs.forEach(function (x, k) { if (x.a === x.b && k > 0 && k < gs.length - 1) t = { set: si, k: L.indexOf(x), a: x.a, b: x.b }; });
+      turn = t || (gs.length ? { set: si, k: L.indexOf(gs[0]), a: 0, b: 0 } : null);
+    }
+    var score = sets.map(function (x) { return x.stb ? x.tb[0] + "-" + x.tb[1] : x.me + "-" + x.him; }).join(" ");
+    return { games: L, sets: sets, held: held, brk: brk, aft: aft, aftH: aftH, firstG: firstG, runW: run(true), runL: run(false), tb: tb, won: won, lost: lost, curve: curve, turn: turn, score: score, n: L.length };
+  }
+  // Où en est le match : qui sert le prochain jeu, le score du set en cours, et si le set ou le match est fini
+  function gameState(G) {
+    var A = games(G) || { games: [], sets: [] }, fmt = G.fmt === "stb" ? "stb" : "3";
+    var st = G.s[G.s.length - 1] || { g: "" }, a = 0, b = 0, g = String(st.g || "");
+    for (var i = 0; i < g.length; i++) { if (g.charAt(i) === "1") a++; else b++; }
+    var setOver = st.tb && !g.length ? true : (a >= 6 || b >= 6) && (Math.abs(a - b) >= 2 || a + b === 13);
+    var sw = 0, sl = 0; A.sets.forEach(function (x, k) { if (k < G.s.length - 1 || setOver) { if (x.me > x.him) sw++; else if (x.him > x.me) sl++; } });
+    var over = sw === 2 || sl === 2, next = (G.f ? 1 : 0); A.games.forEach(function () { next = 1 - next; });
+    G.s.forEach(function (x) { if (!String(x.g || "").length && x.tb) next = 1 - next; });
+    var stbNext = !over && setOver && fmt === "stb" && sw === 1 && sl === 1;
+    return { a: setOver ? 0 : a, b: setOver ? 0 : b, set: setOver ? G.s.length : G.s.length - 1, setOver: setOver, sw: sw, sl: sl, over: over, next: next, tbNow: !setOver && a === 6 && b === 6, stbNext: stbNext, A: A };
+  }
+
+  var api = { replay: replay, read: read, pressKey: pressKey, games: games, gameState: gameState };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteePlay = api;
 })(this);

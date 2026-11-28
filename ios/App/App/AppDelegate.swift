@@ -1468,7 +1468,7 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
 enum MonteeSummary {
     /// Calcule le résumé avec le même moteur que l'app (engine.js, tenup.js, summary.js).
     /// at8 (4.18.1) : trouvées entre 21 h et 8 h, les notifications sont montrées à 8 h au lieu d'être perdues.
-    static func compute(payload: String, state: String) -> (notes: [(title: String, body: String)], at8: Bool) {
+    static func compute(payload: String, state: String) -> (notes: [(title: String, body: String, url: String)], at8: Bool) {
         guard let ctx = JSContext() else { return ([], false) }
         for name in ["engine", "tenup", "summary"] {
             if let url = Bundle.main.url(forResource: name, withExtension: "js", subdirectory: "public"),
@@ -1481,12 +1481,12 @@ enum MonteeSummary {
               let json = res.toString(), let data = json.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return ([], false) }
         if let newState = obj["state"] as? String { MonteeStore.state = newState }
-        var out: [(title: String, body: String)] = []
-        if let title = obj["title"] as? String, let body = obj["body"] as? String { out.append((title: title, body: body)) }
+        var out: [(title: String, body: String, url: String)] = []
+        if let title = obj["title"] as? String, let body = obj["body"] as? String { out.append((title: title, body: body, url: "")) }
         // 3.43.2 : profil de compétiteur qui bouge, joueurs suivis (au plus 4 notifications par relance)
         if let more = obj["more"] as? [[String: Any]] {
             for m in more {
-                if let t = m["title"] as? String, let b = m["body"] as? String { out.append((title: t, body: b)) }
+                if let t = m["title"] as? String, let b = m["body"] as? String { out.append((title: t, body: b, url: m["url"] as? String ?? "")) }
             }
         }
         return (Array(out.prefix(4)), (obj["at8"] as? Bool) ?? false)
@@ -1611,7 +1611,7 @@ enum MonteeBackground {
                     if !(text.contains("\"folOnly\":true") && MonteeStore.pending != nil) { MonteeStore.pending = text }
                     let res = MonteeSummary.compute(payload: text, state: MonteeStore.state ?? "{}")
                     for note in res.notes {
-                        notify(title: note.title, body: note.body, at8: res.at8)
+                        notify(title: note.title, body: note.body, at8: res.at8, url: note.url)
                     }
                     log(res.notes.isEmpty ? "rien" : res.at8 ? "nuit:\(res.notes.count)" : "notif:\(res.notes.count)")
                 } else if text.contains("connecte-toi") {
@@ -1650,11 +1650,13 @@ enum MonteeBackground {
     }
 
     /// at8 : la nouveauté a été trouvée la nuit ; l'iPhone la montre à 8 h (jamais entre 21 h et 8 h).
-    static func notify(title: String, body: String, at8: Bool = false) {
+    static func notify(title: String, body: String, at8: Bool = false, url: String = "") {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
+        // 4.33.1 : toucher la notif ouvre le bon écran (poule, joueur suivi), comme les notifs programmées par l'app
+        if !url.isEmpty { content.userInfo = ["cap_extra": ["url": url]] }
         var trigger: UNNotificationTrigger? = nil
         if at8 {
             var c = DateComponents()
