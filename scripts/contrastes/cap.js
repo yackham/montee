@@ -3,7 +3,7 @@ const L=require('./lib.js'); const fs=require('fs');
 const th=process.argv[2], OUT=process.argv[3], F=process.argv[4];
 const st=require('./st2.js')('toi'); st.aceSeen=1; st.arrSeen=1; delete st.seenNotes; st.prefs.theme=th;
 const R=[['accueil',''],['menu','@menu'],['activite','palmares'],['courbes','courbes'],['joueurs','faf'],['ma-montee','projection'],['ace','coach'],
-['match-v','match/mwp1txgfaa4g8'],['match-d','match/mwp1txgfzo8yz'],['saisie-match','match/new'],['saisie-entr','entrainement/new'],['joueur','joueur/demo1'],['adversaire','adversaire/J. Lefèvre'],
+['match-v','match/mwp1txgfaa4g8'],['match-montre','match/mwx1'],['match-montre-detail','@sel|#/match/mwx1|.wp .acr'],['match-d','match/mwp1txgfzo8yz'],['saisie-match','match/new'],['saisie-entr','entrainement/new'],['joueur','joueur/demo1'],['adversaire','adversaire/J. Lefèvre'],
 ['tournoi','tournoi/tt1'],['poule','tournoi/tpool'],['equipe','equipe/301'],['badges','badges'],['saison','saison'],['semaine','semaine'],
 ['objectif','objectif'],['service','service'],['victoires','victoires'],['gagner','gagner'],['niveau','niveau'],['competiteur','competiteur'],
 ['tournois','tournois'],['moi','moi'],['entrainement','entrainement/mwp1txgfzdynz'],['double','double'],['materiel','materiel'],['sante','sante'],['zones','zones'],
