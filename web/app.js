@@ -1670,9 +1670,14 @@
   function trCutLost(t) {
     var r = (t && t.rounds) || [], i = -1;
     for (var k = 0; k < r.length; k++) if (r[k].res === "D") { i = k; break; }
-    if (i < 0 || i === r.length - 1 || r.slice(i + 1).some(function (x) { return x.res; })) return false;
-    t.cut = r.slice(i + 1).concat(t.cut || []); t.rounds = r.slice(0, i + 1); if (!t.endedAt) t.endedAt = r[i].day && r[i].day < E.iso(today()) ? r[i].day : E.iso(today());
-    S.plans = (S.plans || []).filter(function (y) { return y.tour !== t.id; });
+    if (i < 0) return false;
+    // 4.33.2 (Yann, 28/11 : rappel du 2e tour reçu après avoir saisi la défaite du 1er) : un tour saisi après coup est ajouté
+    // EN FIN de liste, derrière le 2e tour déjà connu ; avant, rien n'était retiré dans ce cas. Les tours pas joués sont mis de côté
+    // où qu'ils soient dans la liste, et les rappels de l'épreuve sont retirés dans tous les cas.
+    var open = r.filter(function (x, k) { return k !== i && !x.res; }), cutIds = open.map(function (x) { return x.opp && x.opp.tid ? String(x.opp.tid) : ""; }).filter(Boolean);
+    S.plans = (S.plans || []).filter(function (y) { return y.tour !== t.id && !(y.tour == null && cutIds.indexOf(String(y.id)) >= 0); });
+    if (!open.length || r.some(function (x, k) { return x.res && k !== i && x.day && r[i].day && x.day > r[i].day; })) return false;
+    t.cut = open.concat(t.cut || []); t.rounds = r.filter(function (x) { return open.indexOf(x) < 0; }); if (!t.endedAt) t.endedAt = r[i].day && r[i].day < E.iso(today()) ? r[i].day : E.iso(today());
     return true;
   }
   function tourNext(t) { return (t.rounds || []).filter(function (r) { return !r.res; })[0]; }
@@ -19300,7 +19305,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function schedulePlanNotif() {
     if (!NATIVE || !S.notif || !LN) return;
     try { scheduleMatchDayNotif(); } catch (e) {}
-    var pls = plans().filter(function (x) { return dGap(x.day) >= 0; }).slice(0, 4), now = new Date();
+    var pls = plans().filter(function (x) { var t = x.tour ? tourOf(x.tour) : null; return dGap(x.day) >= 0 && !(t && t.fmt !== "poule" && (t.rounds || []).some(function (r) { return r.res === "D"; })); }).slice(0, 4), now = new Date(); // 4.33.2 : épreuve perdue = plus de rappel
     var key = JSON.stringify(pls.map(function (x) { var t = x.tour ? tourOf(x.tour) : null; return [x.id, x.day, x.p, t ? (t.rounds || []).map(function (r) { return r.res || "-"; }).join("") : ""]; })) + E.iso(today()); // 4.33.2 : un résultat de tour saisi refait le rappel
     if (key === lastPlanKey) return; lastPlanKey = key;
     var list = [];
