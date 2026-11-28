@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.27.5",
+    VERSION: "4.27.6",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -87,6 +87,7 @@
   // (« 15/5 ») : le « / » coupait l'adresse #/match/… et l'écran retombait sur l'Activité. On le remplace une fois pour toutes.
   (function () { var fx = function (L) { (L || []).forEach(function (m) { if (m && typeof m.id === "string" && m.id.indexOf("/") >= 0) m.id = m.id.replace(/\//g, "_"); }); }; fx(S.histMatches); fx(S.matches); fx(S.doubles);
     (S.tours || []).forEach(function (t) { (t.pool || []).concat(t.rounds || []).forEach(function (r) { if (r && typeof r.twin === "string" && r.twin.indexOf("/") >= 0) r.twin = r.twin.replace(/\//g, "_"); }); }); })(); // 3.67.1 : les liens poule/tableau → match suivent
+  try { (S.tours || []).forEach(trCutLost); } catch (e) {} // 4.27.5 : répare les parcours déjà arrêtés par une défaite
   // ——— 4.15.0 (Yann, maquettes f1, f2, p1, p2 validées le 26/11/2026, lot 4) : LE PROFIL DE TON ENFANT.
   // Montée lit sa fiche Ten'Up avec ta connexion (comme un adversaire) et bascule sur SON profil : ses matchs, son classement,
   // sa projection et ses chances sont rangés à part (montee.kid.<id>), et TOUS les calculs de l'app tournent sur ses données
@@ -1633,8 +1634,19 @@
     if (m.result === "V") { var rk = r.rank || (r.opp && r.opp.rank) || m.oppRank; r.pts = trGain(rk) || 0; }
     r.res = m.result; r.twin = m.id; r.mx = 1; if (!r.day) r.day = m.date;
     if (!m.comp) m.comp = t.name || ""; if (!m.kindSet && t.kind === "champ") m.kind = "champ";
-    if (r.res === "D" && !(hit && hit.k === "pool") && t.fmt !== "poule") t.endedAt = E.iso(today());
+    if (r.res === "D" && !(hit && hit.k === "pool") && t.fmt !== "poule") { t.endedAt = E.iso(today()); trCutLost(t); }
     t.poolAt = 0;
+  }
+  // 4.27.5 (Yann : « j'ai perdu au 1er tour et ça me propose encore le 2e ») : une défaite en tableau arrête le parcours,
+  // quel que soit le chemin du résultat (feuille Ton résultat, match saisi puis rattaché, retour de Ten'Up). Les tours prévus
+  // après sont mis de côté (t.cut, rendus par « J'ai mis perdu par erreur ») et leurs fiches « prochain adversaire » retirées.
+  function trCutLost(t) {
+    var r = (t && t.rounds) || [], i = -1;
+    for (var k = 0; k < r.length; k++) if (r[k].res === "D") { i = k; break; }
+    if (i < 0 || i === r.length - 1 || r.slice(i + 1).some(function (x) { return x.res; })) return false;
+    t.cut = r.slice(i + 1).concat(t.cut || []); t.rounds = r.slice(0, i + 1); if (!t.endedAt) t.endedAt = r[i].day && r[i].day < E.iso(today()) ? r[i].day : E.iso(today());
+    S.plans = (S.plans || []).filter(function (y) { return y.tour !== t.id; });
+    return true;
   }
   function tourNext(t) { return (t.rounds || []).filter(function (r) { return !r.res; })[0]; }
   function trLab(i) { return (i === 0 ? "1er" : (i + 1) + "e") + " tour"; }
@@ -21359,9 +21371,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var pool = el.dataset.k === "pool", list = pool ? t.pool : t.rounds, i = +el.dataset.i, r = (list || [])[i]; if (!r || !r.res) return;
       var was = r.res; r.res = null; r.pts = null; if (pool) r.noAuto = 1; trMatchSync(t, r, pool);
       if (pool) { UI.trR = null; }
-      else if (was === "D") { if (i === t.rounds.length - 1 && t.cut && t.cut.length) t.rounds = t.rounds.concat(t.cut); t.cut = null; t.endedAt = null; }
+      else if (was === "D") { if (i === t.rounds.length - 1 && t.cut && t.cut.length) { t.rounds = t.rounds.concat(t.cut); t.cut.forEach(function (x) { if (x.opp) trPlan(t, x.opp.tid, x.opp.name, x.opp.rank, x.day); }); } t.cut = null; t.endedAt = null; }
       else if (i === t.rounds.length - 2 && !t.rounds[i + 1].res && !t.rounds[i + 1].opp && !(t.rounds[i + 1].alt || []).length) t.rounds.pop();
-      save(); if (quiet) return; haptic("light"); toast("Résultat retiré."); render();
+      save(); if (quiet === true) return; haptic("light"); toast("Résultat retiré."); render(); // 4.27.5 : le 2e argument d'un toucher est l'événement, pas « quiet »
     },
     trRoundDel: function () { var t = tourOf(route().split("/")[1]), R = UI.trR; if (!t || !R || R.i === "new") return; var r0 = (R.k === "pool" ? t.pool : t.rounds)[+R.i]; if (r0 && r0.res) { r0.res = null; trMatchSync(t, r0, R.k === "pool"); } (R.k === "pool" ? t.pool : t.rounds).splice(+R.i, 1); save(); UI.trR = null; render(); },
     trRes: function (el) {
@@ -21377,8 +21389,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       else {
         annToast(mx, "Noté.");
         // fin de parcours : plus de prochain match nulle part (accueil, montre, notifications)
-        t.cut = t.rounds.slice(+el.dataset.i + 1); t.rounds = t.rounds.slice(0, +el.dataset.i + 1); t.endedAt = E.iso(today());
-        (t.rounds || []).forEach(function (x) { var id2 = x.opp && x.opp.tid; if (id2) S.plans = (S.plans || []).filter(function (y) { return y.id !== String(id2); }); });
+        t.endedAt = E.iso(today()); trCutLost(t);
         save(); schedulePlanNotif();
       }
       render();
