@@ -1,5 +1,5 @@
 /* Montée — service worker : l'app marche hors ligne. Change VERSION à chaque mise en ligne. */
-var VERSION = "montee-4.28.2";
+var VERSION = "montee-4.28.3";
 var SHELL = ["./", "index.html", "styles.css", "illus.js", "widgets.js", "engine.js", "parser.js", "tenup.js", "pdfimport.js", "summary.js", "play.js", "app.js", "vendor/capacitor.js", "vendor/pdf.min.js", "vendor/pdf.worker.min.js", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "apple-touch-icon.png", "vendor/fonts/figtree-latin-400-normal.woff2", "vendor/fonts/figtree-latin-500-normal.woff2", "vendor/fonts/figtree-latin-600-normal.woff2", "vendor/fonts/figtree-latin-700-normal.woff2", "vendor/fonts/figtree-latin-800-normal.woff2", "vendor/fonts/fraunces-latin-700-normal.woff2", "vendor/fonts/fraunces-latin-800-normal.woff2"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
