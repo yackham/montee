@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.27.7",
+    VERSION: "4.27.8",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -916,7 +916,7 @@
       var sec = { badges: "courbes", chantier: "palmares", joueur: "faf", moi: "faf", coach: "courbes", competiteur: "courbes", adversaire: "palmares", match: "palmares", niveau: "courbes", service: "courbes", victoires: "home", gagner: "courbes", competiteur: "courbes", tournoi: "home", saison: "home", tournois: "palmares", projection: "home", simu: "home", carte: "home", objectif: "home", soutenir: "home" }[parts[0]] || UI.lastTab || "home";
       html = html.replace('<div class="screen', '<div class="screen has-tabs') + tabbar(sec); // 3.50.1 : aussi « screen ins-scr », « screen tm-scr »… (sinon le bas de page passe sous les onglets)
     }
-    if (SK) { html = kidVoice(html).replace(/<div class="screen[^"]*">/, function (m) { return m + kidBand(); }); document.body.classList.add("kid-on"); } else document.body.classList.remove("kid-on"); // 4.15 : son profil, dit en haut de chaque écran
+    if (SK) { html = (kidBlocked(parts) || parts[0] === "reglages" ? html : kidVoice(html)).replace(/<div class="screen[^"]*">/, function (m) { return m + kidBand(); }); document.body.classList.add("kid-on"); } else document.body.classList.remove("kid-on"); // 4.15 : son profil, dit en haut de chaque écran
     var kvFrom = html.length; // 4.18.1 : les feuilles ouvertes sur son profil sont aussi à la 3e personne (pas « Profils », ni la conversation d'Ace)
     if (UI.mmOv) { html += UI.mmOv; UI.mmOv = null; }
     else html += mmPill() || sjPill();
@@ -1078,9 +1078,12 @@
         var rs = cr.querySelectorAll(".cr3-row .cr3-c"), hot = rs[+cr.getAttribute("data-spot")]; if (!hot) return;
         hot.classList.add("hot"); cr.classList.add("spot");
         var ace = document.querySelector(".ace-hd"); if (ace) { ace.classList.add("wow"); setTimeout(function () { ace.classList.remove("wow"); }, 1000); }
-        var bub = document.createElement("div"); bub.className = "wow-bub"; bub.textContent = cr.getAttribute("data-say") || ""; document.body.appendChild(bub);
+        // 4.27.8 (tour des écrans) : la bulle d'Ace de l'en-tête dit la bonne nouvelle le temps du projecteur, au lieu d'une 2e bulle posée par-dessus
+        var say = cr.getAttribute("data-say") || "", hbS = document.querySelector(".hd-bub > span"), bub = null, hbOld = "";
+        if (hbS) { hbOld = hbS.textContent; hbS.textContent = say; }
+        else { bub = document.createElement("div"); bub.className = "wow-bub"; bub.textContent = say; document.body.appendChild(bub); }
         setTimeout(function () { var c2 = document.querySelector(".cr3.spot"); if (c2) { c2.classList.remove("spot"); Array.prototype.forEach.call(c2.querySelectorAll(".hot"), function (h) { h.classList.remove("hot"); }); } }, 2400);
-        setTimeout(function () { bub.remove(); }, 3100);
+        setTimeout(function () { if (bub) bub.remove(); else if (hbS && hbS.isConnected && hbS.textContent === say) hbS.textContent = hbOld; }, 3100);
       }, 1500);
     }
     // Temps de jeu : les barres montent, la première fois du jour
@@ -1102,7 +1105,7 @@
   function motionCurves() {
     var rm = mRM(), NS = "http://www.w3.org/2000/svg";
     var draw = function (pl, ms, delay) {
-      var L = pl.getTotalLength ? pl.getTotalLength() : 0; if (!L) return;
+      var L = 0; try { L = pl.isConnected && pl.getTotalLength ? pl.getTotalLength() : 0; } catch (e) {} if (!L) return; // 4.27.8 : Courbes quittée avant l'animation
       pl.style.strokeDasharray = L + " " + L; pl.style.strokeDashoffset = L;
       mTw(ms, delay, function (k) { pl.style.strokeDashoffset = (L * (1 - k)).toFixed(1); }, function () { pl.style.strokeDasharray = ""; pl.style.strokeDashoffset = ""; });
     };
@@ -1112,8 +1115,9 @@
       var lv = +rr.getAttribute("data-lv"), lvOld = mMem("rrLv"); mMem("rrLv", lv);
       var segs = g.querySelectorAll(".rr-seg"), seg = segs[segs.length - 1], up = rr.classList.contains("up"), em = rr.querySelector(".rr-v em");
       var c0 = ballG.querySelector("circle"), ex = +c0.getAttribute("cx"), ey = +c0.getAttribute("cy");
-      if (!rm && seg) {
-        var L = seg.getTotalLength(), emT = em ? em.textContent : "", em0 = /([+−-])(\d+),(\d)/.exec(emT);
+      var segL = 0; try { segL = seg ? seg.getTotalLength() : 0; } catch (e) {} // 4.27.8 : Courbes quittée avant l'animation (élément plus affiché)
+      if (!rm && segL) {
+        var L = segL, emT = em ? em.textContent : "", em0 = /([+−-])(\d+),(\d)/.exec(emT);
         var put = function (k) { var p = seg.getPointAtLength(L * (up ? k : 1 - k)); ballG.setAttribute("transform", "translate(" + (p.x - ex).toFixed(1) + " " + (p.y - ey).toFixed(1) + ")"); };
         put(0);
         mSeen(g, function () {
@@ -1623,6 +1627,14 @@
     var p = (t.pool || []).filter(function (x) { return !x.res && x.name && samePerson(x.name, name); })[0]; if (p) return { k: "pool", r: p };
     var r = (t.rounds || []).filter(function (x) { return !x.res && x.opp && x.opp.name && samePerson(x.opp.name, name); })[0]; return r ? { k: "round", r: r } : null;
   }
+  // 4.27.8 (tour des écrans) : la phrase sous « Épreuve » dit vrai aussi quand le joueur y a déjà un résultat, ou quand on modifie un match déjà rangé
+  function tourLinkMsg(t, m) {
+    var rows = (t.pool || []).map(function (x) { return { n: x.name, res: x.res, l: x.mid || x.twin }; }).concat((t.rounds || []).map(function (x) { return { n: x.opp && x.opp.name, res: x.res, l: x.mid || x.twin }; }));
+    if (m.id && rows.some(function (x) { return x.l === m.id; })) return "Ce match est déjà rangé dans ton épreuve.";
+    if (tourRowFor(t, m.opp)) return "Le résultat sera reporté dans ton épreuve.";
+    if (m.opp && rows.some(function (x) { return x.res && x.n && samePerson(x.n, m.opp); })) return "Tu as déjà un résultat contre ce joueur dans l'épreuve : ce match s'ajoutera en plus. Pour corriger l'ancien, passe par la page de l'épreuve.";
+    return "Ce joueur n'est pas encore dans l'épreuve : il y sera ajouté avec ce résultat.";
+  }
   function tourGuess(m) { var L = toursOpen(m.date); for (var i = 0; i < L.length; i++) if (tourRowFor(L[i], m.opp)) return L[i].id; return ""; }
   function tourLink(m) {
     var t = tourOf(m.tour); if (!t || !(m.result === "V" || m.result === "D") || m.wo) return;
@@ -2101,7 +2113,7 @@
     cp = String(cp || "").replace(/\D/g, "").slice(0, 5); if (cp.length !== 5) return Promise.resolve(null);
     return fetch("https://geo.api.gouv.fr/communes?codePostal=" + cp + "&fields=nom,centre&format=json").then(function (r) { return r.json(); }).then(function (j) {
       var c = (j || [])[0]; if (!c || !c.centre) return null; var P = tzPrefs(); P.cp = cp; P.city = c.nom; P.lng = c.centre.coordinates[0]; P.lat = c.centre.coordinates[1]; save(); return P;
-    }).catch(function () { return null; });
+    }).catch(function () { return false; }); // 4.27.8 : false = pas de réseau (avant : « Code postal introuvable » hors ligne)
   }
   function tzSearch(force) {
     var P = tzPrefs(); if (!NATIVE || !S.tenup.linked || S.tenup.expired || offline() || UI.tzBusy || !P.lat) return;
@@ -2391,7 +2403,7 @@
     });
   }
   V.dispos = function (id) {
-    var t = (S.tours || []).filter(function (x) { return x.id === id; })[0]; if (!t || !t.ins) return '<div class="screen">' + topbar("", backLab("Mes épreuves")) + "</div>";
+    var t = (S.tours || []).filter(function (x) { return x.id === id; })[0]; if (!t || !t.ins) return '<div class="screen">' + topbar("", backLab("Mes épreuves")) + '<div class="card empty"><b>' + (t ? "Pas d'inscription Ten'Up pour cette épreuve" : "Ce tournoi n'est plus dans Mes épreuves") + '</b><span class="small">Tes indispos se règlent depuis un tournoi où tu es inscrit sur Ten\'Up.</span></div></div>'; // 4.27.8 : plus de page vide
     var m = t.ins.more || {}, D = m.dz, Dl = tzDispo(m.dispoLim), s = '<div class="screen dz-scr">' + topbar("", backLab("Le tournoi"));
     s += '<h1>Tes indispos</h1><p class="lead" style="margin-top:-8px">' + esc(t.name) + " · " + esc(fdate(t.from)) + (t.to && t.to !== t.from ? " – " + esc(fdate(t.to)) : "") + "</p>";
     s += '<p class="small dz-lim' + (Dl.ok ? "" : " tz-mute") + '">' + esc(Dl.txt) + "</p>";
@@ -4226,6 +4238,11 @@
   // Pages de ton compte (épreuves, dispos, réglages…) : pas sur son profil
   var KID_NO = { tournoi: 1, tournois: 1, trouver: 1, dispos: 1, equipe: 1, rencontre: 1, montees: 1, tenup: 1, profil: 1, reconnu: 1, donnees: 1, notifs: 1, sante: 1, zones: 1, bienvenue: 1, arrivee: 1, seance: 1, entrainement: 1, creneau: 1, materiel: 1, raquette: 1, chantier: 1 };
   function kidBlocked(parts) { return !!SK && (KID_NO[parts[0]] || (parts[0] === "match" && !parts[1])); } // 4.17 : « Match de Léa » depuis le + (un amical, un résultat pas encore sur Ten'Up)
+  // 4.27.8 (tour des écrans) : boutons des pages vides. Sur le profil de ton enfant, « Récupérer depuis Ten'Up » menait à une page bloquée : on relit sa fiche (comme son accueil)
+  function empAdd() {
+    if (SK) return '<button class="btn primary small" data-a="kidRead">Relire sa fiche</button><button class="btn soft small" data-a="newMatch">Ajouter un match</button>';
+    return (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button>';
+  }
   V.kidLim = function (r0) {
     var k = kidCur(), mine = /^(tenup|profil|reconnu|donnees|notifs|sante|zones|bienvenue|arrivee)$/.test(r0);
     return '<div class="screen">' + topbar("", "") + '<div class="card kd-no"><b>' + (mine ? "C'est une page de ton profil" : "Pas sur le profil de " + esc(k.prenom)) + "</b>" +
@@ -4239,7 +4256,7 @@
   function kvVerb(v) { var lo = v.toLowerCase(); if (KV_IRR[lo]) return KV_IRR[lo]; if (/es$/.test(lo)) return v.slice(0, -1); if (/(is|ts|ds)$/.test(lo)) return v.slice(0, -1) + (/is$/.test(lo) ? "t" : ""); if (/x$/.test(lo)) return v.slice(0, -1) + "t"; return v; }
   function kvText(t, f, n) {
     var Il = f ? "Elle" : "Il", il = Il.toLowerCase(), B = "(^|[^" + KV_L + "'’])", E = "(?![" + KV_L + "])";
-    var X = { "Ma saison": "Sa saison", "Mes épreuves": "Ses épreuves", "Ce qui se joue pour toi": "Ce qui se joue pour " + n, "Si tu gagnes": "Si " + n + " gagne", "Si tu perds": "Si " + n + " perd",
+    var X = { "Montée lit son palmarès sur Ten'Up avec ta session, comme le site. Rien n'est publié.": "Montée lit les palmarès sur Ten'Up avec ta connexion, comme le site. Rien n'est publié.", "Ma saison": "Sa saison", "Mes épreuves": "Ses épreuves", "Ce qui se joue pour toi": "Ce qui se joue pour " + n, "Si tu gagnes": "Si " + n + " gagne", "Si tu perds": "Si " + n + " perd",
       "Je joue contre lui": n + " le joue", "Je joue contre elle": n + " la joue", "Je le joue": n + " le joue", "Je la joue": n + " la joue", "Prépare-moi le match": "Son plan de match", "Je te prépare le match ?": "On prépare son match ?",
       "Temps de jeu": "Temps de match", "Activité": "Palmarès", "Classement réel": "Son classement réel", "Ma montée": "Sa montée", "Montée t'a déjà mis à jour": "Montée a déjà mis à jour son profil", "Comme toi": "Même classement", "le suivi de tes objectifs, et ta montre a son match offert": "le suivi des objectifs" };
     var tt = t.trim(), t0 = tt.replace(/\s*›$/, ""); if (X[t0]) return t.replace(t0, X[t0]);
@@ -4252,6 +4269,7 @@
     t = t.replace(new RegExp(B + "(Il|il) te manque" + E, "g"), "$1$2 lui manque").replace(new RegExp(B + "t['’]a" + E, "g"), "$1l'a").replace(new RegExp(B + "te" + E, "g"), "$1lui");
     t = t.replace(new RegExp(B + "(et|ou) (perds|gagnes|joues|montes|descends)" + E, "g"), function (m, p, c, v) { return p + c + " " + kvVerb(v); });
     if (f) t = t.replace(new RegExp(B + "(contre|Contre) lui" + E, "g"), "$1$2 elle").replace(new RegExp(B + "le battre" + E, "g"), "$1la battre"); // ses adversaires sont des joueuses
+    t = t.replace(new RegExp(B + "([Qq]u)e (il|elle)" + E, "g"), "$1$2'$3").replace(new RegExp(B + "([Ss])i il" + E, "g"), "$1$2'il"); // 4.27.8 : « que il » → « qu'il »
     var P = { Ton: "Son", ton: "son", Ta: "Sa", ta: "sa", Tes: "Ses", tes: "ses", TON: "SON", TES: "SES", Toi: n, toi: il, TOI: n.toUpperCase() }; // « Toi » face à l'adversaire : son prénom
     return t.replace(new RegExp(B + "(Ton|ton|Ta|ta|Tes|tes|TON|TES|Toi|toi|TOI)" + E, "g"), function (m, p, w) { return p + P[w]; });
   }
@@ -6964,8 +6982,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       // 3.57 (audit parcours P5, validé) : l'onglet vide dit à quoi il sert et comment le remplir
       s += '<div class="card emp-c id-dock">' + acePeek("") + coBall("vx:faf", "joie") + '<span class="ace-bub">Ils arrivent !</span></span><b>Ici, tous ceux que tu as joués, et ce qu\'ils deviennent</b>' +
         '<div class="vx-ghost" aria-hidden="true">' + [0, 1, 2].map(function () { return '<div class="vx-g"><b></b><span><i></i><i></i></span><em></em></div>'; }).join("") + '</div><p>Ton bilan contre chacun, leur classement qui bouge, ta revanche. La liste se remplit avec tes matchs.</p>' +
-        (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button>' +
-        (S.tenup.linked ? "" : '<span class="small">Pour chercher un joueur par son nom, Montée lit Ten\'Up avec ta session : connecte ton compte d\'abord.</span>') + "</div>";
+        empAdd() +
+        (S.tenup.linked || SK ? "" : '<span class="small">Pour chercher un joueur par son nom, Montée lit Ten\'Up avec ta session : connecte ton compte d\'abord.</span>') + "</div>";
     } else s += (searching ? "" : h2hHtml(true)) + '<div class="blk" id="faf-known">' + knownRows(done ? "" : q.q) + "</div>"; // 3.48.8 (Yann) : les face-à-face quittent les Courbes pour « Tes adversaires »
     s += '<p class="small">Montée lit son palmarès sur Ten\'Up avec ta session, comme le site. Rien n\'est publié.</p>';
     return s + "</div>" + tabbar("faf");
@@ -12274,7 +12292,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!chips.length && act !== "t") s += actStatsHtml() + (SK ? "" : euCardHtml()); // 3.94 : ta saison en euros
     if (!list.length && !dbl.length) {
       s += '<div class="card empty">' + (all.length ? empIll("court", "surpris") : "") + '<b>' + (all.length ? "Rien ici" : "Pas encore de match") + '</b><span class="small">' + (all.length ? "Aucun match pour ce filtre." : "Récupère ton palmarès Ten'Up ou ajoute un match.") + "</span>" +
-        (all.length ? "" : (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button>') + "</div>"; // 3.57 (audit parcours P5)
+        (all.length ? "" : empAdd()) + "</div>"; // 3.57 (audit parcours P5)
     }
     // Doubles mêlés aux simples, par date
     var gotD = {}; ((c.proj.next || {}).doubles || []).forEach(function (x) { gotD[x.m.id] = x; });
@@ -13267,7 +13285,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var fTour =
       (function () { var L = toursOpen(m.date); if (!L.length || m.kind === "amical" || m.kind === "libre") return ""; if (!m.tourSet) m.tour = tourGuess(m); var tt0 = m.tour && tourOf(m.tour); if (tt0 && !m.kindSet) m.kind = tt0.kind === "champ" ? "champ" : "tournoi";
         return '<div class="field"><span class="lbl">Épreuve</span><div class="chips">' + [{ id: "", name: "Aucune" }].concat(L).map(function (t) { return '<button class="chip' + ((m.tour || "") === t.id ? " on" : "") + '" data-a="dset" data-k="tour" data-v="' + esc(t.id) + '">' + esc(t.id ? m2Title(t.name || "Épreuve") : t.name) + "</button>"; }).join("") + "</div>" +
-          (m.tour ? '<span class="small">' + (tourRowFor(tourOf(m.tour) || {}, m.opp) ? "Le résultat sera reporté dans ton épreuve." : "Ce joueur n'est pas encore dans l'épreuve : il y sera ajouté avec ce résultat.") + "</span>" : "") + "</div>"; })();
+          (m.tour ? '<span class="small">' + tourLinkMsg(tourOf(m.tour) || {}, m) + "</span>" : "") + "</div>"; })();
       var mst = isNew && !UI.mEdit ? UI.mStep || 1 : 0;
       if (!mst) s += '<div class="form">' + fRes + fOpp + fRank + fDate + fScore + fKind + fTour + "</div>";
       else {
@@ -14144,8 +14162,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         '<div class="vx-sl">' + idSlots(3, 0) + '<span>0 match sur 3 pour allumer tes courbes</span></div>' +
         cvL("Ton classement réel", "à quel niveau tu joues vraiment · dès 3 matchs") + cvL("Ton bilan et la prochaine sortie", "combien de points il te manque · dès 1 match") +
         cvL("Face à chaque classement", "contre qui tu gagnes plus que prévu · dès 3 matchs") + cvL("Tes records et ta forme", "plus belle victoire, séries · dès 1 match") +
-        '<div class="cv-btns">' + (S.tenup.linked && !S.tenup.expired ? "" : '<a class="btn primary small" href="#/tenup">Récupérer depuis Ten\'Up</a>') + '<button class="btn soft small" data-a="newMatch">Ajouter un match</button></div>' +
-        '<button class="linkbtn" data-a="demo">ou voir avec un exemple</button></div></div>' + tabbar("courbes");
+        '<div class="cv-btns">' + empAdd() + '</div>' +
+        (SK ? "" : '<button class="linkbtn" data-a="demo">ou voir avec un exemple</button>') + '</div></div>' + tabbar("courbes");
     }
     var B = {};
     if (c.proj.status !== "top") {
@@ -22201,7 +22219,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     },
     tzOpen: function (el) { UI.sheet = { k: "tz", v: el.dataset.v }; render(); },
     tzTab: function (el) { if (el.dataset.v === "rec" && !isSup()) { UI.supFrom = "trouver"; UI.sheet = { k: "plusPrev", v: "cap" }; render(); return; } UI.tzTab = el.dataset.v; render(); },
-    tzCp: function () { var v = (document.getElementById("tz-cp") || {}).value; tzHome(v).then(function (P) { if (!P) { toast("Code postal introuvable."); return; } if (!UI.sheet) tzSearch(true); render(); }); },
+    tzCp: function () { var v = (document.getElementById("tz-cp") || {}).value; tzHome(v).then(function (P) { if (!P) { toast(P === false ? "Pas de connexion : réessaie dans un instant." : "Code postal introuvable."); return; } if (!UI.sheet) tzSearch(true); render(); }); },
     dzDay: function (el) { UI.hbd = null; UI.sheet = { k: "dz", v: location.hash.split("/")[2] + "|" + el.dataset.v }; render(); },
     dzHabGo: function () { var d = UI.hbd; if (!d || !d.dz) return; d.slots = JSON.parse(JSON.stringify(d.hab)); d.play = !!d.hab.length; render(); },
     dzOk: function () { var d = UI.hbd, t = d && d.dz && (S.tours || []).filter(function (x) { return x.id === d.dz; })[0];
