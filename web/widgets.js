@@ -643,5 +643,5 @@
     });
   }
 
-  root.MonteeWidgetArt = { SIZES: SIZES, KINDS: Object.keys(SIZES), html: html, render: render, palette: palette, ballCol: ballCol, ballSvg: ballSvg, ballLab: ballLab, css: CSS, loadFonts: loadFonts };
+  root.MonteeWidgetArt = { SIZES: SIZES, KINDS: Object.keys(SIZES), html: html, render: render, palette: palette, ballCol: ballCol, ballSvg: ballSvg, ballReset: function () { ballN = 0; }, ballLab: ballLab, css: CSS, loadFonts: loadFonts };
 })(typeof window !== "undefined" ? window : this);

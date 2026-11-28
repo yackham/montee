@@ -1918,7 +1918,7 @@ struct EndView: View {
     @ObservedObject var vm = MatchVM.shared
     @ObservedObject var w = Workout.shared
     var won: Bool { (vm.live?.forced ?? M.winner ?? 0) == 0 }
-    /// 4.32 (Yann, maquette validée) : annoter le match juste après l'avoir enregistré
+    /// 4.33 (Yann, maquette validée) : annoter le match juste après l'avoir enregistré
     @ObservedObject var link = PhoneLink.shared
     @State private var annOpen = false
     var canAnn: Bool { guard let a = link.ctx.ann else { return false }; return !(won ? a.V : a.D).isEmpty }
@@ -1960,7 +1960,7 @@ struct EndView: View {
                         Text(vm.live?.hom == false ? "Match libre : sans effet sur le classement." : "Le résumé t'attend sur ton iPhone.")
                             .font(.system(size: 11)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
-                    // 4.32 : proposé une seule fois, ici, quand tu as déjà la montre en main ; « Fermer » ne change rien
+                    // 4.33 : proposé une seule fois, ici, quand tu as déjà la montre en main ; « Fermer » ne change rien
                     if canAnn {
                         Button { annOpen = true } label: {
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -2006,7 +2006,7 @@ struct EndView: View {
 }
 
 
-// MARK: - 4.32 : annoter le match depuis la montre (maquette validée par Yann le 28/11)
+// MARK: - 4.33 : annoter le match depuis la montre (maquette validée par Yann le 28/11)
 // Les raisons, les surfaces, les raquettes et la surface / le lieu du jour viennent de l'iPhone (watchAnnCtx) : aucune liste recopiée ici.
 
 /// La couleur d'une raison comme sur l'iPhone en thème sombre : sa teinte mêlée de blanc (68 / 32)
