@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.33.1",
+    VERSION: "4.33.2",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -19301,7 +19301,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!NATIVE || !S.notif || !LN) return;
     try { scheduleMatchDayNotif(); } catch (e) {}
     var pls = plans().filter(function (x) { return dGap(x.day) >= 0; }).slice(0, 4), now = new Date();
-    var key = JSON.stringify(pls.map(function (x) { return [x.id, x.day, x.p]; })) + E.iso(today());
+    var key = JSON.stringify(pls.map(function (x) { var t = x.tour ? tourOf(x.tour) : null; return [x.id, x.day, x.p, t ? (t.rounds || []).map(function (r) { return r.res || "-"; }).join("") : ""]; })) + E.iso(today()); // 4.33.2 : un résultat de tour saisi refait le rappel
     if (key === lastPlanKey) return; lastPlanKey = key;
     var list = [];
     pls.forEach(function (pl, i) {
@@ -19311,11 +19311,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var ls = S.lastScout && S.lastScout.id === pl.id ? S.lastScout : {}, who = (pl.name || "ton adversaire") + (pl.rank ? " (" + pl.rank + ")" : "");
       var odds = pl.p != null ? " · " + pl.p + " % de chances." : ".", tip = ls.tip ? " " + ls.tip + "." : "";
       var n = eve > now ? { at: eve, t: "Demain contre " + who } : morn > now ? { at: morn, t: "Aujourd'hui contre " + who } : null;
+      // 4.33.2 (Yann, 28/11 : rappel d'un 2e tour reçu alors qu'il avait perdu le 1er) : un tour d'avant sans résultat
+      // saisi = Montée ne sait pas s'il est qualifié. Le rappel le dit et demande le résultat ; perdu saisi = rappel retiré (trCutLost).
+      var pt = pl.tour ? tourOf(pl.tour) : null, rr = pt ? pt.rounds || [] : [], ri = -1;
+      for (var q = 0; q < rr.length; q++) if (rr[q].opp && String(rr[q].opp.tid) === String(pl.id)) { ri = q; break; }
+      var prevOpen = ri > 0 && rr.slice(0, ri).some(function (r) { return !r.res; });
+      if (n && prevOpen) n.t += ", si tu es qualifié";
       // 3.49 (Montée+) : il t'a battu la dernière fois → la revanche
       var rv = null;
       if (!PLUS_LOCK() && pl.name) { var k1 = nameKey(pl.name); rv = knownMatches(false).filter(function (m) { return m.opp && !isAnon(m.opp) && nameKey(m.opp) === k1 && !m.wo && (m.result === "V" || m.result === "D"); }).sort(function (a, b) { return (a.date || "") < (b.date || "") ? 1 : -1; })[0]; if (rv && rv.result !== "D") rv = null; }
       var rvD = rv && rv.date ? E.parseDate(rv.date) : null, rvW = rvD ? (rvD.getFullYear() === today().getFullYear() ? "en " + MOIS_L[rvD.getMonth()] : "en " + MOIS_L[rvD.getMonth()] + " " + rvD.getFullYear()) : "la dernière fois";
-      if (n) list.push({ id: 1100 + i, title: n.t, body: rv ? "Il t'a battu " + rvW + (rv.score ? ", " + rv.score : "") + ". Ta revanche est prête" + (pl.p != null ? " · " + pl.p + " % de chances." : ".") : (pl.hom ? "Match homologué" : "Match libre") + odds + tip + " Ton plan de jeu est prêt.", schedule: { at: n.at }, extra: { url: "montee://open/joueur/" + pl.id } });
+      if (n) list.push({ id: 1100 + i, title: n.t, body: rv ? "Il t'a battu " + rvW + (rv.score ? ", " + rv.score : "") + ". Ta revanche est prête" + (pl.p != null ? " · " + pl.p + " % de chances." : ".") : prevOpen ? "Ajoute ton résultat du tour d'avant : perdu, ce rappel s'efface. Qualifié : " + (pl.p != null ? pl.p + " % de chances, " : "") + "ton plan de jeu est prêt." : (pl.hom ? "Compte pour ton classement" : "Match libre") + odds + tip + " Ton plan de jeu est prêt.", schedule: { at: n.at }, extra: { url: "montee://open/joueur/" + pl.id } });
     });
     if (!np("avant")) list = [];
     // 3.69 : le lendemain du match prévu, 9 h : « comment ça s'est passé ? » (score + ressenti), sinon le bilan d'Ace n'a rien à lire
