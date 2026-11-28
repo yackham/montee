@@ -7713,6 +7713,33 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 .hd-dep-t small { font-size: 12.5px; color: var(--muted); }
 .hd-dep-b { flex: none; border: 0; border-radius: 18px; padding: 9px 14px; font: inherit; font-weight: 800; font-size: 13.5px; background: var(--balle); color: var(--on-balle, #16181c); cursor: pointer; }
 
+/* 4.30.0 : Ace qui tape juste. Courbe du match, échanges toi contre lui, service sous pression, match après match */
+.wcv { margin: 6px 0 2px; } .wcv svg { display: block; overflow: visible; }
+.wcv-cut { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; } .wcv-0 { stroke: var(--muted); stroke-opacity: .5; stroke-width: 1; }
+.wcv-up { fill: var(--gazon); fill-opacity: .35; } .wcv-dn { fill: var(--terre); fill-opacity: .35; }
+.wcv-l { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; } .wcv-l2 { fill: none; stroke: var(--ink); stroke-opacity: .6; stroke-width: 2; }
+.wcv-hr { fill: none; stroke: var(--ink); stroke-opacity: .75; stroke-width: 2; stroke-linejoin: round; }
+.wcv-t { fill: var(--balle); stroke: var(--ink); stroke-width: 1.5; } .wcv-avg { stroke: var(--muted); stroke-opacity: .6; stroke-dasharray: 4 3; }
+.wcv-pt { fill: var(--ink); fill-opacity: .7; } .wcv-last.g { fill: var(--gazon); } .wcv-last.r { fill: var(--terre); }
+.wcv-tx { font-size: 11px; font-weight: 700; fill: var(--muted); } .wcv-big { font-size: 13px; font-weight: 800; fill: var(--ink); }
+.wcv-k { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 6px; }
+.wcv-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--balle); box-shadow: inset 0 0 0 1.5px var(--ink); margin-right: 6px; vertical-align: -1px; }
+.wtl { padding: 2px 0 4px; } .wtl-k { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 800; color: var(--muted); padding-left: 104px; margin-bottom: 2px; }
+.wtl-r { display: grid; grid-template-columns: 96px 1fr; gap: 8px; align-items: center; padding: 6px 0; }
+.wtl-l { font-weight: 800; display: flex; flex-direction: column; } .wtl-l small { font-size: 11.5px; color: var(--muted); font-weight: 700; }
+.wtl-t { display: flex; gap: 2px; height: 28px; } .wtl-t i { display: flex; align-items: center; padding: 0 8px; border-radius: 7px; font-style: normal; min-width: 30px; }
+.wtl-t i.me { background: color-mix(in srgb, var(--gazon) 24%, transparent); } .wtl-t i.him { justify-content: flex-end; background: color-mix(in srgb, var(--terre) 18%, transparent); }
+.wtl-t b { font-size: 13.5px; color: var(--ink); }
+.wpx { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); grid-auto-flow: column; gap: 8px; align-items: end; padding-top: 6px; }
+.wpx > div { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.wpx-v { font-size: 18px; font-weight: 900; color: var(--ink); } .wpx-v small, .wpx-pc { font-size: 11px; color: var(--muted); font-weight: 800; margin-left: 1px; }
+.wpx-v.lk { filter: blur(6px); user-select: none; }
+.wpx-t { position: relative; width: 100%; max-width: 30px; height: 90px; border-radius: 7px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
+.wpx-t i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 7px; } .wpx-t i.g { background: var(--gazon); } .wpx-t i.r { background: var(--terre); }
+.wpx > div > small { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.2; min-height: 27px; }
+.wpp-sc { margin: 0 0 4px; }
+.ace-fp { margin-left: 6px; }
+.ace-a .aw { white-space: nowrap; } /* un score « 2-6 » ne se coupe plus en fin de ligne */
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.

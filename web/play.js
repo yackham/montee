@@ -87,8 +87,19 @@
     P.forEach(function (p) { if (p.w === 1) { if (!r) st = p; r++; if (r > run.n) run = { n: r, set: st.set, g: st.g }; } else r = 0; });
     var runW = { n: 0 }; r = 0;
     P.forEach(function (p) { if (p.w === 0) { if (!r) st = p; r++; if (r > runW.n) runW = { n: r, set: st.set, g: st.g }; } else r = 0; });
+    // 4.30.0 : balles de break (sauvées à ton service, converties au retour)
+    var bpS = srvP.filter(function (p) { return p.bp; }), bpR = retP.filter(function (p) { return p.bp; });
+    // le rebond : après un jeu perdu, le jeu suivant
+    var reb = { n: 0, won: 0 }; for (var gi = 1; gi < games.length; gi++) if (games[gi - 1].w === 1) { reb.n++; if (games[gi].w === 0) reb.won++; }
+    // la pression à ton service, selon le score avant le point (hors tie-break ; 15-15 n'est dans aucune case)
+    var press = { lead: [0, 0], zero: [0, 0], behind: [0, 0], t30: [0, 0], deuce: [0, 0], bp: [0, 0] };
+    srvP.forEach(function (p) { if (p.tb) return; var k = pressKey(p); if (!k) return; press[k][1]++; if (p.w === 0) press[k][0]++; });
+    // la courbe : l'écart de points, point après point (avec l'heure si la montre l'a notée)
+    var T = evT && evT.length === String(ev).length ? evT : null, dif = 0;
+    var curve = P.map(function (p) { dif += p.w === 0 ? 1 : -1; return [T && T[p.i] != null && T[p.i] >= 0 ? T[p.i] : null, dif, p.set, p.i]; });
     return {
       n: P.length, win: R.win, all: tally(P), srv: tally(srvP), ret: tally(retP),
+      bp: { saved: tally(bpS), conv: tally(bpR) }, reb: reb, press: press, curve: curve, turn: turnOf(games, sets, R.win),
       held: { n: mine.length, won: held(mine) }, brk: { n: his.length, won: held(his) },
       first: { won: { n: f1w.length, held: held(f1w) }, lost: { n: f1l.length, held: held(f1l) } },
       hot: { srv: tally(srvP.filter(hot)), ret: tally(retP.filter(hot)) },
@@ -97,7 +108,37 @@
     };
   }
 
-  var api = { replay: replay, read: read };
+  // Le score d'un point de ton service, rangé du plus calme au plus chaud
+  function pressKey(p) {
+    var a = p.sc[0], b = p.sc[1];
+    if (p.bp) return "bp";
+    if (a >= 3 && b >= 3) return "deuce";
+    if (a === 2 && b === 2) return "t30";
+    if (a === 0 && b === 0) return "zero";
+    if (a > b) return "lead";
+    if (b > a) return "behind";
+    return null;
+  }
+  // Le tournant : dans le set qui a décidé du match, le break après lequel le vainqueur du set n'a plus été rejoint.
+  // On note aussi si c'était le 1er jeu juste après un set (gagné ou perdu par toi).
+  function turnOf(games, sets, win) {
+    if (win == null || !sets.length) return null;
+    var si = sets.length - 1; // le dernier set joué décide du match
+    var G = games.filter(function (g) { return g.set === si && !g.tb; }); if (G.length < 3) return null;
+    var sw = sets[si].me > sets[si].him ? 0 : 1, a = 0, b = 0, cand = null;
+    G.forEach(function (g, i) {
+      var level = sw === 0 ? a <= b : b <= a; // avant ce jeu, le futur vainqueur du set n'avait pas d'avance
+      if (g.w === 0) a++; else b++;
+      if (level && g.w === sw && g.s !== sw) cand = { set: si, i: i, g: sw === 0 ? [a - 1, b] : [a, b - 1], me: g.s === 0, w: sw, pt: g.pts[0].i };
+      else if (level) cand = null;
+    });
+    if (!cand) return null;
+    var prev = si > 0 ? (sets[si - 1].me > sets[si - 1].him ? "won" : "lost") : null;
+    cand.first = cand.i === 0; cand.after = cand.first ? prev : null;
+    return cand;
+  }
+
+  var api = { replay: replay, read: read, pressKey: pressKey };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.MonteePlay = api;
 })(this);

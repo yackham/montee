@@ -43,3 +43,34 @@ test("une pause ou des points saisis d'un coup ne comptent pas comme des échang
 test("trop peu de points : pas de lecture", () => {
   assert.strictEqual(P.read("mmmmllll", 0, "full", null), null);
 });
+
+// 4.30.0 : Ace qui tape juste
+test("balles de break : sauvées à ton service, converties au retour, cohérentes avec les jeux", () => {
+  const r = P.read(F.ev, 0, "full", F.evT);
+  assert.ok(r.bp.saved.n >= r.held.n - r.held.won); // chaque jeu perdu au service a eu au moins une balle de break
+  assert.ok(r.bp.conv.won >= r.brk.won); // chaque break est une balle de break convertie
+  assert.strictEqual(r.bp.saved.n - r.bp.saved.won >= r.held.n - r.held.won, true);
+});
+
+test("la pression : chaque point de ton service (hors tie-break, hors 15-15) est dans une seule colonne", () => {
+  const r = P.read(F.ev, 0, "full", F.evT), R = P.replay(F.ev, 0, "full").pts.filter((p) => p.s === 0 && !p.tb);
+  const tot = Object.values(r.press).reduce((a, x) => a + x[1], 0), f15 = R.filter((p) => !p.bp && p.sc[0] === 1 && p.sc[1] === 1).length;
+  assert.strictEqual(tot + f15, R.length);
+  assert.strictEqual(P.pressKey({ sc: [2, 3], bp: true }), "bp");
+  assert.strictEqual(P.pressKey({ sc: [3, 3], bp: false }), "deuce");
+  assert.strictEqual(P.pressKey({ sc: [0, 0], bp: false }), "zero");
+});
+
+test("le tournant : au début du 3e set, juste après un set gagné, sur ton service", () => {
+  const r = P.read(F.ev, 0, "full", F.evT);
+  assert.ok(r.turn);
+  assert.strictEqual(r.turn.set, 2); assert.strictEqual(r.turn.first, true); assert.strictEqual(r.turn.after, "won"); assert.strictEqual(r.turn.me, true); assert.strictEqual(r.turn.w, 1);
+});
+
+test("la courbe : un point par point joué, finit sur l'écart de points du match", () => {
+  const r = P.read(F.ev, 0, "full", F.evT);
+  assert.strictEqual(r.curve.length, r.n);
+  assert.strictEqual(r.curve[r.curve.length - 1][1], 2 * r.all.won - r.n);
+  assert.ok(r.curve.every((c) => c[0] != null));
+  assert.strictEqual(r.reb.n >= r.reb.won, true);
+});
