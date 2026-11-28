@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.28.3",
+    VERSION: "4.29.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -1664,6 +1664,12 @@
     return true;
   }
   function tourNext(t) { return (t.rounds || []).filter(function (r) { return !r.res; })[0]; }
+  // 4.29 (Yann, 28/11) : après un tour gagné, Ace rappelle de récupérer et annonce le suivant (jour, heure, adversaire, chances : les calculs d'Ace)
+  function trWinMsg(t, i) {
+    var r2 = t.rounds[i], o2 = r2 && r2.day && !r2.res ? { d: r2.day, time: r2.time || "", name: r2.opp && r2.opp.name ? trNm(r2.opp.name) : "", rank: r2.opp && r2.opp.rank ? rkShow(r2.opp, r2.day) : "", tid: (r2.opp || {}).tid || "", t: t } : null, st = null;
+    try { st = o2 && o2.rank ? coStake(o2) : null; } catch (e) {}
+    return "Bravo ! Bois et mange dans l'heure. Ton " + trLab(i) + (o2 ? " : " + coWhen(o2, true) + (o2.name ? " contre " + nameCase(o2.name) : "") + (st && st.p != null ? " (" + st.p + "\u00a0%)" : "") : "") + ".";
+  }
   function trLab(i) { return (i === 0 ? "1er" : (i + 1) + "e") + " tour"; }
   // 3.47.3 (Davy) : si on a lu sa fiche Ten'Up, même calcul que « Le match » de sa fiche (forme, ancien classement, face-à-face) — sinon le calcul au classement
   // 4.0.4 (Yann : « une fonction qui fait partout pareil ») : tes matchs contre lui, et tes chances contre lui aujourd'hui,
@@ -5804,7 +5810,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.20.2 (Yann, 26/11 ; Davy ne voyait pas que la carte mène au profil) : « Mon profil » devient une entrée nommée du pied, la carte garde ses couleurs ; sur le profil d'un enfant : Profils, Sa saison, Ses matchs (son palmarès)
     var hdFt = '<div class="hd-ft hd-ft3">' + (SK ? '<button data-a="goProfil"><i>' + svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/>', 2.2) + "</i>Profils</button>" : '<button data-a="goProfil"><i>' + I.user + "</i>Mon profil</button>") + '<button data-a="goSeasonCard"><i>' + svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', 2.2) + "</i>Ma saison</button>" + (SK ? '<button data-a="hdGo" data-h="#/palmares"><i>' + I.list + "</i>Ses matchs</button>" : '<button data-a="hdGo" data-h="#/tournoi"><i>' + TOUR_IC + "</i>Mes épreuves" + (nEp ? '<span class="hd-n">' + nEp + "</span>" : "") + "</button>") + "</div>"; // 4.17 : ses tournois restent dans son compte Ten'Up // 4.5.1 (Yann) : Mes épreuves à droite, sous le pouce
     var aceH0 = aceHd(!!wkH0); if (!spK || !zA) zL = "", zA = UI.coHomeA || ' data-a="ace" data-v=""'; // sans moment fort : le conseil d'Ace du jour ; sans conseil : la conversation avec Ace (jamais le profil)
-    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + aceH0 + (S.demo ? dl0 : "") + '<button class="act-ic hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r hd-pc"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + (zA ? zA + ' role="button" tabindex="0" aria-label="' + (zL || "Parler avec Ace") + '"' : "") + ">" + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div>" + hdFt + "</div></div></div>" : av0 +
+    s += '<div class="topbar hd"><div class="hd-col"><div class="hd-dr">' + aceH0 + (S.demo ? dl0 : "") + '<button class="act-ic hd-gear" data-a="goReglages" aria-label="Réglages">' + I.gear + "</button></div>" + '<div class="hd-r hd-pc"><div class="hd-id' + (S.ahead ? " up" : "") + (spK ? " hd-sp" + (UI.hdShn === spH ? "" : (UI.hdShn = spH, " shn")) : "") + '"' + (spK ? ' style="--c:' + spK.c + ";--cf:" + (spK.c.indexOf("gazon") > 0 ? "var(--card)" : "var(--on-balle, #16181c)") + '"' : "") + (zA ? zA + ' role="button" tabindex="0" aria-label="' + (zL || "Parler avec Ace") + '"' : "") + ">" + (spK ? av0.replace(/<\/span>$/, '<span class="hd-bd">' + svg(spK.i, 3) + "</span></span>") + '<span class="hd-t">' + spH + "</div>" + (jm ? hdDepH() : "") + hdFt + "</div></div></div>" : av0 +
       '<span class="hd-t"><b>' + esc(hiT) + "</b><small>" + (rk0 ? '<span class="rk-tag">' + esc(rk0) + "</span>" + (S.ahead && S.ahead.release ? '<span class="hd-ah">' + aheadDay() + "</span>" : "") : "") + syMini() + "</small></span></div>" + hdFt + "</div></div></div>");
 
     if (S.demo) s += '<div class="demo-line"><span>Alex et ses matchs sont inventés. Tout s\'efface dès que tu ajoutes les tiens.</span><button class="go-pill" data-a="demoExit">Mes matchs ' + I.next + "</button></div>"; // 3.57 (audit parcours P3, maquette 3 v2 validée)
@@ -7736,14 +7742,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function ffMyStake(D) {
     if (D.mixed) return "";
     var c = D.c, hi = D.hi; if (c.proj.status === "top" || !c.proj.next) return "";
-    var b, w, l; try {
-      var all = allMatches(), t = E.iso(today());
-      b = E.project(all, c.cur, c.sex, c.opts);
-      w = E.project(all.concat([{ id: "_simW", date: t, result: "V", oppRank: lab(hi), kind: "tournoi" }]), c.cur, c.sex, c.opts);
-      l = E.project(all.concat([{ id: "_simL", date: t, result: "D", oppRank: lab(hi), kind: "tournoi" }]), c.cur, c.sex, c.opts);
-    } catch (e) { return ""; }
-    var g = w.next.total - b.next.total, lo = l.next.total - b.next.total, nx = b.next, after = w.next.total, gap = nx.norme - after;
-    var up1 = w.status === "montee" && b.status !== "montee", down = b.status === "montee" && l.status !== "montee";
+    var W = null; try { W = stakeWL(hi); } catch (e) {} if (!W) return ""; // 4.29 : le même calcul que la phrase d'Ace avant un match
+    var b = W.b, w = W.w, g = W.g, lo = W.lo, nx = b.next, after = w.next.total, gap = nx.norme - after, up1 = W.up1, down = W.down;
     var pct = function (x) { return Math.max(2, Math.min(100, Math.round(x / nx.norme * 100))); };
     var winTxt = up1 ? "Tu passes la norme " + nx.label + " : montée à la prochaine sortie" : g > 0 ? "Ton bilan " + nx.label + " passe à " + after + " / " + nx.norme : "Victoire hors quota : pas de points de plus";
     var lossTxt = lo < 0 ? (down ? "Tu perdrais ta montée : défaite" : "Défaite") + " contre moins bien classé, une victoire de moins comptée" : hi >= D.me ? "Défaite contre un joueur de ton échelon ou au-dessus : rien n'est retiré" : "Elle ne change pas ton bilan";
@@ -11362,6 +11362,52 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     TR_KIND = trk; return { p: p, g: g };
   }
   function coHour(t) { var m = /^(\d{1,2})[:h](\d{2})?/.exec(t || ""); return m ? +m[1] + " h" + (m[2] && m[2] !== "00" ? " " + m[2] : "") : ""; }
+  // 4.29 (Yann, 28/11 : « Ace au bon moment ») : l'heure de départ d'un match. Un seul calcul pour l'accueil, la notification et le widget.
+  // Lieu sûr seulement pour un tableau de tournoi (adresse Ten'Up du tournoi) ; trajet estimé depuis ta commune (recherche de tournois),
+  // km par la route (tzKm), ≈ 55 km/h + 5 min, arrondi aux 5 min ; Yann veut être sur place 20 min avant.
+  var DEP_SUR_PLACE = 20;
+  function hmTxt(d) { var m = d.getMinutes(); return d.getHours() + " h" + (m ? " " + (m < 10 ? "0" : "") + m : ""); }
+  function departOf(o) {
+    if (!o || !o.d || !o.time) return null;
+    var t = o.t; if (!t || t.fmt === "poule" || t.kind === "champ" || !t.lat || !t.lng) return null;
+    var P = tzPrefs(); if (!P.lat || !P.lng) return null;
+    var km = tzKm(P, t), hm = /^(\d{1,2})[:h](\d{2})?/.exec(o.time), at = E.parseDate(o.d); if (km == null || !hm || !at) return null;
+    at.setHours(+hm[1], +(hm[2] || 0), 0, 0);
+    var rt = km <= 3 ? 10 : Math.ceil((km / 55 * 60 + 5) / 5) * 5, dep = new Date(at.getTime() - (DEP_SUR_PLACE + rt) * 6e4);
+    dep.setMinutes(Math.floor(dep.getMinutes() / 5) * 5, 0, 0);
+    var place = insCase(t.club || t.city || ""), q = t.addr || [t.club, t.city].filter(Boolean).map(insCase).join(", ");
+    return { at: at, dep: dep, km: km, rt: rt, place: place, q: q, lat: t.lat, lng: t.lng };
+  }
+  // l'accueil, jour de match : quand partir, et l'itinéraire (la feuille Plans / Google Maps / Waze qui existe)
+  function hdDepH() {
+    var x = departToday(); if (!x) return "";
+    var D = x.D, late = Date.now() >= D.dep.getTime();
+    return '<div class="hd-dep"><span class="hd-dep-i" aria-hidden="true">' + svg('<circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/>', 2) + '</span><span class="hd-dep-t"><b>' + (late ? "C'est l'heure de partir" : "Pars à " + hmTxt(D.dep)) + "</b><small>" + esc([D.place, D.km + " km", "≈ " + D.rt + " min de route"].filter(Boolean).join(" · ")) + '</small></span><button class="hd-dep-b" data-a="itin" data-q="' + esc(D.q) + '" data-ll="' + esc(D.lat + "," + D.lng) + '">Itinéraire</button></div>';
+  }
+  // le prochain départ d'aujourd'hui (match pas encore commencé, arrivée pas encore passée)
+  function departToday() {
+    var td = E.iso(today()), now = Date.now(), out = null;
+    try { coUpMatches(1).some(function (o) { if (o.d !== td) return false; var D = departOf(o); if (D && D.at.getTime() - DEP_SUR_PLACE * 6e4 > now) { out = { o: o, D: D }; return true; } return false; }); } catch (e) {}
+    return out;
+  }
+  // Ce que change ce match : victoire et défaite simulées contre ce classement (le calcul de « Ce qui se joue pour toi »)
+  function stakeWL(hi, kind) {
+    var c = ctx(); if (c.proj.status === "top" || !c.proj.next) return null;
+    var all = allMatches(), t = E.iso(today()), k = kind || "tournoi";
+    var b = E.project(all, c.cur, c.sex, c.opts), w = E.project(all.concat([{ id: "_simW", date: t, result: "V", oppRank: lab(hi), kind: k }]), c.cur, c.sex, c.opts), l = E.project(all.concat([{ id: "_simL", date: t, result: "D", oppRank: lab(hi), kind: k }]), c.cur, c.sex, c.opts);
+    return { b: b, w: w, l: l, g: w.next.total - b.next.total, lo: l.next.total - b.next.total, up1: w.status === "montee" && b.status !== "montee", down: b.status === "montee" && l.status !== "montee" };
+  }
+  // La phrase d'Ace avant un match : rassurer ou motiver, seulement sur ce que disent les calculs (jamais le % de monter)
+  function aceStakeLine(o) {
+    if (!o || !o.rank) return "";
+    var st = coStake(o), pc = st.p, g = st.g, hi = E.idx(T.normRank(o.rank)), W = null;
+    try { if (hi != null) W = stakeWL(hi, o.t && o.t.kind === "champ" ? "champ" : "tournoi"); } catch (e) {}
+    if (W && W.up1) return "Gagné, tu passes la norme " + W.b.next.label + " : c'est le match à ne pas lâcher.";
+    if (W && W.lo >= 0 && !W.down && g > 0) return (o.name ? "Il est " : "Un ") + o.rank + " : perdre ne te coûte rien, gagner rapporte " + g + " pts.";
+    if (pc != null && pc >= 60) return "Tu pars favori (" + pc + " %) : reste concentré du premier au dernier point.";
+    if (pc != null && g > 0) return "Match ouvert : " + pc + " % de chances, une victoire rapporte " + g + " pts.";
+    return g > 0 ? "Une victoire rapporte " + g + " pts." : "";
+  }
   function coWhen(o, low) { var g = dGap(o.d), x = E.parseDate(o.d), d = g === 0 ? "aujourd'hui" : g === 1 ? "demain" : JOURS[x.getDay()] + " " + dN(x) + " " + MOIS[x.getMonth()], h = coHour(o.time); d += h ? " " + h : ""; return low ? d : cap1(d); }
   function coH2h(key) {
     if (!key) return null;
@@ -18621,7 +18667,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   var NP_DEF = { hom: 1, poule: 1, avant: 1, apres: 1, eq: 1, sortie: 1, club: 1, coach: 1, jalons: 1, fol: 1, insc: 1, seance: 1 };
   function np(k) { var p = S.notifP || {}; if (k === "lvl") return p.lvl || "norm"; if ((k === "coach" || k === "seance" || k === "jalons") && pauseOn()) return false; /* 3.94 : en pause, Ace et les rappels se taisent */ return p[k] == null ? !!NP_DEF[k] : !!p[k]; }
   function npKey(date, a, b) { var tk = function (n) { return String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/[^a-z]+/).filter(function (t) { return t.length >= 3; }).join(" "); }; return date ? date + "|" + [tk(a), tk(b)].sort().join("|") : ""; }
-  function npApply() { lastPlanKey = ""; lastTimingKey = ""; lastTeamNotifKey = ""; lastPoolNotifKey = ""; lastSjKey = ""; try { scheduleSjNotif(); } catch (e) {} try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
+  function npApply() { lastPlanKey = ""; lastMdKey = ""; lastTimingKey = ""; lastTeamNotifKey = ""; lastPoolNotifKey = ""; lastSjKey = ""; try { scheduleSjNotif(); } catch (e) {} try { syncNative(); } catch (e) {} try { schedulePlanNotif(); } catch (e) {} try { scheduleTimingNotif(); } catch (e) {} try { scheduleCoachNotif(true); } catch (e) {} }
   // 3.75 : les rappels « le jour J » demandés à Ace (4 au plus, ids 2100-2103)
   function aceRemSync() {
     if (!NATIVE || !S.notif || !LN) return;
@@ -18727,8 +18773,34 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   // Match programmé : un rappel la veille à 19 h (ou le matin même à 9 h si on programme pour aujourd'hui)
   var lastPlanKey = "";
+  // 4.29 (Yann, 28/11) : la veille de TOUS tes matchs (tableau, poule ; les matchs prévus ont déjà le leur), et le jour J,
+  // 30 min avant l'heure de partir. Ids 2400-2401 (départ), 2410-2412 (veille). Interrupteur « Avant tes matchs ».
+  var lastMdKey = "";
+  function scheduleMatchDayNotif() {
+    if (!NATIVE || !S.notif || !LN) return;
+    var now = new Date(), list = [], up = [];
+    if (np("avant")) try { up = coUpMatches(2); } catch (e) {}
+    var who = function (o) { return o.name ? nameCase(o.name) : "un " + o.rank; }, url = function (o) { return { url: "montee://open/ace/" + encodeURIComponent(o.key ? "vs:" + o.key : "next") }; };
+    up.forEach(function (o) {
+      var D = departOf(o); if (!D || list.filter(function (n) { return n.id < 2410; }).length >= 2) return;
+      var at = new Date(D.dep.getTime() - 30 * 6e4); if (at <= now) return;
+      list.push({ id: 2400 + list.length, title: "Pars dans 30 min", body: coHour(o.time) + " contre " + who(o) + (D.place ? " au " + D.place : "") + ". ≈ " + D.rt + " min de route : départ " + hmTxt(D.dep) + " pour être là " + DEP_SUR_PLACE + " min avant.", schedule: { at: at }, extra: { url: "montee://open/depart" } });
+    });
+    var nV = 0;
+    up.forEach(function (o) {
+      if (o.pl || nV >= 3 || dGap(o.d) !== 1) return; // les matchs prévus : rappel de schedulePlanNotif
+      var d = E.parseDate(o.d); if (!d) return; var eve = new Date(d.getTime()); eve.setDate(eve.getDate() - 1); eve.setHours(19, 0, 0, 0); if (eve <= now) return;
+      var D = departOf(o), line = ""; try { line = aceStakeLine(o); } catch (e) {}
+      var body = [line, D ? "Départ vers " + hmTxt(D.dep) + " pour être là " + DEP_SUR_PLACE + " min avant." : !o.time ? "Ton heure n'est pas encore fixée : regarde ta convocation." : ""].filter(Boolean).join(" ") || "Ton match est prêt : tes chances, ce qu'il rapporte et votre face-à-face.";
+      list.push({ id: 2410 + nV, title: "Demain" + (coHour(o.time) ? " " + coHour(o.time) : "") + " contre " + who(o), body: body, schedule: { at: eve }, extra: url(o) }); nV++;
+    });
+    var key = JSON.stringify(list.map(function (n) { return [n.id, n.title, n.body, n.schedule.at.getTime()]; }));
+    if (key === lastMdKey) return; lastMdKey = key;
+    LN.cancel({ notifications: [2400, 2401, 2410, 2411, 2412].map(function (i) { return { id: i }; }) }).catch(function () {}).then(function () { if (list.length) return LN.schedule({ notifications: list }); }).catch(function () {});
+  }
   function schedulePlanNotif() {
     if (!NATIVE || !S.notif || !LN) return;
+    try { scheduleMatchDayNotif(); } catch (e) {}
     var pls = plans().filter(function (x) { return dGap(x.day) >= 0; }).slice(0, 4), now = new Date();
     var key = JSON.stringify(pls.map(function (x) { return [x.id, x.day, x.p]; })) + E.iso(today());
     if (key === lastPlanKey) return; lastPlanKey = key;
@@ -18904,6 +18976,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.23.1 (Yann : le widget restait sur un match plus lointain) : le match le plus proche, quel qu'il soit, lu comme « Ce qui arrive »
     var nxW = nextMatch();
     if (nxW) d.scout = Object.assign({}, S.lastScout && S.lastScout.id === nxW.id ? S.lastScout : { id: nxW.id, rank: nxW.rank, p: nxW.p, tip: nxW.pl ? "" : nxW.sub, tipS: "" }, { name: nxW.name, when: nxW.when });
+    // 4.29 : le jour du match, la ligne du bas dit quand partir (même calcul que l'accueil et la notification)
+    try { var dW = departToday(); if (dW && d.scout && (!dW.o.name || !d.scout.name || nameKey(dW.o.name) === nameKey(d.scout.name))) { d.scout = Object.assign({}, d.scout, { tip: "Pars à " + hmTxt(dW.D.dep), tipS: [dW.D.place, "≈ " + dW.D.rt + " min"].filter(Boolean).join(" · ") }); } } catch (e) {}
     // Joueurs suivis : les nouvelles d'abord (montée, match joué), puis le dernier à avoir joué
     try {
       d.follows = Object.keys(S.follow || {}).map(function (k) {
@@ -20237,7 +20311,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       return '<label class="nf-row"><span class="nf-r"><b>' + t + (plus ? " " + pill : "") + "</b><small>" + sub + '</small></span><input type="checkbox" role="switch" data-a="npSet" data-k="' + k + '"' + (np(k) ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>";
     };
     var grp = function (h, rows) { return '<h2 class="nf-gh">' + h + '</h2><div class="nf-grp' + (S.notif ? "" : " off") + '">' + rows.join("") + "</div>"; };
-    s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille d'un match prévu" + (lock ? " · ta revanche et tes adversaires qui bougent avec Montée+" : ", avec ta revanche s'il t'a battu, et tes adversaires qui bougent")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
+    s += grp("Tes matchs", [row("hom", "Match homologué", "Résultat, points gagnés, ce qu'il te manque"), row("poule", "Ta poule et ton tableau", "Un match joué dans ta poule, ton prochain adversaire connu"), row("avant", "Avant tes matchs", "La veille de tes matchs, et le jour J l'heure de partir" + (lock ? " · ta revanche et tes adversaires qui bougent avec Montée+" : ", avec ta revanche s'il t'a battu, et tes adversaires qui bougent")), row("apres", "Après tes matchs", "Le lendemain, 9 h : note le score et ton ressenti"), row("eq", "Tes rencontres par équipes", "La veille : contre qui, domicile ou extérieur, ta place au classement")]);
     s += grp("Ton classement", [row("sortie", "Sortie du classement", "La veille et le jour J, les points à défendre"), row("coach", "Ace", "Le lundi : ta semaine et le match qui compte. Avec Montée+ : tes chances qui bougent et tes consignes remplies"), row("jalons", "Jalons de saison", "Records, paliers de victoires, une fois par mois au plus")]);
     var oth = [row("fol", "Joueurs suivis", "Chacun de leurs résultats sur Ten'Up, et quand ils montent"), row("insc", "Inscriptions", "Liste d'attente : tu passes au tableau"), row("club", "Les montées du club", "Le matin de la sortie, les joueurs du club qui devraient monter"), row("seance", "Séance du jour", "Le jour de ton créneau, 1 h 30 avant. En « Tout », aussi les jours sans match, à 9 h")];
     if (HC_OK && hcOn()) oth.push('<label class="nf-row"><span class="nf-r"><b>Séances de la montre</b><small>Une nouvelle séance à enregistrer</small></span><input type="checkbox" role="switch" data-a="hcNotify"' + (S.health.notify !== false ? " checked" : "") + (S.notif ? "" : " disabled") + "></label>");
@@ -21554,7 +21628,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var tid = pool ? r.tid : r.opp && r.opp.tid; if (tid) S.plans = (S.plans || []).filter(function (x) { return x.id !== String(tid); });
       var mx = trMatchOf(r);
       if (pool) { if (t.resUrl) UI.resNudge = t.id; annToast(mx, r.res === "V" ? "Bravo !" + (t.resUrl ? " Pense à l'envoyer au comité." : "") : "Noté." + (t.resUrl ? " Pense à l'envoyer au comité." : ""), r.res === "V"); render(); if (t.resUrl) window.scrollTo(0, 0); return; }
-      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { var nx = { tid: t.id, day: r.day, lab: trLab(t.rounds.length) }; if (mx && qaPending(mx)) { UI.qaNext = nx; UI.qaOne = mx.id; UI.qa = null; UI.qaSheet = true; toast("Bravo ! Raconte-moi ce match, puis ton " + nx.lab + ".", true); } else { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Ajoute ton " + nx.lab + ".", true); } } /* 4.27.4 (Yann) : d'abord annoter le match qu'on vient de jouer, ensuite le tour suivant */ else annToast(mx, "Bravo ! Prochain : " + trLab(+el.dataset.i + 1) + ".", true); }
+      if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { var nx = { tid: t.id, day: r.day, lab: trLab(t.rounds.length) }; if (mx && qaPending(mx)) { UI.qaNext = nx; UI.qaOne = mx.id; UI.qa = null; UI.qaSheet = true; toast("Bravo ! Bois et mange dans l'heure, puis raconte-moi ce match et ton " + nx.lab + ".", true); } else { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Bois et mange dans l'heure, puis ajoute ton " + nx.lab + ".", true); } } /* 4.27.4 (Yann) : d'abord annoter le match qu'on vient de jouer, ensuite le tour suivant */ else annToast(mx, trWinMsg(t, +el.dataset.i + 1), true); }
       else {
         annToast(mx, "Noté.");
         // fin de parcours : plus de prochain match nulle part (accueil, montre, notifications)
@@ -22800,7 +22874,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         if (u && /open\/seance/.test(u)) go("seance");
         if (u && /open\/montees/.test(u)) go("montees"); // 4.17
         if (u && /open\/lundi/.test(u)) go(""); // 3.93 : ton lundi avec Ace
-        if (u && /open\/ace/.test(u)) { if (location.hash !== "#/" && location.hash !== "") go(""); setTimeout(function () { aceAsk("next"); render(); }, 80); } // 3.75 : le rappel du jour J ouvre ton match dans Ace
+        if (u && /open\/ace/.test(u)) { var aq = /open\/ace\/([^?#]+)/.exec(u), aqv = aq ? decodeURIComponent(aq[1]) : "next"; try { if (aqv !== "next" && !coMatchFind(aqv)) aqv = "next"; } catch (e) { aqv = "next"; } if (location.hash !== "#/" && location.hash !== "") go(""); setTimeout(function () { aceAsk(aqv); render(); }, 80); } // 3.75 : le rappel du jour J ouvre ton match dans Ace ; 4.29 : le bon match (vs:)
+        if (u && /open\/depart/.test(u)) { if (location.hash !== "#/" && location.hash !== "") go(""); var dt0 = departToday(); if (dt0) { UI.sheet = { k: "itin", v: { q: dt0.D.q, lat: dt0.D.lat, lng: dt0.D.lng } }; } render(); } // 4.29 : « Pars dans 30 min » ouvre l'itinéraire
         if (u && /open\/plus/.test(u)) { if (trialInfo()) UI.sheet = { k: "trialEnd" }; go(trialInfo() ? "" : "soutenir"); }
       });
       if (ln && ln.catch) ln.catch(function () {});
