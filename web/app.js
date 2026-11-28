@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.31.0",
+    VERSION: "4.31.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -141,6 +141,10 @@
   // ---------- Utilitaires ----------
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  // 4.31.1 (Yann : « encore des blinks ») : identifiants des dessins (clipPath…) numérotés depuis 0 à chaque rendu.
+  // Avec un numéro qui grimpe ou tiré au hasard, deux rendus identiques n'étaient jamais identiques : chaque synchro redessinait les balles et courbes.
+  var SVG_N = 0;
+  function svgId(p) { return p + (++SVG_N); }
   function today() { var t = new Date(); t.setHours(0, 0, 0, 0); return t; }
   var MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
   var MOIS_L = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
@@ -815,6 +819,7 @@
   // Les zones de texte grandissent avec ce qu'on écrit : on voit toujours toute sa note
   function growTa(el) { if (!el || !el.style) return; el.style.height = "auto"; el.style.height = Math.max(el.scrollHeight + 2, 0) + "px"; }
   function render() {
+    SVG_N = 0; try { window.MonteeWidgetArt.ballReset(); } catch (e) {}
     if (UI.trRen && route() !== "tournoi/" + UI.trRen) UI.trRen = null; // 3.46.1 : on ne garde pas une épreuve en modification en la quittant
     var r = route(), parts = r.split("/"), html;
     UI.partyKey = null; UI.mmOv = null; UI.jkUsed = null;
@@ -1494,20 +1499,25 @@
     morphKids(root, tpl);
   }
   function mSame(a, b) { return a.nodeType === b.nodeType && a.nodeName === b.nodeName && (a.nodeType !== 1 || ((a.id || "") === (b.id || "") && (a.getAttribute("data-k") || "") === (b.getAttribute("data-k") || ""))); }
-  function mStrict(a, b) { return !!a && !!b && mSame(a, b) && (a.nodeType !== 1 || a.getAttribute("class") === b.getAttribute("class")); }
+  // 4.31.1 : on compare les classes sans celles posées par les animations (mx…, mv-no) : sinon une ligne déjà animée
+  // ne se reconnaissait plus, était retirée puis remise, et rejouait son animation (clignotement dans les listes)
+  function mCls(n) { return (n.getAttribute("class") || "").replace(/(^|\s)(mx[\w-]*|mv-no)(?=\s|$)/g, "").replace(/\s+/g, " ").trim(); }
+  function mStrict(a, b) { return !!a && !!b && mSame(a, b) && (a.nodeType !== 1 || mCls(a) === mCls(b)); }
   function morphKids(from, to) {
     var a = from.firstChild, b = to.firstChild;
     var mxX = function (n) { return n && n.nodeType === 1 && n.classList.contains("mx-x"); }; // 3.75 : balles et étincelles de passage, laissées en place
     while (b) {
       var nb = b.nextSibling;
       if (mxX(a)) { a = a.nextSibling; continue; }
-      if (UI.mQuiet && b.nodeType === 1) b.classList.add("mv-no");
-      if (!a) { from.appendChild(b); b = nb; continue; }
+      // 4.31.1 : « mv-no » (arrivée coupée) seulement sur un bloc vraiment ajouté par une mise à jour en arrière-plan.
+      // Avant, tous les blocs le recevaient, et le toucher suivant le retirait : toute la page rejouait son arrivée (clignotement).
+      var q = UI.mQuiet && b.nodeType === 1;
+      if (!a) { if (q) b.classList.add("mv-no"); from.appendChild(b); b = nb; continue; }
       var na = a.nextSibling;
       if (mStrict(a, b) || (mSame(a, b) && !mStrict(na, b) && !mStrict(a, nb))) { morphNode(a, b); a = na; b = nb; }
-      else if (mStrict(a, nb)) { from.insertBefore(b, a); b = nb; } // un nœud de plus : on l'insère, la suite reste en place
+      else if (mStrict(a, nb)) { if (q) b.classList.add("mv-no"); from.insertBefore(b, a); b = nb; } // un nœud de plus : on l'insère, la suite reste en place
       else if (mStrict(na, b)) { from.removeChild(a); a = na; } // un nœud de moins
-      else { from.replaceChild(b, a); a = na; b = nb; }
+      else { if (q) b.classList.add("mv-no"); from.replaceChild(b, a); a = na; b = nb; }
     }
     while (a) { var n = a.nextSibling; if (!mxX(a)) from.removeChild(a); a = n; }
   }
@@ -1519,7 +1529,8 @@
     if (tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT") { if (a !== document.activeElement && a.outerHTML !== b.outerHTML) a.parentNode.replaceChild(b, a); else if (a !== document.activeElement) { if (tg !== "SELECT") a.value = b.value; if (tg === "INPUT") a.checked = b.checked; } return; }
     var i, at;
     // 3.75 : une mise à jour juste après l'arrivée garde les animations en cours (classes mx*, variables --i/--j/--d/--dy)
-    var mxC = a.classList ? Array.prototype.filter.call(a.classList, function (c) { return /^mx/.test(c); }) : [], mxS = mxC.length && a.style ? a.style.cssText.match(/--(?:i|j|d|dy)\s*:[^;]+/g) : null;
+    // 4.31.1 : « mv-no » reste aussi : le retirer relancerait l'arrivée d'un bloc déjà affiché
+    var mxC = a.classList ? Array.prototype.filter.call(a.classList, function (c) { return /^mx|^mv-no$/.test(c); }) : [], mxS = mxC.length && a.style ? a.style.cssText.match(/--(?:i|j|d|dy)\s*:[^;]+/g) : null;
     for (i = a.attributes.length - 1; i >= 0; i--) { at = a.attributes[i]; if (!b.hasAttribute(at.name)) a.removeAttribute(at.name); }
     for (i = 0; i < b.attributes.length; i++) { at = b.attributes[i]; if (a.getAttribute(at.name) !== at.value) { if (at.namespaceURI) a.setAttributeNS(at.namespaceURI, at.name, at.value); else a.setAttribute(at.name, at.value); } }
     if (mxC.length) { mxC.forEach(function (c) { a.classList.add(c); }); (mxS || []).forEach(function (d) { var k = d.indexOf(":"); a.style.setProperty(d.slice(0, k).trim(), d.slice(k + 1).trim()); }); }
@@ -13543,7 +13554,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.66 (Yann, maquettes F3 + J2) : à l'arrivée sur le profil, la fleur s'ouvre en éventail puis le point fort pulse ;
   // dans le détail, la jauge se remplit, les paliers s'allument au passage et le contour du pétale se referme. Une fois par arrivée sur la page.
   function compFlower(P, size, sel, blur, links, focus) {
-    var an = (links || focus) && UI.flAnim !== false && !blur; if (links || focus) UI.flAnim = false;
+    // 4.31.1 : la fleur qui s'est ouverte à l'arrivée garde ce dessin aux rendus suivants de la même page (sinon chaque synchro la redessinait)
+    var flK = location.hash + (focus ? "|j" : "|f");
+    if ((links || focus) && !blur && UI.flAnim === true) UI.flAnim = flK;
+    var an = (links || focus) && UI.flAnim === flK && !blur;
     var top = an && links && P.forts && P.forts[0];
     var cx = size / 2, r1 = size * 0.46, r0 = size * 0.07, n = CP_KEYS.length, s = '<svg class="cp-fl' + (an ? (focus ? " fl-j" : " fl-f") : "") + '" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '" aria-hidden="true"' + (blur ? ' style="filter:blur(5px);opacity:.75"' : "") + ">";
     var f = function (x) { return x.toFixed(1); }, L = function (p, q, t) { return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]; };
@@ -16708,7 +16722,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var area = line + " L" + x(end) + " " + H / 2 + " L" + x(0) + " " + H / 2 + " Z";
     var cuts = [0]; C.forEach(function (c, i) { if (i && c[2] !== C[i - 1][2]) cuts.push(X[i]); }); cuts.push(end);
     var t = P.turn, ti = -1; if (t) C.forEach(function (c, i) { if (ti < 0 && c[3] === t.pt) ti = i; });
-    var tv = ti > 0 ? C[ti - 1][1] : 0, tx = ti >= 0 ? (ti > 0 ? X[ti - 1] : 0) : null, id = "wcv" + Math.random().toString(36).slice(2, 7);
+    var tv = ti > 0 ? C[ti - 1][1] : 0, tx = ti >= 0 ? (ti > 0 ? X[ti - 1] : 0) : null, id = svgId("wcv");
     var lab = P.sets.map(function (s, i) { return (i ? (i + 1) + "e" : "1er set") + " " + s.me + "-" + s.him; });
     var mins = timed ? Math.round(end / 60) : 0, dur = mins >= 60 ? Math.floor(mins / 60) + " h " + ("0" + mins % 60).slice(-2) : mins ? mins + " min" : "";
     return '<div class="wcv"><svg viewBox="0 0 ' + W + " " + (H + 22) + '" width="100%" role="img" aria-label="' + esc("La courbe du match, " + lab.join(", ") + (t ? ". Le tournant : " + (t.first ? "début du " + wpSetN(t.set) : t.g[0] + "-" + t.g[1] + " au " + wpSetN(t.set)) : "")) + '">' +
