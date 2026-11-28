@@ -86,6 +86,8 @@ struct WCtx: Codable {
     // 4.7 : Ace sur la montre : les questions du moment avec leur réponse (calculées par l'iPhone), ce que rapporte le prochain match
     var aceQs: [WAceQ]? = nil
     var winPts: WWinPts? = nil
+    /// 4.33 : annoter le match depuis la montre (raisons, surfaces, raquettes, surface et lieu du jour), tout préparé par l'iPhone
+    var ann: WAnnCtx? = nil
 }
 
 /// 3.92.1 : lecture tolérante. Avant, un seul champ illisible faisait rejeter tout l'envoi de l'iPhone, et la montre gardait les anciennes données (ex. celles d'un autre compte).
@@ -135,6 +137,7 @@ extension WCtx {
         lastM = try? c.decodeIfPresent(WLastM.self, forKey: .lastM)
         aceQs = try? c.decodeIfPresent([WAceQ].self, forKey: .aceQs)
         winPts = try? c.decodeIfPresent(WWinPts.self, forKey: .winPts)
+        ann = try? c.decodeIfPresent(WAnnCtx.self, forKey: .ann)
     }
 }
 
@@ -159,6 +162,25 @@ struct WAceQ: Codable, Hashable, Identifiable {
 }
 struct WAceCard: Codable, Hashable { var h: String? = nil; var b: String? = nil; var bc: String? = nil; var l: String? = nil; var r: [WAceRow]? = nil }
 struct WAceRow: Codable, Hashable { var l: String? = nil; var rk: String? = nil; var s: String? = nil; var v: String? = nil; var c: String? = nil }
+/// 4.33 : une raison de la feuille « Annote ton match » (clé, titre court, mini descriptif, couleur), telle que sur l'iPhone
+struct WFelt: Codable, Hashable, Identifiable { var k: String; var t: String; var d: String? = nil; var c: String? = nil; var id: String { k } }
+/// 4.33 : une surface (nom, couleur) et une raquette du sac
+struct WSurf: Codable, Hashable { var n: String; var c: String? = nil }
+struct WRk: Codable, Hashable { var id: String; var n: String }
+/// 4.33 : surface et lieu proposés d'emblée (tu = d'après la fiche Ten'Up du tournoi, sinon ton dernier match annoté)
+struct WAnnPre: Codable, Hashable { var s: String? = nil; var i: Bool? = nil; var tu: Bool? = nil }
+/// 4.33 : tout ce qu'il faut pour annoter sur la montre
+struct WAnnCtx: Codable, Hashable {
+    var V: [WFelt] = []
+    var D: [WFelt] = []
+    var surfs: [WSurf]? = nil
+    var rk: [WRk]? = nil
+    var rkId: String? = nil
+    var pre: WAnnPre? = nil
+}
+/// 4.33 : ce que la montre renvoie (le match est déjà parti) : t0 = début du match, pour le retrouver sur l'iPhone
+struct OutAnn: Codable { var kind = "ann"; var t0: Double; var felt: [String]; var s: String?; var i: Bool?; var rk: String? }
+
 /// 4.7 : ce que rapporte une victoire contre le prochain adversaire (n = son nom)
 struct WWinPts: Codable, Hashable { var n: String; var g: Int }
 /// 3.81 : ton match du jour (match prévu, tour de tournoi, rencontre par équipes)
@@ -277,6 +299,12 @@ final class PhoneLink: NSObject, ObservableObject, WCSessionDelegate {
         } else {
             _ = s.transferUserInfo(["match": json])
         }
+    }
+
+    /// 4.33 : l'annotation du match, par le même chemin que le match (l'iPhone range tout ce qui arrive sous « match »)
+    func send(ann: OutAnn) {
+        guard let d = try? JSONEncoder().encode(ann), let j = String(data: d, encoding: .utf8) else { return }
+        send(match: j)
     }
 
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {

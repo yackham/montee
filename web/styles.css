@@ -7875,10 +7875,8 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 :root :is(.card, .sheet, .form) .seg:not(.mini) button.on:not(.rv):not(.rd) { background: color-mix(in srgb, #fff 12%, var(--card)) !important; color: var(--ink) !important; box-shadow: 0 1px 3px rgba(0,0,0,.22) !important; }
 :is(:root:not([data-theme]), :root[data-theme="terre"], :root[data-theme="gazon"]) :is(.card, .sheet, .form) .seg:not(.mini) { background: color-mix(in srgb, var(--ink) 8%, transparent) !important; } /* thèmes clairs : le creux est une touche d encre */
 :root :is(.card, .sheet, .form) .stepper button { background: color-mix(in srgb, var(--ink) 14%, var(--card)); color: var(--ink); }
+/* 4.33 : la couleur de chaque raison (--fb) vient de FELT_COL dans app.js, une seule source avec la montre */
 .an-t { --fb: #3FA06A; --fc: color-mix(in srgb, var(--fb) 68%, var(--ink)); position: relative; }
-.an-t[data-v="bien"] { --fb: #C2AC00; } .an-t[data-v="calme"], .an-t[data-v="tendu"] { --fb: #4A8FDB; } .an-t[data-v="plan"] { --fb: #3FA06A; }
-.an-t[data-v="aide"], .an-t[data-v="fatigue"] { --fb: #8E6BDB; } .an-t[data-v="service"], .an-t[data-v="fautes"] { --fb: #D8812F; }
-.an-t[data-v="physique"], .an-t[data-v="fort"] { --fb: #D85A4E; } .an-t[data-v="revenu"], .an-t[data-v="cond"] { --fb: #2FA79B; } .an-t[data-v="absent"] { --fb: #7C8696; }
 .qa.an .an-t svg, .qa.an .an-t.on svg { color: var(--fc) !important; }
 .qa.an .an-t.on { color: var(--ink) !important; background: color-mix(in srgb, var(--fc) 30%, var(--card)) !important; }
 .qa.an .an-t.on svg { visibility: hidden; }
