@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.31.1",
+    VERSION: "4.32.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -868,6 +868,7 @@
       case "entrainement": html = V.entrainement(parts[1]); break;
       case "creneau": html = V.creneau(parts[1]); break;
       case "seance": html = V.seance(parts[1]); break;
+      case "direct": html = V.direct(); break;
       case "chantier": html = V.chantier(); break;
       case "courbes": html = V.courbes(); break;
       case "perso": html = V.perso(parts[1]); break;
@@ -11790,7 +11791,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   function acRk(r) { return r ? ' <b class="rk-tag">' + esc(T.normRank(r) || r) + "</b>" : ""; }
   // 4.28.0 : dans la conversation d'Ace, ce que dit ta montre sur ce match (la phrase est gratuite, le détail Montée+)
   function wpAce(m, A, said) {
-    var W = wpOf(m); if (!W) return "";
+    var W = wpOf(m);
+    if (!W) { var gB = glBilan(m); return gB ? '<div class="acd wp-wbl">' + wpBilanHtml(m, gB) + '<button class="acr wbl-more" data-a="sheet" data-k="mdg" data-v="' + esc(m.id) + '"><span class="acr-l"><b>Les chiffres du match</b><small>jeux tenus, breaks, set par set</small></span>' + WP_GO + "</button></div>" : ""; } // 4.32.0 : saisi au changement de côté
     var lk = PLUS_LOCK() && !mdmMatch(m);
     if (said && W.turn) { A.push(esc(W.turn.d)); A.push("<b>" + esc(W.say) + "</b> " + esc(W.facts)); }
     else A.push(said ? cap1(esc(W.facts)) : "<b>" + esc(W.say) + "</b> " + esc(W.facts));
@@ -11895,7 +11897,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
           var lastD = knownMatches(false).filter(function (x) { return x.result === "D" && !x.wo && x.score; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; }).slice(0, 3);
           var in3 = lastD.filter(function (x) { return String(x.score).trim().split(/\s+/).length >= 3; }).length;
           if (lastD.length >= 3 && in3 >= 2) A.push((in3 === 3 ? "<b>Tes 3 dernières défaites se sont jouées au 3e set</b>" : "<b>2 de tes 3 dernières défaites se sont jouées au 3e set</b>") + " : c'est le moment à soigner.");
-          if (knownMatches(false).some(function (x) { return x.wev; })) A.push("Ce match-là, je l'ai lu avec le score seul. <b>Suis le prochain à la montre</b> et je te dirai où il s'est joué.");
+          if (!m.gl && knownMatches(false).some(function (x) { return x.wev; })) A.push("Ce match-là, je l'ai lu avec le score seul. <b>Suis le prochain à la montre</b> et je te dirai où il s'est joué.");
         }
         if (nm3) F.push(["Prépare-moi ce match", "next"]); if (ez && !Wl0) F.push(["Comment je monte ?", "up"]);
       } else A.push("Pas de défaite ces deux derniers mois. Continue comme ça.");
@@ -12322,6 +12324,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var it = function (a, ic, t, sub, k) { return '<button class="row ap-r" data-a="' + a + '"><span class="ap-i ' + (k || "") + '">' + ic + '</span><span class="grow"><span class="t">' + t + '</span><span class="s">' + sub + "</span></span>" + I.next + "</button>"; };
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="actPlusClose"></div><div class="sheet ap-sh" role="dialog" aria-modal="true" aria-label="Ajouter"><span class="sheet-grab"></span><h3>Ajouter</h3>' +
       it("apMatch", I.plus, "Un match joué", "Hors Ten'Up ou pas encore remonté", "m") +
+      it("apLive", I.clock, "Un match en direct", S.mdLive && S.mdLive.G ? "En cours : reprends-le" : "Au changement de côté, Ace t'aide", "m") +
       it("apTrain", RACKET_SVG.replace("<svg", '<svg width="20" height="20"'), "Un entraînement", "Séance, durée, ressenti", "t") +
 "</div>";
   }
@@ -13331,7 +13334,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         var main = racketFor("match");
         if (main) { base.racketId = main.id; base.string = main.string || ""; base.tension = main.tension || null; base.tensionCross = main.tensionCross != null ? main.tensionCross : null; base._auto = !isNew; }
       }
-      if (isNew && UI.mmPrefill) { base._pre = UI.mmPrefill.score ? 3 : UI.mmPrefill.r ? 2 : 1; var mp = UI.mmPrefill; UI.mmPrefill = null; base.opp = mp.opp; base.oppRank = mp.rank; base.result = mp.r; if (mp.score) base.score = mp.score; if (mp.minutes) base.minutes = mp.minutes; if (mp.feel) base.feel = mp.feel; if (mp.kind) base.kind = mp.kind; if (mp.serve) base.serve = mp.serve; if (mp.hr) base.hr = mp.hr; if (mp.kcal) base.kcal = mp.kcal; if (mp.date) base.date = mp.date; if (mp.wid) base._wid = mp.wid; if (mp.oid) base.oid = String(mp.oid); if (mp.watch) base.watch = true; if (mp.wev) { base.wev = mp.wev; base.wsrv = mp.wsrv; base.wfmt = mp.wfmt; } if (mp.wevT) base.wevT = mp.wevT; if (mp.wt0) base.wt0 = mp.wt0; if (mp.wmax) base.wmax = mp.wmax; }
+      if (isNew && UI.mmPrefill) { base._pre = UI.mmPrefill.score ? 3 : UI.mmPrefill.r ? 2 : 1; var mp = UI.mmPrefill; UI.mmPrefill = null; base.opp = mp.opp; base.oppRank = mp.rank; base.result = mp.r; if (mp.gl) base.gl = mp.gl; if (mp.score) base.score = mp.score; if (mp.minutes) base.minutes = mp.minutes; if (mp.feel) base.feel = mp.feel; if (mp.kind) base.kind = mp.kind; if (mp.serve) base.serve = mp.serve; if (mp.hr) base.hr = mp.hr; if (mp.kcal) base.kcal = mp.kcal; if (mp.date) base.date = mp.date; if (mp.wid) base._wid = mp.wid; if (mp.oid) base.oid = String(mp.oid); if (mp.watch) base.watch = true; if (mp.wev) { base.wev = mp.wev; base.wsrv = mp.wsrv; base.wfmt = mp.wfmt; } if (mp.wevT) base.wevT = mp.wevT; if (mp.wt0) base.wt0 = mp.wt0; if (mp.wmax) base.wmax = mp.wmax; }
       // 3.55 (audit, validé) : un match neuf reprend les conditions de ta dernière saisie (surface, lieu)
       if (isNew) { var lastC = S.matches.filter(function (x) { return x.source !== "exemple" && (x.surface || x.indoor != null); }).sort(byDateDesc)[0]; if (lastC) { base.surface = SURFACES.indexOf(lastC.surface) >= 0 ? lastC.surface : ""; base.indoor = lastC.indoor != null ? lastC.indoor : null; } UI.condOpen = false; }
       if (isNew && UI.hcPrefillM) { var hm = UI.hcPrefillM; UI.hcPrefillM = null; base.date = hcIso(hm.start); base.minutes = hcMin(hm); base.hid = hm.id; base.hat = hm.start; }
@@ -13353,7 +13356,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (mA && !mA.wo && (mA.result === "V" || mA.result === "D")) { try { anA = analyse(mA); } catch (e) {} }
     if (official) s += officialCardHtml(m, pts, anA);
     // 3.55 (Yann, ordre de la fiche validé) : résultat, puis pourquoi / ce que tu gardes, puis à compléter, puis le contexte
-    var midH = isNew ? "" : wpHtml(mA) + analyseHtml(mA, official) + (m.result === "D" ? nextOccHtml(mA) : "") + toCompleteHtml(mA);
+    var midH = isNew ? "" : wpHtml(mA) + glHtml(mA) + analyseHtml(mA, official) + (m.result === "D" ? nextOccHtml(mA) : "") + toCompleteHtml(mA);
     if (!isNew && (S.anNew || []).indexOf(m.id) >= 0) { S.anNew = S.anNew.filter(function (x) { return x !== m.id; }); save(); }
     if (official) s += (isNew ? "" : lossAceHtml(m) + winAceHtml(m) + matchChangeHtml(m) + jkMatch(m)) + midH;
     if (!isNew && official) s += hcMatchLine(m) + hrMatchCard(m);
@@ -16671,6 +16674,180 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return '<div class="wbl"><div class="wbl-h">' + coBall("bl:" + m.id, "reflexion", "xs") + "<b>Mon bilan</b></div>" + ck + it("r", "À corriger", B.fix) + it("g", "À garder", B.keep) + nx + "</div>";
   }
   function wpMoreRow(m) { return '<button class="acr wbl-more" data-a="sheet" data-k="wpl" data-v="' + esc(m.id) + ':all"><span class="acr-l"><b>Les chiffres du match</b><small>les jeux, ton service, tes échanges : pour creuser toi-même</small></span>' + WP_GO + "</button>"; }
+  // ===== 4.32.0 (Yann, 28/11) : le match en direct sur le téléphone, saisi au changement de côté =====
+  // Le joueur ne sort son téléphone qu'aux changements de côté : qui a gagné les 1 ou 2 derniers jeux. Ace conseille selon le score.
+  // Tout le calcul (score, service, breaks, séries, tournant) vit dans MonteePlay.games / gameState (play.js) : un seul calcul.
+  function glOf(m) { return m && m.gl && window.MonteePlay ? MonteePlay.games(m.gl) : null; }
+  var GL_FIX = {
+    conf: function (A) { return { t: "Le jeu d'après un break.", d: "Tu l'as breaké " + A.aft[1] + " fois, et tu n'as tenu ton service juste après que " + A.aft[0] + " fois." }; },
+    srv: function (A) { return { t: "Ton service.", d: plural(A.held[0], "jeu tenu", "jeux tenus") + " sur " + A.held[1] + " : il t'a breaké " + (A.held[1] - A.held[0]) + " fois." }; },
+    run: function (A) { return { t: "Le trou de " + A.runL.n + " jeux.", d: A.runL.n + " jeux perdus d'affilée au " + wpSetN(A.runL.set) + ", à partir de " + A.runL.a + "-" + A.runL.b + "." }; },
+    tb: function (A) { return { t: "Le tie-break.", d: "Tu en as perdu " + (A.tb[1] - A.tb[0]) + " sur " + A.tb[1] + "." }; }
+  };
+  var GL_KEEP = {
+    ret: function (A) { return { t: "Ton retour.", d: plural(A.brk[0], "break", "breaks") + " sur ses " + A.brk[1] + " jeux de service." }; },
+    srv: function (A) { return { t: "Ton service.", d: plural(A.held[0], "jeu tenu", "jeux tenus") + " sur " + A.held[1] + "." }; },
+    runw: function (A) { return { t: A.runW.n + " jeux d'affilée.", d: "Au " + wpSetN(A.runW.set) + ", à partir de " + A.runW.a + "-" + A.runW.b + " : quand tu lances une série, tu la tiens." }; },
+    tb: function (A) { return { t: "Le tie-break.", d: "Tu en as gagné " + A.tb[0] + " sur " + A.tb[1] + ", le moment où tout se joue." }; }
+  };
+  var GL_NX = { conf: "Après un break, le jeu de service qui suit est le plus important du set : 1re au corps, une balle de plus, pas de risque.",
+    srv: "Ton service d'abord : 1re au corps, une balle de plus, et varie la cible quand il commence à lire.", run: "Quand deux jeux filent, casse le rythme : prends ton temps, 1re balle au centre, fais-le jouer.",
+    tb: "Au tie-break, des 1res balles sûres et de la marge : c'est lui qui doit prendre les risques." };
+  var GL_GOAL = {
+    conf: { l: "tenir ton service après chaque break", of: function (A) { return A.aft[1] ? { ok: A.aft[0] === A.aft[1], v: A.aft[0] + " sur " + A.aft[1] } : null; } },
+    srv: { l: "7 jeux de service tenus sur 10", of: function (A) { return A.held[1] >= 4 ? { ok: A.held[0] * 10 >= A.held[1] * 7, v: A.held[0] + " sur " + A.held[1] } : null; } },
+    run: { l: "pas plus de 3 jeux perdus d'affilée", of: function (A) { return A.n >= 8 ? { ok: A.runL.n <= 3, v: "ta plus longue série, " + plural(A.runL.n, "jeu", "jeux") } : null; } }
+  };
+  function glPick(A) {
+    var fix = A.aft[1] >= 2 && A.aft[0] * 2 <= A.aft[1] ? "conf" : A.held[1] >= 4 && A.held[0] * 2 < A.held[1] ? "srv" : A.runL.n >= 4 ? "run" : A.tb[1] && A.tb[0] < A.tb[1] ? "tb" : null;
+    var keep = A.brk[1] >= 4 && A.brk[0] * 100 >= A.brk[1] * 35 ? "ret" : A.held[1] >= 4 && A.held[0] * 4 >= A.held[1] * 3 && fix !== "srv" ? "srv" : A.runW.n >= 3 ? "runw" : A.tb[0] && fix !== "tb" ? "tb" : null;
+    return { fix: fix, keep: keep };
+  }
+  function glBilan(m) {
+    var A = glOf(m); if (!A || A.n < 4) return null;
+    var k = glPick(A), fix = k.fix ? Object.assign({ id: k.fix }, GL_FIX[k.fix](A)) : null, keep = k.keep ? GL_KEEP[k.keep](A) : null;
+    if (k.fix === "conf" && A.turn) fix.d += " C'est là que le " + wpSetN(A.turn.set) + " s'est joué.";
+    var next = k.fix ? GL_NX[k.fix] : m.result === "V" && keep ? "Garde ce qui a marché : " + keep.t.charAt(0).toLowerCase() + keep.t.slice(1, -1) + "." : "";
+    var prev = knownMatches(false).filter(function (x) { return x !== m && x.gl && x.date && m.date && x.date <= m.date; }).sort(function (a, b) { return a.date < b.date ? 1 : -1; })[0], chk = null;
+    if (prev) { var pA = glOf(prev), pk = pA && glPick(pA).fix; if (pk && GL_GOAL[pk] && GL_GOAL[pk].of(pA)) { var r = GL_GOAL[pk].of(A); if (r) chk = { g: GL_GOAL[pk], a: r, ok: r.ok }; } }
+    return { fix: fix, keep: keep, next: next, goal: k.fix && GL_GOAL[k.fix] && GL_GOAL[k.fix].of(A) ? GL_GOAL[k.fix] : null, drill: null, chk: chk };
+  }
+  function glHead(A, won) {
+    var h = A.held[1] ? A.held[0] / A.held[1] : 0, b = A.brk[1] ? A.brk[0] / A.brk[1] : 0;
+    if (h >= 0.75 && b >= 0.3) return won ? "<em>Solide partout</em> : au service et au retour." : "Tu as pris ta part de jeux : <i>ça s'est joué sur les moments clés.</i>";
+    if (b >= 0.3) return won ? "<em>Ton retour t'a fait gagner</em>, ton service a souffert." : "Ton retour a fait le boulot. <i>C'est au service que ça s'est perdu.</i>";
+    if (h >= 0.75) return won ? "<em>Ton service t'a porté</em>, le retour a eu du mal." : "Ton service a tenu. <i>C'est au retour qu'il a manqué des jeux.</i>";
+    return won ? "Pas ton meilleur tennis, <em>mais tu as pris les jeux qui comptent.</em>" : "<i>Il a été plus fort</i>, au service et au retour.";
+  }
+  // La courbe du match, jeu par jeu (écart de jeux cumulé), le super tie-break en pastille au bout
+  function glCurve(A) {
+    var c = A.curve, N = Math.max(1, c.length - 1), W = 340, H = 150, stb = A.sets.filter(function (x) { return x.stb; })[0], R = stb ? 52 : 18;
+    var mx = Math.max(2, Math.max.apply(null, c.map(Math.abs))), x = function (i) { return 10 + i * (W - R - 10) / N; }, y = function (v) { return 72 - v * 50 / mx; };
+    var line = c.map(function (v, i) { return x(i).toFixed(1) + "," + y(v).toFixed(1); }).join(" "), area = "M" + x(0) + "," + y(0) + " L" + line.split(" ").join(" L") + " L" + x(N) + "," + y(0) + " Z";
+    var ga = svgId("gca"), gb = svgId("gcb"), mu = 'fill="var(--muted)" font-size="11.5" font-weight="800"', cut = [], at = 0, lab = "";
+    A.sets.forEach(function (st, si) { if (st.stb) return; var n = A.games.filter(function (g) { return g.set === si; }).length; lab += '<text x="' + x(at + n / 2) + '" y="144" text-anchor="middle" ' + mu + ">" + (si ? wpSetN(si).replace(" set", "") : "1er set") + " " + st.me + "-" + st.him + "</text>"; at += n; if (si < A.sets.length - 1) cut.push(at); });
+    var t = A.turn ? A.turn.k : null;
+    return '<div class="wcv"><svg viewBox="0 0 ' + W + " " + H + '" width="100%" role="img" aria-label="Écart de jeux, jeu par jeu"><defs><clipPath id="' + ga + '"><rect x="0" y="0" width="' + W + '" height="' + y(0) + '"/></clipPath><clipPath id="' + gb + '"><rect x="0" y="' + y(0) + '" width="' + W + '" height="' + H + '"/></clipPath></defs>' +
+      '<text x="10" y="14" ' + mu + '>tu mènes</text><text x="10" y="128" ' + mu + ">il mène</text>" +
+      cut.map(function (i) { return '<line x1="' + x(i) + '" x2="' + x(i) + '" y1="22" y2="122" stroke="var(--muted)" stroke-opacity=".5" stroke-dasharray="3 3"/>'; }).join("") +
+      '<path d="' + area + '" fill="color-mix(in srgb, var(--gazon) 45%, transparent)" clip-path="url(#' + ga + ')"/><path d="' + area + '" fill="color-mix(in srgb, var(--terre) 45%, transparent)" clip-path="url(#' + gb + ')"/>' +
+      '<line x1="10" x2="' + (W - 4) + '" y1="' + y(0) + '" y2="' + y(0) + '" stroke="var(--muted)" stroke-opacity=".5"/><polyline points="' + line + '" fill="none" stroke="var(--ink)" stroke-width="2.5" stroke-linejoin="round"/>' +
+      (stb ? '<rect x="' + (x(N) + 10) + '" y="' + (stb.tb[0] > stb.tb[1] ? y(0) - 26 : y(0)) + '" width="26" height="26" rx="6" fill="color-mix(in srgb, var(--' + (stb.tb[0] > stb.tb[1] ? "gazon" : "terre") + ') 45%, transparent)"/><text x="' + (x(N) + 23) + '" y="144" text-anchor="middle" ' + mu + ">" + stb.tb[0] + "-" + stb.tb[1] + "</text>" : "") +
+      (t != null ? '<circle cx="' + x(t) + '" cy="' + y(c[t]) + '" r="6" fill="var(--balle)" stroke="var(--card)" stroke-width="2"/>' : "") + lab + "</svg>" +
+      '<div class="wcv-k"><span>' + (A.turn ? '<i class="wcv-dot"></i> le tournant : ' + A.turn.a + "-" + A.turn.b + " au " + wpSetN(A.turn.set) : "") + "</span><span>" + plural(A.n, "jeu", "jeux") + "</span></div></div>";
+  }
+  function glHtml(m) {
+    if (wpOf(m)) return ""; var A = glOf(m); if (!A || A.n < 4) return "";
+    return '<div class="card wp"><div class="wp-h"><span class="eyebrow">Ton match, jeu par jeu</span></div><b class="sv2-h">' + glHead(A, m.result === "V") + "</b>" + glCurve(A) +
+      wpBilanHtml(m, glBilan(m)) + '<button class="acr wbl-more" data-a="sheet" data-k="mdg" data-v="' + esc(m.id) + '"><span class="acr-l"><b>Les chiffres du match</b><small>jeux tenus, breaks, le jeu d\'après un break, set par set</small></span>' + WP_GO + "</button>" +
+      '<span class="small md-note">Saisi au changement de côté, je compte les jeux. Avec la montre, je lis chaque point (1er point du jeu, échanges, balles de break).</span></div>';
+  }
+  var DET_MDG = function (v) {
+    var m = S.matches.filter(function (x) { return x.id === v; })[0], A = glOf(m); if (!A) return null;
+    var row = function (l, s, a, cl) { return acRow({ l: esc(l), s: s ? esc(s) : "", v: a[1] ? a[0] + "/" + a[1] : "–", cl: cl || "" }); }, enc = function (h, b) { return '<div class="kp-enc wp-enc"><div class="kp-eh"><span>' + h + "</span><b></b></div>" + b + "</div>"; };
+    var bySet = A.sets.map(function (st, si) { if (st.stb) return ""; var g = A.games.filter(function (x) { return x.set === si && x.srv === 0; }); return wpSetN(si) + " " + g.filter(function (x) { return x.w; }).length + " sur " + g.length; }).filter(Boolean).join(" · ");
+    var hh = A.held[1] ? A.held[0] / A.held[1] : 0, bb = A.brk[1] ? A.brk[0] / A.brk[1] : 0;
+    return { title: "Les chiffres du match", sub: "Contre " + (m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "ton adversaire") + ", saisi au changement de côté", body:
+      '<div class="kp-enc wp-enc"><div class="kp-eh"><span>Les jeux</span><b>' + esc(A.score) + "</b></div>" + glFrise(A) + "</div>" +
+      enc("Ton service", row("Jeux de service tenus", bySet, A.held, hh >= 0.75 ? "g" : hh < 0.5 ? "r" : "") + (A.aft[1] ? row("Le jeu d'après un break", "ton service, juste après l'avoir breaké", A.aft, A.aft[0] * 2 <= A.aft[1] ? "r" : "g") : "")) +
+      enc("Ton retour", row("Breaks", "sur ses jeux de service", A.brk, bb >= 0.3 ? "g" : bb < 0.15 ? "r" : "") + (A.aftH[1] ? row("Son jeu d'après un break", "quand il t'a breaké, tu as répondu", A.aftH) : "")) +
+      enc("Les moments", row("1er jeu de chaque set", "gagné", A.firstG) + (A.runW.n >= 2 ? acRow({ l: "Jeux gagnés d'affilée", s: "au " + wpSetN(A.runW.set) + ", à partir de " + A.runW.a + "-" + A.runW.b, v: String(A.runW.n), cl: "g" }) : "") +
+        (A.runL.n >= 2 ? acRow({ l: "Jeux perdus d'affilée", s: "au " + wpSetN(A.runL.set) + ", à partir de " + A.runL.a + "-" + A.runL.b, v: String(A.runL.n), cl: "r" }) : "") + (A.tb[1] ? row("Tie-breaks gagnés", "", A.tb) : "")) +
+      '<div class="kp-enc wp-enc"><div class="kp-eh"><span>Comment je compte</span><b></b></div><p class="wp-note">Tu as dit qui servait le 1er jeu, puis qui a gagné chaque jeu au changement de côté. Le service alterne à chaque jeu : je sais donc quels jeux étaient les tiens et lesquels étaient des breaks. Je compte les jeux, pas les points.</p></div>' };
+  };
+  // La frise des jeux (même dessin que la frise de la montre) : vert gagné, terre perdu, point = ton service
+  function glFrise(A) {
+    return '<div class="wtl">' + A.sets.map(function (st, si) {
+      if (st.stb) return '<div class="wtl-r"><span class="wtl-l">' + st.tb[0] + "-" + st.tb[1] + "<small>super tie-break</small></span><span></span></div>";
+      return '<div class="wtl-r md-fr"><span class="wtl-l">' + st.me + "-" + st.him + "<small>" + wpSetN(si) + '</small></span><span class="md-g">' + A.games.filter(function (g) { return g.set === si; }).map(function (g) { return '<i class="' + (g.w ? "w" : "l") + (g.srv === 0 ? " s" : "") + '"></i>'; }).join("") + "</span></div>";
+    }).join("") + '<div class="wcv-k"><span>vert : jeu gagné · terre : jeu perdu · point : ton service</span></div></div>';
+  }
+
+  // ----- L'écran en direct -----
+  var mdTimer = null;
+  function mdState() { var L = S.mdLive; return L && L.G ? MonteePlay.gameState(L.G) : null; }
+  // Combien de jeux à dire à ce changement de côté : 1 au début d'un set, puis 2 (on change de côté après les jeux impairs)
+  function mdPend(st) { return st.tbNow ? 0 : (st.a + st.b) % 2 === 0 ? 1 : 2; }
+  // Le conseil d'Ace au changement de côté : mêmes règles que la montre (coachCues), au niveau du jeu
+  function mdCue(L) {
+    var st = mdState(), A = st.A, G = L.G, last = L.last || [], me = st.next === 0, sw = st.sw, sl = st.sl;
+    var setJustOver = st.setOver;
+    if (st.stbNext) return { cl: "y", tag: "Super tie-break", t: "Tout repart à zéro.", s: "Premier à 10, 2 points d'écart. Des 1res balles sûres, de la marge, et fais-le jouer : c'est lui qui doit prendre les risques." };
+    if (st.tbNow) return { cl: "y", tag: "Tie-break", t: "Chaque point compte double.", s: "1res balles sûres, de la marge, fais-le jouer. Tu me donnes son score à la fin." };
+    if (setJustOver) { var pw = A.sets[A.sets.length - 1]; return pw && pw.me > pw.him ? { cl: "g", tag: sw === 1 && sl === 0 ? "Un set à zéro" : "Set gagné", t: "Même plan au set suivant.", s: "C'est lui qui doit changer quelque chose. Ton 1er jeu de service donne le ton : 1re au corps, une balle de plus." } :
+      { cl: "r", tag: "On repart", t: "Nouveau set, tout repart à zéro.", s: "Ton 1er jeu de service compte double : 1re au corps, une balle de plus. Fais-le jouer, ne cherche pas le coup gagnant." }; }
+    var gs = A.games, lg = gs[gs.length - 1], brokeLast = last.some(function (k) { var g = gs[k]; return g && g.srv === 1 && g.w; });
+    var closes = function (a, b) { return a + 1 >= 6 && a + 1 - b >= 2; };
+    if (me && closes(st.a, st.b)) return { cl: "y", tag: "Tu sers pour le set", t: "1re balle, du poids.", s: "Pas de risque inutile : ta routine, une cible simple, et fais-le jouer." };
+    if (!me && closes(st.b, st.a)) { var mine = gs.filter(function (g) { return g.set === G.s.length - 1 && g.srv === 1; }), wn = mine.filter(function (g) { return g.w; }).length;
+      return { cl: "r", tag: "Il sert pour le set", t: "Rien à perdre.", s: "Avance en retour et fais-le jouer" + (mine.length >= 2 && !wn ? " : sur son service, tu n'as pas encore pris de jeu dans ce set (0 sur " + mine.length + ")" : "") + "." + (sw > sl ? " Et même s'il le gagne, tu as déjà un set." : "") }; }
+    if (brokeLast && me) return { cl: "y", tag: "Confirme le break", t: "Le jeu le plus important du set.", s: "Juste après un break, sers simple : 1re au corps, une balle de plus, pas de risque. C'est là qu'on perd souvent l'avance." };
+    var run = 0; for (var i = gs.length - 1; i >= 0 && gs[i].w === lg.w; i--) run++;
+    if (lg && !lg.w && run >= 3) return { cl: "r", tag: "Casse son rythme", t: "Il enchaîne " + run + " jeux.", s: "Prends ton temps entre les points, 1re balle au centre, fais-le jouer un coup de plus." };
+    if (lg && lg.w && run >= 3) return { cl: "g", tag: "Ne change rien", t: run + " jeux d'affilée pour toi.", s: "Même plan, même rythme : c'est lui qui doit trouver une solution." + (A.brk[0] ? " Tu l'as breaké " + plural(A.brk[0], "fois", "fois") + " et ton service tient (" + A.held[0] + " sur " + A.held[1] + ")." : "") };
+    if (L.pTag !== "Il lit ton service" && A.held[1] >= 3 && A.held[1] - A.held[0] >= 2 && (A.held[1] - A.held[0]) * 10 >= A.held[1] * 4) return { cl: "r", tag: "Il lit ton service", t: "Breaké " + (A.held[1] - A.held[0]) + " fois sur " + A.held[1] + ".", s: "Varie : au corps, dans le T, slice large. Et une 1re balle de plus, quitte à ralentir." };
+    if (L.pTag !== "Ton retour fait mal" && A.brk[0] >= 2) return { cl: "g", tag: "Ton retour fait mal", t: "Tu l'as breaké " + A.brk[0] + " fois.", s: "Garde la même position en retour, et remets en jeu long : il doute." };
+    return { cl: "n", tag: me ? "Tu sers" : "Il sert", t: st.a + "-" + st.b + ", un jeu à la fois.", s: me ? "Ta routine avant chaque 1re balle, une cible simple." : "En retour : de la marge, en profondeur, au centre." };
+  }
+  function mdSeg(a, items) { return '<div class="md-seg' + (items.some(function (x) { return x.s; }) ? " two" : "") + '" role="group">' + items.map(function (x) { return '<button class="' + (x.on ? "on " : "") + (x.k || "") + '" data-a="' + a + '" data-v="' + esc(String(x.v)) + '" aria-pressed="' + !!x.on + '">' + (x.s ? "<b>" + esc(x.l) + "</b><small>" + esc(x.s) + "</small>" : esc(x.l)) + "</button>"; }).join("") + "</div>"; }
+  function mdFrise(st) { var si = st.set, gs = st.A.games.filter(function (g) { return g.set === si; }); return '<div class="md-g">' + gs.map(function (g) { return '<i class="' + (g.w ? "w" : "l") + (g.srv === 0 ? " s" : "") + '"></i>'; }).join("") + '<i class="n"></i></div>'; }
+  function mdScoreHtml(st) {
+    var lead = st.a > st.b ? "tu mènes" : st.b > st.a ? "il mène" : "égalité", sets = st.sw || st.sl ? (st.sw === st.sl ? " · 1 set partout" : st.sw > st.sl ? " · tu as gagné le 1er" : " · il a gagné le 1er") : "";
+    return '<div class="md-sc"><span class="big">' + st.a + "<em>–</em>" + st.b + "</span><small>" + wpSetN(st.set) + " · " + lead + sets + "</small></div>";
+  }
+  V.direct = function () {
+    var L = S.mdLive, top = function (t) { return '<div class="md-top"><button class="md-x" data-a="mdQuit" aria-label="Quitter">' + I.cross + "</button><b>" + t + '</b><span style="width:34px"></span></div>'; };
+    if (!L || !L.G) {
+      var D = UI.mdNew = UI.mdNew || (function () { var n = null; try { n = nextMatch(); } catch (e) {} return { opp: n && dGap(n.day) <= 1 ? n.name : "", rank: n && dGap(n.day) <= 1 ? n.rank : "", oid: n && dGap(n.day) <= 1 && n.pl ? n.id : null, sub: n && dGap(n.day) <= 1 ? n.sub || n.when : "", f: null, fmt: "stb" }; })();
+      return '<div class="screen md">' + top("Match en direct") +
+        '<div class="md-card"><span class="md-eb">Ton match</span>' + (D.opp ? '<div class="md-vs"><span>Contre ' + esc(nameCase(D.opp)) + "</span>" + acRk(D.rank) + "</div>" + (D.sub ? '<span class="md-s">' + esc(D.sub) + "</span>" : "") :
+          '<input type="text" class="md-in" data-md="opp" placeholder="Contre qui ? Prénom et nom" aria-label="Ton adversaire" autocomplete="off" value="' + esc(D.opp || "") + '">') + "</div>" +
+        '<div class="md-card"><div class="md-lab">Qui sert en premier ?</div>' + mdSeg("mdSet", [{ l: "Toi", v: "f:0", on: D.f === 0 }, { l: "Lui", v: "f:1", on: D.f === 1 }]) +
+        '<div class="md-lab">Format</div>' + mdSeg("mdSet", [{ l: "3 sets", s: "classique", v: "fmt:3", on: D.fmt === "3" }, { l: "2 sets", s: "+ super tie-break", v: "fmt:stb", on: D.fmt === "stb" }]) + "</div>" +
+        '<div class="md-ace">' + coBall("md:go", "joie", "sm") + '<div class="md-bub"><b>Range ton téléphone.</b><p>Tu ne le sors qu\'aux changements de côté : deux touches pour dire qui a gagné les jeux, et je te dis quoi faire pour la suite.</p></div></div>' +
+        '<button class="md-btn" data-a="mdStart"' + (D.f == null ? " disabled" : "") + ">C'est parti</button></div>";
+    }
+    var st = mdState();
+    if (st.over) {
+      var A = st.A, won = st.sw > st.sl;
+      return '<div class="screen md">' + top("Fin du match") + '<div class="md-sc"><span class="big md-fin">' + esc(A.score) + "</span><small>" + (won ? "Victoire" : "Défaite") + " contre " + esc(nameCase(L.opp || "ton adversaire")) + "</small></div>" +
+        '<div class="md-ace">' + coBall("md:end", won ? "joie" : "reflexion", "sm") + '<div class="md-bub"><b>' + (won ? "Bien joué !" : "On en tire quelque chose.") + "</b><p>" + plural(A.held[0], "jeu de service tenu", "jeux de service tenus") + " sur " + A.held[1] + ", " + plural(A.brk[0], "break", "breaks") + " sur ses " + A.brk[1] + " jeux de service. Enregistre le match : mon bilan t'attend sur sa fiche.</p></div></div>" +
+        '<button class="md-btn" data-a="mdSave">Enregistrer le match</button><button class="md-lnk" data-a="mdUndo">Corriger le dernier changement de côté</button></div>';
+    }
+    if (L.cue) {
+      var c = L.cue, plan = []; try { plan = (watchCoach(L.opp || "").plan || []).slice(0, 2); } catch (e) {}
+      return '<div class="screen md">' + top("Changement de côté") + mdScoreHtml(st) + mdFrise(st) +
+        '<div class="md-ace">' + coBall("md:cue", c.cl === "r" ? "reflexion" : "joie", "sm") + '<div class="md-bub"><span class="wpt ' + c.cl + '">' + esc(c.tag) + "</span><b>" + esc(c.t) + "</b><p>" + esc(c.s) + "</p></div></div>" +
+        (plan.length ? '<div class="md-card"><span class="md-eb">Ton plan pour ce match</span>' + plan.map(function (x) { return '<div class="md-row"><span>' + esc(x.t) + (x.s ? "<small>" + esc(x.s) + "</small>" : "") + "</span></div>"; }).join("") + "</div>" : "") +
+        '<div class="md-timer"><span>Reprise dans</span><b id="md-clock">' + mdClock(L) + '</b></div><button class="md-btn soft" data-a="mdResume">Reprendre</button></div>';
+    }
+    var n = mdPend(st), P = UI.mdPick || [], s = '<div class="screen md">' + top("Changement de côté");
+    if (st.tbNow || st.stbNext) {
+      var T = UI.mdTb || ["", ""];
+      s += '<div class="md-card"><span class="md-eb">' + (st.stbNext ? "Super tie-break" : wpSetN(st.set) + " · tie-break") + '</span><div class="md-lab">Son score</div><div class="md-tb"><label><small>Toi</small><input type="number" inputmode="numeric" min="0" max="40" data-md="tb0" value="' + esc(T[0]) + '"></label><em>–</em><label><small>Lui</small><input type="number" inputmode="numeric" min="0" max="40" data-md="tb1" value="' + esc(T[1]) + '"></label></div></div>' +
+        mdScoreHtml(st) + '<button class="md-btn" data-a="mdTbOk">Valider</button>';
+    } else {
+      var g0 = st.a + st.b, rows = [], a = st.a, b = st.b, srv = st.next, done = false;
+      for (var i = 0; i < n && !done; i++) {
+        var p = P[i];
+        rows.push('<div class="md-gm-r"><span>' + (g0 + i ? (g0 + i + 1) + "e" : "1er") + " jeu<small>" + (srv === 0 ? "tu sers" : "il sert") + "</small></span>" + mdSeg("mdPick", [{ l: "Gagné", v: i + ":1", on: p === 1, k: "v" }, { l: "Perdu", v: i + ":0", on: p === 0, k: "d" }]) + "</div>");
+        if (p == null) break; if (p === 1) a++; else b++; srv = 1 - srv;
+        if ((a >= 6 || b >= 6) && Math.abs(a - b) >= 2 || a === 7 || b === 7 || (a === 6 && b === 6)) done = true;
+      }
+      var ok = P.length >= rows.length && rows.length && P.slice(0, rows.length).every(function (x) { return x != null; });
+      s += '<div class="md-card"><span class="md-eb">' + wpSetN(st.set) + " · " + (rows.length > 1 ? "les 2 derniers jeux" : "le dernier jeu") + '</span><div class="md-gm">' + rows.join("") + "</div></div>" +
+        '<div class="md-sc"><span class="big">' + a + "<em>–</em>" + b + "</span><small>" + wpSetN(st.set) + (st.sw || st.sl ? " · " + st.sw + " set" + (st.sw > 1 ? "s" : "") + " à " + st.sl : "") + "</small></div>" + mdFrise(st) +
+        '<button class="md-btn" data-a="mdOk"' + (ok ? "" : " disabled") + ">Valider</button>" + (L.G.s.some(function (x) { return x.g || x.tb; }) ? '<button class="md-lnk" data-a="mdUndo">Corriger le dernier changement de côté</button>' : '<span class="md-note">Un tie-break ? Tu me donnes juste son score à la fin.</span>');
+    }
+    return s + "</div>";
+  };
+  function mdClock(L) { var r = Math.max(0, Math.round(((L.cueAt || 0) + (L.cueLen || 90) * 1000 - Date.now()) / 1000)); return Math.floor(r / 60) + ":" + String(r % 60).padStart(2, "0"); }
+  function mdTick() { var el = document.getElementById("md-clock"); if (!el || !S.mdLive || !S.mdLive.cue) { clearInterval(mdTimer); mdTimer = null; return; } el.textContent = mdClock(S.mdLive); }
+  function mdPush(L, wins) { var G = L.G, before = MonteePlay.games(G).n, last = []; L.hist = (L.hist || []).concat([JSON.stringify(G)]).slice(-30);
+    wins.forEach(function (w) { var cur = MonteePlay.gameState(G); if (cur.setOver) G.s.push({ g: "" }); G.s[G.s.length - 1].g += w ? "1" : "0"; last.push(before + last.length); });
+    L.last = last; }
+  function mdCueOpen(L) { L.cue = mdCue(L); L.pTag = L.cue.tag; // le même constat de tout le match ne revient pas deux changements de côté de suite
+    var st = mdState(); L.cueAt = Date.now(); L.cueLen = st.setOver ? 120 : 90; save(); render(); clearInterval(mdTimer); mdTimer = setInterval(mdTick, 1000); }
   function wpHtml(m) {
     var W = wpOf(m); if (!W) return "";
     var lk = PLUS_LOCK() && !mdmMatch(m); // 4.31.0 (Yann : « que le gratuit ne se dise pas que j'abuse ») : ce match en entier est gratuit ; Montée+ = tes matchs dans le temps
@@ -17337,7 +17514,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   };
   function sheetHtml() {
     DET.kids = DET_KIDS; DET.kidAdd = DET_KIDADD; // 4.15
-    DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.dz = DET_DZ; DET.hb = DET_HB; DET.hbd = DET_HBD; DET.hbt = DET_HBT; DET.dza = DET_DZA; hbDragInit(); DET.itin = DET_ITIN; DET.tp = DET_TP; DET.wpl = DET_WPL; DET.wpr = DET_WPR; DET.wpp = DET_WPP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
+    DET.mdg = DET_MDG; DET.goals = DET_GOALS; DET.tz = DET_TZ; DET.tzf = DET_TZF; DET.dz = DET_DZ; DET.hb = DET_HB; DET.hbd = DET_HBD; DET.hbt = DET_HBT; DET.dza = DET_DZA; hbDragInit(); DET.itin = DET_ITIN; DET.tp = DET_TP; DET.wpl = DET_WPL; DET.wpr = DET_WPR; DET.wpp = DET_WPP; DET.plusPrev = DET_PP; DET.trialEnd = DET_TRIAL; DET.mmBilan = DET_MMB; // 3.73 // 3.56 (déclarés avant DET) ; 3.57 : le récap de l'essai
     var d = DET[UI.sheet.k] && DET[UI.sheet.k](UI.sheet.v);
     if (!d) { UI.sheet = null; return ""; }
     return '<div class="sheet-bg" role="button" aria-label="Fermer" data-a="sheetClose"></div><div class="sheet big" role="dialog" aria-modal="true" aria-label="' + esc(d.title) + '"><div class="sh-grab"></div><div class="sh-head"><b>' + esc(d.title) + "</b>" + (d.hd || "") + '<button class="iconbtn sm" data-a="sheetClose" aria-label="Fermer">' + I.cross + "</button></div>" +
@@ -19599,16 +19776,16 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // dont le match existe déjà (Ten'Up ou saisi) le même jour contre le même adversaire y est rattaché, au lieu d'attendre ou de doublonner
   function watchAttach() {
     if (SK) return 0; // 4.15
-    var L = S.watchIn || [], n = 0;
+    var L = S.watchIn || [], n = 0, ng = 0;
     // 3.53.5 : le match de la montre déjà enregistré à la main, puis le même match arrivé de Ten'Up sans être fusionné (doublon) :
     // le score compté, le service et le cardio passent aussi sur le match Ten'Up (le doublon reste, à confirmer par toi)
     S.matches.forEach(function (t) {
-      if (t.dbl || t.wev || t.source !== "tenup" || !t.date) return;
-      var w = S.matches.filter(function (x) { return x !== t && x.wev && !x.dbl && x.date === t.date && x.result === t.result && (sameName(x.opp, t.opp) || S.matches.filter(function (y) { return y.source === "tenup" && y.date === t.date && !y.dbl; }).length === 1); })[0];
+      if (t.dbl || t.wev || t.gl || t.source !== "tenup" || !t.date) return;
+      var w = S.matches.filter(function (x) { return x !== t && (x.wev || x.gl) && !x.dbl && x.date === t.date && x.result === t.result && (sameName(x.opp, t.opp) || S.matches.filter(function (y) { return y.source === "tenup" && y.date === t.date && !y.dbl; }).length === 1); })[0];
       if (!w) return;
-      ["wev", "wsrv", "wfmt", "wevT", "wt0", "wmax"].forEach(function (k) { if (w[k] != null) t[k] = w[k]; });
+      ["wev", "wsrv", "wfmt", "wevT", "wt0", "wmax", "gl"].forEach(function (k) { if (w[k] != null) t[k] = w[k]; }); // 4.32.0 : le match en direct (gl) aussi
       ["serve", "hr", "kcal", "minutes", "hid", "hat", "hend", "hw"].forEach(function (k) { if (w[k] != null && t[k] == null) t[k] = w[k]; });
-      t.watch = true; if (t.hrc && !t.hrc.none) delete t.hrc; n++;
+      if (w.wev) { t.watch = true; if (t.hrc && !t.hrc.none) delete t.hrc; n++; } else ng++;
     });
     var n0 = n;
     S.watchIn = L.filter(function (w) {
@@ -19622,7 +19799,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       n++; return false;
     });
     if (n) { UI.hrTry = {}; save(); toast(n > 1 ? n + " matchs de ta montre rattachés à tes matchs." : "Match de ta montre rattaché à ton match : score et cardio réunis."); }
-    return n;
+    else if (ng) save();
+    return n + ng;
   }
   function watchTake() {
     if (!IOS || !Tenup || typeof Tenup.watchTake !== "function") return;
@@ -20628,8 +20806,11 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.30.0",
+    v: "4.32.0",
     pages: [
+      // 4.32 (Yann, 28/11/2026, maquettes validées) : le match en direct sur le téléphone, saisi au changement de côté
+      { hero: true, title: "Montée 4.32", text: "Pas de montre ? Ton téléphone suffit : au changement de côté, tu dis qui a gagné les jeux, et Ace te dit quoi faire pour la suite." },
+      { tag: "Nouveau", tone: "rose", title: "Un match en direct", vis: "md432", text: "Touche + puis « Un match en direct ». Qui sert en premier, puis deux touches à chaque changement de côté. À la fin : la courbe du match, tes jeux de service tenus, tes breaks et le bilan d'Ace." },
       // 4.30 (Yann, 28/11/2026, maquettes validées) : Ace qui tape juste : le tournant, la courbe du match, les questions « On creuse ? »
       { hero: true, title: "Montée 4.30", text: IOS ? "Ace te dit où ton match a basculé, avec la courbe du match. Et tu creuses : ton service, ta tête, ton physique, quoi travailler." : "Après une défaite, Ace te dit ce qui revient d'un match à l'autre." },
       { tag: "Nouveau", tone: "rose", title: "La courbe du match", vis: "cv430", text: "Compté à ta montre : l'écart de points minute par minute, et le point jaune là où le match a basculé. Dans la fiche du match et chez Ace." },
@@ -20821,7 +21002,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-      var PHARES = IOS ? ["cv430", "ace430", "wp428", "avm428", "ann427"] : ["avm428", "ann427", "pl427", "ms425", "tf425"]; // 4.28.1 : annoter tout de suite, ta poule à ta main // 4.28 : Ace point par point (montre, iPhone), avant-match vérifié // 4.25 : 3 étapes, ta part de la journée, squelette ; puis le fil d'Ace // 4.21 : fil d'Ace, bulle, À découvrir ; puis suivis et profil de ton enfant // 4.18 : suivis (4.17) et profil de ton enfant v2 ; 5 pages max (ef416, kidf415 sortent)
+      var PHARES = IOS ? ["md432", "cv430", "ace430", "wp428", "avm428"] : ["md432", "avm428", "ann427", "pl427", "ms425"]; // 4.32 : le match en direct // 4.28.1 : annoter tout de suite, ta poule à ta main // 4.28 : Ace point par point (montre, iPhone), avant-match vérifié // 4.25 : 3 étapes, ta part de la journée, squelette ; puis le fil d'Ace // 4.21 : fil d'Ace, bulle, À découvrir ; puis suivis et profil de ton enfant // 4.18 : suivis (4.17) et profil de ton enfant v2 ; 5 pages max (ef416, kidf415 sortent)
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -20850,6 +21031,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     // 4.25 : 3 étapes, ta part de la journée, squelette (couleurs fixes, écran sombre, noms génériques)
     if (k === "cv430") return nvc('<svg viewBox="0 0 160 70" width="170" aria-hidden="true"><line x1="4" x2="156" y1="35" y2="35" stroke="#F2F3F5" stroke-opacity=".4"/><polyline fill="none" stroke="#F2F3F5" stroke-width="2.2" stroke-linejoin="round" points="4,35 14,30 22,33 30,24 40,30 50,36 60,33 70,38 80,34 90,37 100,33 108,32 116,40 124,44 132,50 140,56 150,62"/><circle cx="108" cy="32" r="5" fill="#D4E64A" stroke="#121212" stroke-width="1.5"/></svg>' + nvCard("LE TOURNANT", "3e set", "#D4E64A"));
     if (k === "ace430") return nvc('<span style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">' + ["Où ça a basculé ?", "Dans la tête, j'ai lâché ?", "Qu'est-ce que je travaille ?"].map(function (t) { return '<span style="padding:7px 12px;border-radius:99px;background:rgba(212,230,74,.16);font-weight:700;font-size:12.5px">' + t + "</span>"; }).join("") + "</span>");
+    if (k === "md432") return nvc('<span style="display:flex;flex-direction:column;gap:8px;align-items:center"><b style="font-size:26px;letter-spacing:-.5px">4<span style="opacity:.5"> – </span>2</b><span style="display:flex;gap:4px">' + [1, 0, 1, 1, 0, 1].map(function (w, j) { return '<i style="width:16px;height:18px;border-radius:5px;display:inline-grid;place-items:center;background:' + (w ? "rgba(111,194,143,.55)" : "rgba(232,138,94,.3)") + '">' + (j % 2 ? "" : '<span style="width:5px;height:5px;border-radius:50%;background:#F2F3F5;opacity:.75"></span>') + "</i>"; }).join("") + "</span>" + nvCard("CONFIRME LE BREAK", "1re au corps", "#E9F25A") + "</span>");
     if (k === "wp428") return nvc('<span style="display:flex;flex-direction:column;gap:7px">' + [[1, 0, 1, 1, 0, 0], [0, 0, 1, 0, 0, 0]].map(function (r, i) { return '<span style="display:flex;gap:4px;align-items:center"><small style="width:42px;opacity:.75;font-size:11px">' + (i ? "3e set" : "1er set") + "</small>" + r.map(function (w, j) { return '<i style="width:16px;height:18px;border-radius:5px;display:inline-grid;place-items:center;background:' + (w ? "rgba(111,194,143,.55)" : "rgba(232,138,94,.3)") + '">' + (j % 2 ? "" : '<span style="width:5px;height:5px;border-radius:50%;background:#F2F3F5;opacity:.75"></span>') + "</i>"; }).join("") + "</span>"; }).join("") + nvCard("1ER POINT DE TON JEU", "1/10", "#E88A5E") + nvCard("ÉCHANGES LONGS", "63 %", "#6FC28F") + "</span>");
     if (k === "ann427") return nvc('<span style="display:flex;flex-direction:column;gap:7px">' + nvCard("BRAVO ! VICTOIRE NOTÉE", "Annoter", "#D4E64A") + nvCard("ACE · SUR L'ACCUEIL", "Tu me racontes ? 30 s", "#F2F3F5") + "</span>");
     if (k === "pl427") return nvc('<span style="display:flex;flex-direction:column;gap:7px">' + nvCard("TA POULE · LES JOUEURS", "J. Moreau · 15/2", "#F2F3F5") + nvCard("INFOS PRATIQUES", "Téléphone · e-mail", "#6FC28F") + "</span>");
@@ -21738,6 +21920,22 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     actPlus: function () { UI.actPlus = true; render(); },
     actPlusClose: function () { UI.actPlus = false; render(); },
     apMatch: function () { UI.actPlus = false; UI.draft = null; go("match/new"); },
+    apLive: function () { UI.actPlus = false; UI.mdNew = null; UI.mdPick = []; go("direct"); },
+    // 4.32.0 : le match en direct (saisi au changement de côté)
+    mdSet: function (el) { var v = el.dataset.v.split(":"), D = UI.mdNew = UI.mdNew || {}; if (v[0] === "f") D.f = +v[1]; else D.fmt = v[1]; render(); },
+    mdStart: function () { var D = UI.mdNew || {}; if (D.f == null) return; S.mdLive = { opp: (D.opp || "").trim(), rank: D.rank || "", oid: D.oid || null, at: Date.now(), G: { f: D.f, fmt: D.fmt || "stb", s: [{ g: "" }] }, hist: [] }; UI.mdPick = []; save(); haptic("success"); render(); },
+    mdPick: function (el) { var v = el.dataset.v.split(":"), P = UI.mdPick = (UI.mdPick || []).slice(0, +v[0]); P[+v[0]] = +v[1]; render(); },
+    mdOk: function () { var L = S.mdLive, P = (UI.mdPick || []).filter(function (x) { return x != null; }); if (!L || !P.length) return; mdPush(L, P.map(function (x) { return x === 1; })); UI.mdPick = []; haptic("light"); if (mdState().over) { L.cue = null; save(); render(); } else mdCueOpen(L); },
+    mdTbOk: function () { var L = S.mdLive, T = UI.mdTb || [], a = parseInt(T[0], 10), b = parseInt(T[1], 10); if (!L || isNaN(a) || isNaN(b) || a === b) { toast("Donne le score du tie-break."); return; }
+      var st = mdState(); L.hist = (L.hist || []).concat([JSON.stringify(L.G)]).slice(-30); L.last = [];
+      if (st.stbNext) L.G.s.push({ g: "", tb: [a, b] }); else { var cur = L.G.s[L.G.s.length - 1]; cur.g += a > b ? "1" : "0"; cur.tb = [a, b]; }
+      UI.mdTb = null; haptic("light"); if (mdState().over) { L.cue = null; save(); render(); } else mdCueOpen(L); },
+    mdResume: function () { if (S.mdLive) { S.mdLive.cue = null; save(); } clearInterval(mdTimer); mdTimer = null; UI.mdPick = []; render(); },
+    mdUndo: function () { var L = S.mdLive; if (!L || !(L.hist || []).length) return; L.G = JSON.parse(L.hist.pop()); L.cue = null; L.last = []; UI.mdPick = []; save(); render(); },
+    mdQuit: function () { clearInterval(mdTimer); mdTimer = null; if (S.mdLive && !MonteePlay.games(S.mdLive.G).n) { S.mdLive = null; save(); } back(); },
+    mdSave: function () { var L = S.mdLive; if (!L) return; var st = mdState(), A = st.A;
+      UI.mmPrefill = { opp: L.opp || "", rank: L.rank || "", r: st.sw > st.sl ? "V" : "D", score: A.score, minutes: Math.max(1, Math.round((Date.now() - (L.at || Date.now())) / 60000)), oid: L.oid || null, gl: L.G };
+      if (L.oid) S.plans = (S.plans || []).filter(function (x) { return x.id !== String(L.oid); }); S.mdLive = null; UI.draft = null; save(); go("match/new"); toast("Vérifie et enregistre."); },
     apTrain: function () { UI.actPlus = false; UI.draft = null; go("entrainement/new"); },
     tsxTg: function () { S.prefs = S.prefs || {}; S.prefs.tsxOpen = !S.prefs.tsxOpen; save(); render(); },
     epTab: function (el) { S.prefs = S.prefs || {}; S.prefs.epTab = el.dataset.v; save(); render(); window.scrollTo(0, 0); try { mxTabIn(el); } catch (e) {} if (el.dataset.v === "club") { try { clubRefresh(); lcMotion(); } catch (e) {} } },
@@ -22921,6 +23119,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var el = ev.target;
     if (el.dataset.ci && UI.ci) { UI.ci[el.dataset.ci] = +el.value; if (el.dataset.ci === "sl") UI.ci.src = false; var lb = document.getElementById("ci-v-" + el.dataset.ci); if (lb) lb.textContent = ciWord(el.dataset.ci, +el.value); var sr = el.dataset.ci === "sl" && el.parentNode.querySelector(".ci-src"); if (sr) sr.remove(); return; }
     if (el.tagName === "TEXTAREA") growTa(el);
+    if (el.dataset.md === "opp") { UI.mdNew = UI.mdNew || {}; UI.mdNew.opp = el.value; return; } // 4.32.0
+    if (el.dataset.md === "tb0" || el.dataset.md === "tb1") { UI.mdTb = UI.mdTb || ["", ""]; UI.mdTb[el.dataset.md === "tb0" ? 0 : 1] = el.value; return; }
     if (el.dataset.kp === "add") { UI.kpAddT = el.value; return; } // 4.13
     if (el.dataset.kp === "txt") { UI.kpTxt = UI.kpTxt || {}; UI.kpTxt[el.dataset.v] = el.value; return; }
     if (el.dataset.off) { UI.offDraft = UI.offDraft || {}; UI.offDraft[el.dataset.off] = el.value; } // 3.94
