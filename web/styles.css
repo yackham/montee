@@ -7661,6 +7661,49 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 @media (prefers-reduced-motion: reduce) { .rg-hd .p-ic::after, .rg-hd .p-ic svg, .rg-hd .p-ic svg path { animation: none !important; } .rg-hd .p-ic::after { opacity: 0; } }
 .rg-hd p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--muted); }
 
+/* 4.28.0 : contrastes révélés par un match compté à la montre dans le contrôle des 12 thèmes (écran Ton service, accueil) */
+.sv-read.rd-mid b { color: var(--bleu3-ink); }
+.sv-vs > b[style*="terre"] { color: var(--terre-dark) !important; } .sv-vs > b[style*="bleu3"] { color: var(--bleu3-ink) !important; } .sv-vs > b[style*="gazon"] { color: var(--gazon-dark) !important; }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .screen > .sv-sec .small { color: var(--page-ink); }
+.sv-lg { white-space: nowrap; } .sv-lg i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 4px 1px 0; vertical-align: middle; }
+:is(:root[data-skin="moquette"], :root[data-skin="dur"], :root[data-skin="vert"]) .tj3-pill[style*="gazon"] { color: #C4F0D3 !important; }
+.avm .gcat { color: var(--muted) !important; }
+.wp-enc .acr-v.r { color: var(--terre-dark); } .wp-enc .acr-v.g { color: var(--gazon-dark); }
+/* 4.28.0 (Yann, 28/11) : « Ton match, point par point » (play.js) : frise des jeux, lignes d'Ace, pour la suite ; sans contour */
+.wp { gap: 12px; }
+.wp-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.wp .sv2-h { margin: 0; }
+.wp-fr { display: flex; flex-direction: column; gap: 8px; }
+.wp-fs { display: flex; align-items: center; gap: 10px; }
+.wp-fl { flex: none; width: 58px; font-size: 12.5px; color: var(--muted); line-height: 1.25; }
+.wp-fl b { display: block; font-size: 15px; color: var(--ink); }
+.wp-fg { display: flex; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.wp-g { flex: none; width: 21px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-style: normal; background: color-mix(in srgb, var(--terre) 30%, transparent); }
+.wp-g.w { background: color-mix(in srgb, var(--gazon) 55%, transparent); }
+.wp-g span, .wp-d { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); opacity: .75; }
+.wp-g small { font-size: 8px; font-weight: 800; color: var(--ink); }
+.wp-lg { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.wp-lg span { display: inline-flex; align-items: center; gap: 5px; }
+.wp-lg .wp-g { width: 10px; height: 10px; border-radius: 3px; }
+.wp-lg .wp-d { display: inline-block; }
+.wp-rs .acr:first-child { border-top: 1px solid var(--line); }
+.wp-lk { text-align: center; }
+.wp-nx { display: flex; flex-direction: column; gap: 3px; background: color-mix(in srgb, var(--ink) 6%, transparent); border-radius: 14px; padding: 12px 14px; }
+.wp-nx b { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--acc-ink, var(--gazon)); }
+.wp-nx span { font-size: 14.5px; line-height: 1.4; }
+.wp-enc .acr:first-of-type { border-top: 0; }
+.wp-note { margin: 4px 0 10px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.wp-say { margin: 4px 0 12px; font-size: 15px; line-height: 1.45; }
+/* 4.28.0 : « Ton avant-match, vérifié » (objectifs + plan) : À toi d'abord, puis ce qui est déjà coché */
+.avm { gap: 4px; }
+.avm-k { margin-top: 10px; font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.avm-r { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; width: 100%; }
+.avm-r .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.avm-r b { font-size: 15px; line-height: 1.3; }
+.avm-r .pc2-i { margin-top: 2px; }
+.avm-pl { color: var(--muted); }
+.avm-ch { color: var(--acc-ink, var(--gazon)); font-weight: 700; }
+.avm .wp-nx { margin-top: 10px; }
 /* 4.20.1 (Yann, 24/11 puis 26/11 : « je veux plus ça ») : PLUS AUCUN CONTOUR sur les boutons, tuiles, puces et choix.
    Règle commune, à garder en dernier : un bouton secondaire ou un choix sélectionné se montre par un FOND DOUX TEINTÉ
    de sa couleur (comme les pastilles du 26/11), jamais par un trait, un liseré ou un anneau.
