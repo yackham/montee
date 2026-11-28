@@ -1668,6 +1668,7 @@ html.ios .screen.has-tabs { padding-bottom: calc(90px + max(8px, var(--sab) - 18
 .skin-row svg { width: 13px; height: 13px; color: var(--muted); }
 
 :root[data-skin="retro"] .card.rate :is(.eyebrow, .linkbtn) { color: #E2B13C; }
+:root[data-skin="retro"] .card.ink { --hl: #E2B13C; } /* 4.32.0 : « +40 pts » d'une victoire, bordeaux sur le vert de l'en-tête = illisible */
 
 /* Accueil : groupe déplié comme « Plus de courbes » (sans contour, un séparateur et l'en-tête) */
 /* Accueil et courbes : groupe déplié sans contour ; en haut, une balle et sa traînée en guise de séparateur */
@@ -7595,6 +7596,7 @@ body.has-acec.has-pill .screen { padding-bottom: calc(240px + var(--sab)); }
 :root[data-skin="dur"] :is(.ds-d.on b, .cb-plus) { color: #E3EF8C; }
 :root[data-skin="dur"] .tj3-pill { color: var(--n-info); }
 :root[data-skin]:not([data-skin="retro"]) :is(.cp-lt, .cp-lr) small:is(.fort, .faible) { color: color-mix(in srgb, var(--c) 55%, var(--ink)); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]):not([data-skin="retro"]) :is(.cp-lt, .cp-lr) small:is(.fort, .faible) { color: color-mix(in srgb, var(--c) 40%, var(--ink)); } /* 4.32.0 : « Point fort » à 4.06 sur la carte Terre */
 :is(:root[data-skin="dur"], :root[data-skin="moquette"], :root[data-skin="crep"]) { --rr-pos: #B5F0CB; }
 :root[data-skin="crep"] { --terre: #FFB79A; }
 :root[data-skin="vert"] { --n-ko: #F7B3A5; --n-ok3: #8FD3A9; }
@@ -7755,6 +7757,45 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 .wbl-nx .acr { align-self: stretch; border-top: 1px solid var(--line); padding-bottom: 0; }
 .wbl-more { border-top: 1px solid var(--line); } .wp-wbl { gap: 0; }
 .wp-enc .acr-sq.r { color: var(--terre-dark); } .wp-enc .acr-sq.g { color: var(--gazon-dark); } /* pastilles 1-2-3 de la feuille « Les chiffres du match » : lisibles en Lin */
+/* 4.32.0 (Yann, 28/11) : le match en direct sur le téléphone, saisi au changement de côté (maquettes match-direct) */
+.screen.md { padding: 8px 16px 40px; display: flex; flex-direction: column; gap: 14px; }
+.md-top { display: flex; justify-content: space-between; align-items: center; padding: calc(env(safe-area-inset-top, 0px) + 6px) 0 2px; } .md-top b { font-size: 17px; font-weight: 800; }
+.md-x { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; border: 0; background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); } .md-x svg { width: 16px; height: 16px; }
+.md-card { background: var(--card); border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.md-eb { font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.md-vs { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 16px; } .md-s { font-size: 14px; color: var(--muted); margin-top: -6px; }
+.md-in { width: 100%; height: 46px; border-radius: 12px; border: 0; padding: 0 14px; font: inherit; font-size: 16px; color: var(--ink); background: var(--field, color-mix(in srgb, var(--ink) 8%, transparent)); }
+.md-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; background: color-mix(in srgb, var(--ink) 9%, transparent); border-radius: 14px; padding: 4px; }
+.md-seg button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; height: 46px; border: 0; border-radius: 11px; background: none; font: inherit; font-weight: 800; font-size: 15px; color: var(--ink); }
+.md-seg.two button { height: 56px; } .md-seg button b { font-size: 15px; font-weight: 800; } .md-seg button small { font-size: 12px; font-weight: 700; color: var(--muted); }
+.md-seg button.on { background: var(--card); box-shadow: 0 1px 3px rgba(0, 0, 0, .18); }
+.md-seg button.v.on { background: var(--gazon); color: var(--on-gazon, #121212); } .md-seg button.d.on { background: var(--terre); color: var(--on-terre, #121212); }
+.md-lab { font-size: 14px; font-weight: 700; }
+.md-btn { height: 54px; border: 0; border-radius: 16px; font: inherit; font-weight: 800; font-size: 16px; background: var(--balle); color: var(--on-balle, #121212); }
+.md-btn.soft { background: var(--card); color: var(--ink); } .md-btn:disabled { opacity: .45; }
+.md-lnk { border: 0; background: none; font: inherit; font-size: 14px; font-weight: 700; color: var(--acc-ink, var(--gazon)); padding: 4px; }
+.md-sc { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0 0; }
+.md-sc .big { font-size: 64px; font-weight: 900; letter-spacing: -.02em; line-height: 1; } .md-sc .big em { font-style: normal; color: var(--muted); font-weight: 700; margin: 0 10px; } .md-sc .big.md-fin { font-size: 40px; }
+.md-sc small { font-size: 14px; color: var(--muted); font-weight: 700; text-align: center; }
+.md-g { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; } .md-g i { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; }
+.md-g i.w { background: color-mix(in srgb, var(--gazon) 55%, transparent); } .md-g i.l { background: color-mix(in srgb, var(--terre) 45%, transparent); } .md-g i.n { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.md-g i.s::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ink); opacity: .8; }
+.md-fr .md-g { justify-content: flex-start; }
+.md-ace { display: flex; gap: 12px; align-items: flex-start; } .md-ace .cbl-b { flex: none; }
+.md-bub { background: var(--card); border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; flex: 1; }
+.md-bub b { font-size: 16px; font-weight: 800; } .md-bub p { margin: 0; font-size: 15px; line-height: 1.42; }
+.md-timer { display: flex; align-items: center; justify-content: space-between; font-size: 14px; color: var(--muted); font-weight: 700; } .md-timer b { font-size: 22px; color: var(--ink); font-weight: 900; font-variant-numeric: tabular-nums; }
+.md-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); gap: 10px; } .md-eb + .md-row { border-top: 0; padding-top: 0; }
+.md-row span { display: flex; flex-direction: column; font-weight: 700; font-size: 15px; } .md-row small { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.md-note { font-size: 13px; color: var(--muted); line-height: 1.4; text-align: center; } .wp .md-note { text-align: left; }
+/* 4.32.0 : Terre et Dur ont un fond de page coloré : ce qui est posé directement sur l'écran en direct suit l'encre de page */
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .md > .md-top b, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .md > .md-sc .big, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .md > .md-timer b, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .md > .md-lnk { color: var(--page-ink); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .md > .md-sc small, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .md > .md-sc .big em, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .md > .md-timer, :is(:root[data-theme="terre"], :root[data-theme="dur"]) .md > .md-note { color: var(--page-muted); }
+:is(:root[data-theme="terre"], :root[data-theme="dur"]) .md > .md-top .md-x { background: color-mix(in srgb, #fff 18%, transparent); color: var(--page-ink); }
+.md-gm { display: flex; flex-direction: column; gap: 8px; } .md-gm-r { display: grid; grid-template-columns: 86px 1fr; gap: 10px; align-items: center; }
+.md-gm-r > span { display: flex; flex-direction: column; font-weight: 800; font-size: 15px; } .md-gm-r small { font-weight: 700; font-size: 12.5px; color: var(--muted); }
+.md-tb { display: flex; align-items: flex-end; gap: 10px; } .md-tb label { flex: 1; display: flex; flex-direction: column; gap: 4px; } .md-tb small { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.md-tb input { height: 52px; border-radius: 12px; border: 0; text-align: center; font: inherit; font-size: 24px; font-weight: 800; color: var(--ink); background: var(--field, color-mix(in srgb, var(--ink) 8%, transparent)); } .md-tb em { font-style: normal; font-size: 24px; color: var(--muted); padding-bottom: 10px; }
 .wpx > div > small { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.2; min-height: 27px; }
 .wpp-sc { margin: 0 0 4px; }
 .ace-fp { margin-left: 6px; }
