@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.27.6",
+    VERSION: "4.27.7",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -8383,10 +8383,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     ps.d = E.iso(today()); ps.tac = snap; save();
   }
   function tacSnapOf(m) {
-    if (m.tacSnap) return m.tacSnap;
+    if (m.tacSnap) return tacDedup(m.tacSnap);
     var k = m.opp && !isAnon(m.opp) ? nameKey(m.opp) : "", ps = k && (S.planShown || {})[k];
     if (!ps || !ps.tac || !m.date || ps.d > m.date || dayDiff(ps.d, m.date) > 45) return null;
-    m.tacSnap = ps.tac; save(); return m.tacSnap;
+    m.tacSnap = tacDedup(ps.tac); save(); return m.tacSnap;
   }
   function planSnapOf(m) {
     if (m.planSnap) return m.planSnap;
@@ -9017,7 +9017,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!st.some(function (x) { return x.id === "t-srv"; })) st.push({ id: "t-srv", t: T.srv.kw, s: T.srv.t, kind: "att", theme: "service" });
     T.mo.forEach(function (m) { st.push({ id: m.id, t: m.t, s: m.s, kind: "pro", theme: m.th }); });
     st.push({ id: "t-b", t: "Plan B", s: T.B.t, kind: "pro", theme: "planb" });
-    return st;
+    return tacDedup(st);
+  }
+  // 4.27.7 : une consigne n'apparaît qu'une fois (le 3e mot-clé reprend souvent le 1er moment) ; on garde la 1re place et le thème qui permet de cocher
+  function tacDedup(st) {
+    var out = [];
+    (st || []).forEach(function (x) {
+      var j = x.theme === "planb" ? -1 : out.findIndex(function (y) { return y.theme !== "planb" && y.t === x.t; });
+      if (j < 0) out.push(x);
+      else if (!out[j].theme && x.theme) out[j] = Object.assign({}, x, { id: out[j].id, auto: out[j].auto || x.auto });
+    });
+    return out;
   }
   // Après le match : ce que la montre et le score prouvent
   function tacAuto(m, snap) {
@@ -12935,7 +12945,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     }
     // Titre par défaut
     if (!head) head = won ? (hi != null && hi > me ? "Belle perf : victoire contre mieux classé que toi." : "Victoire maîtrisée.") :
-      (hisL != null && hisL - (hi || 0) >= 0.6) || (hi != null && hi > me) ? (tight.length ? "Défaite serrée contre un joueur au-dessus." : "Défaite logique contre un joueur au-dessus.") :
+      // 4.27.7 : « au-dessus » = son classement OFFICIEL au-dessus du tien ; son niveau estimé ne dit que « plus fort que son classement »
+      hi != null && hi > me ? (tight.length ? "Défaite serrée contre un joueur au-dessus." : "Défaite logique contre un joueur au-dessus.") :
+      hisL != null && Math.round(hisL) > me ? (tight.length ? "Défaite serrée contre un joueur plus fort que son classement." : "Défaite contre un joueur plus fort que son classement.") :
         tight.length ? "Défaite serrée : ça s'est joué à quelques points." : hi != null && hi < me ? "Défaite à digérer : c'était jouable." : "Défaite : le match à retenir pour la revanche.";
     // 5. Pour ton classement
     var imp = [];
