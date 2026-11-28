@@ -7672,6 +7672,7 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 /* 4.28.0 (Yann, 28/11) : « Ton match, point par point » (play.js) : frise des jeux, lignes d'Ace, pour la suite ; sans contour */
 .wp { gap: 12px; }
 .wp-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.wp-h2 { margin-top: 24px; } /* 4.31.0 : « Ton service, match après match » sur la fiche (Montée+) */
 .wp .sv2-h { margin: 0; }
 .wp-fr { display: flex; flex-direction: column; gap: 8px; }
 .wp-fs { display: flex; align-items: center; gap: 10px; }

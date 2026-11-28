@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.30.0",
+    VERSION: "4.31.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -11786,8 +11786,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (W.rows[0]) A.push(esc(W.rows[0].ace)); // 4.30.0 : la 1re ligne en clair, aussi en gratuit
     if (W.next) A.push("<b>Pour la suite :</b> " + esc(W.next.charAt(0).toLowerCase() + W.next.slice(1)));
     if (!W.rows.length) return "";
-    return acCard("Ce que dit ta montre", W.rows.map(function (r, i) { return acRow({ sq: String(i + 1), l: esc(r.l), s: esc(r.s), v: esc(r.v), bar: r.bar, cl: r.cl, lk: lk && i > 0, sheet: lk ? null : ["wpl", m.id + ":" + r.id] }).replace('class="acr-sq r"', 'class="acr-sq ' + (r.cl === "g" ? "g" : "r") + '"'); }).join("")) +
-      (lk && W.rows.length > 1 ? acLock("<b>Le détail de chaque ligne</b> et la comparaison avec tes derniers matchs : avec Montée+.", "wp") : "");
+    return acCard("Ce que dit ta montre", W.rows.map(function (r, i) { return acRow({ sq: String(i + 1), l: esc(r.l), s: esc(r.s), v: esc(r.v), bar: r.bar, cl: r.cl, lk: false, sheet: ["wpl", m.id + ":" + r.id] }).replace('class="acr-sq r"', 'class="acr-sq ' + (r.cl === "g" ? "g" : "r") + '"'); }).join("")) +
+      "";
   }
   function coAnswer(c, q) {
     var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], XH = "", mood = "repos", pl = null, k = q.split(":");
@@ -16626,16 +16626,17 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   function wpHtml(m) {
     var W = wpOf(m); if (!W) return "";
-    var lk = PLUS_LOCK() && !mdmMatch(m);
+    var lk = PLUS_LOCK() && !mdmMatch(m); // 4.31.0 (Yann : « que le gratuit ne se dise pas que j'abuse ») : ce match en entier est gratuit ; Montée+ = tes matchs dans le temps
     var s = '<div class="card wp"><div class="wp-h"><span class="eyebrow">Ton match, point par point</span><span class="small">' + plural(W.P.n, "point") + '</span></div><b class="sv2-h">' + W.head + "</b>" + wpCurve(W.P) + wpFrise(W.P); // 4.30.0 : la courbe du match, gratuite
-    if (W.rows.length) s += '<div class="wp-rs">' + W.rows.map(function (r, i) { return acRow({ sq: String(i + 1), l: esc(r.l), s: esc(r.s), v: esc(r.v), bar: r.bar, cl: r.cl, lk: lk && i > 0, sheet: lk ? null : ["wpl", m.id + ":" + r.id] }).replace('class="acr-sq r"', 'class="acr-sq ' + (r.cl === "g" ? "g" : "r") + '"'); }).join("") + "</div>";
+    if (W.rows.length) s += '<div class="wp-rs">' + W.rows.map(function (r, i) { return acRow({ sq: String(i + 1), l: esc(r.l), s: esc(r.s), v: esc(r.v), bar: r.bar, cl: r.cl, lk: false, sheet: ["wpl", m.id + ":" + r.id] }).replace('class="acr-sq r"', 'class="acr-sq ' + (r.cl === "g" ? "g" : "r") + '"'); }).join("") + "</div>";
     if (W.next) s += '<div class="wp-nx"><b>Pour la suite</b><span>' + esc(W.next) + "</span></div>";
-    if (lk && W.rows.length > 1) s += '<span class="small wp-lk">Le détail de chaque ligne, avec Montée+.</span>' + plusCta();
+    var hL = wpHist(m, 6); if (!lk && hL.length >= 3) s += '<div class="wp-h wp-h2"><span class="eyebrow">Ton service, match après match</span><span class="small">' + hL.length + ' matchs</span></div>' + wpTrend(hL, m) + '<button class="acr" data-a="ace" data-v="mx:pareil:' + esc(m.id) + '"><span class="acr-l"><b>C\'est pareil sur mes derniers matchs ?</b><small>ce qui revient, ce qui progresse</small></span>' + WP_GO + '</button>';
+    if (lk && hL.length >= 3) s += acLock("<b>C'est pareil sur tes derniers matchs ?</b> Ace compare ce match à tes " + (hL.length - 1) + " autres à la montre : ce qui revient, ce qui progresse. Avec Montée+.", "wp");
     return s + "</div>";
   }
   // La feuille de détail : la ligne touchée en premier, puis tout le reste, un encart doux par section
   var DET_WPL = function (v) {
-    var q = String(v || "").split(":"), m = S.matches.filter(function (x) { return x.id === q[0]; })[0], W = m && wpOf(m); if (!W || (PLUS_LOCK() && !mdmMatch(m))) return null;
+    var q = String(v || "").split(":"), m = S.matches.filter(function (x) { return x.id === q[0]; })[0], W = m && wpOf(m); if (!W) return null;
     var P = W.P, R = P.rally, row = function (l, s, x, cl) { return acRow({ l: esc(l), s: s ? esc(s) : "", v: x.pct == null ? "–" : x.pct + " %", bar: x.pct, cl: cl || (x.pct >= 50 ? "g" : "r") }); };
     var enc = function (h, r, body, note) { return '<div class="kp-enc wp-enc"><div class="kp-eh"><span>' + h + "</span><b>" + r + "</b></div>" + body + (note ? '<p class="wp-note">' + note + "</p>" : "") + "</div>"; };
     var pts = function (x) { return plural(x.n, "point"); }, sec = {};
@@ -16722,6 +16723,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   }
   function wpPressHtml(m, lk) {
     var L = wpHist(m, 6), T = wpPress(L), K = WP_PK.filter(function (k) { return T[k[0]][1] >= 3; }); if (K.length < 4) return "";
+    if (lk) { var nb = K.filter(function (k) { return wpPc(T[k[0]][0], T[k[0]][1]) < 50; }).length; return acLock("<b>Ton service sous pression</b>, sur tes " + L.length + " derniers matchs : " + (nb ? nb + " situation" + (nb > 1 ? "s" : "") + " sur " + K.length + " où tu perds plus de points que tu n'en gagnes. Lesquelles ? Avec Montée+." : "situation par situation, du plus calme au plus chaud. Avec Montée+."), "wp"); }
     var cols = K.map(function (k) { var p = wpPc(T[k[0]][0], T[k[0]][1]); return '<div><b class="wpx-v' + (lk ? " lk" : "") + '"' + (lk ? ' aria-hidden="true"' : "") + ">" + p + "<small>%</small></b>" + '<span class="wpx-t"><i class="' + (p >= 50 ? "g" : "r") + '" style="height:' + Math.max(6, Math.min(100, Math.round((p - 20) / 60 * 100))) + '%"></i></span><small>' + k[1] + "</small></div>"; }).join("");
     return acCard("Ton service sous pression", '<div class="wpx" role="img" aria-label="' + esc(lk ? "Tes points au service, du plus calme au plus chaud" : K.map(function (k) { return k[1] + " : " + wpPc(T[k[0]][0], T[k[0]][1]) + " %"; }).join(", ")) + '">' + cols + '</div><div class="wcv-k"><span>' + (L.length > 1 ? L.length + " derniers matchs" : "ce match") + " · du plus calme au plus chaud</span></div>" +
       (lk ? "" : '<button class="acr" data-a="sheet" data-k="wpp" data-v="' + esc(m.id) + '"><span class="acr-l"><b>Le détail, situation par situation</b><small>les scores de chaque colonne' + (L.length > 1 ? ", ce match et ceux d'avant" : "") + "</small></span>" + WP_GO + "</button>")) + (lk ? acLock("<b>Les chiffres de chaque colonne</b> et leur détail, ce match et ceux d'avant : avec Montée+.", "wp") : "");
@@ -16783,7 +16785,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var topic = k[1], m = S.matches.filter(function (x) { return x.id === k[2]; })[0], W = m && wpOf(m), A = [], XH = "", F = [], mood = "reflexion";
     if (!W) return { a: ["Je n'ai plus ce match compté à la montre."], x: "", f: [], facts: [], mood: "repos" };
     var P = W.P, won = m.result === "V", lk = PLUS_LOCK() && !mdmMatch(m), opp = m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "ton adversaire";
-    var cardRows = function (h, rows, sec) { return rows.length ? acCard(h, rows.map(function (r, i) { return acRow(Object.assign({}, r, { lk: lk && i > 0, sheet: lk || !sec ? null : ["wpl", m.id + ":" + sec] })); }).join("")) : ""; }; // chaque chiffre ouvre son détail
+    var cardRows = function (h, rows, sec) { return rows.length ? acCard(h, rows.map(function (r, i) { return acRow(Object.assign({}, r, { lk: false, sheet: !sec ? null : ["wpl", m.id + ":" + sec] })); }).join("")) : ""; }; // chaque chiffre ouvre son détail
     var hS = P.hot.srv, oS = { n: P.srv.n - hS.n, won: P.srv.won - hS.won }; oS.pct = wpPc(oS.won, oS.n);
     var hR = P.hot.ret, oR = { n: P.ret.n - hR.n, won: P.ret.won - hR.won }; oR.pct = wpPc(oR.won, oR.n);
     var rowOf = function (id) { return W.rows.filter(function (r) { return r.id === id; })[0]; };
@@ -16792,7 +16794,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (T) { A.push("<b>" + esc(T.head) + ".</b> " + esc(T.d)); A.push(won ? "Regarde la courbe : à partir du point jaune, l'écart ne fait que grandir pour toi." : "Regarde la courbe : à partir du point jaune, l'écart se creuse."); }
       else A.push("<b>Pas de vrai tournant :</b> le match s'est joué au fil des jeux, sans un moment qui fait tout basculer.");
       XH += acCard("La courbe du match", wpCurve(P));
-      var hr = wpHr(m, P); if (hr) XH += lk ? acLock("<b>Ton cardio</b>, sur les mêmes minutes que la courbe : avec Montée+.", "wp") : acCard("Ton cardio, sur les mêmes minutes", hr);
+      var hr = wpHr(m, P); if (hr) XH += acCard("Ton cardio, sur les mêmes minutes", hr);
     } else if (topic === "service") {
       var sv = P.srv.pct; mood = sv >= 60 ? "joie" : "concentree";
       A.push("<b>" + (sv >= 60 ? "Ton service a tenu" : sv >= 50 ? "Ton service a fait le minimum" : "Ton service a souffert") + "</b> : " + sv + " % des points, " + plural(P.held.won, "jeu tenu", "jeux tenus") + " sur " + P.held.n + ".");
@@ -16835,7 +16837,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var rp = [{ l: "Service, avant", s: plural(a1[1], "point"), v: p1 + " %", bar: p1, cl: p1 >= 50 ? "g" : "r" }, { l: "Service, dernier tiers", s: plural(a2[1], "point"), v: p2 + " %", bar: p2, cl: p2 >= 50 ? "g" : "r" }];
       P.sets.forEach(function (x, i) { rp.push({ l: "Service au " + wpSetN(i), s: x.me + "-" + x.him, v: x.srv.pct + " %", bar: x.srv.pct, cl: x.srv.pct >= 50 ? "g" : "r" }); });
       XH += cardRows("Sur la durée", rp, "set");
-      var hr2 = wpHr(m, P); if (hr2 && !lk) XH += acCard("Ton cardio", hr2);
+      var hr2 = wpHr(m, P); if (hr2) XH += acCard("Ton cardio", hr2);
     } else if (topic === "garde") {
       mood = "joie";
       var good = W.rows.filter(function (r) { return !r.bad; });
@@ -16856,8 +16858,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     } else if (topic === "pareil") {
       mood = "reflexion";
       var L = wpHist(m, 6);
-      if (lk) { A.push("<b>Je compare ce match à tes " + (L.length - 1) + " autres matchs à la montre</b> : ce qui revient, ce qui progresse, ce qui était un accident."); XH += acLock("<b>Tes matchs, comparés</b> : ton service match après match, ce qui revient. Avec Montée+.", "wp"); }
-      else {
+      {
         var v = L.map(function (x) { return wpOf(x).P.srv.pct; }), o = v.slice(0, -1), avg = Math.round(o.reduce(function (a, b) { return a + b; }, 0) / o.length), me = v[v.length - 1];
         A.push(Math.abs(me - avg) < 6 ? "<b>Oui, c'est ton niveau habituel au service</b> : " + me + " % des points, pour " + avg + " % en moyenne." : me < avg ? "<b>Non, au service c'était un jour sans</b> : " + me + " % des points, pour " + avg + " % d'habitude." : "<b>Non, au service c'était un bon jour</b> : " + me + " % des points, pour " + avg + " % d'habitude.");
         var aw = 0, an = 0, lr = 0, ln = 0;
@@ -16865,7 +16866,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
         var rec = []; if (an >= 2) rec.push({ l: "1er jeu après un set gagné", s: "perdu " + aw + " fois sur " + an, v: aw + "/" + an, cl: aw * 2 > an ? "r" : "g" });
         if (ln >= 3) rec.push({ l: "Échanges longs", s: "à 55 % ou plus sur " + lr + " matchs sur " + ln, v: lr + "/" + ln, cl: lr * 2 >= ln ? "g" : "r" });
         if (an >= 2 && aw * 2 > an) A.push("Ce qui revient : tu perds souvent le 1er jeu juste après un set gagné (" + aw + " fois sur " + an + ").");
-        XH += acCard("Ton service, match après match", wpTrend(L, m)) + (rec.length ? acCard("Ce qui revient", rec.map(acRow).join("")) : "");
+        if (lk) { A.length = 1; var nr = rec.filter(function (x) { return x.cl === "r"; }).length; XH += acLock("<b>Ton service match après match</b>" + (nr ? " et <b>" + (nr > 1 ? nr + " choses qui reviennent" : "une chose qui revient") + "</b> sur tes " + L.length + " matchs" : " et ce qui revient d'un match à l'autre") + " : avec Montée+.", "wp"); }
+        else XH += acCard("Ton service, match après match", wpTrend(L, m)) + (rec.length ? acCard("Ce qui revient", rec.map(acRow).join("")) : "");
       }
     } else if (topic === "rejoue") {
       mood = "concentree";
