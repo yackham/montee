@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.31.0",
+    VERSION: "4.32.0",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -8209,6 +8209,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     V: { bien: ["Bien joué", "J'ai joué à mon niveau"], calme: ["Sang-froid", "Calme aux points clés"], plan: ["Le plan", "Ma tactique a marché"], aide: ["Ses fautes", "Il m'a donné des points"], service: ["Le service", "Mon service a porté"], physique: ["Le physique", "Plus frais que lui"], revenu: ["Revenu de loin", "J'ai renversé le match"] },
     D: { bien: ["Bien joué", "Bon niveau quand même"], absent: ["Pas dedans", "Jamais dans le match"], fort: ["Plus fort", "Il était au-dessus"], tendu: ["Tendu", "Crispé aux points clés"], fautes: ["Les fautes", "Trop de fautes directes"], fatigue: ["La fatigue", "Coup de mou physique"], cond: ["Conditions", "Vent, chaleur, terrain…"] }
   };
+  // 4.32 : la couleur de chaque raison, une seule source pour la feuille « Annote ton match » et la montre (avant : dans styles.css)
+  var FELT_COL = { bien: "#C2AC00", calme: "#4A8FDB", tendu: "#4A8FDB", plan: "#3FA06A", aide: "#8E6BDB", fatigue: "#8E6BDB", service: "#D8812F", fautes: "#D8812F", physique: "#D85A4E", fort: "#D85A4E", revenu: "#2FA79B", cond: "#2FA79B", absent: "#7C8696" };
   function feltLabel(m, k) { var l = (FELT[m.result === "V" ? "V" : "D"].concat(FELT.V, FELT.D)).filter(function (x) { return x[0] === k; })[0]; return l ? l[1].replace("Il était plus fort", m.oppSexe === "F" ? "Elle était plus forte" : "Il était plus fort") : k; }
   var GSTY = { fond: "Fond de court", poly: "Tout terrain", filet: "Attaquant au filet", contre: "Contreur", defense: "Défenseur", service: "Gros serveur" };
   var ARM2TR = { service: "service", cd: "cd", revers: "revers", volee: "volee", physique: "physique", mental: "mental", defense: "regul" };
@@ -10737,6 +10739,27 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     return !!(m.date && !m.wo && !m.racketId && !m.qaSkip && m.date >= E.iso(d) && (m.result === "V" || m.result === "D"));
   }
   function qaList() { return S.matches.filter(qaPending).sort(function (a, b) { return a.date < b.date ? 1 : -1; }); }
+  // 3.55.3 (Yann) : la principale, sauf si son cordage est cassé (depuis avant ce match) : avec 2 raquettes dans le sac, on prend
+  // l'autre ; avec plus, tu choisis (open = la liste s'ouvre). 4.32 : partagé par la feuille « Annote ton match » et la montre
+  function annRacket(date) {
+    var main = racketFor("match"), bk = main && brokenNow(main), open = false;
+    if (main && bk && (!bk.date || !date || bk.date <= date)) {
+      var others = bag().filter(function (r) { return r.id !== main.id && !brokenNow(r); });
+      if (others.length === 1) main = others[0]; else { main = null; open = others.length > 1; }
+    }
+    return { r: main, open: open };
+  }
+  // 4.32 : enregistre une annotation (feuille de l'iPhone ou montre) : raquette, surface, lieu, ressenti, raisons
+  function annApply(m, q) {
+    var r = racket(q.racketId);
+    if (r) { m.racketId = r.id; m.string = r.string || ""; m.tension = r.tension || null; m.tensionCross = r.tensionCross != null ? r.tensionCross : null; }
+    if (q.surface) m.surface = q.surface;
+    if (q.indoor != null) m.indoor = q.indoor;
+    if (q.feel) m.feel = q.feel;
+    if ((q.felt || []).length) { m.felt = q.felt.slice(); feltSync(m); }
+    m.noted = true; m.qaSkip = true;
+    S.lastQA = { surface: q.surface || (S.lastQA || {}).surface, indoor: q.indoor != null ? q.indoor : (S.lastQA || {}).indoor };
+  }
   // Surfaces proposées d'emblée : les tiennes d'abord, puis les plus courantes ; le reste derrière « Autre… »
   function surfPic(x) { var c = SURF_COL[x] || SURF_COL.Autre; return '<svg class="an-sp" viewBox="0 0 22 14" aria-hidden="true"><rect x=".5" y=".5" width="21" height="13" rx="2.5" fill="' + c + '"/><path d="M3 3h16v8H3zM11 3v8M3 7h16" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1"/></svg>'; }
   function qaSurfaces(cur) {
@@ -10768,11 +10791,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (!UI.qa || UI.qa.id !== m.id) {
       // 3.55.3 (Yann) : la principale, sauf si son cordage est cassé (depuis avant ce match) : avec 2 raquettes dans le sac, on prend
       // l'autre ; avec plus, tu choisis (la liste s'ouvre)
-      var main = racketFor("match"), bk = main && brokenNow(main), rkOpen = false;
-      if (main && bk && (!bk.date || !m.date || bk.date <= m.date)) {
-        var others = bag().filter(function (r) { return r.id !== main.id && !brokenNow(r); });
-        if (others.length === 1) main = others[0]; else { main = null; rkOpen = others.length > 1; }
-      }
+      var rq = annRacket(m.date), main = rq.r, rkOpen = rq.open;
       var tc = tourCond(matchTour(m), m.surface || last.surface); // 4.26.5 : d'abord ce que Ten'Up dit du tournoi, puis ton dernier match
       UI.qa = { id: m.id, rkOpen: rkOpen, racketId: main ? main.id : "", surface: m.surface || tc.surface || last.surface || "", indoor: m.indoor != null ? m.indoor : tc.indoor != null ? tc.indoor : (last.indoor != null ? last.indoor : null), feel: m.feel || 0, more: false };
       if ((tc.surface || tc.indoor != null) && (!m.surface || m.surface === tc.surface) && (m.indoor == null || m.indoor === tc.indoor)) UI.qa.pre = { surface: tc.surface || "", indoor: tc.indoor, tu: true };
@@ -10799,7 +10818,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     s += '<div class="an-c"><div class="an-row">' + rkRow + '</div><div class="an-row">' + surfRow + '</div><div class="an-row">' + seg("qaIndoor", [{ v: "1", l: "Intérieur", on: q.indoor === true }, { v: "0", l: "Extérieur", on: q.indoor === false }]) + "</div></div>";
     if (q.pre && (q.surface === q.pre.surface || q.indoor === q.pre.indoor)) s += '<span class="an-pre">' + (q.pre.tu ? (q.pre.surface && q.pre.indoor != null ? "Surface et lieu" : q.pre.surface ? "Surface" : "Lieu") + " d'après la fiche du tournoi sur Ten'Up : change si besoin." : "Surface et lieu repris de ton dernier match annoté : change-les si besoin.") + "</span>";
     var qf = q.felt || [];
-    s += '<div class="an-fh"><span class="an-k">' + (V ? "Ce qui a fait la différence" : "Comment tu l'as senti") + '</span><small>facultatif</small></div><div class="an-g">' + FELT[V ? "V" : "D"].map(function (x) { var a = qf.indexOf(x[0]) >= 0; return '<button class="an-t ' + (V ? "V" : "D") + (a ? " on" : "") + '" data-a="qaFelt" data-v="' + x[0] + '" aria-pressed="' + a + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + x[2] + "</svg>" + (function () { var td = FELT_TD[V ? "V" : "D"][x[0]]; return td ? '<span class="an-tt"><b>' + esc(td[0]) + "</b><small>" + esc(td[1]) + "</small></span>" : "<span>" + esc(x[1]) + "</span>"; })() + "</button>"; }).join("") + "</div>";
+    s += '<div class="an-fh"><span class="an-k">' + (V ? "Ce qui a fait la différence" : "Comment tu l'as senti") + '</span><small>facultatif</small></div><div class="an-g">' + FELT[V ? "V" : "D"].map(function (x) { var a = qf.indexOf(x[0]) >= 0; return '<button class="an-t ' + (V ? "V" : "D") + (a ? " on" : "") + '" style="--fb:' + (FELT_COL[x[0]] || "#3FA06A") + '" data-a="qaFelt" data-v="' + x[0] + '" aria-pressed="' + a + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + x[2] + "</svg>" + (function () { var td = FELT_TD[V ? "V" : "D"][x[0]]; return td ? '<span class="an-tt"><b>' + esc(td[0]) + "</b><small>" + esc(td[1]) + "</small></span>" : "<span>" + esc(x[1]) + "</span>"; })() + "</button>"; }).join("") + "</div>";
     s += '<div class="an-f"><button class="btn balle" data-a="qaSave">' + (list.length > 1 ? "Enregistrer · suivant" : "Enregistrer") + '</button><button class="an-later" data-a="qaSkip">Plus tard</button></div></div>';
     return s;
   }
@@ -19484,6 +19503,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       // 4.7 : Ace sur la montre (questions du moment et leurs réponses, ce que rapporte le prochain match)
       aceQs: (function () { try { return S.matches.length ? watchAceQs() : []; } catch (e) { return []; } })(),
       winPts: (function () { try { return watchWinPts(); } catch (e) { return null; } })(),
+      // 4.32 (Yann, maquette validée) : annoter le match depuis la montre (mêmes raisons, surface, lieu et raquette que la feuille de l'iPhone)
+      ann: (function () { try { return watchAnnCtx(); } catch (e) { return null; } })(),
       fol: (function () { try { return Object.keys(S.follow || {}).map(function (k) { var f = S.follow[k], nw = f.news && Date.now() - (f.newsAt || 0) < 14 * 864e5 ? f.news : null; return { n: nameCase(f.name || ""), r: f.rank || "", s: nw ? (nw.t || nw.tag || "") : "rien de neuf", up: nw && nw.k === "up" ? 1 : nw && nw.k === "dn" ? -1 : 0, at: nw ? f.newsAt : 0 }; }).sort(function (a, b) { return b.at - a.at; }).slice(0, 6).map(function (x) { delete x.at; return x; }); } catch (e) { return []; } })(),
       // 3.34 : ta photo (petite) et ton initiale, en bas de l'écran de score du mode avancé
       photo: photoThumb(), initial: (S.profile.name || ((S.tenup.me || {}).prenom) || "?").charAt(0).toUpperCase(),
@@ -19607,7 +19628,35 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (m.hrc && !m.hrc.none) delete m.hrc; // relue avec la bonne fenêtre et le score
       n++; return false;
     });
+    if (n) watchAnnApply(); // 4.32
     if (n) { UI.hrTry = {}; save(); toast(n > 1 ? n + " matchs de ta montre rattachés à tes matchs." : "Match de ta montre rattaché à ton match : score et cardio réunis."); }
+    return n;
+  }
+  // 4.32 (Yann : « annoter le match directement depuis la montre ») : ce que la montre propose après « Enregistrer ».
+  // Tout vient d'ici : les raisons de la feuille « Annote ton match » (titre court, descriptif, couleur), les surfaces
+  // (les tiennes d'abord), ta raquette retenue comme sur la feuille, et la surface / le lieu du jour (fiche Ten'Up du tournoi, sinon ton dernier match)
+  function watchAnnCtx() {
+    var fl = function (R) { return FELT[R].map(function (x) { var td = FELT_TD[R][x[0]] || [x[1], ""]; return { k: x[0], t: td[0], d: td[1], c: FELT_COL[x[0]] || "#3FA06A" }; }); };
+    var order = qaSurfaces("").concat(SURFACES).filter(function (x, i, a) { return a.indexOf(x) === i; });
+    var rq = annRacket(E.iso(today())), last = S.lastQA || {}, pre = null;
+    try { var dz = friseItems().filter(function (z) { return !z.dim && dGap(z.d) === 0 && z.t; })[0], tc = dz ? tourCond(dz.t, last.surface) : null;
+      if (tc && (tc.surface || tc.indoor != null)) pre = { s: tc.surface || last.surface || "", i: tc.indoor != null ? tc.indoor : last.indoor != null ? last.indoor : null, tu: !!tc.surface }; } catch (e) {}
+    if (!pre && (last.surface || last.indoor != null)) pre = { s: last.surface || "", i: last.indoor != null ? last.indoor : null };
+    return { V: fl("V"), D: fl("D"), surfs: order.map(function (x) { return { n: x, c: SURF_COL[x] || SURF_COL.Autre }; }),
+      rk: bag().map(function (r) { return { id: r.id, n: r.name }; }), rkId: rq.r ? rq.r.id : "", pre: pre };
+  }
+  // 4.32 : une annotation faite sur la montre arrive à part (le match, lui, est déjà parti) : on la pose sur le match de la montre
+  // (même début, t0) dès qu'il est enregistré ou rattaché ; elle attend 14 jours au plus
+  function watchAnnApply() {
+    var L = S.watchAnn || [], n = 0;
+    if (!L.length) return 0;
+    S.watchAnn = L.filter(function (a) {
+      var m = a.t0 && S.matches.filter(function (x) { return x.wt0 === a.t0 && !x.dbl; })[0];
+      if (!m) return Date.now() - (a.at || 0) < 14 * 864e5;
+      annApply(m, { racketId: a.rk || "", surface: a.s || "", indoor: a.i != null ? a.i : null, felt: a.felt || [] });
+      n++; return false;
+    });
+    save();
     return n;
   }
   function watchTake() {
@@ -19615,7 +19664,9 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     Promise.resolve(Tenup.watchTake()).then(function (r) {
       var items = ((r && r.items) || []).map(function (j) { try { return typeof j === "string" ? JSON.parse(j) : j; } catch (e) { return null; } }).filter(Boolean);
       if (!items.length) return;
-      var tr = items.filter(function (w) { return w.kind === "train"; }), ms = items.filter(function (w) { return w.kind !== "train"; });
+      var tr = items.filter(function (w) { return w.kind === "train"; }), ms = items.filter(function (w) { return w.kind !== "train" && w.kind !== "ann"; });
+      var an = items.filter(function (w) { return w.kind === "ann" && w.t0; });
+      if (an.length) { S.watchAnn = (S.watchAnn || []).filter(function (a) { return !an.some(function (b) { return b.t0 === a.t0; }); }).concat(an.map(function (b) { b.at = Date.now(); return b; })); save(); }
       var added = tr.map(watchTraining).filter(Boolean);
       // 3.47 : un match peut arriver deux fois (message direct + file d'attente du système) : on n'en garde qu'un
       var sig = function (w) { return [w.date, w.t0, w.name, w.score, w.result, w.minutes].join("|"); }, seen = {};
@@ -19624,6 +19675,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       ms.forEach(function (w, i) { w.wid = w.wid || "w" + Date.now() + "-" + i; });
       S.watchIn = (S.watchIn || []).concat(ms); save();
       if (ms.length && watchAttach()) { var ids = {}; (S.watchIn || []).forEach(function (w) { ids[w.wid] = 1; }); ms = ms.filter(function (w) { return ids[w.wid]; }); }
+      if (an.length || ms.length) watchAnnApply();
+      if (an.length && !ms.length && !added.length) { if (!UI.draft && !UI.mmOpen) render(); return; }
       if (added.length && !ms.length) {
         var t0 = added[added.length - 1];
         toast(added.length > 1 ? added.length + " entraînements reçus de ta montre." : "Entraînement reçu de ta montre : " + fmtDur(t0.minutes) + " de jeu.");
@@ -20614,7 +20667,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
 
   // ---------- Quoi de neuf (une fois par version) ----------
   var NOTES = {
-    v: "4.30.0",
+    v: IOS ? "4.32.0" : "4.30.0", // 4.32 : nouveauté de la montre seulement
     pages: [
       // 4.30 (Yann, 28/11/2026, maquettes validées) : Ace qui tape juste : le tournant, la courbe du match, les questions « On creuse ? »
       { hero: true, title: "Montée 4.30", text: IOS ? "Ace te dit où ton match a basculé, avec la courbe du match. Et tu creuses : ton service, ta tête, ton physique, quoi travailler." : "Après une défaite, Ace te dit ce qui revient d'un match à l'autre." },
@@ -20765,6 +20818,10 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   };
 
 
+  // 4.32 (Yann, 28/11/2026, maquette validée) : annoter ton match depuis la montre (iPhone seulement)
+  if (IOS) NOTES.pages.unshift(
+    { hero: true, title: "Montée 4.32", text: "Ton match annoté sans sortir ton iPhone : juste après « Enregistrer », ta montre te propose de dire ce qui a fait la différence." },
+    { tag: "Nouveau", tone: "rose", title: "Annote depuis ta montre", vis: "awa432", text: "Les mêmes raisons que sur l'iPhone, puis la surface, le lieu et ta raquette déjà remplis. 10 secondes, et « Fermer » si tu n'as pas le temps. Rien pendant le match." });
   var NOTES_ALL = NOTES.pages.slice(); // 3.42.3 : la liste complète, avant les filtres historiques
   // Sur le web, on retire les pages propres à l'appli (santé, widgets)
   if (!NATIVE) NOTES.pages = NOTES.pages.filter(function (x) { return x.vis !== "sante" && x.vis !== "hcnotif" && x.vis !== "faf51" && x.vis !== "nf51"; });
@@ -20807,7 +20864,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
   // 3.42.3 (Yann) : les nouveautés = jusqu'à 5 nouveautés phares (+ un correctif seulement s'il est majeur), et toujours Montée+ sur iPhone.
   // Les petites évolutions ne sont pas annoncées. Mettre ici les vis des pages phares de la version.
   (function () {
-      var PHARES = IOS ? ["cv430", "ace430", "wp428", "avm428", "ann427"] : ["avm428", "ann427", "pl427", "ms425", "tf425"]; // 4.28.1 : annoter tout de suite, ta poule à ta main // 4.28 : Ace point par point (montre, iPhone), avant-match vérifié // 4.25 : 3 étapes, ta part de la journée, squelette ; puis le fil d'Ace // 4.21 : fil d'Ace, bulle, À découvrir ; puis suivis et profil de ton enfant // 4.18 : suivis (4.17) et profil de ton enfant v2 ; 5 pages max (ef416, kidf415 sortent)
+      var PHARES = IOS ? ["awa432", "cv430", "ace430", "wp428", "avm428"] : ["avm428", "ann427", "pl427", "ms425", "tf425"]; // 4.28.1 : annoter tout de suite, ta poule à ta main // 4.28 : Ace point par point (montre, iPhone), avant-match vérifié // 4.25 : 3 étapes, ta part de la journée, squelette ; puis le fil d'Ace // 4.21 : fil d'Ace, bulle, À découvrir ; puis suivis et profil de ton enfant // 4.18 : suivis (4.17) et profil de ton enfant v2 ; 5 pages max (ef416, kidf415 sortent)
     var hero = NOTES_ALL.filter(function (x) { return x.hero; })[0];
     var top = PHARES.map(function (v) { return NOTES_ALL.filter(function (x) { return x.vis === v; })[0]; }).filter(Boolean).slice(0, 5);
     // 4.11 (Yann : « faut pas écarter cette source de revenus ») : après la page « gratuit », Ace présente Montée+ côté tournois
@@ -20834,6 +20891,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var nvAce = function (t) { return '<span style="align-self:flex-start;max-width:86%;padding:7px 11px;border-radius:16px;background:rgba(255,255,255,.08);font-size:12.5px;font-weight:600;text-align:left">' + t + "</span>"; };
     var nvCard = function (k2, v, c) { return '<span style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 11px;border-radius:14px;background:rgba(255,255,255,.06);font-size:12px"><span style="opacity:.75;font-weight:700;letter-spacing:.04em">' + k2 + '</span><b style="color:' + c + '">' + v + "</b></span>"; };
     // 4.25 : 3 étapes, ta part de la journée, squelette (couleurs fixes, écran sombre, noms génériques)
+    if (k === "awa432") return nvc(watchBox('<b style="font-size:13px;line-height:1.2">Ce qui a fait la différence</b>' + [["Sang-froid", "Calme aux points clés", "#4A8FDB", 1], ["Le service", "Mon service a porté", "#D8812F", 1], ["Le plan", "Ma tactique a marché", "#3FA06A", 0]].map(function (x) { return '<span style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:12px;text-align:left;background:' + (x[3] ? "color-mix(in srgb," + x[2] + " 34%,#292929)" : "#292929") + '"><i style="width:18px;height:18px;flex:none;border-radius:50%;background:' + (x[3] ? x[2] : "color-mix(in srgb," + x[2] + " 30%,transparent)") + '"></i><span style="display:flex;flex-direction:column;line-height:1.15"><b style="font-size:12px">' + x[0] + '</b><small style="font-size:10px;opacity:.7">' + x[1] + "</small></span></span>"; }).join("")));
     if (k === "cv430") return nvc('<svg viewBox="0 0 160 70" width="170" aria-hidden="true"><line x1="4" x2="156" y1="35" y2="35" stroke="#F2F3F5" stroke-opacity=".4"/><polyline fill="none" stroke="#F2F3F5" stroke-width="2.2" stroke-linejoin="round" points="4,35 14,30 22,33 30,24 40,30 50,36 60,33 70,38 80,34 90,37 100,33 108,32 116,40 124,44 132,50 140,56 150,62"/><circle cx="108" cy="32" r="5" fill="#D4E64A" stroke="#121212" stroke-width="1.5"/></svg>' + nvCard("LE TOURNANT", "3e set", "#D4E64A"));
     if (k === "ace430") return nvc('<span style="display:flex;flex-direction:column;gap:6px;align-items:flex-start">' + ["Où ça a basculé ?", "Dans la tête, j'ai lâché ?", "Qu'est-ce que je travaille ?"].map(function (t) { return '<span style="padding:7px 12px;border-radius:99px;background:rgba(212,230,74,.16);font-weight:700;font-size:12.5px">' + t + "</span>"; }).join("") + "</span>");
     if (k === "wp428") return nvc('<span style="display:flex;flex-direction:column;gap:7px">' + [[1, 0, 1, 1, 0, 0], [0, 0, 1, 0, 0, 0]].map(function (r, i) { return '<span style="display:flex;gap:4px;align-items:center"><small style="width:42px;opacity:.75;font-size:11px">' + (i ? "3e set" : "1er set") + "</small>" + r.map(function (w, j) { return '<i style="width:16px;height:18px;border-radius:5px;display:inline-grid;place-items:center;background:' + (w ? "rgba(111,194,143,.55)" : "rgba(232,138,94,.3)") + '">' + (j % 2 ? "" : '<span style="width:5px;height:5px;border-radius:50%;background:#F2F3F5;opacity:.75"></span>') + "</i>"; }).join("") + "</span>"; }).join("") + nvCard("1ER POINT DE TON JEU", "1/10", "#E88A5E") + nvCard("ÉCHANGES LONGS", "63 %", "#6FC28F") + "</span>");
@@ -21601,14 +21659,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     qaSave: function () {
       var q = UI.qa, m = q && S.matches.filter(function (x) { return x.id === q.id; })[0]; if (!m) return;
       if (!q.racketId && !q.surface && q.indoor == null && !q.feel && !(q.felt || []).length) { toast("Choisis au moins une info, ou touche « Plus tard »."); return; }
-      var r = racket(q.racketId);
-      if (r) { m.racketId = r.id; m.string = r.string || ""; m.tension = r.tension || null; m.tensionCross = r.tensionCross != null ? r.tensionCross : null; }
-      if (q.surface) m.surface = q.surface;
-      if (q.indoor != null) m.indoor = q.indoor;
-      if (q.feel) m.feel = q.feel;
-      if ((q.felt || []).length) { m.felt = q.felt.slice(); feltSync(m); }
-      m.noted = true; m.qaSkip = true;
-      S.lastQA = { surface: q.surface || (S.lastQA || {}).surface, indoor: q.indoor != null ? q.indoor : (S.lastQA || {}).indoor };
+      annApply(m, q);
       UI.qaRun = qaList().length ? (UI.qaRun || 0) + 1 : 0;
       UI.qaDone = { at: Date.now(), label: (m.result === "V" ? "Victoire" : "Défaite") + " contre " + (m.opp && !isAnon(m.opp) ? m.opp : "un " + m.oppRank) };
       UI.qa = null; save(); haptic("success");
@@ -21922,6 +21973,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       r.res = el.dataset.v; trMatchSync(t, r, pool); save(); haptic(r.res === "V" ? "success" : "light");
       var tid = pool ? r.tid : r.opp && r.opp.tid; if (tid) S.plans = (S.plans || []).filter(function (x) { return x.id !== String(tid); });
       var mx = trMatchOf(r);
+      if (mx && (S.watchAnn || []).length && (S.watchIn || []).length) watchAttach(); // 4.32 : déjà annoté sur la montre → pas de feuille à remplir
       if (pool) { if (t.resUrl) UI.resNudge = t.id; annToast(mx, r.res === "V" ? "Bravo !" + (t.resUrl ? " Pense à l'envoyer au comité." : "") : "Noté." + (t.resUrl ? " Pense à l'envoyer au comité." : ""), r.res === "V"); render(); if (t.resUrl) window.scrollTo(0, 0); return; }
       if (r.res === "V") { if (+el.dataset.i === t.rounds.length - 1) { var nx = { tid: t.id, day: r.day, lab: trLab(t.rounds.length) }; if (mx && qaPending(mx)) { UI.qaNext = nx; UI.qaOne = mx.id; UI.qa = null; UI.qaSheet = true; toast("Bravo ! Bois et mange dans l'heure, puis raconte-moi ce match et ton " + nx.lab + ".", true); } else { UI.trR = { i: "new", mode: "one", day: r.day, alt: [{}, {}] }; UI.trHits = null; toast("Bravo ! Bois et mange dans l'heure, puis ajoute ton " + nx.lab + ".", true); } } /* 4.27.4 (Yann) : d'abord annoter le match qu'on vient de jouer, ensuite le tour suivant */ else annToast(mx, trWinMsg(t, +el.dataset.i + 1), true); }
       else {
@@ -22585,6 +22637,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       if (!clean.tour) delete clean.tour;
       var c0 = null; if (i < 0 && !clean.wo && (clean.result === "V" || clean.result === "D")) { try { c0 = ctx(); } catch (e) {} }
       if (i >= 0) S.matches[i] = clean; else S.matches.push(clean);
+      if (clean.wt0) watchAnnApply(); // 4.32 : annoté sur la montre avant d'être vérifié ici
       // Nouveau match saisi : analyse mise en avant sur l'accueil, palmarès de l'adversaire lu en silence
       // 3.42.1 : plus de carte « l'analyse » sur l'accueil : on ouvre directement la fiche du match (analyse, ressenti, plan)
       if (i < 0 && (clean.result === "V" || clean.result === "D") && !clean.wo) { setTimeout(function () { anFetch(clean, true).then(function () { if (route() === "match/" + clean.id) render(); }); }, 300); }
