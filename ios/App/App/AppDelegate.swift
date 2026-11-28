@@ -1468,7 +1468,7 @@ public class TenupPlugin: CAPPlugin, CAPBridgedPlugin {
 enum MonteeSummary {
     /// Calcule le résumé avec le même moteur que l'app (engine.js, tenup.js, summary.js).
     /// at8 (4.18.1) : trouvées entre 21 h et 8 h, les notifications sont montrées à 8 h au lieu d'être perdues.
-    static func compute(payload: String, state: String) -> (notes: [(title: String, body: String)], at8: Bool) {
+    static func compute(payload: String, state: String) -> (notes: [(title: String, body: String, url: String)], at8: Bool) {
         guard let ctx = JSContext() else { return ([], false) }
         for name in ["engine", "tenup", "summary"] {
             if let url = Bundle.main.url(forResource: name, withExtension: "js", subdirectory: "public"),
@@ -1481,12 +1481,12 @@ enum MonteeSummary {
               let json = res.toString(), let data = json.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return ([], false) }
         if let newState = obj["state"] as? String { MonteeStore.state = newState }
-        var out: [(title: String, body: String)] = []
-        if let title = obj["title"] as? String, let body = obj["body"] as? String { out.append((title: title, body: body)) }
+        var out: [(title: String, body: String, url: String)] = []
+        if let title = obj["title"] as? String, let body = obj["body"] as? String { out.append((title: title, body: body, url: "")) }
         // 3.43.2 : profil de compétiteur qui bouge, joueurs suivis (au plus 4 notifications par relance)
         if let more = obj["more"] as? [[String: Any]] {
             for m in more {
-                if let t = m["title"] as? String, let b = m["body"] as? String { out.append((title: t, body: b)) }
+                if let t = m["title"] as? String, let b = m["body"] as? String { out.append((title: t, body: b, url: m["url"] as? String ?? "")) }
             }
         }
         return (Array(out.prefix(4)), (obj["at8"] as? Bool) ?? false)
@@ -1575,9 +1575,26 @@ enum MonteeBackground {
         }
         busy = true
         var completed = false
+        // 4.31.2 : une vérification coupée net (plantage, iPhone qui arrête Montée) ne laissait aucune trace :
+        // l'étape en cours est notée, et relue au passage suivant (« coupe:direct » ou « coupe:page »).
+        if let step = UserDefaults.standard.string(forKey: "montee.bgStep") { log("coupe:" + step) }
+        UserDefaults.standard.set("direct", forKey: "montee.bgStep")
+        // 4.31.2 : la fin est signalée à iOS TOUT DE SUITE quand le temps est écoulé (avant : via la file principale,
+        // parfois trop tard ; iOS arrête alors l'app comme un plantage).
+        let done = NSLock()
+        var signaled = false
+        let complete: (Bool) -> Bool = { ok in
+            done.lock(); defer { done.unlock() }
+            if signaled { return false }
+            signaled = true
+            UserDefaults.standard.removeObject(forKey: "montee.bgStep")
+            task.setTaskCompleted(success: ok)
+            return true
+        }
         task.expirationHandler = {
-            DispatchQueue.main.async {
-                if !completed { completed = true; busy = false; log("interrompu"); task.setTaskCompleted(success: false) }
+            if complete(false) {
+                log("interrompu")
+                DispatchQueue.main.async { completed = true; busy = false }
             }
         }
         // 4.24.1 : d'abord la lecture directe (quelques secondes, sans navigateur caché) ; si Ten'Up la refuse,
@@ -1588,12 +1605,13 @@ enum MonteeBackground {
                 if completed { return }
                 completed = true
                 busy = false
+                if signaled { return }
                 if text.hasPrefix("MONTEE1") {
                     // 3.43.2 : une relance « joueurs suivis » n'écrase pas un palmarès pas encore importé
                     if !(text.contains("\"folOnly\":true") && MonteeStore.pending != nil) { MonteeStore.pending = text }
                     let res = MonteeSummary.compute(payload: text, state: MonteeStore.state ?? "{}")
                     for note in res.notes {
-                        notify(title: note.title, body: note.body, at8: res.at8)
+                        notify(title: note.title, body: note.body, at8: res.at8, url: note.url)
                     }
                     log(res.notes.isEmpty ? "rien" : res.at8 ? "nuit:\(res.notes.count)" : "notif:\(res.notes.count)")
                 } else if text.contains("connecte-toi") {
@@ -1602,28 +1620,43 @@ enum MonteeBackground {
                         MonteeStore.expiredNotified = true
                         notify(title: "Ten'Up t'a déconnecté", body: "Ouvre Montée et reconnecte-toi pour suivre tes nouveaux matchs.")
                     }
-                } else {
+                } else if text != "MONTEE-ERR direct" {
                     // 4.18.1 : où ça a coincé : la page Ten'Up n'est jamais arrivée, ou la lecture a été trop longue
                     log(text.contains("délai") ? (text.contains("[page]") ? "timeout-page" : text.contains("[lecture]") ? "timeout-lecture" : "timeout") : text.contains("maintenance") ? "maintenance" : "erreur")
                 }
-                task.setTaskCompleted(success: true)
+                _ = complete(true)
             }
         }
         NativeTenup.run(script: script, timeout: min(18, timeout - 4)) { direct in
-            if direct.hasPrefix("MONTEE1") { finish(direct); return }
-            log("direct-ko")
-            let left = deadline.timeIntervalSinceNow - 1
-            if completed || left < 10 { finish("MONTEE-ERR délai dépassé [page]"); return }
+            if direct.hasPrefix("MONTEE1") || direct.contains("maintenance") { finish(direct); return }
+            log("direct-ko:" + directWhy(direct))
+            // 4.31.2 : la page Ten'Up cachée (navigateur complet) seulement pendant une vérification longue,
+            // jamais dans un réveil court de 30 s où elle n'a jamais abouti et peut faire arrêter Montée.
+            let left = deadline.timeIntervalSinceNow - 5
+            if completed || timeout < 60 || left < 20 { finish("MONTEE-ERR direct"); return } // déjà noté ci-dessus
+            if !signaled { UserDefaults.standard.set("page", forKey: "montee.bgStep") }
             TenupSilentRefresh.run(script: script, timeout: left, early: true, completion: finish)
         }
     }
 
+    /// 4.31.2 : pourquoi la lecture directe a échoué, en un mot, pour le journal
+    static func directWhy(_ t: String) -> String {
+        if t.contains("pas de session") { return "session" }
+        if t.contains("connecte-toi") { return "connexion" }
+        if t.contains("délai") { return "delai" }
+        if t.contains("moteur") { return "moteur" }
+        if t.contains("Failed to fetch") { return "reseau" }
+        return "autre"
+    }
+
     /// at8 : la nouveauté a été trouvée la nuit ; l'iPhone la montre à 8 h (jamais entre 21 h et 8 h).
-    static func notify(title: String, body: String, at8: Bool = false) {
+    static func notify(title: String, body: String, at8: Bool = false, url: String = "") {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
+        // 4.33.1 : toucher la notif ouvre le bon écran (poule, joueur suivi), comme les notifs programmées par l'app
+        if !url.isEmpty { content.userInfo = ["cap_extra": ["url": url]] }
         var trigger: UNNotificationTrigger? = nil
         if at8 {
             var c = DateComponents()

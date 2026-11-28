@@ -10,7 +10,7 @@
     SHORTCUT_URL: "",
     // Adresse pour les retours des joueurs (laisser vide pour masquer l'entrée)
     CONTACT_EMAIL: "yann.munier21@gmail.com",
-    VERSION: "4.33.0",
+    VERSION: "4.33.1",
     // Fonctions mises en pause pour la version de test (à rallumer une fois l'app publiée)
     // Achats intégrés « Soutenir Montée » : mêmes identifiants dans App Store Connect et la Play Console
     PRODUCTS: [
@@ -19139,7 +19139,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     if (np("poule")) toursOpen().forEach(function (t) {
       if (!t.pool || t.pool.length < 2) return;
       var lo = t.from ? E.iso(new Date(E.parseDate(t.from).getTime() - 7 * 864e5)) : "";
-      poolSt.push({ t: t.name || "", lo: lo, seen: (t.poolX || []).map(function (g) { return npKey(g.date, g.a, g.b); }).filter(Boolean),
+      poolSt.push({ id: t.id || "", t: t.name || "", lo: lo, seen: (t.poolX || []).map(function (g) { return npKey(g.date, g.a, g.b); }).filter(Boolean),
         mem: t.pool.map(function (x) { var q = null; if (!x.res) { try { q = trP(x.rankNow || x.rank, x.tid, x.name); } catch (e) {} } return { id: x.tid ? String(x.tid) : "", n: trNm(x.name), p: q == null ? null : q }; }) });
       t.pool.forEach(function (x) { if (!x.res && x.tid && x.hit && poolIds.length < 6 && !poolIds.some(function (y) { return y.id === String(x.tid); })) poolIds.push({ id: String(x.tid), hit: x.hit, w: 1 }); });
     });
@@ -20815,7 +20815,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var B = UI.bgSt; if (B.wait) return "";
     // 3.69 : journal des passages (iPhone et Android) : « heure|résultat », pour savoir POURQUOI peu de notifications arrivent
     var LG = (B.log || []).map(function (x) { var q = String(x).split("|"); return { t: +q[0] * 1000, r: q[1] || "" }; }).filter(function (x) { return x.t > 0; }).reverse();
-    var RL = { rien: "rien de nouveau", deconnecte: "Ten'Up déconnecté : reconnecte-toi", timeout: "Ten'Up trop lent, réessayé plus tard", "timeout-page": "Ten'Up n'a pas répondu à temps", "direct-ko": "lecture directe refusée, page Ten'Up essayée", "timeout-lecture": "lecture de Ten'Up trop longue", maintenance: "Ten'Up en maintenance", erreur: "erreur de lecture", interrompu: "arrêté par le téléphone (temps écoulé)", "sans-lecture": "rien à lire pour l'instant" };
+    var RL = { rien: "rien de nouveau", deconnecte: "Ten'Up déconnecté : reconnecte-toi", timeout: "Ten'Up trop lent, réessayé plus tard", "timeout-page": "Ten'Up n'a pas répondu à temps", "direct-ko": "lecture directe refusée, page Ten'Up essayée", "direct-ko:session": "session Ten'Up introuvable : ouvre Montée", "direct-ko:connexion": "Ten'Up demande de se reconnecter (relu à l'ouverture)", "direct-ko:delai": "Ten'Up n'a pas répondu à temps", "direct-ko:reseau": "pas de réseau", "direct-ko:moteur": "lecture impossible", "direct-ko:autre": "lecture refusée par Ten'Up", "coupe:direct": "vérification coupée net (lecture)", "coupe:page": "vérification coupée net (page Ten'Up)", "timeout-lecture": "lecture de Ten'Up trop longue", maintenance: "Ten'Up en maintenance", erreur: "erreur de lecture", interrompu: "arrêté par le téléphone (temps écoulé)", "sans-lecture": "rien à lire pour l'instant" };
     var ok = IOS ? B.refresh === "available" : true, lastT = B.last ? B.last * 1000 : LG.length ? LG[0].t : 0, last = lastT ? new Date(lastT) : null, h = last ? Math.round((Date.now() - lastT) / 3600e3) : null;
     var when = last ? (h < 1 ? "il y a moins d'une heure" : h < 48 ? "il y a " + h + " h" : "le " + fdate(E.iso(last))) : "jamais pour l'instant";
     var tips = [];
