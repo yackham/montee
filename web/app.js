@@ -11783,11 +11783,8 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     var lk = PLUS_LOCK() && !mdmMatch(m);
     if (said && W.turn) { A.push(esc(W.turn.d)); A.push("<b>" + esc(W.say) + "</b> " + esc(W.facts)); }
     else A.push(said ? cap1(esc(W.facts)) : "<b>" + esc(W.say) + "</b> " + esc(W.facts));
-    if (W.rows[0]) A.push(esc(W.rows[0].ace)); // 4.30.0 : la 1re ligne en clair, aussi en gratuit
-    if (W.next) A.push("<b>Pour la suite :</b> " + esc(W.next.charAt(0).toLowerCase() + W.next.slice(1)));
-    if (!W.rows.length) return "";
-    return acCard("Ce que dit ta montre", W.rows.map(function (r, i) { return acRow({ sq: String(i + 1), l: esc(r.l), s: esc(r.s), v: esc(r.v), bar: r.bar, cl: r.cl, lk: false, sheet: ["wpl", m.id + ":" + r.id] }).replace('class="acr-sq r"', 'class="acr-sq ' + (r.cl === "g" ? "g" : "r") + '"'); }).join("")) +
-      "";
+    var bh = wpBilanHtml(m); // 4.31.0 : le bilan d'Ace (le même que sur la fiche), les chiffres un toucher plus loin
+    return bh ? '<div class="acd wp-wbl">' + bh + wpMoreRow(m) + "</div>" : "";
   }
   function coAnswer(c, q) {
     var p = c.proj, cur = c.cur < 0 ? 0 : c.cur, A = [], F = [], X = [], XH = "", mood = "repos", pl = null, k = q.split(":");
@@ -16624,12 +16621,47 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       return '<div class="wp-fs"><span class="wp-fl">' + wpSetN(i) + "<b>" + x.me + "-" + x.him + '</b></span><span class="wp-fg">' + x.games.map(sq).join("") + "</span></div>";
     }).join("") + '<div class="wp-lg"><span><i class="wp-g w"></i>jeu gagné</span><span><i class="wp-g"></i>jeu perdu</span><span><i class="wp-d"></i>ton service</span></div></div>';
   }
+  // 4.31.0 (Yann : « on sait pas quoi en faire… c'est ça ton rôle de coach ») : le bilan d'Ace, tiré des mêmes calculs que les chiffres
+  // À corriger (ce qui a le plus coûté), À garder (la vraie force du jour), Ton prochain match (consigne, objectif chiffré, exercice).
+  // L'objectif se mesure sur le prochain match à la montre, avec le même calcul (MonteePlay.read) : rien n'est envoyé, rien ne sonne
+  var WP_GOAL = {
+    first: { l: "6 premiers points sur 10 dans tes jeux de service", of: function (P) { var w = P.first.won.n, n = w + P.first.lost.n; return n >= 5 ? { ok: w * 10 >= n * 6, v: w + " sur " + n } : null; } },
+    hot: { l: "1 point chaud sur 2 à ton service", of: function (P) { var x = P.hot.srv; return x.n >= 5 ? { ok: x.won * 2 >= x.n, v: x.won + " sur " + x.n } : null; } },
+    bp: { l: "1 balle de break sur 2 sauvée", of: function (P) { var x = P.bp.saved; return x.n >= 3 ? { ok: x.won * 2 >= x.n, v: x.won + " sur " + x.n } : null; } },
+    rally: { l: "1 échange long sur 2", of: function (P) { var x = P.rally && P.rally.long; return x && x.n >= 5 ? { ok: x.won * 2 >= x.n, v: x.won + " sur " + x.n } : null; } },
+    run: { l: "pas plus de 4 points perdus d'affilée", of: function (P) { return P.n >= 40 ? { ok: P.run.n <= 4, v: "ta plus longue série, " + plural(P.run.n, "point") } : null; } }
+  };
+  function wpBilan(m) {
+    var W = wpOf(m); if (!W) return null;
+    var P = W.P, won = m.result === "V", T = wpPress([m]), ref = wpPressRef(T), col = function (c) { return WP_PK.filter(function (k) { return wpPressCl(T[k[0]], ref) === c; }).sort(function (a, b) { return c === "r" ? wpPc(T[a[0]][0], T[a[0]][1]) - wpPc(T[b[0]][0], T[b[0]][1]) : wpPc(T[b[0]][0], T[b[0]][1]) - wpPc(T[a[0]][0], T[a[0]][1]); })[0]; };
+    var colTx = function (k, good) { var a = T[k[0]], p = wpPc(a[0], a[1]); return cap1(k[3]) + (k[2] && k[0] !== "zero" ? " (" + k[2] + ")" : "") + ", ton service " + (good ? "tient" : "décroche") + " : " + p + " % des points, pour " + ref + " % en moyenne."; };
+    var bad = W.rows.filter(function (r) { return r.bad; })[0], good = W.rows.filter(function (r) { return !r.bad; })[0], fix = null, keep = null;
+    if (bad) fix = { id: bad.id, t: bad.l + ".", d: bad.ace };
+    else { var cr = col("r"); if (cr) fix = { id: "hot", t: "Ton service " + cr[3] + ".", d: colTx(cr, false) }; }
+    if (good) keep = { t: good.l + ".", d: good.ace };
+    else { var cg = col("g"); if (cg) keep = { t: "Ton service " + cg[3] + ".", d: colTx(cg, true) }; }
+    var gk = fix && WP_GOAL[fix.id] && WP_GOAL[fix.id].of(P) ? fix.id : null;
+    var next = W.next || (won ? "Garde ce qui a marché : " + (keep ? keep.t.charAt(0).toLowerCase() + keep.t.slice(1, -1).toLowerCase() : "ta routine") + "." : "");
+    // L'objectif du match d'avant, relu sur celui-ci (même calcul, aucun rappel)
+    var prev = wpHist(m, 2).filter(function (x) { return x !== m; })[0], chk = null;
+    if (prev) { var pb = wpBilanGoal(prev); if (pb) { var a = WP_GOAL[pb].of(P); if (a) chk = { g: WP_GOAL[pb], a: a, ok: a.ok }; } }
+    return { W: W, fix: fix, keep: keep, next: next, goal: gk ? WP_GOAL[gk] : null, drill: fix && WP_DRILL[fix.id], chk: chk };
+  }
+  function wpBilanGoal(m) { var W = wpOf(m); if (!W) return null; var bad = W.rows.filter(function (r) { return r.bad; })[0]; return bad && WP_GOAL[bad.id] && WP_GOAL[bad.id].of(W.P) ? bad.id : null; }
+  function wpBilanHtml(m, B) {
+    B = B || wpBilan(m); if (!B || (!B.fix && !B.keep && !B.next)) return "";
+    var it = function (cl, lab, x) { return x ? '<div class="wbl-i"><span class="wpt ' + cl + '">' + lab + "</span><p><b>" + esc(x.t) + "</b> " + esc(x.d) + "</p></div>" : ""; };
+    var ck = B.chk ? '<div class="wbl-ck"><span class="wpt ' + (B.chk.ok ? "g" : "n") + '">' + (B.chk.ok ? "Objectif tenu" : "Objectif pas encore") + "</span><p>Au match d'avant, ton objectif : " + esc(B.chk.g.l) + ". Cette fois : " + esc(B.chk.a.v) + ".</p></div>" : "";
+    var nx = B.next ? '<div class="wbl-nx"><span class="wpt y">Ton prochain match</span><p>' + esc(B.next) + "</p>" + (B.goal ? '<div class="wbl-ob"><span>Objectif</span><b>' + esc(cap1(B.goal.l)) + "</b></div>" : "") +
+      (B.drill ? '<button class="acr" data-a="sheet" data-k="wpl" data-v="' + esc(m.id) + ":" + esc(B.fix.id) + '"><span class="acr-l"><b>À l\'entraînement : ' + esc(B.drill[0].charAt(0).toLowerCase() + B.drill[0].slice(1)) + "</b><small>" + esc(B.drill[1]) + "</small></span>" + WP_GO + "</button>" : "") + "</div>" : "";
+    return '<div class="wbl"><div class="wbl-h">' + coBall("bl:" + m.id, "reflexion", "xs") + "<b>Mon bilan</b></div>" + ck + it("r", "À corriger", B.fix) + it("g", "À garder", B.keep) + nx + "</div>";
+  }
+  function wpMoreRow(m) { return '<button class="acr wbl-more" data-a="sheet" data-k="wpl" data-v="' + esc(m.id) + ':all"><span class="acr-l"><b>Les chiffres du match</b><small>les jeux, ton service, tes échanges : pour creuser toi-même</small></span>' + WP_GO + "</button>"; }
   function wpHtml(m) {
     var W = wpOf(m); if (!W) return "";
     var lk = PLUS_LOCK() && !mdmMatch(m); // 4.31.0 (Yann : « que le gratuit ne se dise pas que j'abuse ») : ce match en entier est gratuit ; Montée+ = tes matchs dans le temps
-    var s = '<div class="card wp"><div class="wp-h"><span class="eyebrow">Ton match, point par point</span><span class="small">' + plural(W.P.n, "point") + '</span></div><b class="sv2-h">' + W.head + "</b>" + wpCurve(W.P) + wpFrise(W.P); // 4.30.0 : la courbe du match, gratuite
-    if (W.rows.length) s += '<div class="wp-rs">' + W.rows.map(function (r, i) { return acRow({ sq: String(i + 1), l: esc(r.l), s: esc(r.s), v: esc(r.v), bar: r.bar, cl: r.cl, lk: false, sheet: ["wpl", m.id + ":" + r.id] }).replace('class="acr-sq r"', 'class="acr-sq ' + (r.cl === "g" ? "g" : "r") + '"'); }).join("") + "</div>";
-    if (W.next) s += '<div class="wp-nx"><b>Pour la suite</b><span>' + esc(W.next) + "</span></div>";
+    var s = '<div class="card wp"><div class="wp-h"><span class="eyebrow">Ton match, point par point</span><span class="small">' + plural(W.P.n, "point") + '</span></div><b class="sv2-h">' + W.head + "</b>" + wpCurve(W.P); // 4.30.0 : la courbe du match, gratuite
+    s += wpBilanHtml(m) + wpMoreRow(m); // 4.31.0 : le bilan d'Ace d'abord, les chiffres (jeux, lignes, sections) dans la feuille
     var hL = wpHist(m, 6); if (!lk && hL.length >= 3) s += '<div class="wp-h wp-h2"><span class="eyebrow">Ton service, match après match</span><span class="small">' + hL.length + ' matchs</span></div>' + wpTrend(hL, m) + '<button class="acr" data-a="ace" data-v="mx:pareil:' + esc(m.id) + '"><span class="acr-l"><b>C\'est pareil sur mes derniers matchs ?</b><small>ce qui revient, ce qui progresse</small></span>' + WP_GO + '</button>';
     if (lk && hL.length >= 3) s += acLock("<b>C'est pareil sur tes derniers matchs ?</b> Ace compare ce match à tes " + (hL.length - 1) + " autres à la montre : ce qui revient, ce qui progresse. Avec Montée+.", "wp");
     return s + "</div>";
@@ -16654,7 +16686,7 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     sec.run = enc("Les séries", plural(P.n, "point"), acRow({ l: "Points perdus d'affilée", s: P.run.n ? "au " + wpSetN(P.run.set) + ", à partir de " + P.run.g[0] + "-" + P.run.g[1] : "", v: String(P.run.n), cl: "r" }) + acRow({ l: "Points gagnés d'affilée", s: P.runW.n ? "au " + wpSetN(P.runW.set) + ", à partir de " + P.runW.g[0] + "-" + P.runW.g[1] : "", v: String(P.runW.n), cl: "g" }));
     var order = [q[1]].concat(["first", "rally", "set", "hot", "run"].filter(function (k) { return k !== q[1]; }));
     var r0 = W.rows.filter(function (r) { return r.id === q[1]; })[0];
-    return { title: r0 ? r0.l : "Ton match, point par point", sub: "Contre " + (m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "ton adversaire") + ", compté à ta montre", body: (r0 ? '<p class="wp-say">' + esc(r0.ace) + "</p>" : "") + order.map(function (k) { return sec[k] || ""; }).join("") };
+    return { title: r0 ? r0.l : "Ton match, point par point", sub: "Contre " + (m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "ton adversaire") + ", compté à ta montre", body: (r0 ? '<p class="wp-say">' + esc(r0.ace) + "</p>" : q[1] === "all" ? '<div class="kp-enc wp-enc"><div class="kp-eh"><span>Les jeux</span><b>' + P.sets.map(function (x) { return x.me + "-" + x.him; }).join(" ") + "</b></div>" + wpFrise(P) + "</div>" + (W.rows.length ? '<div class="kp-enc wp-enc"><div class="kp-eh"><span>Ce que dit ta montre</span><b></b></div>' + W.rows.map(function (r, i) { return acRow({ sq: String(i + 1), l: esc(r.l), s: esc(r.s), v: esc(r.v), bar: r.bar, cl: r.cl }).replace('class="acr-sq r"', 'class="acr-sq ' + (r.cl === "g" ? "g" : "r") + '"'); }).join("") + "</div>" : "") : "") + order.map(function (k) { return sec[k] || ""; }).join("") };
   };
   // ===== 4.30.0 : Ace qui tape juste. Graphiques et questions « On creuse ? », tout tiré de wpOf (MonteePlay.read) =====
   var WP_GO = '<span class="acr-go"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span>';
