@@ -7737,6 +7737,14 @@ h2.h2-act { display: flex; align-items: center; gap: 8px; }
 .wpx-v.lk { filter: blur(6px); user-select: none; }
 .wpx-t { position: relative; width: 100%; max-width: 30px; height: 90px; border-radius: 7px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
 .wpx-t i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 7px; } .wpx-t i.g { background: var(--gazon); } .wpx-t i.r { background: var(--terre); }
+/* 4.31.0 (Yann) : point fort / à travailler / dans ta moyenne, pastille à fond doux (sans contour), même règle colonnes et feuille */
+.wpx-t i.n, .wpx-t i.p { background: color-mix(in srgb, var(--ink) 30%, transparent); }
+.wpt { display: inline-flex; align-items: center; gap: 5px; border-radius: 99px; padding: 3px 9px; font-size: 11.5px; font-weight: 800; letter-spacing: 0; text-transform: none; white-space: nowrap; color: var(--muted); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.wpt::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 30%, transparent); }
+.wpt.g { color: var(--gazon-dark); background: color-mix(in srgb, var(--gazon) 16%, transparent); } .wpt.g::before { background: var(--gazon); }
+.wpt.r { color: var(--terre-dark); background: color-mix(in srgb, var(--terre) 16%, transparent); } .wpt.r::before { background: var(--terre); }
+.wpt-h { display: inline-flex; align-items: center; gap: 8px; } .wpt-v.g { color: var(--gazon-dark); } .wpt-v.r { color: var(--terre-dark); }
+.wpt-k { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; } .wpt-k .wpt { font-size: 11px; padding: 2px 8px; }
 .wpx > div > small { font-size: 11px; font-weight: 700; color: var(--muted); text-align: center; line-height: 1.2; min-height: 27px; }
 .wpp-sc { margin: 0 0 4px; }
 .ace-fp { margin-left: 6px; }

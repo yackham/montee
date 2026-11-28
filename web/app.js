@@ -16721,16 +16721,21 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
     L.forEach(function (x) { var P = wpOf(x).P; WP_PK.forEach(function (k) { T[k[0]][0] += P.press[k[0]][0]; T[k[0]][1] += P.press[k[0]][1]; }); });
     return T;
   }
+  // 4.31.0 (Yann : « bien identifier force, faiblesse et neutre ») : chaque situation comparée à ta moyenne au service, la même règle pour les colonnes et la feuille
+  var WP_TAG = { g: "Point fort", r: "À travailler", n: "Dans ta moyenne", p: "Peu de points" };
+  function wpPressRef(T) { var w = 0, n = 0; WP_PK.forEach(function (k) { w += T[k[0]][0]; n += T[k[0]][1]; }); return n ? Math.round(w / n * 100) : null; }
+  function wpPressCl(a, ref) { var p = wpPc(a[0], a[1]); if (p == null || ref == null || a[1] < 5) return "p"; return p >= ref + 8 ? "g" : p <= ref - 8 ? "r" : "n"; }
+  function wpTagHtml(cl) { return '<span class="wpt ' + cl + '">' + WP_TAG[cl] + "</span>"; }
   function wpPressHtml(m, lk) {
     var L = wpHist(m, 6), T = wpPress(L), K = WP_PK.filter(function (k) { return T[k[0]][1] >= 3; }); if (K.length < 4) return "";
     if (lk) { var nb = K.filter(function (k) { return wpPc(T[k[0]][0], T[k[0]][1]) < 50; }).length; return acLock("<b>Ton service sous pression</b>, sur tes " + L.length + " derniers matchs : " + (nb ? nb + " situation" + (nb > 1 ? "s" : "") + " sur " + K.length + " où tu perds plus de points que tu n'en gagnes. Lesquelles ? Avec Montée+." : "situation par situation, du plus calme au plus chaud. Avec Montée+."), "wp"); }
-    var cols = K.map(function (k) { var p = wpPc(T[k[0]][0], T[k[0]][1]); return '<div><b class="wpx-v' + (lk ? " lk" : "") + '"' + (lk ? ' aria-hidden="true"' : "") + ">" + p + "<small>%</small></b>" + '<span class="wpx-t"><i class="' + (p >= 50 ? "g" : "r") + '" style="height:' + Math.max(6, Math.min(100, Math.round((p - 20) / 60 * 100))) + '%"></i></span><small>' + k[1] + "</small></div>"; }).join("");
-    return acCard("Ton service sous pression", '<div class="wpx" role="img" aria-label="' + esc(lk ? "Tes points au service, du plus calme au plus chaud" : K.map(function (k) { return k[1] + " : " + wpPc(T[k[0]][0], T[k[0]][1]) + " %"; }).join(", ")) + '">' + cols + '</div><div class="wcv-k"><span>' + (L.length > 1 ? L.length + " derniers matchs" : "ce match") + " · du plus calme au plus chaud</span></div>" +
+    var ref = wpPressRef(T), cols = K.map(function (k) { var p = wpPc(T[k[0]][0], T[k[0]][1]), cl = wpPressCl(T[k[0]], ref); return '<div><b class="wpx-v' + (lk ? " lk" : "") + '"' + (lk ? ' aria-hidden="true"' : "") + ">" + p + "<small>%</small></b>" + '<span class="wpx-t"><i class="' + cl + '" style="height:' + Math.max(6, Math.min(100, Math.round((p - 20) / 60 * 100))) + '%"></i></span><small>' + k[1] + "</small></div>"; }).join("");
+    return acCard("Ton service sous pression", '<div class="wpx" role="img" aria-label="' + esc(lk ? "Tes points au service, du plus calme au plus chaud" : K.map(function (k) { return k[1] + " : " + wpPc(T[k[0]][0], T[k[0]][1]) + " %"; }).join(", ")) + '">' + cols + '</div><div class="wcv-k"><span>' + (L.length > 1 ? L.length + " derniers matchs" : "ce match") + " · du plus calme au plus chaud</span></div>" + '<div class="wpt-k">' + wpTagHtml("g") + wpTagHtml("n") + wpTagHtml("r") + "</div>" +
       (lk ? "" : '<button class="acr" data-a="sheet" data-k="wpp" data-v="' + esc(m.id) + '"><span class="acr-l"><b>Le détail, situation par situation</b><small>les scores de chaque colonne' + (L.length > 1 ? ", ce match et ceux d'avant" : "") + "</small></span>" + WP_GO + "</button>")) + (lk ? acLock("<b>Les chiffres de chaque colonne</b> et leur détail, ce match et ceux d'avant : avec Montée+.", "wp") : "");
   }
   var DET_WPP = function (v) {
     var m = S.matches.filter(function (x) { return x.id === v; })[0]; if (!m || !wpOf(m) || (PLUS_LOCK() && !mdmMatch(m))) return null;
-    var L = wpHist(m, 6), before = L.filter(function (x) { return x !== m; }), Tm = wpPress([m]), Tb = wpPress(before), Ta = wpPress(L), opp = m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "ton adversaire";
+    var L = wpHist(m, 6), before = L.filter(function (x) { return x !== m; }), Tm = wpPress([m]), Tb = wpPress(before), Ta = wpPress(L), ref = wpPressRef(Ta), opp = m.opp && !isAnon(m.opp) ? nameCase(m.opp) : "ton adversaire";
     var row = function (l, a) { var p = wpPc(a[0], a[1]); return { l: l, s: p == null ? "" : p + " % des points", v: a[0] + "/" + a[1], bar: p }; };
     var worst = null;
     var body = WP_PK.map(function (k) {
@@ -16738,12 +16743,13 @@ sec("En cours", on) + sec("À venir", soon) + sec("Liste d'attente", wait) + (tz
       var rm = row("Ce match, contre " + esc(opp), Tm[k[0]]), rb = row(before.length > 1 ? "Tes " + before.length + " matchs d'avant" : "Ton match d'avant", Tb[k[0]]);
       var d = rm.bar != null && rb.bar != null && Tm[k[0]][1] >= 4 ? rm.bar - rb.bar : 0, cl = d <= -10 ? "r" : d >= 10 ? "g" : "";
       if (d <= -10 && (!worst || d < worst.d)) worst = { d: d, k: k, m: Tm[k[0]], b: Tb[k[0]] };
-      return '<div class="kp-enc wp-enc"><div class="kp-eh"><span>' + k[1] + "</span><b>" + wpPc(a[0], a[1]) + '<small class="wpx-pc">%</small></b></div>' + (k[2] ? '<p class="wp-note wpp-sc">' + k[2] + "</p>" : "") +
-        acRow({ l: rm.l, s: rm.s, v: rm.v, bar: rm.bar, cl: cl }) + (before.length && Tb[k[0]][1] ? acRow({ l: rb.l, s: rb.s, v: rb.v, bar: rb.bar }) : "") + "</div>";
+      var tc = wpPressCl(a, ref);
+      return '<div class="kp-enc wp-enc"><div class="kp-eh"><span>' + k[1] + '</span><span class="wpt-h">' + wpTagHtml(tc) + '<b class="' + (tc === "g" || tc === "r" ? "wpt-v " + tc : "") + '">' + wpPc(a[0], a[1]) + '<small class="wpx-pc">%</small></b></span></div>' + (k[2] ? '<p class="wp-note wpp-sc">' + k[2] + "</p>" : "") +
+        acRow({ l: rm.l, s: rm.s, v: rm.v, bar: rm.bar, cl: before.length ? cl : tc === "g" || tc === "r" ? tc : "" }) + (before.length && Tb[k[0]][1] ? acRow({ l: rb.l, s: rb.s, v: rb.v, bar: rb.bar }) : "") + "</div>";
     }).join("");
     var say = "Plus le score se tend, plus il est dur de gagner tes points : la règle vaut pour tout le monde, l'écart dit si elle te pèse." + (worst ? " Contre " + esc(opp) + ", ça a coincé : " + worst.k[3] + ", " + worst.m[0] + " points sur " + worst.m[1] + ", contre " + wpPc(worst.b[0], worst.b[1]) + " % d'habitude." : "");
     return { title: "Ton service sous pression", sub: L.length > 1 ? "Tes " + L.length + " derniers matchs à la montre" : "Ce match, compté à ta montre", body: '<p class="wp-say">' + say + "</p>" + body +
-      '<div class="kp-enc wp-enc"><div class="kp-eh"><span>Comment je compte</span><b></b></div><p class="wp-note">Chaque point de ton service est rangé selon le score avant qu\'il soit joué. 15-15 n\'est ni calme ni chaud : il n\'est dans aucune colonne. Les tie-breaks ne comptent pas. Tout vient de ta montre.</p></div>' };
+      '<div class="kp-enc wp-enc"><div class="kp-eh"><span>Comment je compte</span><b></b></div><p class="wp-note">Chaque point de ton service est rangé selon le score avant qu\'il soit joué. 15-15 n\'est ni calme ni chaud : il n\'est dans aucune colonne. Les tie-breaks ne comptent pas. Tout vient de ta montre.' + (ref != null ? ' Ta moyenne au service, toutes situations comptées : ' + ref + ' %. 8 points de plus, c\'est un point fort ; 8 de moins, c\'est à travailler ; entre les deux, tu es dans ta moyenne. Sous 5 points joués, je ne juge pas.' : "") + '</p></div>' };
   };
   // Ton service, match après match (ta moyenne en pointillé, ce match en couleur)
   function wpTrend(L, m) {
